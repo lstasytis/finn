@@ -55,13 +55,18 @@ class StreamingDataWidthConverter_hls(StreamingDataWidthConverter, HLSBackend):
 
     def defines(self, var):
         numReps = 1
+
         numInWords = int(np.prod(self.get_folded_input_shape()[:-1]))
         inWidth = self.get_nodeattr("inWidth")
         outWidth = self.get_nodeattr("outWidth")
+        resize = self.get_nodeattr("resize")
+        resize_bits = self.get_nodeattr("resize") * self.get_output_datatype().bitwidth()
+        outWidthUnpadded = outWidth-resize_bits
         self.code_gen_dict["$DEFINES$"] = [
             "#define InWidth %d " % inWidth,
             "#define OutWidth %d " % outWidth,
             "#define NumInWords %d " % numInWords,
+            "#define Resize %d " % resize_bits,
             "#define numReps %d" % numReps,
         ]
         if self.needs_lcm():
@@ -78,12 +83,16 @@ class StreamingDataWidthConverter_hls(StreamingDataWidthConverter, HLSBackend):
                 self.get_instream_width(), self.hls_sname(), self.hls_sname()
             )
         )
+
+        # No longer needed.?
+        """
         if self.needs_lcm():
             self.code_gen_dict["$STREAMDECLARATIONS$"].append(
                 'hls::stream<ap_uint<{}>> intermediate ("intermediate");'.format(
                     self.get_iowidth_lcm()
                 )
             )
+        """
         self.code_gen_dict["$STREAMDECLARATIONS$"].append(
             'hls::stream<ap_uint<{}>> out_{} ("out_{}");'.format(
                 self.get_outstream_width(), self.hls_sname(), self.hls_sname()
@@ -98,14 +107,14 @@ class StreamingDataWidthConverter_hls(StreamingDataWidthConverter, HLSBackend):
                 'hls::stream<ap_uint<{}>> intermediate ("intermediate");'.format(
                     self.get_iowidth_lcm()
                 ),
-                "%s<InWidth, LCMWidth, NumInWords>(in0_%s, intermediate, numReps);"
+                "%s<InWidth, LCMWidth, NumInWords, 0>(in0_%s, intermediate, numReps);"
                 % (op, self.hls_sname()),
-                "%s<LCMWidth, OutWidth, NumLCMToOut>(intermediate, out_%s, numReps);"
+                "%s<LCMWidth, OutWidth, NumLCMToOut, Resize>(intermediate, out_%s, numReps);"
                 % (op, self.hls_sname()),
             ]
         else:
             self.code_gen_dict["$DOCOMPUTE$"] = [
-                "%s<InWidth, OutWidth, NumInWords>(in0_%s, out_%s, numReps);"
+                "%s<InWidth, OutWidth, NumInWords, Resize>(in0_%s, out_%s, numReps);"
                 % (op, self.hls_sname(), self.hls_sname())
             ]
 
@@ -166,17 +175,28 @@ class StreamingDataWidthConverter_hls(StreamingDataWidthConverter, HLSBackend):
         else:
             export_idt = self.get_input_datatype()
         # reshape input into folded shape
+
         reshaped_input = inp.reshape(folded_ishape)
         # make copy before saving array
         reshaped_input = reshaped_input.copy()
         np.save(os.path.join(code_gen_dir, "input_0.npy"), reshaped_input)
 
-        if mode == "cppsim":
-            output = inp
-            output = np.asarray([output], dtype=np.float32).reshape(*exp_shape)
-            context[node.output[0]] = output
 
+        exp_shape = self.get_normal_output_shape()
+
+        if mode == "cppsim":
+
+            super().exec_precompiled_singlenode_model()
+            # load output npy file
+            super().npy_to_dynamic_output(context)
+
+            assert (context[node.output[0]].shape == tuple(exp_shape))
+
+            output = np.asarray(context[node.output[0]], dtype=np.float32).reshape(*exp_shape)
+
+        
         elif mode == "rtlsim":
+
             sim = self.get_rtlsim()
             nbits = self.get_instream_width()
             rtlsim_inp = npy_to_rtlsim_input(
@@ -188,14 +208,18 @@ class StreamingDataWidthConverter_hls(StreamingDataWidthConverter, HLSBackend):
             odt = export_idt
             target_bits = odt.bitwidth()
             packed_bits = self.get_outstream_width()
+            
+            
             out_npy_path = "{}/output.npy".format(code_gen_dir)
             out_shape = self.get_folded_output_shape()
+
             rtlsim_output_to_npy(
                 rtlsim_output, out_npy_path, odt, out_shape, packed_bits, target_bits
             )
+            
             # load and reshape output
-            output = np.load(out_npy_path)
-            output = np.asarray([output], dtype=np.float32).reshape(exp_shape)
+            output_pre_reshape = np.load(out_npy_path)
+            output = np.asarray([output_pre_reshape], dtype=np.float32).reshape(exp_shape)
             context[node.output[0]] = output
         else:
             raise Exception(
