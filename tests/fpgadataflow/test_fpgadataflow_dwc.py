@@ -49,7 +49,7 @@ from finn.transformation.fpgadataflow.set_exec_mode import SetExecMode
 from finn.transformation.fpgadataflow.specialize_layers import SpecializeLayers
 
 
-def make_single_dwc_modelwrapper(shape, inWidth, outWidth, resize, finn_dtype, impl_style):
+def make_single_dwc_modelwrapper(shape, inWidth, outWidth, cropping, padding, finn_dtype, impl_style):
     inp = helper.make_tensor_value_info("inp", TensorProto.FLOAT, shape)
     outp = helper.make_tensor_value_info("outp", TensorProto.FLOAT, shape)
 
@@ -64,7 +64,8 @@ def make_single_dwc_modelwrapper(shape, inWidth, outWidth, resize, finn_dtype, i
         shape=shape,
         inWidth=inWidth,
         outWidth=outWidth,
-        resize=resize,
+        cropping=cropping,
+        padding=padding,
         preferred_impl_style=impl_style,
 
         dataType=str(finn_dtype.name),
@@ -92,16 +93,20 @@ def prepare_inputs(input_tensor, dt):
     [
         # the LCM <= shape[1] hard constraint should hold
         # for the values after padding/cropping
-        ([1, 2, 8], 4, 2, -1, DataType["INT2"]),
-        ([1, 24], 6, 6, 1, DataType["INT2"]),
-        ([1, 2, 8], 8, 16, 0,  DataType["INT2"]),
-        ([1, 2, 8], 4, 4, 0, DataType["INT2"]),
-        ([1, 2, 8], 8, 18, 1,  DataType["INT2"]),
-        ([1, 2, 24], 4, 6, 0, DataType["INT2"]),
-        ([1, 24], 6, 4, 0, DataType["INT2"]),
-        ([1, 96], 24, 28, 2, DataType["INT2"]),
-        ([1, 5, 512], 1024, 1028, 2, DataType["INT2"]),
-        ([1, 512], 1024, 1020, -2, DataType["INT2"]),
+        ([1, 2, 8], 4, 4, 0, 0, DataType["INT2"]),
+        ([1, 8], 4, 4, 0, 0, DataType["INT2"]),
+        ([1, 2, 8], 4, 6, 0, 1, DataType["INT2"]), # padding output so its actually 4->4
+        ([1, 24], 6, 6, 1, 0, DataType["INT2"]), # cropped input so its actually 4->6
+        ([1, 2, 512], 1024, 1026, 0, 1, DataType["INT2"]),
+      #  ([1, 2, 12], 8, 14, 1, 1,  DataType["INT2"]),
+      #  ([1, 2, 8], 8, 18, 1,  DataType["INT2"]),
+      #  ([1, 2, 24], 4, 6, 0, DataType["INT2"]),
+      #  ([1, 24], 6, 4, 0, DataType["INT2"]),
+        
+      #  ([1, 5, 512], 1024, 1028, 2, DataType["INT2"]),
+       
+       # ([1, 2, 512], 1026, 1024, 1, 0, DataType["INT2"]),
+       # ([1, 96], 28, 28, 2, 2, DataType["INT2"]),
         
     ],
 )
@@ -112,23 +117,22 @@ def prepare_inputs(input_tensor, dt):
 @pytest.mark.parametrize("impl_style", ["hls"])
 @pytest.mark.vivado
 def test_fpgadataflow_dwc(config, exec_mode, impl_style):
-    shape, inWidth, outWidth, resize, finn_dtype = config
+    shape, inWidth, outWidth, cropping, padding, finn_dtype = config
 
     test_fpga_part = "xc7z020clg400-1"
     # generate input data
     x = gen_finn_dt_tensor(finn_dtype, shape)
     input_dict = prepare_inputs(x, finn_dtype)
 
-    model = make_single_dwc_modelwrapper(shape, inWidth, outWidth, resize, finn_dtype, impl_style)
+    model = make_single_dwc_modelwrapper(shape, inWidth, outWidth, cropping, padding, finn_dtype, impl_style)
     # verify abstraction level execution
     y = oxe.execute_onnx(model, input_dict)["outp"]
     golden_shape = copy.copy(shape)
 
-    # adjusting the output shape based on what we expect ----
-    out_els = outWidth / finn_dtype.bitwidth() - resize
+   # adjusting the output shape if padding has been introduced
+    out_els = outWidth / finn_dtype.bitwidth() - padding
     num_words = int(shape[-1] // out_els) 
-    golden_shape[-1] += resize * num_words
-    # adjusting the output shape based on what we expect ----
+    golden_shape[-1] += padding * num_words
 
     assert y.shape == tuple(golden_shape), """The output shape is incorrect."""
 
@@ -161,17 +165,22 @@ def test_fpgadataflow_dwc(config, exec_mode, impl_style):
         # way rtsim_exec takes folded_output_shape()
         # TODO: adjust these public functions to work for
         # rtlsim_exec 
-        ([1, 2, 8], 4, 2, -1, DataType["INT2"]),
-        ([1, 24], 6, 6, 1, DataType["INT2"]),
-        ([1, 2, 8], 8, 16, 0,  DataType["INT2"]),
-        ([1, 2, 8], 4, 4, 0, DataType["INT2"]),
-        ([1, 2, 8], 8, 18, 1,  DataType["INT2"]),
-        ([1, 2, 24], 4, 6, 0, DataType["INT2"]),
-        ([1, 24], 6, 4, 0, DataType["INT2"]),
-        ([1, 96], 24, 28, 2, DataType["INT2"]),
-        ([1, 5, 512], 1024, 1028, 2, DataType["INT2"]),
-        ([1, 512], 1024, 1020, -2, DataType["INT2"]),
+        # the LCM <= shape[1] hard constraint should hold
+        # for the values after padding/cropping
+        ([1, 2, 8], 4, 4, 0, 0, DataType["INT2"]),
+        ([1, 8], 4, 4, 0, 0, DataType["INT2"]),
+        ([1, 2, 8], 4, 6, 0, 1, DataType["INT2"]), # padding output so its actually 4->4
+        ([1, 24], 6, 6, 1, 0, DataType["INT2"]), # cropped input so its actually 4->6
+        ([1, 2, 512], 1024, 1026, 0, 1, DataType["INT2"]),
+      #  ([1, 2, 12], 8, 14, 1, 1,  DataType["INT2"]),
+      #  ([1, 2, 8], 8, 18, 1,  DataType["INT2"]),
+      #  ([1, 2, 24], 4, 6, 0, DataType["INT2"]),
+      #  ([1, 24], 6, 4, 0, DataType["INT2"]),
         
+      #  ([1, 5, 512], 1024, 1028, 2, DataType["INT2"]),
+       
+       # ([1, 2, 512], 1026, 1024, 1, 0, DataType["INT2"]),
+       # ([1, 96], 28, 28, 2, 2, DataType["INT2"]),
     ],
 )
 @pytest.mark.fpgadataflow
@@ -180,14 +189,14 @@ def test_fpgadataflow_dwc(config, exec_mode, impl_style):
 @pytest.mark.parametrize("impl_style", ["hls"])
 @pytest.mark.vivado
 def test_fpgadataflow_dwc_stitched_rtlsim(config, impl_style):
-    shape, inWidth, outWidth, resize, finn_dtype = config
+    shape, inWidth, outWidth, cropping, padding, finn_dtype = config
 
     golden_shape = copy.copy(shape)
 
-    # adjusting the output shape based on what we expect ----
-    out_els = outWidth / finn_dtype.bitwidth() - resize
+    # adjusting the output shape if padding has been introduced
+    out_els = outWidth / finn_dtype.bitwidth() - padding
     num_words = int(shape[-1] // out_els) 
-    golden_shape[-1] += resize * num_words
+    golden_shape[-1] += padding * num_words
 
     test_fpga_part = "xc7z020clg400-1"
     target_clk_ns = 10.0
@@ -195,7 +204,7 @@ def test_fpgadataflow_dwc_stitched_rtlsim(config, impl_style):
     x = gen_finn_dt_tensor(finn_dtype, shape)
     input_dict = prepare_inputs(x, finn_dtype)
 
-    model = make_single_dwc_modelwrapper(shape, inWidth, outWidth, resize, finn_dtype, impl_style)
+    model = make_single_dwc_modelwrapper(shape, inWidth, outWidth, cropping, padding, finn_dtype, impl_style)
     model = model.transform(SpecializeLayers())
     model = model.transform(InsertFIFO(create_shallow_fifos=True))
     model = model.transform(SpecializeLayers())

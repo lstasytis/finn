@@ -48,7 +48,8 @@ class StreamingDataWidthConverter(HWCustomOp):
             "inWidth": ("i", True, 0),
             "outWidth": ("i", True, 0),
             # size of padding or cropping, both in channel size and bits
-            "resize": ("i", True, 0),
+            "cropping": ("i", True, 0),
+            "padding": ("i", True, 0),
             # FINN DataTypes for inputs/outputs
             "dataType": ("s", True, ""),
         }
@@ -71,7 +72,7 @@ class StreamingDataWidthConverter(HWCustomOp):
     def get_num_words(self):
         shape = self.get_nodeattr("shape")
         out_els = self.get_nodeattr("outWidth") / self.get_input_datatype().bitwidth()
-        out_els -= self.get_nodeattr("resize")
+        out_els -= self.get_nodeattr("padding")
         num_words = int(shape[-1] // out_els) 
         return num_words
 
@@ -81,7 +82,7 @@ class StreamingDataWidthConverter(HWCustomOp):
 
         # introduce the resizing
         num_words = self.get_num_words()
-        oshape[-1] += self.get_nodeattr("resize")* num_words
+        oshape[-1] += self.get_nodeattr("padding")* num_words
         return oshape
 
     def get_iowidth_lcm(self):
@@ -89,7 +90,8 @@ class StreamingDataWidthConverter(HWCustomOp):
         owidth = self.get_nodeattr("outWidth")
 
         # offset the resizing to get true values for DWC
-        owidth -= self.get_nodeattr("resize") * self.get_output_datatype().bitwidth()
+        iwidth -= self.get_nodeattr("cropping") * self.get_output_datatype().bitwidth()
+        owidth -= self.get_nodeattr("padding") * self.get_output_datatype().bitwidth()
         return int(np.lcm(iwidth, owidth))
 
     def needs_lcm(self):
@@ -97,8 +99,8 @@ class StreamingDataWidthConverter(HWCustomOp):
         owidth = self.get_nodeattr("outWidth")
 
         # offset the resizing to get true values for DWC
-        resize = self.get_nodeattr("resize") * self.get_output_datatype().bitwidth()
-        owidth -= resize
+        iwidth -= self.get_nodeattr("cropping") * self.get_output_datatype().bitwidth()
+        owidth -= self.get_nodeattr("padding") * self.get_output_datatype().bitwidth()
 
         maxwidth = max(iwidth, owidth)
         minwidth = min(iwidth, owidth)
@@ -137,11 +139,11 @@ class StreamingDataWidthConverter(HWCustomOp):
 
         # offset the resizing to get true values for DWC
         num_words = self.get_num_words()
-        resize = self.get_nodeattr("resize")
+        resize = self.get_nodeattr("padding")
         resize_bits = resize * self.get_output_datatype().bitwidth()
         owidth -= resize_bits
         oshape = self.get_normal_output_shape()
-        oshape[-1] -= self.get_nodeattr("resize")* num_words
+        oshape[-1] -= self.get_nodeattr("padding")* num_words
 
         obits = self.get_output_datatype().bitwidth()
         assert (
@@ -223,7 +225,7 @@ class StreamingDataWidthConverter(HWCustomOp):
 
         # introduce resizing if necessary
         num_words = self.get_num_words()
-        resize = self.get_nodeattr("resize")*num_words
+        resize = self.get_nodeattr("padding")*num_words
         exp_shape[-1] += resize
 
         # either pads or crops the last dimension if necessary
@@ -241,7 +243,7 @@ class StreamingDataWidthConverter(HWCustomOp):
         # offset the resizing to get true values for DWC
         # Note that this makes performance stimation no longer entirely correct,
         # since the padded bits are not taken into account (TODO: fix eventually)
-        resize_bits = self.get_nodeattr("resize") * self.get_output_datatype().bitwidth()
+        resize_bits = self.get_nodeattr("padding") * self.get_output_datatype().bitwidth()
         outw -= resize_bits
 
         minw = min(inw, outw)

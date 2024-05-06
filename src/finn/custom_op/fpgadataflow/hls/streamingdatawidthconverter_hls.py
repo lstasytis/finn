@@ -59,14 +59,15 @@ class StreamingDataWidthConverter_hls(StreamingDataWidthConverter, HLSBackend):
         numInWords = int(np.prod(self.get_folded_input_shape()[:-1]))
         inWidth = self.get_nodeattr("inWidth")
         outWidth = self.get_nodeattr("outWidth")
-        resize = self.get_nodeattr("resize")
-        resize_bits = self.get_nodeattr("resize") * self.get_output_datatype().bitwidth()
-        outWidthUnpadded = outWidth-resize_bits
+
+        cropping_bits = self.get_nodeattr("cropping") * self.get_input_datatype().bitwidth()
+        padding_bits = self.get_nodeattr("padding") * self.get_output_datatype().bitwidth()
         self.code_gen_dict["$DEFINES$"] = [
             "#define InWidth %d " % inWidth,
             "#define OutWidth %d " % outWidth,
             "#define NumInWords %d " % numInWords,
-            "#define Resize %d " % resize_bits,
+            "#define Cropping %d " % cropping_bits,
+            "#define Padding %d " % padding_bits,
             "#define numReps %d" % numReps,
         ]
         if self.needs_lcm():
@@ -107,14 +108,14 @@ class StreamingDataWidthConverter_hls(StreamingDataWidthConverter, HLSBackend):
                 'hls::stream<ap_uint<{}>> intermediate ("intermediate");'.format(
                     self.get_iowidth_lcm()
                 ),
-                "%s<InWidth, LCMWidth, NumInWords, 0>(in0_%s, intermediate, numReps);"
+                "%s<InWidth, LCMWidth, NumInWords, Cropping, 0>(in0_%s, intermediate, numReps);"
                 % (op, self.hls_sname()),
-                "%s<LCMWidth, OutWidth, NumLCMToOut, Resize>(intermediate, out_%s, numReps);"
+                "%s<LCMWidth, OutWidth, NumLCMToOut, 0, Padding>(intermediate, out_%s, numReps);"
                 % (op, self.hls_sname()),
             ]
         else:
             self.code_gen_dict["$DOCOMPUTE$"] = [
-                "%s<InWidth, OutWidth, NumInWords, Resize>(in0_%s, out_%s, numReps);"
+                "%s<InWidth, OutWidth, NumInWords, Cropping, Padding>(in0_%s, out_%s, numReps);"
                 % (op, self.hls_sname(), self.hls_sname())
             ]
 
