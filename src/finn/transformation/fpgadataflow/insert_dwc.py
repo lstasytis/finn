@@ -129,6 +129,7 @@ class InsertDWC(Transformation):
                                 shape=dwc_shape,
                                 inWidth=dwc_in_width,
                                 outWidth=dwc_out_width,
+                                resize=0,
                                 dataType=str(dtype.name),
                             )
                             # insert dwc

@@ -155,8 +155,18 @@ def test_fpgadataflow_dwc(config, exec_mode, impl_style):
 @pytest.mark.parametrize(
     "config",
     [
-        ([1, 2, 24], 6, 4, 0, DataType["INT2"]),
+
+        # stitching currently fails tests with non-zero resizing
+        # RTL outputs are correct thus the issue is in the 
+        # way rtsim_exec takes folded_output_shape()
+        # TODO: adjust these public functions to work for
+        # rtlsim_exec 
+        ([1, 2, 8], 4, 2, -1, DataType["INT2"]),
         ([1, 24], 6, 6, 1, DataType["INT2"]),
+        ([1, 2, 8], 8, 16, 0,  DataType["INT2"]),
+        ([1, 2, 8], 4, 4, 0, DataType["INT2"]),
+        ([1, 2, 8], 8, 18, 1,  DataType["INT2"]),
+        ([1, 2, 24], 4, 6, 0, DataType["INT2"]),
         ([1, 24], 6, 4, 0, DataType["INT2"]),
         ([1, 96], 24, 28, 2, DataType["INT2"]),
         ([1, 5, 512], 1024, 1028, 2, DataType["INT2"]),
