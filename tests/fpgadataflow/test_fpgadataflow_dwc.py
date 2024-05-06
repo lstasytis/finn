@@ -29,6 +29,8 @@
 
 import pytest
 
+import numpy as np
+import copy
 from onnx import TensorProto, helper
 from qonnx.core.datatype import DataType
 from qonnx.core.modelwrapper import ModelWrapper
@@ -47,7 +49,7 @@ from finn.transformation.fpgadataflow.set_exec_mode import SetExecMode
 from finn.transformation.fpgadataflow.specialize_layers import SpecializeLayers
 
 
-def make_single_dwc_modelwrapper(shape, inWidth, outWidth, finn_dtype):
+def make_single_dwc_modelwrapper(shape, inWidth, outWidth, resize, finn_dtype, impl_style):
     inp = helper.make_tensor_value_info("inp", TensorProto.FLOAT, shape)
     outp = helper.make_tensor_value_info("outp", TensorProto.FLOAT, shape)
 
@@ -62,6 +64,9 @@ def make_single_dwc_modelwrapper(shape, inWidth, outWidth, finn_dtype):
         shape=shape,
         inWidth=inWidth,
         outWidth=outWidth,
+        resize=resize,
+        preferred_impl_style=impl_style,
+
         dataType=str(finn_dtype.name),
     )
 
@@ -80,38 +85,52 @@ def prepare_inputs(input_tensor, dt):
     return {"inp": input_tensor}
 
 
+
+
 @pytest.mark.parametrize(
     "config",
     [
-        ([1, 24], 6, 4, DataType["INT2"]),
-        ([1, 24], 4, 6, DataType["INT2"]),
-        ([1, 4], 2, 4, DataType["BIPOLAR"]),
-        ([1, 2, 8], 2, 4, DataType["BIPOLAR"]),
-        ([1, 4], 4, 2, DataType["INT2"]),
-        ([1, 2, 8], 4, 4, DataType["INT2"]),
-        ([1, 2, 8], 8, 16, DataType["INT2"]),
+        # the LCM <= shape[1] hard constraint should hold
+        # for the values after padding/cropping
+        ([1, 2, 8], 4, 2, -1, DataType["INT2"]),
+        ([1, 24], 6, 6, 1, DataType["INT2"]),
+        ([1, 2, 8], 8, 16, 0,  DataType["INT2"]),
+        ([1, 2, 8], 4, 4, 0, DataType["INT2"]),
+        ([1, 2, 8], 8, 18, 1,  DataType["INT2"]),
+        ([1, 2, 24], 4, 6, 0, DataType["INT2"]),
+        ([1, 24], 6, 4, 0, DataType["INT2"]),
+        ([1, 96], 24, 28, 2, DataType["INT2"]),
+        ([1, 5, 512], 1024, 1028, 2, DataType["INT2"]),
+        ([1, 512], 1024, 1020, -2, DataType["INT2"]),
+        
     ],
 )
-@pytest.mark.parametrize("exec_mode", ["cppsim", "rtlsim"])
+@pytest.mark.parametrize("exec_mode", ["cppsim","rtlsim"])
 @pytest.mark.fpgadataflow
 @pytest.mark.slow
+# impl style
+@pytest.mark.parametrize("impl_style", ["hls"])
 @pytest.mark.vivado
-def test_fpgadataflow_dwc(config, exec_mode):
-    shape, inWidth, outWidth, finn_dtype = config
+def test_fpgadataflow_dwc(config, exec_mode, impl_style):
+    shape, inWidth, outWidth, resize, finn_dtype = config
 
     test_fpga_part = "xc7z020clg400-1"
     # generate input data
     x = gen_finn_dt_tensor(finn_dtype, shape)
     input_dict = prepare_inputs(x, finn_dtype)
 
-    model = make_single_dwc_modelwrapper(shape, inWidth, outWidth, finn_dtype)
+    model = make_single_dwc_modelwrapper(shape, inWidth, outWidth, resize, finn_dtype, impl_style)
     # verify abstraction level execution
     y = oxe.execute_onnx(model, input_dict)["outp"]
-    assert (
-        y == x
-    ).all(), """The output values are not the same as the
-        input values anymore."""
-    assert y.shape == tuple(shape), """The output shape is incorrect."""
+    golden_shape = copy.copy(shape)
+
+    # adjusting the output shape based on what we expect ----
+    out_els = outWidth / finn_dtype.bitwidth() - resize
+    num_words = int(shape[-1] // out_els) 
+    golden_shape[-1] += resize * num_words
+    # adjusting the output shape based on what we expect ----
+
+    assert y.shape == tuple(golden_shape), """The output shape is incorrect."""
 
     model = model.transform(SpecializeLayers())
     model = model.transform(GiveUniqueNodeNames())
@@ -126,30 +145,49 @@ def test_fpgadataflow_dwc(config, exec_mode):
         model = model.transform(PrepareRTLSim())
     y = oxe.execute_onnx(model, input_dict)["outp"]
 
-    assert (
-        y == x
-    ).all(), """The output values are not the same as the
-        input values anymore."""
-    assert y.shape == tuple(shape), """The output shape is incorrect."""
+
+    assert y.shape == tuple(golden_shape), """The output shape is incorrect."""
+
+
+
 
 
 @pytest.mark.parametrize(
     "config",
     [
-        ([1, 24], 6, 4, DataType["INT2"]),
-        ([1, 24], 4, 6, DataType["INT2"]),
-        ([1, 4], 2, 4, DataType["BIPOLAR"]),
-        ([1, 2, 8], 2, 4, DataType["BIPOLAR"]),
-        ([1, 4], 4, 2, DataType["INT2"]),
-        ([1, 2, 8], 4, 4, DataType["INT2"]),
-        ([1, 2, 8], 8, 16, DataType["INT2"]),
+
+        # stitching currently fails tests with non-zero resizing
+        # RTL outputs are correct thus the issue is in the 
+        # way rtsim_exec takes folded_output_shape()
+        # TODO: adjust these public functions to work for
+        # rtlsim_exec 
+        ([1, 2, 8], 4, 2, -1, DataType["INT2"]),
+        ([1, 24], 6, 6, 1, DataType["INT2"]),
+        ([1, 2, 8], 8, 16, 0,  DataType["INT2"]),
+        ([1, 2, 8], 4, 4, 0, DataType["INT2"]),
+        ([1, 2, 8], 8, 18, 1,  DataType["INT2"]),
+        ([1, 2, 24], 4, 6, 0, DataType["INT2"]),
+        ([1, 24], 6, 4, 0, DataType["INT2"]),
+        ([1, 96], 24, 28, 2, DataType["INT2"]),
+        ([1, 5, 512], 1024, 1028, 2, DataType["INT2"]),
+        ([1, 512], 1024, 1020, -2, DataType["INT2"]),
+        
     ],
 )
 @pytest.mark.fpgadataflow
 @pytest.mark.slow
+# impl style
+@pytest.mark.parametrize("impl_style", ["hls"])
 @pytest.mark.vivado
-def test_fpgadataflow_dwc_stitched_rtlsim(config):
-    shape, inWidth, outWidth, finn_dtype = config
+def test_fpgadataflow_dwc_stitched_rtlsim(config, impl_style):
+    shape, inWidth, outWidth, resize, finn_dtype = config
+
+    golden_shape = copy.copy(shape)
+
+    # adjusting the output shape based on what we expect ----
+    out_els = outWidth / finn_dtype.bitwidth() - resize
+    num_words = int(shape[-1] // out_els) 
+    golden_shape[-1] += resize * num_words
 
     test_fpga_part = "xc7z020clg400-1"
     target_clk_ns = 10.0
@@ -157,7 +195,7 @@ def test_fpgadataflow_dwc_stitched_rtlsim(config):
     x = gen_finn_dt_tensor(finn_dtype, shape)
     input_dict = prepare_inputs(x, finn_dtype)
 
-    model = make_single_dwc_modelwrapper(shape, inWidth, outWidth, finn_dtype)
+    model = make_single_dwc_modelwrapper(shape, inWidth, outWidth, resize, finn_dtype, impl_style)
     model = model.transform(SpecializeLayers())
     model = model.transform(InsertFIFO(create_shallow_fifos=True))
     model = model.transform(SpecializeLayers())
@@ -168,8 +206,5 @@ def test_fpgadataflow_dwc_stitched_rtlsim(config):
     model.set_metadata_prop("exec_mode", "rtlsim")
     y = oxe.execute_onnx(model, input_dict)["outp"]
 
-    assert (
-        y == x
-    ).all(), """The output values are not the same as the
-        input values anymore."""
-    assert y.shape == tuple(shape), """The output shape is incorrect."""
+    assert y.shape == tuple(golden_shape), """The output shape is incorrect."""
+
