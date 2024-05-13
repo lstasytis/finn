@@ -43,7 +43,8 @@ class StreamingDataWidthConverter(HWCustomOp):
     def get_nodeattr_types(self):
         my_attrs = {
             # shape of input/output tensors
-            "shape": ("ints", True, []),
+            "in_shape": ("ints", True, []),
+            "out_shape": ("ints", True, []),
             # bit width of input and output streams
             "inWidth": ("i", True, 0),
             "outWidth": ("i", True, 0),
@@ -65,12 +66,12 @@ class StreamingDataWidthConverter(HWCustomOp):
         return DataType[self.get_nodeattr("dataType")]
 
     def get_normal_input_shape(self, ind=0):
-        ishape = self.get_nodeattr("shape")
+        ishape = self.get_nodeattr("in_shape")
         return ishape
 
 
     def get_num_words(self):
-        shape = self.get_nodeattr("shape")
+        shape = self.get_nodeattr("out_shape")
         out_els = self.get_nodeattr("outWidth") / self.get_input_datatype().bitwidth()
         out_els -= self.get_nodeattr("padding")
         num_words = int(shape[-1] // out_els) 
@@ -78,11 +79,7 @@ class StreamingDataWidthConverter(HWCustomOp):
 
 
     def get_normal_output_shape(self, ind=0):
-        oshape = self.get_nodeattr("shape")
-
-        # introduce the resizing
-        num_words = self.get_num_words()
-        oshape[-1] += self.get_nodeattr("padding")* num_words
+        oshape = self.get_nodeattr("out_shape")
         return oshape
 
     def get_iowidth_lcm(self):
@@ -141,9 +138,15 @@ class StreamingDataWidthConverter(HWCustomOp):
         num_words = self.get_num_words()
         resize = self.get_nodeattr("padding")
         resize_bits = resize * self.get_output_datatype().bitwidth()
-        owidth -= resize_bits
+        #owidth -= resize_bits
+
+        #actual shape is affected by the padding
         oshape = self.get_normal_output_shape()
-        oshape[-1] -= self.get_nodeattr("padding")* num_words
+
+
+        # we redo the calculation assuming the non-padded output and then add it to the final dim
+        
+        oshape[-1] -= self.get_nodeattr("padding") * num_words
 
         obits = self.get_output_datatype().bitwidth()
         assert (
@@ -218,21 +221,25 @@ class StreamingDataWidthConverter(HWCustomOp):
 
     def execute_node(self, context, graph):
         node = self.onnx_node
-        exp_shape = self.get_normal_input_shape()
+        in_shape = self.get_normal_input_shape()
+        out_shape = self.get_normal_output_shape()
         inp = context[node.input[0]]
         assert str(inp.dtype) == "float32", "Input datatype is not float32"
-        assert inp.shape == tuple(exp_shape), "Input shape does not match expected shape."
+        assert inp.shape == tuple(in_shape), "Input shape does not match expected shape."
 
         # introduce resizing if necessary
-        num_words = self.get_num_words()
-        resize = self.get_nodeattr("padding")*num_words
-        exp_shape[-1] += resize
+       # num_words = self.get_num_words()
+        #resize = self.get_nodeattr("padding")*num_words
+        #exp_shape[-1] += resize
 
         # either pads or crops the last dimension if necessary
-        output = np.zeros((exp_shape),dtype=np.float32)
-        output[...,:exp_shape[-1]-resize] = inp[...,:exp_shape[-1]]
+        output = np.zeros((out_shape),dtype=np.float32)
+        if (out_shape[-1] > in_shape[-1]):
+            output[...,:in_shape[-1]] = inp[...,:in_shape[-1]]
+        else:
+            output[...,:out_shape[-1]] = inp[...,:out_shape[-1]]
 
-        output = np.asarray([output], dtype=np.float32).reshape(*exp_shape)
+        output = np.asarray([output], dtype=np.float32).reshape(*out_shape)
         context[node.output[0]] = output
 
     def lut_estimation(self):

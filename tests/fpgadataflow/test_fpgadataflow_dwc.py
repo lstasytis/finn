@@ -28,7 +28,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import pytest
-
+import os
 import numpy as np
 import copy
 from onnx import TensorProto, helper
@@ -49,9 +49,9 @@ from finn.transformation.fpgadataflow.set_exec_mode import SetExecMode
 from finn.transformation.fpgadataflow.specialize_layers import SpecializeLayers
 
 
-def make_single_dwc_modelwrapper(shape, inWidth, outWidth, cropping, padding, finn_dtype, impl_style):
-    inp = helper.make_tensor_value_info("inp", TensorProto.FLOAT, shape)
-    outp = helper.make_tensor_value_info("outp", TensorProto.FLOAT, shape)
+def make_single_dwc_modelwrapper(in_shape, out_shape, inWidth, outWidth, cropping, padding, finn_dtype, impl_style):
+    inp = helper.make_tensor_value_info("inp", TensorProto.FLOAT, in_shape)
+    outp = helper.make_tensor_value_info("outp", TensorProto.FLOAT, out_shape)
 
     optype = "StreamingDataWidthConverter"
 
@@ -61,7 +61,8 @@ def make_single_dwc_modelwrapper(shape, inWidth, outWidth, cropping, padding, fi
         ["outp"],
         domain="finn.custom_op.fpgadataflow",
         backend="fpgadataflow",
-        shape=shape,
+        in_shape=in_shape,
+        out_shape=out_shape,
         inWidth=inWidth,
         outWidth=outWidth,
         cropping=cropping,
@@ -93,11 +94,18 @@ def prepare_inputs(input_tensor, dt):
     [
         # the LCM <= shape[1] hard constraint should hold
         # for the values after padding/cropping
-        ([1, 2, 8], 4, 4, 0, 0, DataType["INT2"]),
-        ([1, 8], 4, 4, 0, 0, DataType["INT2"]),
-        ([1, 2, 8], 4, 6, 0, 1, DataType["INT2"]), # padding output so its actually 4->4
-        ([1, 24], 6, 6, 1, 0, DataType["INT2"]), # cropped input so its actually 4->6
-        ([1, 2, 512], 1024, 1026, 0, 1, DataType["INT2"]),
+         ([1, 2, 8],[1, 2, 10], 4, 6, 0, 1, DataType["INT2"]), # padding output so its actually 4->4
+        #this testcase fails rtlsim
+        ([1, 36], [1, 24], 8, 6, 1, 0, DataType["INT2"]), # cropped input so its actually 6->6
+        # input and output shapes are provided with the padding and cropping
+        # passing testcases
+        ([1, 2, 8], [1, 2, 8], 4, 4, 0, 0, DataType["INT2"]),
+        ([1, 8], [1, 8], 4, 4, 0, 0, DataType["INT2"]),
+       
+        ([1, 2, 512],[1, 2, 513], 1024, 1026, 0, 1, DataType["INT2"]),
+
+
+
       #  ([1, 2, 12], 8, 14, 1, 1,  DataType["INT2"]),
       #  ([1, 2, 8], 8, 18, 1,  DataType["INT2"]),
       #  ([1, 2, 24], 4, 6, 0, DataType["INT2"]),
@@ -117,22 +125,29 @@ def prepare_inputs(input_tensor, dt):
 @pytest.mark.parametrize("impl_style", ["hls"])
 @pytest.mark.vivado
 def test_fpgadataflow_dwc(config, exec_mode, impl_style):
-    shape, inWidth, outWidth, cropping, padding, finn_dtype = config
+    in_shape, out_shape, inWidth, outWidth, cropping, padding, finn_dtype = config
 
     test_fpga_part = "xc7z020clg400-1"
     # generate input data
-    x = gen_finn_dt_tensor(finn_dtype, shape)
+    x = gen_finn_dt_tensor(finn_dtype, in_shape)
     input_dict = prepare_inputs(x, finn_dtype)
 
-    model = make_single_dwc_modelwrapper(shape, inWidth, outWidth, cropping, padding, finn_dtype, impl_style)
+    model = make_single_dwc_modelwrapper(in_shape, out_shape, inWidth, outWidth,
+                                          cropping, padding, finn_dtype, impl_style)
     # verify abstraction level execution
     y = oxe.execute_onnx(model, input_dict)["outp"]
-    golden_shape = copy.copy(shape)
+    golden_shape = copy.copy(out_shape)
+
+    y_golden = np.zeros((out_shape))
+
+    
 
    # adjusting the output shape if padding has been introduced
-    out_els = outWidth / finn_dtype.bitwidth() - padding
-    num_words = int(shape[-1] // out_els) 
-    golden_shape[-1] += padding * num_words
+   # out_els = outWidth / finn_dtype.bitwidth() - padding
+   # num_words = int(shape[-1] // out_els) 
+   # golden_shape[-1] += padding * num_words
+
+
 
     assert y.shape == tuple(golden_shape), """The output shape is incorrect."""
 
@@ -151,8 +166,7 @@ def test_fpgadataflow_dwc(config, exec_mode, impl_style):
 
 
     assert y.shape == tuple(golden_shape), """The output shape is incorrect."""
-
-
+    #Delete previous run results if exist
 
 
 
@@ -204,7 +218,8 @@ def test_fpgadataflow_dwc_stitched_rtlsim(config, impl_style):
     x = gen_finn_dt_tensor(finn_dtype, shape)
     input_dict = prepare_inputs(x, finn_dtype)
 
-    model = make_single_dwc_modelwrapper(shape, inWidth, outWidth, cropping, padding, finn_dtype, impl_style)
+    model = make_single_dwc_modelwrapper(shape, inWidth, outWidth, 
+                                         cropping, padding, finn_dtype, impl_style)
     model = model.transform(SpecializeLayers())
     model = model.transform(InsertFIFO(create_shallow_fifos=True))
     model = model.transform(SpecializeLayers())

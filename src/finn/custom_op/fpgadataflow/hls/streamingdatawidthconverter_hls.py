@@ -28,6 +28,7 @@
 
 import numpy as np
 import os
+import shutil
 from qonnx.core.datatype import DataType
 
 from finn.custom_op.fpgadataflow.hlsbackend import HLSBackend
@@ -184,6 +185,8 @@ class StreamingDataWidthConverter_hls(StreamingDataWidthConverter, HLSBackend):
 
 
         exp_shape = self.get_normal_output_shape()
+        
+        assert (True == False)
 
         if mode == "cppsim":
 
@@ -238,3 +241,9 @@ class StreamingDataWidthConverter_hls(StreamingDataWidthConverter, HLSBackend):
             exp_shape
         ), """Output
         shape doesn't match expected shape, should be same as input shape"""
+
+       # if mode in ["rtlsim", "cppsim"]:
+       #     if os.path.exists(code_gen_dir):
+       #         shutil.rmtree(code_gen_dir)
+       #         print("Previous run results deleted!")
+
