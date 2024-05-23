@@ -386,7 +386,7 @@ def update_mvau_nodes(model,mw,mh,simd,pe,W,T, impl_style):
     [4,6,0,2,1,4], # mw,mh,mw_padding, mh_padding, simd, pe
     [6,4,0,0,2,1]),  
     ])
-@pytest.mark.parametrize("impl_style", ["rtlsim","stitched_rtlsim"])
+@pytest.mark.parametrize("impl_style", ["cppsim","rtlsim","stitched_rtlsim"])
 @pytest.mark.fpgadataflow
 @pytest.mark.slow
 @pytest.mark.vivado
