@@ -33,24 +33,21 @@ from qonnx.core.datatype import DataType
 
 from finn.custom_op.fpgadataflow.hwcustomop import HWCustomOp
 
-# does not do anything at the ONNX node-by-node level, and input-output
-# tensor shapes are the same. performs data width conversion at the rtlsim level
-
+# Performs transformations of input shapes to output shapes at both cppsim and rtlsim level
+# Does padding and cropping if shapes mismatch using an intermediate inWidth+OutWidth buffer
+# which is filled with zeroes. Only in hls-lib right now.
 
 class StreamingDataWidthConverter(HWCustomOp):
     """Abstraction layer for HW implementation of StreamingDataWidthConverter"""
 
     def get_nodeattr_types(self):
         my_attrs = {
-            # shape of input/output tensors
+            # shapes of input/output tensors
             "in_shape": ("ints", True, []),
             "out_shape": ("ints", True, []),
             # bit width of input and output streams
             "inWidth": ("i", True, 0),
             "outWidth": ("i", True, 0),
-            # size of padding or cropping, both in channel size and bits
-            "cropping": ("i", True, 0),
-            "padding": ("i", True, 0),
             # FINN DataTypes for inputs/outputs
             "dataType": ("s", True, ""),
         }
@@ -73,7 +70,6 @@ class StreamingDataWidthConverter(HWCustomOp):
     def get_num_words(self):
         shape = self.get_nodeattr("out_shape")
         out_els = self.get_nodeattr("outWidth") / self.get_input_datatype().bitwidth()
-        out_els -= self.get_nodeattr("padding")
         num_words = int(shape[-1] // out_els) 
         return num_words
 
@@ -86,9 +82,6 @@ class StreamingDataWidthConverter(HWCustomOp):
         iwidth = self.get_nodeattr("inWidth")
         owidth = self.get_nodeattr("outWidth")
 
-        # offset the resizing to get true values for DWC
-        iwidth -= self.get_nodeattr("cropping") * self.get_output_datatype().bitwidth()
-        owidth -= self.get_nodeattr("padding") * self.get_output_datatype().bitwidth()
         return int(np.lcm(iwidth, owidth))
 
     def needs_lcm(self):
@@ -96,12 +89,10 @@ class StreamingDataWidthConverter(HWCustomOp):
         owidth = self.get_nodeattr("outWidth")
 
         # offset the resizing to get true values for DWC
-        iwidth -= self.get_nodeattr("cropping") * self.get_output_datatype().bitwidth()
-        owidth -= self.get_nodeattr("padding") * self.get_output_datatype().bitwidth()
+
 
         maxwidth = max(iwidth, owidth)
         minwidth = min(iwidth, owidth)
-
         return maxwidth % minwidth != 0
 
     def check_divisible_iowidths(self):
@@ -124,7 +115,9 @@ class StreamingDataWidthConverter(HWCustomOp):
             new_shape.append(i)
         new_shape.append(int(ichannels // ielems))
         new_shape.append(ielems)
+
         dummy_t = dummy_t.reshape(new_shape)
+        
         return dummy_t.shape
     
 
@@ -133,20 +126,7 @@ class StreamingDataWidthConverter(HWCustomOp):
         self.check_divisible_iowidths()
         owidth = self.get_nodeattr("outWidth")
 
-
-        # offset the resizing to get true values for DWC
-        num_words = self.get_num_words()
-        resize = self.get_nodeattr("padding")
-        resize_bits = resize * self.get_output_datatype().bitwidth()
-        #owidth -= resize_bits
-
-        #actual shape is affected by the padding
         oshape = self.get_normal_output_shape()
-
-
-        # we redo the calculation assuming the non-padded output and then add it to the final dim
-        
-        oshape[-1] -= self.get_nodeattr("padding") * num_words
 
         obits = self.get_output_datatype().bitwidth()
         assert (
@@ -163,7 +143,7 @@ class StreamingDataWidthConverter(HWCustomOp):
 
         # reintroduce the resizing, this is the true final shape
         # we expect from the RTL
-        new_shape[-1] += resize
+        #new_shape[-1] += resize
 
         return tuple(new_shape)
 
@@ -227,12 +207,6 @@ class StreamingDataWidthConverter(HWCustomOp):
         assert str(inp.dtype) == "float32", "Input datatype is not float32"
         assert inp.shape == tuple(in_shape), "Input shape does not match expected shape."
 
-        # introduce resizing if necessary
-       # num_words = self.get_num_words()
-        #resize = self.get_nodeattr("padding")*num_words
-        #exp_shape[-1] += resize
-
-        # either pads or crops the last dimension if necessary
         output = np.zeros((out_shape),dtype=np.float32)
         if (out_shape[-1] > in_shape[-1]):
             output[...,:in_shape[-1]] = inp[...,:in_shape[-1]]
@@ -247,19 +221,20 @@ class StreamingDataWidthConverter(HWCustomOp):
         inw = self.get_instream_width()
         outw = self.get_outstream_width()
 
-        # offset the resizing to get true values for DWC
-        # Note that this makes performance stimation no longer entirely correct,
-        # since the padded bits are not taken into account (TODO: fix eventually)
-        resize_bits = self.get_nodeattr("padding") * self.get_output_datatype().bitwidth()
-        outw -= resize_bits
-
         minw = min(inw, outw)
         maxw = max(inw, outw)
 
         # sometimes widths aren't directly divisible
         # this requires going up from input width to least common multiple
         # then down to output width
-        intw = abs(maxw * minw) // math.gcd(maxw, minw)
+        #intw = abs(maxw * minw) // math.gcd(maxw, minw)
+
+        # generalized folding doesnt use a gcd-based intermediate buffer
+        # but instead uses inw+outw bits when downsampling
+        if outw > inw:
+            intw = inw+outw
+        else:
+            intw = maxw
 
         # we assume a shift-based implementation
         # even if we don't use LUTs explicitly, we make some unavailable

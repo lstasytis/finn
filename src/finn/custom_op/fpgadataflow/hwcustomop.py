@@ -96,6 +96,9 @@ class HWCustomOp(CustomOp):
             # amount of zero padding inserted during chrc.
             "io_chrc_pads_in": ("ints", False, []),
             "io_chrc_pads_out": ("ints", False, []),
+            # channel padding for the purposes of folding
+            "mw_padding": ("i", False, 0),
+            "mh_padding": ("i", False, 0),
         }
 
     def get_verilog_top_module_name(self):

@@ -27,6 +27,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from onnx import TensorProto
+import numpy as np
 from onnx import helper as oh
 from qonnx.custom_op.registry import getCustomOp
 from qonnx.transformation.base import Transformation
@@ -99,7 +100,9 @@ class InsertDWC(Transformation):
                             # use default folded input shape
                             n1_in_shape = n1.get_folded_input_shape()
 
-                        if n0_out_shape[-1] != n1_in_shape[-1]:
+                        # insert the DWC if either the widths missmatch (use DWC for folding conversion)
+                        # or if the total element counts differ (use DWC for padding)
+                        if n0_out_shape[-1] != n1_in_shape[-1] or np.prod(n0_out_shape) != np.prod(n1_in_shape):
                             graph_modified = True
                             # determine dwc inwidth
                             dwc_in_width = n0.get_outstream_width()
@@ -107,18 +110,26 @@ class InsertDWC(Transformation):
                             dwc_out_width = n1.get_instream_width()
                             node_optype = "StreamingDataWidthConverter"
 
-                            # determine shape for dwc
-                            dwc_shape = n0.get_normal_output_shape()
+                            
 
                             # determine dtype for dwc
                             dtype = n0.get_output_datatype()
 
+                            # determine shapes for dwc
+                            # generalized version allows them to differ
+                            # and will either pad or crop depending
+                            # on the difference in elements sent
+                            # and requested
+                            in_shape = n0.get_normal_output_shape()
+                            out_shape = n1.get_normal_input_shape()
+
                             dwc_output_tensor = oh.make_tensor_value_info(
                                 model.make_new_valueinfo_name(),
                                 TensorProto.FLOAT,
-                                dwc_shape,
+                                out_shape,
                             )
                             graph.value_info.append(dwc_output_tensor)
+
 
                             dwc_node = oh.make_node(
                                 node_optype,
@@ -126,10 +137,11 @@ class InsertDWC(Transformation):
                                 [dwc_output_tensor.name],
                                 domain="finn.custom_op.fpgadataflow",
                                 backend="fpgadataflow",
-                                shape=dwc_shape,
+                                in_shape=in_shape,
+                                out_shape=out_shape,
                                 inWidth=dwc_in_width,
                                 outWidth=dwc_out_width,
-                                resize=0,
+                                preferred_impl_style="hls",
                                 dataType=str(dtype.name),
                             )
                             # insert dwc
