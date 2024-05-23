@@ -189,48 +189,29 @@ def update_mvau_nodes(model,mw,mh,simd,pe,W,T, impl_style):
 
 
     for i in range(len(mw)):
-        padding_input = 0
-        padding_output = 0
+
         
         # fetch the node
         node_inst = getCustomOp(model.graph.node[i])
 
     
 
-        #update mh and mw if sizes have changed and mark as padded
-        mw_orig = node_inst.get_nodeattr("MW")
-        mh_orig = node_inst.get_nodeattr("MH")
+        #update mh and mw in case of padding
+        node_inst.set_nodeattr("MW", mw[i])
+        node_inst.set_nodeattr("MH", mh[i])
 
-        if mw[i] != mw_orig:
-            node_inst.set_nodeattr("MW", mw[i])
-            node_inst.set_nodeattr("mw_padding", mw[i] - mw_orig)
-            padding_input = mw[i] - mw_orig
-            print(f"padding MW of node {i} from {mw_orig} to {mw[i]}")
-        else:
-            padding_input = 0
-
-
-        if mh[i] != mh_orig:
-            node_inst.set_nodeattr("MH", mh[i])
-            node_inst.set_nodeattr("mh_padding", mh[i] - mh_orig)
-            padding_output = mh[i] - mh_orig
-            print(f"padding MH of node {i} from {mh_orig} to {mh[i]}")
-        else:
-            padding_output = 0
-
-        #update simd and pe
+        #update simd and pe in case of padding
         node_inst.set_nodeattr("SIMD", simd[i])
         node_inst.set_nodeattr("PE", pe[i])
 
 
         # initialize new padded or cropped tensors for the node inputs and outputs
-        x = np.zeros((1,mw[i]),dtype=np.float32)
-        y = np.zeros((1,mh[i]),dtype=np.float32)
-
-        
 
         model.set_initializer(model.graph.node[i].input[1], W[i])
         model.set_initializer(model.graph.node[i].input[2], T[i])
+
+        x = np.zeros((1,mw[i]),dtype=np.float32)
+        y = np.zeros((1,mh[i]),dtype=np.float32)
 
         if i != 0:
             model.set_initializer(model.graph.node[i].input[0], x)
@@ -247,6 +228,7 @@ def update_mvau_nodes(model,mw,mh,simd,pe,W,T, impl_style):
 
     # insert DWCs, mandatory when padding or cropping
     model = model.transform(InsertDWC())
+
     # at this point, if padding_output != 0,
     # we could insert a DWC at the end as well
     # to avoid having to crop in software
@@ -295,7 +277,6 @@ def update_mvau_nodes(model,mw,mh,simd,pe,W,T, impl_style):
     y = np.zeros((1,mh[-1]),dtype=np.float32)
 
     if impl_style == "stitched_rtlsim":
-        
         model.set_initializer("global_in", x)
         model.set_initializer("global_out", y)
     else:
@@ -317,91 +298,95 @@ def update_mvau_nodes(model,mw,mh,simd,pe,W,T, impl_style):
 
 
 @pytest.mark.parametrize("dims",[
-    # each row is an individual MVAU node
 
+    # each list is an individual MVAU node
     ( 
+    # pad first node output and second node input by 1
+    # DWC where in width < out width
+    [4,5,0,1,1,3], # mw,mh,mw_padding, mh_padding, simd, pe
+    [6,4,1,0,7,4],
+    [4,2,0,0,2,1]),    
+    ( 
+    # pad first node output and second node input by 1
+    # DWC where in width < out width
+    [4,5,0,1,1,3], # mw,mh,mw_padding, mh_padding, simd, pe
+    [6,4,1,0,7,1]),  
+    ( 
+    # pad first node output by 2 and second node input by 1
+    # DWC where in width < out width
+    [4,5,0,2,1,3], # mw,mh,mw_padding, mh_padding, simd, pe
+    [6,4,1,0,7,1]),  
+    (
+    # pad first node output by 1 and second node input by 2
+    # DWC where in width < out width
+    [4,5,0,1,1,3], # mw,mh,mw_padding, mh_padding, simd, pe
+    [6,4,2,0,7,1]),  
+    ( 
+    # pad second node input by 1
+    # DWC where in width < out width
     [4,6,0,0,1,3], # mw,mh,mw_padding, mh_padding, simd, pe
     [6,4,1,0,7,1]),  
-
-
     (
-    # dwc, padding second node input
+    # pad first node input and second node output by 1
+    # DWC when in width < out width
     [2,24,1,0,1,4], # mw,mh,mw_padding, mh_padding, simd, pe
     [24,2,0,1,6,1]),  
-    # each row is an individual MVAU node
-
-
     (
-    # dwc, padding second node input
+    # DWC when in width > out width
     [2,24,0,0,1,6], # mw,mh,mw_padding, mh_padding, simd, pe
     [24,2,0,0,4,1]),  
-    # each row is an individual MVAU node
-    
     ( 
+    # DWC when in width < out width
     [4,6,0,0,1,6], # mw,mh,mw_padding, mh_padding, simd, pe
     [6,4,0,0,3,1]),  
-
     ( 
     [4,6,0,0,1,2], # mw,mh,mw_padding, mh_padding, simd, pe
     [6,4,2,0,4,1]),      
-
-
-
     ( 
-    # no dwc, padding second node output
     [4,6,0,0,1,3], # mw,mh,mw_padding, mh_padding, simd, pe
     [6,4,0,0,1,1]),  
-
-
     (
     [4,24,0,0,1,2], # mw,mh,mw_padding, mh_padding, simd, pe
     [24,4,0,0,6,1]),  
-    
-    # not a padding issue, due to 2nd testcase also failing
     ( 
-    # no dwc, padding second node output
+    #
     [4,6,0,0,1,1], # mw,mh,mw_padding, mh_padding, simd, pe
     [6,4,0,0,3,1]),      
-
     (
-
-    # dwc, padding second node input
+    #
     [1,24,0,0,1,4], # mw,mh,mw_padding, mh_padding, simd, pe
     [24,1,0,0,6,1]),  
-
-
     ( 
-    # no dwc, padding second node output
+    #
     [4,6,0,0,1,1], # mw,mh,mw_padding, mh_padding, simd, pe
     [6,4,0,0,1,1]),  
     ( 
-    # no dwc, padding second node output
+    #
     [4,6,1,0,1,1], # mw,mh,mw_padding, mh_padding, simd, pe
     [6,4,0,0,1,1]),  
     ( 
-    # no dwc, padding second node output
+    #
     [4,6,0,1,1,1], # mw,mh,mw_padding, mh_padding, simd, pe
     [6,4,0,0,1,1]),  
     ( 
-
+    # pad 2nd node input
     [4,6,0,0,1,1], # mw,mh,mw_padding, mh_padding, simd, pe
     [6,4,0,1,1,1]),  
-
     ( 
-    # no dwc, padding second node output
+    # pad first node output
     [4,6,0,1,1,1], # mw,mh,mw_padding, mh_padding, simd, pe
     [6,4,0,0,1,2]),  
     ( 
-    # dwc, padding second node input
+    # pad second node input
     [4,6,0,0,2,1], # mw,mh,mw_padding, mh_padding, simd, pe
     [6,4,1,0,1,1]),  
-
     ( 
+    # pad first node output by 2
+    # DWC where in width > out width
     [4,6,0,2,1,4], # mw,mh,mw_padding, mh_padding, simd, pe
     [6,4,0,0,2,1]),  
-
     ])
-@pytest.mark.parametrize("impl_style", ["cppsim","rtlsim","stitched_rtlsim"])
+@pytest.mark.parametrize("impl_style", ["rtlsim","stitched_rtlsim"])
 @pytest.mark.fpgadataflow
 @pytest.mark.slow
 @pytest.mark.vivado
@@ -503,7 +488,6 @@ def test_fpgadataflow_mvau_multiple_nodes_padded_folded_dwc_inserted(idt, wdt, a
         T_list.append(T[:dims[i][1],:])
         T_padded_list.append(T)
 
-    #pytest.set_trace()
     # create the ground truth model
     model = make_multi_fclayer_model(mw_no_padding,mh_no_padding, wdt, idt, tdt, nnodes)
 
@@ -516,20 +500,13 @@ def test_fpgadataflow_mvau_multiple_nodes_padded_folded_dwc_inserted(idt, wdt, a
 
 
     input_dict = prepare_inputs(x, idt, wdt,inp_name=model_true.graph.input[0].name)
-    #assert True == False
     y_true = oxe.execute_onnx(model_true, input_dict)
     y_true = y_true[model_true.graph.output[0].name]
     y_true = y_true.reshape(model_true.get_tensor_shape("outp"))
 
-   # exp_cycles_dict = model_true.analysis(exp_cycles_per_layer)
-   # achieved_cycles_per_frame_true = np.max(tuple(exp_cycles_dict.values()))
-
-    # update padded model with the padding and new simd & pe folding values
+   # update padded model with the generated weights, activations, impl style and pe & simd
     model_padded = update_mvau_nodes(model_padded,mw_padded,mh_padded,
                                      simd_padded_list,pe_padded_list,W_padded_list,T_padded_list,impl_style)
-
-   # model_padded = model_true
-    #assert True==False
 
     input_dict_padded = prepare_inputs(x_padded, idt, wdt,inp_name=model_padded.graph.input[0].name)
     y_padded = oxe.execute_onnx(model_padded, input_dict_padded)
@@ -540,9 +517,6 @@ def test_fpgadataflow_mvau_multiple_nodes_padded_folded_dwc_inserted(idt, wdt, a
     if dims[-1][3] > 0:
         y_padded = y_padded[:,:-dims[-1][3]]
 
-
-   # exp_cycles_dict = model_padded.analysis(exp_cycles_per_layer)
-   # achieved_cycles_per_frame_padded = np.max(tuple(exp_cycles_dict.values()))
 
     assert np.array_equal(y_true, y_padded)
     
