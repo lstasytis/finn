@@ -218,23 +218,20 @@ class StreamingDataWidthConverter(HWCustomOp):
 
     def lut_estimation(self):
         """Calculates resource estimations for LUTs"""
+
+        # TODO: This calculation does not currently take into account the extra
+        # tracking variables, nor the muxing of one of the stream ports to the buffer
+        # which shifts according to how many elements are in the buffer
+        
         inw = self.get_instream_width()
         outw = self.get_outstream_width()
 
         minw = min(inw, outw)
         maxw = max(inw, outw)
 
-        # sometimes widths aren't directly divisible
-        # this requires going up from input width to least common multiple
-        # then down to output width
-        #intw = abs(maxw * minw) // math.gcd(maxw, minw)
 
-        # generalized folding doesnt use a gcd-based intermediate buffer
-        # but instead uses inw+outw bits when downsampling
-        if outw > inw:
-            intw = inw+outw
-        else:
-            intw = maxw
+        # we use an intermediate buffer of size inwidth+outwidth
+        intw = inw+outw
 
         # we assume a shift-based implementation
         # even if we don't use LUTs explicitly, we make some unavailable
@@ -243,11 +240,9 @@ class StreamingDataWidthConverter(HWCustomOp):
         cnt_luts = 0
         cset_luts = 0
 
-        if inw != intw:
-            cnt_luts += abs(math.ceil(math.log(inw / intw, 2)))
-            cset_luts += intw
-        if intw != outw:
-            cnt_luts += abs(math.ceil(math.log(intw / outw, 2)))
-            cset_luts += outw
+        cnt_luts += abs(math.ceil(math.log(intw / inw, 2)))
+            
+        cset_luts += intw+outw
+
 
         return int(cnt_luts + cset_luts)

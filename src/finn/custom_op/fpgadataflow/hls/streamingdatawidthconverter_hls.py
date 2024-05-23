@@ -27,9 +27,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import numpy as np
-import copy
 import os
-import shutil
 from qonnx.core.datatype import DataType
 
 from finn.custom_op.fpgadataflow.hlsbackend import HLSBackend
