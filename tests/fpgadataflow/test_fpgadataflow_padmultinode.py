@@ -233,8 +233,6 @@ def update_mvau_nodes(model,mw,mh,simd,pe,W,T, impl_style):
     # we could insert a DWC at the end as well
     # to avoid having to crop in software
 
-
-
     part = "xc7z020clg400-1"
     clk_ns = 5
 
@@ -282,11 +280,10 @@ def update_mvau_nodes(model,mw,mh,simd,pe,W,T, impl_style):
     else:
         model.set_initializer(model.graph.node[0].input[0], x)
         model.set_initializer(model.graph.node[-1].output[0], y)
-
     return model
 
 # activation: None or DataType
-@pytest.mark.parametrize("act", [DataType["INT2"]])
+@pytest.mark.parametrize("act", [DataType["INT2]])
 # weight datatype
 @pytest.mark.parametrize("wdt", [DataType["INT2"]])
 # input datatype
@@ -296,21 +293,27 @@ def update_mvau_nodes(model,mw,mh,simd,pe,W,T, impl_style):
 # synapse folding, -1 is maximum possible
 @pytest.mark.parametrize("sf", [-1])
 
-
 @pytest.mark.parametrize("dims",[
 
+    ( 
+    # pad first node output and second node input by 1
+    # DWC where in width < out width
+    [4,5,0,1,1,3], # mw,mh,mw_padding, mh_padding, simd, pe
+    [6,4,1,0,7,1]),
     # each list is an individual MVAU node
+    (
+    # DWC when in width > out width
+    [2,24,0,0,1,6], # mw,mh,mw_padding, mh_padding, simd, pe
+    [24,2,0,0,4,1]),  
+
+
+
     ( 
     # pad first node output and second node input by 1
     # DWC where in width < out width
     [4,5,0,1,1,3], # mw,mh,mw_padding, mh_padding, simd, pe
     [6,4,1,0,7,4],
     [4,2,0,0,2,1]),    
-    ( 
-    # pad first node output and second node input by 1
-    # DWC where in width < out width
-    [4,5,0,1,1,3], # mw,mh,mw_padding, mh_padding, simd, pe
-    [6,4,1,0,7,1]),  
     ( 
     # pad first node output by 2 and second node input by 1
     # DWC where in width < out width
@@ -320,7 +323,7 @@ def update_mvau_nodes(model,mw,mh,simd,pe,W,T, impl_style):
     # pad first node output by 1 and second node input by 2
     # DWC where in width < out width
     [4,5,0,1,1,3], # mw,mh,mw_padding, mh_padding, simd, pe
-    [6,4,2,0,7,1]),  
+    [6,4,2,0,8,1]),  
     ( 
     # pad second node input by 1
     # DWC where in width < out width
@@ -331,10 +334,7 @@ def update_mvau_nodes(model,mw,mh,simd,pe,W,T, impl_style):
     # DWC when in width < out width
     [2,24,1,0,1,4], # mw,mh,mw_padding, mh_padding, simd, pe
     [24,2,0,1,6,1]),  
-    (
-    # DWC when in width > out width
-    [2,24,0,0,1,6], # mw,mh,mw_padding, mh_padding, simd, pe
-    [24,2,0,0,4,1]),  
+
     ( 
     # DWC when in width < out width
     [4,6,0,0,1,6], # mw,mh,mw_padding, mh_padding, simd, pe
@@ -386,14 +386,13 @@ def update_mvau_nodes(model,mw,mh,simd,pe,W,T, impl_style):
     [4,6,0,2,1,4], # mw,mh,mw_padding, mh_padding, simd, pe
     [6,4,0,0,2,1]),  
     ])
-@pytest.mark.parametrize("impl_style", ["cppsim","rtlsim","stitched_rtlsim"])
+@pytest.mark.parametrize("impl_style", ["rtlsim","cppsim","stitched_rtlsim"])
 @pytest.mark.fpgadataflow
 @pytest.mark.slow
 @pytest.mark.vivado
 def test_fpgadataflow_mvau_multiple_nodes_padded_folded_dwc_inserted(idt, wdt, act, nf, sf, dims, impl_style):
 
     nnodes = len(dims)
-    
 
     input_mw = dims[0][0]
     input_mw_padding = dims[0][2]
@@ -454,9 +453,6 @@ def test_fpgadataflow_mvau_multiple_nodes_padded_folded_dwc_inserted(idt, wdt, a
         simd_list.append(1)
         pe_padded_list.append(pe_padded)
         simd_padded_list.append(simd_padded)
-
-
-
 
     T_list = []
     T_padded_list = []
