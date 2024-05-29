@@ -283,7 +283,7 @@ def update_mvau_nodes(model,mw,mh,simd,pe,W,T, impl_style):
     return model
 
 # activation: None or DataType
-@pytest.mark.parametrize("act", [DataType["INT2]])
+@pytest.mark.parametrize("act", [DataType["INT2"]])
 # weight datatype
 @pytest.mark.parametrize("wdt", [DataType["INT2"]])
 # input datatype
