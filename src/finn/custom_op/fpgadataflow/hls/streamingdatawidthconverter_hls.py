@@ -54,12 +54,33 @@ class StreamingDataWidthConverter_hls(StreamingDataWidthConverter, HLSBackend):
         self.code_gen_dict["$GLOBALS$"] = ['#include "streamtools.h"']
 
     def defines(self, var):
-        numReps = 1
+        
+        # in cases of convolution input generator and downsampling,
+        # we have a 4D input and padding / cropping can only happen
+        # for the final 2 dimensions,
+        # so we use numReps to represent the first 2 dimensions
+        # + batching if shape[0] != 1
+        numReps = int(np.prod(self.get_folded_input_shape()[:-2])) 
+        #numReps = 1
 
-        numInWords = int(np.prod(self.get_folded_input_shape()[:-1]))
-        numOutWords = int(np.prod(self.get_folded_output_shape()[:-1]))
+        # assuming folded shapes are at least 2 dim-long
+        numInWords = int(np.prod(self.get_folded_input_shape()[-2:-1]))
+        numOutWords = int(np.prod(self.get_folded_output_shape()[-2:-1]))
+
+       # numInWords = int(np.prod(self.get_folded_input_shape()[-2:]))
+        #numOutWords = int(np.prod(self.get_folded_output_shape()[-2:]))
+
         inWidth = self.get_nodeattr("inWidth")
         outWidth = self.get_nodeattr("outWidth")
+        totalIters = max(numInWords,numOutWords)
+
+        # if we are building up a word, the overall loop count is longer
+        if outWidth > inWidth:
+            totalIters += int(np.floor(outWidth / inWidth) + 1)-1
+
+        NumInWordsLog = int(np.log2(numInWords)+1)
+        NumOutWordsLog = int(np.log2(numOutWords)+1)
+        BufferWidthLog = int(np.log2(inWidth+outWidth)+1)
 
 
         self.code_gen_dict["$DEFINES$"] = [
@@ -67,6 +88,10 @@ class StreamingDataWidthConverter_hls(StreamingDataWidthConverter, HLSBackend):
             "#define OutWidth %d " % outWidth,
             "#define NumInWords %d " % numInWords,
             "#define NumOutWords %d " % numOutWords,
+            "#define NumInWordsLog %d " % NumInWordsLog,
+            "#define NumOutWordsLog %d " % NumOutWordsLog,
+            "#define BufferWidthLog %d " % BufferWidthLog,
+            "#define totalIters %d " % totalIters,
             "#define numReps %d" % numReps,
         ]
 
@@ -90,7 +115,7 @@ class StreamingDataWidthConverter_hls(StreamingDataWidthConverter, HLSBackend):
         op = "StreamingDataWidthConverter_Batch"
         
         self.code_gen_dict["$DOCOMPUTE$"] = [
-            "%s<InWidth, OutWidth, NumInWords, NumOutWords>(in0_%s, out_%s, numReps);"
+            "%s<InWidth, OutWidth, NumInWords, NumOutWords, NumInWordsLog, NumOutWordsLog, BufferWidthLog, totalIters>(in0_%s, out_%s, numReps);"
             % (op, self.hls_sname(), self.hls_sname())
         ]
 
@@ -165,6 +190,14 @@ class StreamingDataWidthConverter_hls(StreamingDataWidthConverter, HLSBackend):
             # the DWC fails some test cases due to
             # endianness differences in the cppsim flow
             # of passing numpy arrays. TODO: Fix?
+            # Essentially need to fix cppsim to reverse
+            # endian and then back same as rtlsim
+            # for this particular (and maybe all) cases
+            # only shows up for the DWC, since when a word
+            # leftover appears when breaking down larger in
+            # words to smaller out words, the remainder should
+            # now be the LSB, but is the other way around on the
+            # cpp output.
             
             in_shape = self.get_normal_input_shape()
             out_shape = self.get_normal_output_shape()

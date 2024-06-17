@@ -25,7 +25,8 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
+from finn.core.throughput_test import throughput_test_rtlsim
+from finn.util.pyverilator import verilator_fifosim
 import pytest
 import copy
 from finn.transformation.fpgadataflow.insert_fifo import InsertFIFO
@@ -41,6 +42,16 @@ from finn.analysis.fpgadataflow.exp_cycles_per_layer import exp_cycles_per_layer
 from finn.transformation.fpgadataflow.create_dataflow_partition import (
     CreateDataflowPartition,
 )
+
+from finn.transformation.fpgadataflow.vitis_build import CreateVitisXO
+
+from qonnx.transformation.general import (
+    GiveReadableTensorNames,
+    GiveUniqueNodeNames,
+    RemoveUnusedTensors,
+)
+
+
 from finn.transformation.fpgadataflow.insert_dwc import InsertDWC
 from finn.transformation.fpgadataflow.set_folding import SetFolding
 from finn.util.test import load_test_checkpoint_or_skip
@@ -63,6 +74,8 @@ from qonnx.util.basic import (
     gen_finn_dt_tensor,
     qonnx_make_model,
 )
+
+from qonnx.transformation.infer_shapes import InferShapes
 
 import finn.core.onnx_exec as oxe
 import finn.transformation.fpgadataflow.convert_to_hw_layers as to_hw
@@ -215,15 +228,15 @@ def update_mvau_nodes(model,mw,mh,simd,pe,W,T, impl_style):
 
         if i != 0:
             model.set_initializer(model.graph.node[i].input[0], x)
-        else:
-            if impl_style == "stitched_rtlsim":
-                model.set_initializer("global_in", x)
+        #else:
+        #    if impl_style == "stitched_rtlsim":
+        #        model.set_initializer("global_in", x)
 
         if i != len(mw)-1:
             model.set_initializer(model.graph.node[i].output[0], y)
-        else:
-            if impl_style == "stitched_rtlsim":
-                model.set_initializer("global_out", y)
+        #else:
+        #    if impl_style == "stitched_rtlsim":
+        #        model.set_initializer("global_out", y)
 
 
     # insert DWCs, mandatory when padding or cropping
@@ -234,7 +247,12 @@ def update_mvau_nodes(model,mw,mh,simd,pe,W,T, impl_style):
     # to avoid having to crop in software
 
     part = "xc7z020clg400-1"
-    clk_ns = 5
+    clk_ns = 1.66
+
+    input_name = "inp"
+    output_name = "outp"
+
+
 
     if impl_style == "cppsim":
         model = model.transform(SpecializeLayers())
@@ -254,6 +272,12 @@ def update_mvau_nodes(model,mw,mh,simd,pe,W,T, impl_style):
         model = model.transform(HLSSynthIP())
         model = model.transform(PrepareRTLSim())
 
+        model.set_metadata_prop("rtlsim_so", "")
+        model.set_metadata_prop("exec_mode", "rtlsim")
+
+
+
+
     elif impl_style == "stitched_rtlsim":
         model = model.transform(SpecializeLayers(part))
         model = model.transform(GiveUniqueNodeNames())
@@ -267,20 +291,82 @@ def update_mvau_nodes(model,mw,mh,simd,pe,W,T, impl_style):
         model = model.transform(PrepareIP(part, clk_ns))
         model = model.transform(HLSSynthIP())
         model = model.transform(CreateStitchedIP(part, clk_ns))
+       # model = model.transform(PrepareRTLSim())
 
+        model.set_metadata_prop("rtlsim_so", "")
+        model.set_metadata_prop("exec_mode", "rtlsim")
+
+    elif impl_style == "xo":
+        model = model.transform(GiveUniqueNodeNames())
+        model = model.transform(CreateDataflowPartition())
+        model.set_metadata_prop("rtlsim_so", "")
+        model.set_metadata_prop("exec_mode", "rtlsim")
+
+        kernel_model = model
+        sdp_nodes = model.get_nodes_by_op_type("StreamingDataflowPartition")
+        for sdp_node in sdp_nodes:
+            prefix = sdp_node.name + "_"
+            sdp_node = getCustomOp(sdp_node)
+            dataflow_model_filename = sdp_node.get_nodeattr("model")
+            kernel_model = ModelWrapper(dataflow_model_filename)
+            kernel_model = kernel_model.transform(InsertFIFO())
+            kernel_model = kernel_model.transform(SpecializeLayers())
+            kernel_model = kernel_model.transform(RemoveUnusedTensors())
+            kernel_model = kernel_model.transform(GiveUniqueNodeNames())
+            kernel_model.save(dataflow_model_filename)
+            kernel_model = kernel_model.transform(PrepareIP(part, clk_ns))
+            kernel_model = kernel_model.transform(HLSSynthIP())
+            kernel_model = kernel_model.transform(
+                CreateStitchedIP(part, clk_ns, sdp_node.onnx_node.name, True)
+            )
+            kernel_model.set_metadata_prop("platform", "alveo")
+            kernel_model = kernel_model.transform(CreateVitisXO(sdp_node.onnx_node.name),cleanup=True)
+            
+            kernel_model.save(dataflow_model_filename)
+        model = kernel_model
         model.set_metadata_prop("rtlsim_so", "")
         model.set_metadata_prop("exec_mode", "rtlsim")
 
     x = np.zeros((1,mw[0]),dtype=np.float32)
     y = np.zeros((1,mh[-1]),dtype=np.float32)
 
-    if impl_style == "stitched_rtlsim":
+    if impl_style in ["stitched_rtlsim","xo"]:
         model.set_initializer("global_in", x)
         model.set_initializer("global_out", y)
-    else:
-        model.set_initializer(model.graph.node[0].input[0], x)
-        model.set_initializer(model.graph.node[-1].output[0], y)
+   # else:
+    #    model.set_initializer(model.graph.node[0].input[0], x)
+    #    model.set_initializer(model.graph.node[-1].output[0], y)
+
+    #model = model.transform(InferShapes())
+   # model = model.transform(InferDataTypes())
+
+
+    input_mw_naive = getCustomOp(model.graph.node[0]).get_normal_input_shape()
+    output_mh_naive = getCustomOp(model.graph.node[-1]).get_normal_output_shape()
+
+    if len(model.graph.input) != 0:
+        model.graph.input.remove(model.graph.input[0])
+    input_x = helper.make_tensor_value_info(input_name, TensorProto.FLOAT, [*input_mw_naive])
+    model.graph.input.append(input_x)
+    
+    
+    # if (input_mw_padded != input_mw_naive):in
+    #     dataflow_model_padded.set_initializer(input_name, x)
+
+    #if (output_mh_padded != output_mh_naive):
+    if len(model.graph.output) != 0:
+        model.graph.output.remove(model.graph.output[0])
+    output_y = helper.make_tensor_value_info(output_name, TensorProto.FLOAT, [*output_mh_naive])
+    model.graph.output.append(output_y)
+
+   # model.get_tensor_shape("inp", fix_missing_init_shape=True)
+  #  model.get_tensor_shape("outp", fix_missing_init_shape=True)
+
+    model.set_tensor_shape("inp",input_mw_naive)
+    model.set_tensor_shape("outp",output_mh_naive)
+
     return model
+
 
 # activation: None or DataType
 @pytest.mark.parametrize("act", [DataType["INT2"]])
@@ -295,16 +381,23 @@ def update_mvau_nodes(model,mw,mh,simd,pe,W,T, impl_style):
 
 @pytest.mark.parametrize("dims",[
 
+
+    (
+    # DWC when in width > out width
+    [1,6,0,0,1,2], # mw,mh,mw_padding, mh_padding, simd, pe
+    [6,1,0,0,3,1]),  
+
+    (
+    # DWC when in width > out width
+    [2,24,0,0,1,6], # mw,mh,mw_padding, mh_padding, simd, pe
+    [24,2,1,0,5,1]),  
     ( 
     # pad first node output and second node input by 1
     # DWC where in width < out width
     [4,5,0,1,1,3], # mw,mh,mw_padding, mh_padding, simd, pe
     [6,4,1,0,7,1]),
     # each list is an individual MVAU node
-    (
-    # DWC when in width > out width
-    [2,24,0,0,1,6], # mw,mh,mw_padding, mh_padding, simd, pe
-    [24,2,0,0,4,1]),  
+
 
 
 
@@ -386,11 +479,12 @@ def update_mvau_nodes(model,mw,mh,simd,pe,W,T, impl_style):
     [4,6,0,2,1,4], # mw,mh,mw_padding, mh_padding, simd, pe
     [6,4,0,0,2,1]),  
     ])
-@pytest.mark.parametrize("impl_style", ["rtlsim","cppsim","stitched_rtlsim"])
+@pytest.mark.parametrize("impl_style", ["rtlsim","stitched_rtlsim","cppsim","xo"])
+@pytest.mark.parametrize("perf_test", [False])
 @pytest.mark.fpgadataflow
 @pytest.mark.slow
 @pytest.mark.vivado
-def test_fpgadataflow_mvau_multiple_nodes_padded_folded_dwc_inserted(idt, wdt, act, nf, sf, dims, impl_style):
+def test_fpgadataflow_mvau_multiple_nodes_padded_folded_dwc_inserted(idt, wdt, act, nf, sf, dims, impl_style,perf_test):
 
     nnodes = len(dims)
 
@@ -431,8 +525,6 @@ def test_fpgadataflow_mvau_multiple_nodes_padded_folded_dwc_inserted(idt, wdt, a
         mw_padded.append(mw+mw_padding)
         mh_padded.append(mh+mh_padding)
 
-        nf_padded = nf
-        sf_padded = sf
 
 
         W = gen_finn_dt_tensor(wdt, (mw, mh))
@@ -445,12 +537,21 @@ def test_fpgadataflow_mvau_multiple_nodes_padded_folded_dwc_inserted(idt, wdt, a
         simd_padded = simd
         pe_padded = pe
 
+        if sf == -1:
+            simd_naive = mw
+        else:
+            simd_naive = 1 
+        if nf == -1:
+            pe_naive = mh
+        else:
+            pe_naive = 1
+
 
         W_padded[:mw,:mh] = W[:mw,:mh]
         W_padded_list.append(W_padded)
         W_list.append(W)
-        pe_list.append(1)
-        simd_list.append(1)
+        pe_list.append(pe_naive)
+        simd_list.append(simd_naive)
         pe_padded_list.append(pe_padded)
         simd_padded_list.append(simd_padded)
 
@@ -515,4 +616,14 @@ def test_fpgadataflow_mvau_multiple_nodes_padded_folded_dwc_inserted(idt, wdt, a
 
 
     assert np.array_equal(y_true, y_padded)
-    
+
+
+    if perf_test:
+        rtlsim_bs = 50
+        res_naive = throughput_test_rtlsim(model_true, rtlsim_bs)
+        res_padded = throughput_test_rtlsim(model_padded, rtlsim_bs)
+        print("naive perf:")
+        print(res_naive)
+        print("padded perf:")
+        print(res_padded)
+        assert True == False

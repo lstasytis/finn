@@ -231,6 +231,9 @@ class DataflowBuildConfig:
     #: very high performance.
     mvau_wwidth_max: Optional[int] = 36
 
+    # which folding optimizer to use based on existence of padding
+    padding: Optional[int] = 0
+
     #: (Optional) Whether thresholding layers (which implement quantized
     #: activations in FINN) will be implemented as stand-alone HW layers,
     #: instead of being part of MatrixVectorActivation layer. This gives larger
