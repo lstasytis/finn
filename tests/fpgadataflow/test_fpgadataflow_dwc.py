@@ -264,7 +264,7 @@ def test_fpgadataflow_dwc(config, exec_mode):
         input values anymore."""
     
 
-    model = model.transform(SpecializeLayers())
+    model = model.transform(SpecializeLayers(test_fpga_part))
     model = model.transform(GiveUniqueNodeNames())
     if exec_mode == "cppsim":
         model = model.transform(PrepareCppSim())
