@@ -26,8 +26,8 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from onnx import TensorProto
 import numpy as np
+from onnx import TensorProto
 from onnx import helper as oh
 from qonnx.custom_op.registry import getCustomOp
 from qonnx.transformation.base import Transformation
@@ -100,9 +100,12 @@ class InsertDWC(Transformation):
                             # use default folded input shape
                             n1_in_shape = n1.get_folded_input_shape()
 
-                        # insert the DWC if either the widths missmatch (use DWC for folding conversion)
+                        # insert the DWC if either the widths missmatch
+                        # (use DWC for folding conversion)
                         # or if the total element counts differ (use DWC for padding)
-                        if n0_out_shape[-1] != n1_in_shape[-1] or np.prod(n0_out_shape) != np.prod(n1_in_shape):
+                        if n0_out_shape[-1] != n1_in_shape[-1] or np.prod(n0_out_shape) != np.prod(
+                            n1_in_shape
+                        ):
                             graph_modified = True
                             # determine dwc inwidth
                             dwc_in_width = n0.get_outstream_width()
@@ -110,8 +113,15 @@ class InsertDWC(Transformation):
                             dwc_out_width = n1.get_instream_width()
                             node_optype = "StreamingDataWidthConverter"
 
-                            
-
+                            if max(dwc_in_width, dwc_out_width) % min(
+                                dwc_in_width, dwc_out_width
+                            ) == 0 and np.prod(n0_out_shape) == np.prod(n1_in_shape):
+                                # the DWC does not need to perform conversions between
+                                # widths which can be divided by one another,
+                                # thus we can use the optimal RTL variant
+                                style = "rtl"
+                            else:
+                                style = "hls"
                             # determine dtype for dwc
                             dtype = n0.get_output_datatype()
 
@@ -130,7 +140,6 @@ class InsertDWC(Transformation):
                             )
                             graph.value_info.append(dwc_output_tensor)
 
-
                             dwc_node = oh.make_node(
                                 node_optype,
                                 [output_name],
@@ -141,7 +150,7 @@ class InsertDWC(Transformation):
                                 out_shape=out_shape,
                                 inWidth=dwc_in_width,
                                 outWidth=dwc_out_width,
-                                preferred_impl_style="hls",
+                                preferred_impl_style=style,
                                 dataType=str(dtype.name),
                             )
                             # insert dwc

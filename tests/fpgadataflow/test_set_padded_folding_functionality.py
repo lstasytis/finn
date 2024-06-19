@@ -28,53 +28,46 @@
 
 
 import pytest
-import os
-import numpy as np
+
 import copy
+import numpy as np
+import os
 from onnx import TensorProto, helper
 from qonnx.core.datatype import DataType
 from qonnx.core.modelwrapper import ModelWrapper
-from qonnx.custom_op.registry import getCustomOp
-from qonnx.transformation.general import GiveUniqueNodeNames
-from qonnx.util.basic import qonnx_make_model
-
-from finn.util.fpgadataflow import is_fpgadataflow_node
-
-from finn.analysis.fpgadataflow.exp_cycles_per_layer import exp_cycles_per_layer
-from finn.transformation.fpgadataflow.create_dataflow_partition import (
-    CreateDataflowPartition,
-)
-import finn.transformation.fpgadataflow.convert_to_hw_layers as to_hw
-from finn.transformation.fpgadataflow.set_folding import SetFolding
-from finn.util.test import load_test_checkpoint_or_skip
-
-from qonnx.util.basic import (
-    calculate_signed_dot_prod_range,
-    gen_finn_dt_tensor,
-)
 from qonnx.custom_op.general.im2col import compute_conv_output_dim
 from qonnx.custom_op.general.multithreshold import multithreshold
-from finn.transformation.fpgadataflow.insert_dwc import InsertDWC
-
-from finn.transformation.fpgadataflow.prepare_cppsim import PrepareCppSim
-from finn.transformation.fpgadataflow.prepare_ip import PrepareIP
-from finn.transformation.fpgadataflow.prepare_rtlsim import PrepareRTLSim
-from finn.transformation.fpgadataflow.set_exec_mode import SetExecMode
-from finn.transformation.fpgadataflow.set_fifo_depths import InsertAndSetFIFODepths
-from finn.transformation.fpgadataflow.specialize_layers import SpecializeLayers
-from finn.transformation.fpgadataflow.annotate_cycles import AnnotateCycles
-from finn.transformation.fpgadataflow.compile_cppsim import CompileCppSim
-from finn.transformation.fpgadataflow.hlssynth_ip import HLSSynthIP
-from finn.transformation.fpgadataflow.create_stitched_ip import CreateStitchedIP
-import finn.core.onnx_exec as oxe
-
-
-from qonnx.custom_op.general.im2col import compute_conv_output_dim
 from qonnx.custom_op.registry import getCustomOp
 from qonnx.transformation.general import GiveUniqueNodeNames
 from qonnx.transformation.infer_datatypes import InferDataTypes
 from qonnx.transformation.infer_shapes import InferShapes
 from qonnx.transformation.lower_convs_to_matmul import LowerConvsToMatMul
+from qonnx.util.basic import (
+    calculate_signed_dot_prod_range,
+    gen_finn_dt_tensor,
+    qonnx_make_model,
+)
+
+import finn.core.onnx_exec as oxe
+import finn.transformation.fpgadataflow.convert_to_hw_layers as to_hw
+from finn.analysis.fpgadataflow.exp_cycles_per_layer import exp_cycles_per_layer
+from finn.transformation.fpgadataflow.annotate_cycles import AnnotateCycles
+from finn.transformation.fpgadataflow.compile_cppsim import CompileCppSim
+from finn.transformation.fpgadataflow.create_dataflow_partition import (
+    CreateDataflowPartition,
+)
+from finn.transformation.fpgadataflow.create_stitched_ip import CreateStitchedIP
+from finn.transformation.fpgadataflow.hlssynth_ip import HLSSynthIP
+from finn.transformation.fpgadataflow.insert_dwc import InsertDWC
+from finn.transformation.fpgadataflow.prepare_cppsim import PrepareCppSim
+from finn.transformation.fpgadataflow.prepare_ip import PrepareIP
+from finn.transformation.fpgadataflow.prepare_rtlsim import PrepareRTLSim
+from finn.transformation.fpgadataflow.set_exec_mode import SetExecMode
+from finn.transformation.fpgadataflow.set_folding import SetFolding
+from finn.transformation.fpgadataflow.specialize_layers import SpecializeLayers
+from finn.util.fpgadataflow import is_fpgadataflow_node
+from finn.util.test import load_test_checkpoint_or_skip
+
 
 def make_single_im2col_modelwrapper(k, ifm_ch, ifm_dim, ofm_dim, stride, dilation, idt, dw):
     k_h, k_w = k
@@ -113,7 +106,6 @@ def make_single_im2col_modelwrapper(k, ifm_ch, ifm_dim, ofm_dim, stride, dilatio
     model.set_tensor_datatype("outp", odt)
 
     return model
-
 
 
 def generate_random_threshold_values(input_data_type, num_input_channels, num_steps):
@@ -181,7 +173,7 @@ def make_single_thresholding_modelwrapper(impl_style, T, idt, odt, actval, n_inp
     return model
 
 
-def make_multi_fclayer_model(ch, wdt, adt, tdt, nnodes,impl_style):
+def make_multi_fclayer_model(ch, wdt, adt, tdt, nnodes, impl_style):
     W = np.random.randint(wdt.min(), wdt.max() + 1, size=(ch, ch))
     W = W.astype(np.float32)
 
@@ -249,6 +241,7 @@ def make_multi_fclayer_model(ch, wdt, adt, tdt, nnodes,impl_style):
 
     return model
 
+
 def prepare_inputs(input_tensor, idt, wdt, inp_name="inp"):
     if wdt == DataType["BIPOLAR"] and idt == DataType["BIPOLAR"]:
         # convert bipolar to binary
@@ -257,15 +250,22 @@ def prepare_inputs(input_tensor, idt, wdt, inp_name="inp"):
         return {inp_name: input_tensor}
 
 
-def generate_thresholding_inputs(adt,wdt,model_naive, model_padded):
-
+def generate_thresholding_inputs(adt, wdt, model_naive, model_padded):
     # update thresholding based on the dims
 
     T_list = []
     T_padded_list = []
 
-    nm_nodes = [getCustomOp(node) for node in model_naive.graph.node if node.op_type in ["MVAU_hls", "MVAU_rtl"]]
-    opm_nodes = [getCustomOp(node) for node in model_padded.graph.node if node.op_type in ["MVAU_hls", "MVAU_rtl"]]
+    nm_nodes = [
+        getCustomOp(node)
+        for node in model_naive.graph.node
+        if node.op_type in ["MVAU_hls", "MVAU_rtl"]
+    ]
+    opm_nodes = [
+        getCustomOp(node)
+        for node in model_padded.graph.node
+        if node.op_type in ["MVAU_hls", "MVAU_rtl"]
+    ]
 
     for i in range(len(nm_nodes)):
         nm = nm_nodes[i]
@@ -273,19 +273,13 @@ def generate_thresholding_inputs(adt,wdt,model_naive, model_padded):
 
         naive_mw = nm.get_nodeattr("MW")
         naive_mh = nm.get_nodeattr("MH")
-        padded_mw = opm.get_nodeattr("MW")
         padded_mh = opm.get_nodeattr("MH")
 
         if adt is None:
             # no activation, produce accumulators
             T = None
             tdt = None
-            if wdt == DataType["BIPOLAR"] and adt == DataType["BIPOLAR"]:
-                odt = DataType["UINT32"]
-            else:
-                odt = DataType["INT32"]
         else:
-            odt = adt
             (min, max) = calculate_signed_dot_prod_range(adt, wdt, naive_mw)
             n_steps = adt.get_num_possible_values() - 1
             T = np.random.randint(min, max - 1, (padded_mh, n_steps)).astype(np.float32)
@@ -300,48 +294,49 @@ def generate_thresholding_inputs(adt,wdt,model_naive, model_padded):
             else:
                 tdt = DataType["INT32"]
 
-        T_list.append(T[:naive_mh,:])
+        T_list.append(T[:naive_mh, :])
         T_padded_list.append(T)
     return T_list, T_padded_list
 
 
-
-def apply_new_thresholds(model,T_list):
+def apply_new_thresholds(model, T_list):
     for i in range(len(T_list)):
-        model.set_initializer(f"thresh_{i}",T_list[i])
+        model.set_initializer(f"thresh_{i}", T_list[i])
     return model
 
 
-def update_model(model):
+def update_model(model, part):
     model = model.transform(InsertDWC())
     model = model.transform(GiveUniqueNodeNames())
-    model = model.transform(SpecializeLayers())
-    model = model.transform(AnnotateCycles())    
+    model = model.transform(SpecializeLayers(part))
+    model = model.transform(AnnotateCycles())
     return model
 
 
 @pytest.mark.parametrize("target_fps", [300])
 # target chip or board
 @pytest.mark.parametrize("platform", ["Pynq-Z1"])
-@pytest.mark.parametrize("exec_mode", ["cppsim","stitched_rtlsim","rtlsim"])
-@pytest.mark.parametrize("model_type", ["cnv","convinputgenerator-only","threshold-only","mvau-only","cybersecurity"])
+@pytest.mark.parametrize("exec_mode", ["cppsim", "stitched_rtlsim", "rtlsim"])
+@pytest.mark.parametrize(
+    "model_type", ["convinputgenerator-only", "threshold-only", "mvau-only", "cnv", "cybersecurity"]
+)
 @pytest.mark.parametrize("impl_style", ["hls"])
 @pytest.mark.fpgadataflow
 @pytest.mark.slow
 @pytest.mark.vivado
-def test_set_padded_folding_functionality(target_fps,model_type, exec_mode,  platform, impl_style):
-
+def test_set_padded_folding_functionality(target_fps, model_type, exec_mode, platform, impl_style):
     idt = DataType["INT4"]
     wdt = DataType["INT2"]
     adt = DataType["INT16"]
     build_dir = os.environ["FINN_BUILD_DIR"]
 
+    # TODO: this has to be changed to whatever is the platform's part.
+    part = "xc7z020clg400-1"
 
     if model_type == "convinputgenerator-only":
-
-        conv_config = (1,2,0)
-        depthwise = False # True
-        use_rtl_swg = True # True
+        conv_config = (1, 2, 0)
+        depthwise = False  # True
+        use_rtl_swg = True  # True
         kernel_size, stride, pad = conv_config
         np.random.seed(0)
         idt = DataType["UINT4"]
@@ -407,10 +402,10 @@ def test_set_padded_folding_functionality(target_fps,model_type, exec_mode,  pla
                     inst.set_nodeattr("preferred_impl_style", "hls")
         if depthwise is True:
             new_model = new_model.transform(to_hw.InferVectorVectorActivation())
-            new_model = new_model.transform(SpecializeLayers())
+            new_model = new_model.transform(SpecializeLayers(part))
         else:
             new_model = new_model.transform(to_hw.InferQuantizedMatrixVectorActivation())
-            new_model = new_model.transform(SpecializeLayers())
+            new_model = new_model.transform(SpecializeLayers(part))
             # set folding parameters for MVAU
             if new_model.get_nodes_by_op_type("MVAU_hls"):
                 fc_node = new_model.get_nodes_by_op_type("MVAU_hls")[0]
@@ -428,26 +423,22 @@ def test_set_padded_folding_functionality(target_fps,model_type, exec_mode,  pla
         new_model = new_model.transform(InferShapes())
         new_model = new_model.transform(InferDataTypes())
 
-
-
-
-        #model = model.transform(GiveUniqueNodeNames())
+        # model = model.transform(GiveUniqueNodeNames())
         parent_model = new_model.transform(CreateDataflowPartition())
         sdp_node = parent_model.get_nodes_by_op_type("StreamingDataflowPartition")[0]
         sdp_node = getCustomOp(sdp_node)
         dataflow_model_filename = sdp_node.get_nodeattr("model")
         dataflow_model = load_test_checkpoint_or_skip(dataflow_model_filename)
 
-
-
     elif model_type == "threshold-only":
         # synthethic MVAU-only model
         mem_mode = "internal_embedded"
+
         ich = 16
         nf = 1
         act = DataType["INT4"]
         idt = DataType["INT16"]
-        #model = make_multi_fclayer_model(128,idt, wdt, adt, 1, impl_style)
+        # model = make_multi_fclayer_model(128,idt, wdt, adt, 1, impl_style)
 
         if impl_style == "rtl" and mem_mode == "internal_decoupled":
             pytest.skip(
@@ -507,16 +498,15 @@ def test_set_padded_folding_functionality(target_fps,model_type, exec_mode,  pla
 
         assert (y_produced == y_expected).all()
 
-        model = model.transform(SpecializeLayers())
-        # Make sure that SpecializeLayers did not default to HLS implementation unexpectedly
+        model = model.transform(SpecializeLayers(part))
+        # Make sure that SpecializeLayers did not default to
+        # HLS implementation unexpectedly
         assert model.graph.node[0].op_type == "Thresholding_" + str(impl_style)
         node = model.graph.node[0]
         inst = getCustomOp(node)
         inst.set_nodeattr("PE", pe)
         if impl_style == "hls":
             inst.set_nodeattr("mem_mode", mem_mode)
-
-
 
         model = model.transform(GiveUniqueNodeNames())
         parent_model = model.transform(CreateDataflowPartition())
@@ -525,10 +515,9 @@ def test_set_padded_folding_functionality(target_fps,model_type, exec_mode,  pla
         dataflow_model_filename = sdp_node.get_nodeattr("model")
         dataflow_model = load_test_checkpoint_or_skip(dataflow_model_filename)
 
-    
     elif model_type == "mvau-only":
         # synthethic MVAU-only model
-        model = make_multi_fclayer_model(128,idt, wdt, adt, 2,exec_mode)
+        model = make_multi_fclayer_model(128, idt, wdt, adt, 2, exec_mode)
         model = model.transform(GiveUniqueNodeNames())
         parent_model = model.transform(CreateDataflowPartition())
         sdp_node = parent_model.get_nodes_by_op_type("StreamingDataflowPartition")[0]
@@ -538,7 +527,7 @@ def test_set_padded_folding_functionality(target_fps,model_type, exec_mode,  pla
 
     elif model_type == "cybersecurity":
         # end2end model cybersecurity
-        
+
         model_file = "notebooks/end2end_example/cybersecurity/output_estimates_only/intermediate_models/step_generate_estimate_reports.onnx"
         dataflow_model = ModelWrapper(model_file)
     elif model_type == "cnv":
@@ -547,16 +536,17 @@ def test_set_padded_folding_functionality(target_fps,model_type, exec_mode,  pla
         idt = DataType[getCustomOp(dataflow_model.graph.node[0]).get_nodeattr("inputDataType")]
         wdt = DataType[getCustomOp(dataflow_model.graph.node[0]).get_nodeattr("weightDataType")]
 
-
     clk_ns = 1.66
-    part = "xc7z020clg400-1"
+
     target_cycles_per_frame = int((10**9 / clk_ns) / target_fps)
 
-
     dataflow_model_padded = copy.deepcopy(dataflow_model)
-    dataflow_model_naive = dataflow_model.transform(SetFolding(target_cycles_per_frame,padding=0))
-    dataflow_model_padded = dataflow_model_padded.transform(SetFolding(target_cycles_per_frame,padding=6))
-
+    dataflow_model_naive = dataflow_model.transform(
+        SetFolding(target_cycles_per_frame, platform=platform, style="naive")
+    )
+    dataflow_model_padded = dataflow_model_padded.transform(
+        SetFolding(target_cycles_per_frame, platform=platform, style="optimizer")
+    )
 
     exp_cycles_dict_naive = dataflow_model_naive.analysis(exp_cycles_per_layer)
     achieved_cycles_per_frame_naive = max(exp_cycles_dict_naive.values())
@@ -578,64 +568,58 @@ def test_set_padded_folding_functionality(target_fps,model_type, exec_mode,  pla
     ), "Padded Folding target not met"
 
     # evaluate that the functionality is still identical
-   # assert True == False
-    # preparing two identical, sensible thresholding inputs with padding applied to the second
-    
+    # assert True == False
+    # preparing two identical, sensible thresholding inputs
+    # with padding applied to the second
+
     if model_type == "mvau-only":
-        T_naive_list, T_padded_list = generate_thresholding_inputs(idt,wdt,dataflow_model_naive, dataflow_model_padded)
-        dataflow_model_naive = apply_new_thresholds(dataflow_model_naive,T_naive_list)
-        dataflow_model_padded = apply_new_thresholds(dataflow_model_padded,T_padded_list)
+        T_naive_list, T_padded_list = generate_thresholding_inputs(
+            idt, wdt, dataflow_model_naive, dataflow_model_padded
+        )
+        dataflow_model_naive = apply_new_thresholds(dataflow_model_naive, T_naive_list)
+        dataflow_model_padded = apply_new_thresholds(dataflow_model_padded, T_padded_list)
 
     input_mw_naive = getCustomOp(dataflow_model_naive.graph.node[0]).get_normal_input_shape()
     output_mh_naive = getCustomOp(dataflow_model_naive.graph.node[-1]).get_normal_output_shape()
 
     input_mw_padded = getCustomOp(dataflow_model_padded.graph.node[0]).get_normal_input_shape()
     output_mh_padded = getCustomOp(dataflow_model_padded.graph.node[-1]).get_normal_output_shape()
-    x = np.zeros(input_mw_padded,dtype=np.float32)
-    y = np.zeros(output_mh_padded,dtype=np.float32)
-
+    x = np.zeros(input_mw_padded, dtype=np.float32)
+    y = np.zeros(output_mh_padded, dtype=np.float32)
 
     input_name = dataflow_model_naive.graph.input[0].name
     output_name = dataflow_model_naive.graph.output[0].name
 
     if exec_mode == "cppsim":
+        # dataflow_model_padded.set_initializer(input_name, x)
+        #  dataflow_model_padded.set_initializer(output_name, y)
 
+        dataflow_model_naive = update_model(dataflow_model_naive, part)
+        dataflow_model_padded = update_model(dataflow_model_padded, part)
 
-
-       # dataflow_model_padded.set_initializer(input_name, x)
-      #  dataflow_model_padded.set_initializer(output_name, y)
-
-        dataflow_model_naive = update_model(dataflow_model_naive)
-        dataflow_model_padded = update_model(dataflow_model_padded)
-
-
-        dataflow_model_naive = dataflow_model_naive.transform(SpecializeLayers())
+        dataflow_model_naive = dataflow_model_naive.transform(SpecializeLayers(part))
         dataflow_model_naive = dataflow_model_naive.transform(GiveUniqueNodeNames())
         dataflow_model_naive = dataflow_model_naive.transform(AnnotateCycles())
         dataflow_model_naive = dataflow_model_naive.transform(SetExecMode("cppsim"))
         dataflow_model_naive = dataflow_model_naive.transform(PrepareCppSim())
         dataflow_model_naive = dataflow_model_naive.transform(CompileCppSim())
 
-
-        dataflow_model_padded = dataflow_model_padded.transform(SpecializeLayers())
+        dataflow_model_padded = dataflow_model_padded.transform(SpecializeLayers(part))
         dataflow_model_padded = dataflow_model_padded.transform(GiveUniqueNodeNames())
         dataflow_model_padded = dataflow_model_padded.transform(AnnotateCycles())
         dataflow_model_padded = dataflow_model_padded.transform(SetExecMode("cppsim"))
         dataflow_model_padded = dataflow_model_padded.transform(PrepareCppSim())
-        dataflow_model_padded = dataflow_model_padded.transform(CompileCppSim(),cleanup=True)
+        dataflow_model_padded = dataflow_model_padded.transform(CompileCppSim(), cleanup=True)
 
     elif exec_mode == "rtlsim":
+        # input_name = "inp"
+        # output_name = "outp"
 
-       # input_name = "inp"
-       # output_name = "outp"
+        # dataflow_model_padded.set_initializer(input_name, x)
+        # dataflow_model_padded.set_initializer(output_name, y)
 
-       # dataflow_model_padded.set_initializer(input_name, x)
-       # dataflow_model_padded.set_initializer(output_name, y)
-
-
-        dataflow_model_naive = update_model(dataflow_model_naive)
-        dataflow_model_padded = update_model(dataflow_model_padded)
-        
+        dataflow_model_naive = update_model(dataflow_model_naive, part)
+        dataflow_model_padded = update_model(dataflow_model_padded, part)
 
         dataflow_model_naive = dataflow_model_naive.transform(SpecializeLayers(part))
         dataflow_model_naive = dataflow_model_naive.transform(GiveUniqueNodeNames())
@@ -651,19 +635,15 @@ def test_set_padded_folding_functionality(target_fps,model_type, exec_mode,  pla
         dataflow_model_padded = dataflow_model_padded.transform(SetExecMode("rtlsim"))
         dataflow_model_padded = dataflow_model_padded.transform(PrepareIP(part, clk_ns))
         dataflow_model_padded = dataflow_model_padded.transform(HLSSynthIP())
-        dataflow_model_padded = dataflow_model_padded.transform(PrepareRTLSim(),cleanup=True)
-
+        dataflow_model_padded = dataflow_model_padded.transform(PrepareRTLSim(), cleanup=True)
 
     elif exec_mode == "stitched_rtlsim":
+        #   input_name = "inp"
+        #  output_name = "outp"
 
-     #   input_name = "inp"
-      #  output_name = "outp"
+        dataflow_model_naive = update_model(dataflow_model_naive, part)
 
-
-        dataflow_model_naive = update_model(dataflow_model_naive)
-        
-        
-       #v assert True==False
+        # v assert True==False
 
         dataflow_model_naive = dataflow_model_naive.transform(SpecializeLayers(part))
         dataflow_model_naive = dataflow_model_naive.transform(GiveUniqueNodeNames())
@@ -672,104 +652,97 @@ def test_set_padded_folding_functionality(target_fps,model_type, exec_mode,  pla
             dataflow_model_naive.graph.input.remove(dataflow_model_naive.graph.input[0])
         input_x = helper.make_tensor_value_info(input_name, TensorProto.FLOAT, [*input_mw_naive])
         dataflow_model_naive.graph.input.append(input_x)
-        
-        
-       # if (input_mw_padded != input_mw_naive):in
-       #     dataflow_model_padded.set_initializer(input_name, x)
 
-        #if (output_mh_padded != output_mh_naive):
+        # if (input_mw_padded != input_mw_naive):in
+        #     dataflow_model_padded.set_initializer(input_name, x)
+
+        # if (output_mh_padded != output_mh_naive):
         if len(dataflow_model_naive.graph.output) != 0:
             dataflow_model_naive.graph.output.remove(dataflow_model_naive.graph.output[0])
         output_y = helper.make_tensor_value_info(output_name, TensorProto.FLOAT, [*output_mh_naive])
         dataflow_model_naive.graph.output.append(output_y)
 
         dataflow_model_naive = dataflow_model_naive.transform(SetExecMode("rtlsim"))
-        #dataflow_model_naive = dataflow_model_naive.transform(PrepareIP(part, clk_ns))
-        #dataflow_model_naive = dataflow_model_naive.transform(HLSSynthIP())
-        #dataflow_model_naive = dataflow_model_naive.transform(PrepareRTLSim())
+        # dataflow_model_naive = dataflow_model_naive.transform(PrepareIP(part, clk_ns))
+        # dataflow_model_naive = dataflow_model_naive.transform(HLSSynthIP())
+        # dataflow_model_naive = dataflow_model_naive.transform(PrepareRTLSim())
 
-        #dataflow_model_naive = dataflow_model_naive.transform(InsertAndSetFIFODepths(part, clk_ns))
+        # dataflow_model_naive = dataflow_model_naive.transform(InsertAndSetFIFODepths(part, clk_ns))
         dataflow_model_naive = dataflow_model_naive.transform(PrepareIP(part, clk_ns))
         dataflow_model_naive = dataflow_model_naive.transform(HLSSynthIP())
-        dataflow_model_naive = dataflow_model_naive.transform(CreateStitchedIP(part, clk_ns),cleanup=True)
+        dataflow_model_naive = dataflow_model_naive.transform(
+            CreateStitchedIP(part, clk_ns), cleanup=True
+        )
         dataflow_model_naive.set_metadata_prop("rtlsim_so", "")
         dataflow_model_naive.set_metadata_prop("exec_mode", "rtlsim")
 
-
-        dataflow_model_padded = update_model(dataflow_model_padded)
+        dataflow_model_padded = update_model(dataflow_model_padded, part)
 
         dataflow_model_padded = dataflow_model_padded.transform(SpecializeLayers(part))
         dataflow_model_padded = dataflow_model_padded.transform(GiveUniqueNodeNames())
 
-
-       # if (input_mw_padded != input_mw_naive):
+        # if (input_mw_padded != input_mw_naive):
         if len(dataflow_model_padded.graph.input) != 0:
             dataflow_model_padded.graph.input.remove(dataflow_model_padded.graph.input[0])
-
-
-
-
 
         dataflow_model_padded = dataflow_model_padded.transform(SetExecMode("rtlsim"))
         dataflow_model_padded = dataflow_model_padded.transform(PrepareIP(part, clk_ns))
         dataflow_model_padded = dataflow_model_padded.transform(HLSSynthIP())
-        
 
-        input_x = helper.make_tensor_value_info(dataflow_model.graph.node[0].input[0], TensorProto.FLOAT, [*input_mw_padded])
+        input_x = helper.make_tensor_value_info(
+            dataflow_model.graph.node[0].input[0], TensorProto.FLOAT, [*input_mw_padded]
+        )
         dataflow_model_padded.graph.input.append(input_x)
 
-       # if (input_mw_padded != input_mw_naive):
-       #     dataflow_model_padded.set_initializer(input_name, x)
+        # if (input_mw_padded != input_mw_naive):
+        #     dataflow_model_padded.set_initializer(input_name, x)
 
-        #if (output_mh_padded != output_mh_naive):
+        # if (output_mh_padded != output_mh_naive):
         if len(dataflow_model_padded.graph.output) != 0:
             dataflow_model_padded.graph.output.remove(dataflow_model_padded.graph.output[0])
-        output_y = helper.make_tensor_value_info(output_name, TensorProto.FLOAT, [*output_mh_padded])
+        output_y = helper.make_tensor_value_info(
+            output_name, TensorProto.FLOAT, [*output_mh_padded]
+        )
         dataflow_model_padded.graph.output.append(output_y)
 
-        #if model_type == "mvau-only":
+        # if model_type == "mvau-only":
         #    dataflow_model_padded = dataflow_model_padded.transform(InsertAndSetFIFODepths(part, clk_ns))
         dataflow_model_padded = dataflow_model_padded.transform(PrepareIP(part, clk_ns))
         dataflow_model_padded = dataflow_model_padded.transform(HLSSynthIP())
         dataflow_model_padded = dataflow_model_padded.transform(PrepareRTLSim())
-        dataflow_model_padded = dataflow_model_padded.transform(CreateStitchedIP(part, clk_ns),cleanup=True)
+        dataflow_model_padded = dataflow_model_padded.transform(
+            CreateStitchedIP(part, clk_ns), cleanup=True
+        )
 
         dataflow_model_padded.set_metadata_prop("rtlsim_so", "")
         dataflow_model_padded.set_metadata_prop("exec_mode", "rtlsim")
-       # if (output_mh_padded != output_mh_naive):
-       #     dataflow_model_padded.set_initializer(output_name, y)
-        
-        
-        # we have to adjust the global_in and global_out if padding happened
 
-
-
-   # dataflow_model_padded.set_initializer(input_name, x)
-  #  dataflow_model_padded.set_initializer(output_name, y)
-
-
-    # preparing two identical, sensible input vectors with padding applied to the second
+    # preparing two identical, sensible input vectors with
+    # padding applied to the second
 
     x_input_padded = gen_finn_dt_tensor(idt, input_mw_padded)
-    input_dict_padded = prepare_inputs(x_input_padded, idt, wdt,inp_name=dataflow_model_padded.graph.node[0].input[0])
+    input_dict_padded = prepare_inputs(
+        x_input_padded, idt, wdt, inp_name=dataflow_model_padded.graph.node[0].input[0]
+    )
 
     x_input_naive = gen_finn_dt_tensor(idt, input_mw_naive)
-    x_input_naive[...,:input_mw_naive[-1]] = x_input_padded[...,:input_mw_naive[-1]]
-    input_dict_naive = prepare_inputs(x_input_naive, idt, wdt,inp_name=dataflow_model_naive.graph.node[0].input[0])
+    x_input_naive[..., : input_mw_naive[-1]] = x_input_padded[..., : input_mw_naive[-1]]
+    input_dict_naive = prepare_inputs(
+        x_input_naive, idt, wdt, inp_name=dataflow_model_naive.graph.node[0].input[0]
+    )
 
     y_naive = oxe.execute_onnx(dataflow_model_naive, input_dict_naive)
     y_naive = y_naive[dataflow_model_naive.graph.output[0].name]
-    y_naive = y_naive.reshape(dataflow_model_naive.get_tensor_shape(dataflow_model_naive.graph.node[-1].output[0]))
+    y_naive = y_naive.reshape(
+        dataflow_model_naive.get_tensor_shape(dataflow_model_naive.graph.node[-1].output[0])
+    )
 
     y_padded = oxe.execute_onnx(dataflow_model_padded, input_dict_padded)
     y_padded = y_padded[dataflow_model_padded.graph.output[0].name]
-    y_padded = y_padded.reshape(dataflow_model_padded.get_tensor_shape(dataflow_model_padded.graph.node[-1].output[0]))
+    y_padded = y_padded.reshape(
+        dataflow_model_padded.get_tensor_shape(dataflow_model_padded.graph.node[-1].output[0])
+    )
 
-
-  #  output_mh_naive = getCustomOp(dataflow_model_naive.graph.node[-1]).get_nodeattr("MH")
-
-
-    y_padded = y_padded[...,:output_mh_naive[-1]]
-
+    y_padded = y_padded[..., : output_mh_naive[-1]]
 
     assert np.array_equal(y_naive, y_padded)

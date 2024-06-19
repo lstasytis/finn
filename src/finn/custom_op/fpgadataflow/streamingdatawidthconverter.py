@@ -37,6 +37,7 @@ from finn.custom_op.fpgadataflow.hwcustomop import HWCustomOp
 # Does padding and cropping if shapes mismatch using an intermediate inWidth+OutWidth buffer
 # which is filled with zeroes. Only in hls-lib right now.
 
+
 class StreamingDataWidthConverter(HWCustomOp):
     """Abstraction layer for HW implementation of StreamingDataWidthConverter"""
 
@@ -66,13 +67,11 @@ class StreamingDataWidthConverter(HWCustomOp):
         ishape = self.get_nodeattr("in_shape")
         return ishape
 
-
     def get_num_words(self):
         shape = self.get_nodeattr("out_shape")
         out_els = self.get_nodeattr("outWidth") / self.get_input_datatype().bitwidth()
-        num_words = int(shape[-1] // out_els) 
+        num_words = int(shape[-1] // out_els)
         return num_words
-
 
     def get_normal_output_shape(self, ind=0):
         oshape = self.get_nodeattr("out_shape")
@@ -89,7 +88,6 @@ class StreamingDataWidthConverter(HWCustomOp):
         owidth = self.get_nodeattr("outWidth")
 
         # offset the resizing to get true values for DWC
-
 
         maxwidth = max(iwidth, owidth)
         minwidth = min(iwidth, owidth)
@@ -117,10 +115,8 @@ class StreamingDataWidthConverter(HWCustomOp):
         new_shape.append(ielems)
 
         dummy_t = dummy_t.reshape(new_shape)
-        
-        return dummy_t.shape
-    
 
+        return dummy_t.shape
 
     def get_folded_output_shape(self, ind=0):
         self.check_divisible_iowidths()
@@ -143,7 +139,7 @@ class StreamingDataWidthConverter(HWCustomOp):
 
         # reintroduce the resizing, this is the true final shape
         # we expect from the RTL
-        #new_shape[-1] += resize
+        # new_shape[-1] += resize
 
         return tuple(new_shape)
 
@@ -162,7 +158,6 @@ class StreamingDataWidthConverter(HWCustomOp):
     def make_shape_compatible_op(self, model):
         exp_ishape = self.get_normal_input_shape()
         oshape = self.get_normal_output_shape()
-
 
         ishape = tuple(model.get_tensor_shape(self.onnx_node.input[0]))
         assert ishape == tuple(exp_ishape), "Unexpect input shape for StreamingDWC."
@@ -207,11 +202,11 @@ class StreamingDataWidthConverter(HWCustomOp):
         assert str(inp.dtype) == "float32", "Input datatype is not float32"
         assert inp.shape == tuple(in_shape), "Input shape does not match expected shape."
 
-        output = np.zeros((out_shape),dtype=np.float32)
-        if (out_shape[-1] > in_shape[-1]):
-            output[...,:in_shape[-1]] = inp[...,:in_shape[-1]]
+        output = np.zeros((out_shape), dtype=np.float32)
+        if out_shape[-1] > in_shape[-1]:
+            output[..., : in_shape[-1]] = inp[..., : in_shape[-1]]
         else:
-            output[...,:out_shape[-1]] = inp[...,:out_shape[-1]]
+            output[..., : out_shape[-1]] = inp[..., : out_shape[-1]]
 
         output = np.asarray([output], dtype=np.float32).reshape(*out_shape)
         context[node.output[0]] = output
@@ -222,16 +217,13 @@ class StreamingDataWidthConverter(HWCustomOp):
         # TODO: This calculation does not currently take into account the extra
         # tracking variables, nor the muxing of one of the stream ports to the buffer
         # which shifts according to how many elements are in the buffer
-        
+        # the true LUT cost is between 2*(inw+outw) and 10*(inw+outw)
+
         inw = self.get_instream_width()
         outw = self.get_outstream_width()
 
-        minw = min(inw, outw)
-        maxw = max(inw, outw)
-
-
         # we use an intermediate buffer of size inwidth+outwidth
-        intw = inw+outw
+        intw = inw + outw
 
         # we assume a shift-based implementation
         # even if we don't use LUTs explicitly, we make some unavailable
@@ -241,8 +233,7 @@ class StreamingDataWidthConverter(HWCustomOp):
         cset_luts = 0
 
         cnt_luts += abs(math.ceil(math.log(intw / inw, 2)))
-            
-        cset_luts += intw+outw
 
+        cset_luts += intw + outw
 
         return int(cnt_luts + cset_luts)

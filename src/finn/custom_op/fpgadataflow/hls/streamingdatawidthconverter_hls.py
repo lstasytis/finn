@@ -54,34 +54,32 @@ class StreamingDataWidthConverter_hls(StreamingDataWidthConverter, HLSBackend):
         self.code_gen_dict["$GLOBALS$"] = ['#include "streamtools.h"']
 
     def defines(self, var):
-        
         # in cases of convolution input generator and downsampling,
         # we have a 4D input and padding / cropping can only happen
         # for the final 2 dimensions,
         # so we use numReps to represent the first 2 dimensions
         # + batching if shape[0] != 1
-        numReps = int(np.prod(self.get_folded_input_shape()[:-2])) 
-        #numReps = 1
+        numReps = int(np.prod(self.get_folded_input_shape()[:-2]))
+        # numReps = 1
 
         # assuming folded shapes are at least 2 dim-long
         numInWords = int(np.prod(self.get_folded_input_shape()[-2:-1]))
         numOutWords = int(np.prod(self.get_folded_output_shape()[-2:-1]))
 
-       # numInWords = int(np.prod(self.get_folded_input_shape()[-2:]))
-        #numOutWords = int(np.prod(self.get_folded_output_shape()[-2:]))
+        # numInWords = int(np.prod(self.get_folded_input_shape()[-2:]))
+        # numOutWords = int(np.prod(self.get_folded_output_shape()[-2:]))
 
         inWidth = self.get_nodeattr("inWidth")
         outWidth = self.get_nodeattr("outWidth")
-        totalIters = max(numInWords,numOutWords)
+        totalIters = max(numInWords, numOutWords)
 
         # if we are building up a word, the overall loop count is longer
         if outWidth > inWidth:
-            totalIters += int(np.floor(outWidth / inWidth) + 1)-1
+            totalIters += int(np.floor(outWidth / inWidth) + 1) - 1
 
-        NumInWordsLog = int(np.log2(numInWords)+1)
-        NumOutWordsLog = int(np.log2(numOutWords)+1)
-        BufferWidthLog = int(np.log2(inWidth+outWidth)+1)
-
+        NumInWordsLog = int(np.log2(numInWords) + 1)
+        NumOutWordsLog = int(np.log2(numOutWords) + 1)
+        BufferWidthLog = int(np.log2(inWidth + outWidth) + 1)
 
         self.code_gen_dict["$DEFINES$"] = [
             "#define InWidth %d " % inWidth,
@@ -94,7 +92,6 @@ class StreamingDataWidthConverter_hls(StreamingDataWidthConverter, HLSBackend):
             "#define totalIters %d " % totalIters,
             "#define numReps %d" % numReps,
         ]
-
 
     def strm_decl(self):
         self.code_gen_dict["$STREAMDECLARATIONS$"] = []
@@ -113,12 +110,12 @@ class StreamingDataWidthConverter_hls(StreamingDataWidthConverter, HLSBackend):
     def docompute(self):
         # TODO continue with fxns below, they are copy-pasted
         op = "StreamingDataWidthConverter_Batch"
-        
-        self.code_gen_dict["$DOCOMPUTE$"] = [
-            "%s<InWidth, OutWidth, NumInWords, NumOutWords, NumInWordsLog, NumOutWordsLog, BufferWidthLog, totalIters>(in0_%s, out_%s, numReps);"
-            % (op, self.hls_sname(), self.hls_sname())
-        ]
 
+        self.code_gen_dict["$DOCOMPUTE$"] = [
+            "%s<InWidth, OutWidth, NumInWords,NumOutWords," % op
+            + "NumInWordsLog, NumOutWordsLog, BufferWidthLog,"
+            + " totalIters>(in0_%s, out_%s, numReps);" % (self.hls_sname(), self.hls_sname())
+        ]
 
     def blackboxfunction(self):
         in_packed_bits = self.get_instream_width()
@@ -144,7 +141,6 @@ class StreamingDataWidthConverter_hls(StreamingDataWidthConverter, HLSBackend):
             "#pragma HLS INTERFACE axis port=out_" + self.hls_sname()
         )
         self.code_gen_dict["$PRAGMAS$"].append("#pragma HLS INTERFACE ap_ctrl_none port=return")
-
 
     def execute_node(self, context, graph):
         mode = self.get_nodeattr("exec_mode")
@@ -180,12 +176,9 @@ class StreamingDataWidthConverter_hls(StreamingDataWidthConverter, HLSBackend):
         reshaped_input = inp.reshape(folded_ishape)
         np.save(os.path.join(code_gen_dir, "input_0.npy"), reshaped_input)
 
-        
-
         exp_shape = self.get_normal_output_shape()
 
         if mode == "cppsim":
-
             # cppsim simply passes through the values because
             # the DWC fails some test cases due to
             # endianness differences in the cppsim flow
@@ -198,7 +191,7 @@ class StreamingDataWidthConverter_hls(StreamingDataWidthConverter, HLSBackend):
             # words to smaller out words, the remainder should
             # now be the LSB, but is the other way around on the
             # cpp output.
-            
+
             in_shape = self.get_normal_input_shape()
             out_shape = self.get_normal_output_shape()
             inp = context[node.input[0]]
@@ -206,11 +199,11 @@ class StreamingDataWidthConverter_hls(StreamingDataWidthConverter, HLSBackend):
             assert inp.shape == tuple(in_shape), "Input shape does not match expected shape."
 
             # initialize as zeroes to introduce padding if needed
-            output = np.zeros((out_shape),dtype=np.float32)
-            if (out_shape[-1] > in_shape[-1]):
-                output[...,:in_shape[-1]] = inp[...,:in_shape[-1]]
+            output = np.zeros((out_shape), dtype=np.float32)
+            if out_shape[-1] > in_shape[-1]:
+                output[..., : in_shape[-1]] = inp[..., : in_shape[-1]]
             else:
-                output[...,:out_shape[-1]] = inp[...,:out_shape[-1]]
+                output[..., : out_shape[-1]] = inp[..., : out_shape[-1]]
 
             output = np.asarray([output], dtype=np.float32).reshape(*out_shape)
             context[node.output[0]] = output
@@ -227,15 +220,14 @@ class StreamingDataWidthConverter_hls(StreamingDataWidthConverter, HLSBackend):
             odt = export_idt
             target_bits = odt.bitwidth()
             packed_bits = self.get_outstream_width()
-            
-            
+
             out_npy_path = "{}/output.npy".format(code_gen_dir)
             out_shape = self.get_folded_output_shape()
 
             rtlsim_output_to_npy(
                 rtlsim_output, out_npy_path, odt, out_shape, packed_bits, target_bits
             )
-            
+
             # load and reshape output
             output_pre_reshape = np.load(out_npy_path)
             output = np.asarray([output_pre_reshape], dtype=np.float32).reshape(exp_shape)

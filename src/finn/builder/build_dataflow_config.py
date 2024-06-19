@@ -231,8 +231,12 @@ class DataflowBuildConfig:
     #: very high performance.
     mvau_wwidth_max: Optional[int] = 36
 
-    # which folding optimizer to use based on existence of padding
-    padding: Optional[int] = 0
+    # (Optional) which SetFolding optimizer to use
+    style: Optional[str] = "naive"
+
+    # (Optional) How much padding to allow for enabling more fine-grain folding
+    # parameters
+    padding: Optional[int] = 6
 
     #: (Optional) Whether thresholding layers (which implement quantized
     #: activations in FINN) will be implemented as stand-alone HW layers,
@@ -264,7 +268,7 @@ class DataflowBuildConfig:
     #: rtlsim and can take a long time.
     #: If set to False, the folding_config_file can be used to specify sizes
     #: for each FIFO.
-    auto_fifo_depths: Optional[bool] = True
+    auto_fifo_depths: Optional[bool] = False
 
     #: Whether FIFO nodes with depth larger than 32768 will be split.
     #: Allow to configure very large FIFOs in the folding_config_file.
