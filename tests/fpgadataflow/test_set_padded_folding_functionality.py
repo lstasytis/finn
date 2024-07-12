@@ -47,7 +47,7 @@ from qonnx.util.basic import (
     gen_finn_dt_tensor,
     qonnx_make_model,
 )
-
+from finn.transformation.fpgadataflow.set_fifo_depths import InsertAndSetFIFODepths
 import finn.core.onnx_exec as oxe
 import finn.transformation.fpgadataflow.convert_to_hw_layers as to_hw
 from finn.analysis.fpgadataflow.exp_cycles_per_layer import exp_cycles_per_layer
@@ -316,10 +316,11 @@ def update_model(model, part):
 @pytest.mark.parametrize("target_fps", [300])
 # target chip or board
 @pytest.mark.parametrize("platform", ["Pynq-Z1"])
-@pytest.mark.parametrize("exec_mode", ["cppsim", "stitched_rtlsim", "rtlsim"])
+
 @pytest.mark.parametrize(
-    "model_type", ["convinputgenerator-only", "threshold-only", "mvau-only", "cnv", "cybersecurity"]
+    "model_type", ["cnv","convinputgenerator-only", "threshold-only","mvau-only"]
 )
+@pytest.mark.parametrize("exec_mode", ["rtlsim","cppsim", "stitched_rtlsim"])
 @pytest.mark.parametrize("impl_style", ["hls"])
 @pytest.mark.fpgadataflow
 @pytest.mark.slow
@@ -531,10 +532,14 @@ def test_set_padded_folding_functionality(target_fps, model_type, exec_mode, pla
         model_file = "notebooks/end2end_example/cybersecurity/output_estimates_only/intermediate_models/step_generate_estimate_reports.onnx"
         dataflow_model = ModelWrapper(model_file)
     elif model_type == "cnv":
-        dataflow_model = ModelWrapper(build_dir + "/end2end_cnv_w1a1_dataflow_model.onnx")
+        dataflow_model = ModelWrapper(build_dir + "/../projects/finn/finn-examples/build/bnn-pynq/output_cnv-w2a2_Pynq-Z1_default/intermediate_models/step_create_dataflow_partition.onnx")
         # update datatypes based on the model
         idt = DataType[getCustomOp(dataflow_model.graph.node[0]).get_nodeattr("inputDataType")]
         wdt = DataType[getCustomOp(dataflow_model.graph.node[0]).get_nodeattr("weightDataType")]
+
+
+    dataflow_model = dataflow_model.transform(SpecializeLayers(part))
+    dataflow_model = dataflow_model.transform(AnnotateCycles())
 
     clk_ns = 1.66
 
@@ -645,8 +650,8 @@ def test_set_padded_folding_functionality(target_fps, model_type, exec_mode, pla
 
         # v assert True==False
 
-        dataflow_model_naive = dataflow_model_naive.transform(SpecializeLayers(part))
-        dataflow_model_naive = dataflow_model_naive.transform(GiveUniqueNodeNames())
+      #  dataflow_model_naive = dataflow_model_naive.transform(SpecializeLayers(part))
+     #   dataflow_model_naive = dataflow_model_naive.transform(GiveUniqueNodeNames())
 
         if len(dataflow_model_naive.graph.input) != 0:
             dataflow_model_naive.graph.input.remove(dataflow_model_naive.graph.input[0])
@@ -663,11 +668,12 @@ def test_set_padded_folding_functionality(target_fps, model_type, exec_mode, pla
         dataflow_model_naive.graph.output.append(output_y)
 
         dataflow_model_naive = dataflow_model_naive.transform(SetExecMode("rtlsim"))
-        # dataflow_model_naive = dataflow_model_naive.transform(PrepareIP(part, clk_ns))
-        # dataflow_model_naive = dataflow_model_naive.transform(HLSSynthIP())
-        # dataflow_model_naive = dataflow_model_naive.transform(PrepareRTLSim())
+         
+        dataflow_model_naive = dataflow_model_naive.transform(PrepareIP(part, clk_ns))
+        dataflow_model_naive = dataflow_model_naive.transform(HLSSynthIP())
+        dataflow_model_naive = dataflow_model_naive.transform(PrepareRTLSim())
 
-        # dataflow_model_naive = dataflow_model_naive.transform(InsertAndSetFIFODepths(part, clk_ns))
+        dataflow_model_naive = dataflow_model_naive.transform(InsertAndSetFIFODepths(part, clk_ns))
         dataflow_model_naive = dataflow_model_naive.transform(PrepareIP(part, clk_ns))
         dataflow_model_naive = dataflow_model_naive.transform(HLSSynthIP())
         dataflow_model_naive = dataflow_model_naive.transform(
@@ -678,8 +684,8 @@ def test_set_padded_folding_functionality(target_fps, model_type, exec_mode, pla
 
         dataflow_model_padded = update_model(dataflow_model_padded, part)
 
-        dataflow_model_padded = dataflow_model_padded.transform(SpecializeLayers(part))
-        dataflow_model_padded = dataflow_model_padded.transform(GiveUniqueNodeNames())
+       # dataflow_model_padded = dataflow_model_padded.transform(SpecializeLayers(part))
+       # dataflow_model_padded = dataflow_model_padded.transform(GiveUniqueNodeNames())
 
         # if (input_mw_padded != input_mw_naive):
         if len(dataflow_model_padded.graph.input) != 0:
@@ -705,8 +711,8 @@ def test_set_padded_folding_functionality(target_fps, model_type, exec_mode, pla
         )
         dataflow_model_padded.graph.output.append(output_y)
 
-        # if model_type == "mvau-only":
-        #    dataflow_model_padded = dataflow_model_padded.transform(InsertAndSetFIFODepths(part, clk_ns))
+        if model_type == "mvau-only":
+            dataflow_model_padded = dataflow_model_padded.transform(InsertAndSetFIFODepths(part, clk_ns))
         dataflow_model_padded = dataflow_model_padded.transform(PrepareIP(part, clk_ns))
         dataflow_model_padded = dataflow_model_padded.transform(HLSSynthIP())
         dataflow_model_padded = dataflow_model_padded.transform(PrepareRTLSim())

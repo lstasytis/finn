@@ -27,10 +27,10 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import pytest
+
 import copy
 import numpy as np
 from onnx import TensorProto, helper
-from qonnx.core.datatype import DataType
 from qonnx.core.modelwrapper import ModelWrapper
 from qonnx.custom_op.registry import getCustomOp
 from qonnx.transformation.general import GiveUniqueNodeNames
@@ -105,30 +105,30 @@ def make_multi_fclayer_model(ch, wdt, adt, tdt, nnodes):
 
     return model
 
+
 import os
 
+
 # desired frames per second
-@pytest.mark.parametrize("target_fps", [30,1000000])
+@pytest.mark.parametrize("target_fps", [30, 1000000])
 # target chip or board
 @pytest.mark.parametrize("platform", ["Pynq-Z1"])
-@pytest.mark.parametrize("padding", [6])
+@pytest.mark.parametrize("style", ["naive", "optimizer"])
 @pytest.mark.fpgadataflow
-def test_set_folding(target_fps, platform, padding):
-    #model = make_multi_fclayer_model(128, DataType["INT4"], DataType["INT2"], DataType["INT16"], 5)
+def test_set_folding(target_fps, platform, style):
+    # model = make_multi_fclayer_model(128, DataType["INT4"], DataType["INT2"], DataType["INT16"], 5)
     build_dir = os.environ["FINN_BUILD_DIR"]
-   
-   
-    #model = ModelWrapper(build_dir + "/end2end_cnv_w1a1_dataflow_model.onnx")
 
+    # model = ModelWrapper(build_dir + "/end2end_cnv_w1a1_dataflow_model.onnx")
 
-    #model_dir = os.environ['FINN_ROOT'] + "/notebooks/end2end_example/cybersecurity"
-    #model_file = model_dir + "output_estimates_only/intermediate_models/step_create_dataflow_partition.onnx"
+    # model_dir = os.environ['FINN_ROOT'] + "/notebooks/end2end_example/cybersecurity"
+    # model_file = model_dir + "output_estimates_only/intermediate_models/step_create_dataflow_partition.onnx"
     model_file = "notebooks/end2end_example/cybersecurity/output_estimates_only/intermediate_models/step_generate_estimate_reports.onnx"
     model = ModelWrapper(model_file)
 
     model = model.transform(GiveUniqueNodeNames())
-    
-    #dataflow_model = model
+
+    # dataflow_model = model
     parent_model = model.transform(CreateDataflowPartition())
     sdp_node = parent_model.get_nodes_by_op_type("StreamingDataflowPartition")[0]
     sdp_node = getCustomOp(sdp_node)
@@ -139,7 +139,9 @@ def test_set_folding(target_fps, platform, padding):
     target_cycles_per_frame = int((10**9 / clk_ns) / target_fps)
 
     model_original = copy.copy(dataflow_model)
-    dataflow_model = dataflow_model.transform(SetFolding(target_cycles_per_frame,padding=padding,effort=200))
+    dataflow_model = dataflow_model.transform(
+        SetFolding(target_cycles_per_frame, platform=platform, style=style, effort=200)
+    )
 
     exp_cycles_dict = dataflow_model.analysis(exp_cycles_per_layer)
     achieved_cycles_per_frame = max(exp_cycles_dict.values())
@@ -153,4 +155,3 @@ def test_set_folding(target_fps, platform, padding):
         min_cycles[platform], target_cycles_per_frame
     ), "Folding target not met"
 
-    assert True == False

@@ -28,51 +28,32 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import pytest
+
 import numpy as np
+import os
+import xml.etree.ElementTree as ET
 from onnx import TensorProto, helper
 from qonnx.core.datatype import DataType
 from qonnx.core.modelwrapper import ModelWrapper
+from qonnx.custom_op.registry import getCustomOp
 from qonnx.transformation.general import GiveUniqueNodeNames
 from qonnx.util.basic import gen_finn_dt_tensor, qonnx_make_model
-from finn.transformation.fpgadataflow.set_fifo_depths import InsertAndSetFIFODepths
+
+import finn.builder.build_dataflow as build
+import finn.builder.build_dataflow_config as build_cfg
 import finn.core.onnx_exec as oxe
+from finn.analysis.fpgadataflow.post_synth_res import post_synth_res
+from finn.core.throughput_test import throughput_test_rtlsim
 from finn.transformation.fpgadataflow.compile_cppsim import CompileCppSim
-from finn.transformation.fpgadataflow.create_stitched_ip import CreateStitchedIP
 from finn.transformation.fpgadataflow.hlssynth_ip import HLSSynthIP
-from finn.transformation.fpgadataflow.insert_fifo import InsertFIFO
 from finn.transformation.fpgadataflow.prepare_cppsim import PrepareCppSim
 from finn.transformation.fpgadataflow.prepare_ip import PrepareIP
 from finn.transformation.fpgadataflow.prepare_rtlsim import PrepareRTLSim
 from finn.transformation.fpgadataflow.set_exec_mode import SetExecMode
 from finn.transformation.fpgadataflow.specialize_layers import SpecializeLayers
-from finn.transformation.fpgadataflow.vitis_build import CreateVitisXO, VitisBuild, VitisLink
-from finn.core.throughput_test import throughput_test_rtlsim
-from qonnx.custom_op.registry import getCustomOp
-from qonnx.transformation.general import (
-    RemoveUnusedTensors,
-)
-
-from finn.analysis.fpgadataflow.post_synth_res import post_synth_res
-import finn.builder.build_dataflow as build
-import finn.builder.build_dataflow_config as build_cfg
-import os
-import shutil
-
-from finn.transformation.fpgadataflow.create_dataflow_partition import (
-    CreateDataflowPartition,
-)
-
-
-
-from finn.util.basic import CppBuilder, get_rtlsim_trace_depth, make_build_dir
-
-
-import os
-import xml.etree.ElementTree as ET
-from qonnx.core.modelwrapper import ModelWrapper
-from qonnx.custom_op.registry import getCustomOp
-
+from finn.util.basic import make_build_dir
 from finn.util.fpgadataflow import is_hls_node, is_rtl_node
+
 
 def post_synth_res_dwc(model, override_synth_report_filename=None):
     """Extracts the FPGA resource results from the Vivado synthesis.
@@ -141,12 +122,13 @@ def post_synth_res_dwc(model, override_synth_report_filename=None):
             sdp_res_dict = post_synth_res(sdp_model, synth_report_filename)
             res_dict.update(sdp_res_dict)
         elif is_hls_node(node) or is_rtl_node(node):
-            node_dict = get_instance_stats(f"top_StreamingDataflowPartition_1_0_StreamingDataflowPartition_1_StreamingDataflowPartition_1_StreamingDataWidthConverter_hls_0_0")
+            node_dict = get_instance_stats(
+                f"top_StreamingDataflowPartition_1_0_StreamingDataflowPartition_1_StreamingDataflowPartition_1_StreamingDataWidthConverter_hls_0_0"
+            )
             if node_dict is not None:
                 res_dict[node.name] = node_dict
 
     return res_dict
-
 
 
 def make_single_dwc_modelwrapper(in_shape, out_shape, inWidth, outWidth, finn_dtype):
@@ -166,6 +148,7 @@ def make_single_dwc_modelwrapper(in_shape, out_shape, inWidth, outWidth, finn_dt
         inWidth=inWidth,
         outWidth=outWidth,
         preferred_impl_style="hls",
+        generalized_variant=True,
         dataType=str(finn_dtype.name),
     )
 
@@ -184,53 +167,36 @@ def prepare_inputs(input_tensor, dt):
     return {"inp": input_tensor}
 
 
-
 @pytest.mark.parametrize(
     "config",
     [
-
-
-        ([1, 2, 2, 1680], [1, 2, 2, 1680], 70, 240, DataType["BIPOLAR"]), # extra word of padding
-        ([1, 2, 2, 1680], [1, 2, 2, 1680], 240, 70, DataType["BIPOLAR"]), # extra word of padding
-
-
-
-        ([1, 1680], [1, 1680], 70, 240, DataType["BIPOLAR"]), # extra word of padding
-        ([1, 1680], [1, 1680], 240, 70, DataType["BIPOLAR"]), # extra word of padding
-
-
-        ([1, 1680], [1, 1680], 35, 280, DataType["BIPOLAR"]), # extra word of padding
-        ([1, 1680], [1, 1680], 280, 35, DataType["BIPOLAR"]), # extra word of padding
-
+        ([1, 2, 2, 1680], [1, 2, 2, 1680], 70, 240, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 2, 2, 1680], [1, 2, 2, 1680], 240, 70, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 1680], [1, 1680], 70, 240, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 1680], [1, 1680], 240, 70, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 1680], [1, 1680], 35, 280, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 1680], [1, 1680], 280, 35, DataType["BIPOLAR"]),  # extra word of padding
         # requires LCM for old version
-        ([1, 42], [1, 42], 6, 14, DataType["BIPOLAR"]), # extra word of padding
-        ([1, 1239], [1, 1239], 21, 59, DataType["BIPOLAR"]), # extra word of padding
-        ([1, 1680], [1, 1680], 70, 240, DataType["BIPOLAR"]), # extra word of padding
-
-        ([1, 42], [1, 42], 14, 6, DataType["BIPOLAR"]), # extra word of padding
-        ([1, 1239], [1, 1239], 59, 21, DataType["BIPOLAR"]), # extra word of padding
-        ([1, 1680], [1, 1680], 240, 70, DataType["BIPOLAR"]), # extra word of padding
-
-
+        ([1, 42], [1, 42], 6, 14, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 1239], [1, 1239], 21, 59, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 1680], [1, 1680], 70, 240, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 42], [1, 42], 14, 6, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 1239], [1, 1239], 59, 21, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 1680], [1, 1680], 240, 70, DataType["BIPOLAR"]),  # extra word of padding
         # conversion without needing LCMs
-        ([1, 180], [1, 180], 2, 18, DataType["BIPOLAR"]), # extra word of padding
-        ([1, 720], [1, 720], 8, 72, DataType["BIPOLAR"]), # extra word of padding
-        ([1, 2880], [1, 2880], 32, 288, DataType["BIPOLAR"]), # extra word of padding
-
-        ([1, 180], [1, 180], 18, 2, DataType["BIPOLAR"]), # extra word of padding
-        ([1, 720], [1, 720], 72, 8, DataType["BIPOLAR"]), # extra word of padding
-        ([1, 2880], [1, 2880], 288, 32, DataType["BIPOLAR"]), # extra word of padding
-
-
+        ([1, 180], [1, 180], 2, 18, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 720], [1, 720], 8, 72, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 2880], [1, 2880], 32, 288, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 180], [1, 180], 18, 2, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 720], [1, 720], 72, 8, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 2880], [1, 2880], 288, 32, DataType["BIPOLAR"]),  # extra word of padding
         # passthrough
-        ([1, 100], [1, 100], 10, 10, DataType["BIPOLAR"]), # extra word of padding
-        ([1, 400], [1, 400], 40, 40, DataType["BIPOLAR"]), # extra word of padding
-        ([1, 1600], [1, 1600], 160, 160, DataType["BIPOLAR"]), # extra word of padding
-        
-      
+        ([1, 100], [1, 100], 10, 10, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 400], [1, 400], 40, 40, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 1600], [1, 1600], 160, 160, DataType["BIPOLAR"]),  # extra word of padding
     ],
 )
-@pytest.mark.parametrize("exec_mode", ["rtlsim","cppsim"])
+@pytest.mark.parametrize("exec_mode", ["rtlsim", "cppsim"])
 @pytest.mark.fpgadataflow
 @pytest.mark.slow
 @pytest.mark.vivado
@@ -246,23 +212,20 @@ def test_fpgadataflow_dwc(config, exec_mode):
     # verify abstraction level execution
     y = oxe.execute_onnx(model, input_dict)["outp"]
 
-
     assert y.shape == tuple(out_shape), """The output shape is incorrect."""
     # remove padding if it was performed
-    y = y.reshape(1,np.prod(y.shape))
-    x = x.reshape(1,np.prod(x.shape))
+    y = y.reshape(1, np.prod(y.shape))
+    x = x.reshape(1, np.prod(x.shape))
 
     if y.shape[-1] > x.shape[-1]:
-        y = y[0,:x.shape[-1]]
+        y = y[0, : x.shape[-1]]
     else:
-        x = x[0,:y.shape[-1]]
-
+        x = x[0, : y.shape[-1]]
 
     assert (
         y == x
     ).all(), """The output values are not the same as the
         input values anymore."""
-    
 
     model = model.transform(SpecializeLayers(test_fpga_part))
     model = model.transform(GiveUniqueNodeNames())
@@ -278,69 +241,54 @@ def test_fpgadataflow_dwc(config, exec_mode):
         model = model.transform(PrepareRTLSim())
     y = oxe.execute_onnx(model, input_dict)["outp"]
 
-
-
     assert y.shape == tuple(out_shape), """The output shape is incorrect."""
 
     # remove padding if it was performed
-    y = y.reshape(1,np.prod(y.shape))
-    x = x.reshape(1,np.prod(x.shape))
+    y = y.reshape(1, np.prod(y.shape))
+    x = x.reshape(1, np.prod(x.shape))
 
     if y.shape[-1] > x.shape[-1]:
-        y = y[0,:x.shape[-1]]
+        y = y[0, : x.shape[-1]]
     else:
-        x = x[0,:y.shape[-1]]
-
+        x = x[0, : y.shape[-1]]
 
     # cpp sim assert fails for BIPOLAR data type, but not RTL.
-    if (finn_dtype != DataType["BIPOLAR"]) or (finn_dtype != DataType["BIPOLAR"] and exec_mode != "cppsim"):
+    if (finn_dtype != DataType["BIPOLAR"]) or (
+        finn_dtype != DataType["BIPOLAR"] and exec_mode != "cppsim"
+    ):
         assert (
             y == x
         ).all(), """The output values are not the same as the
             input values anymore."""
-    else: assert True # we
-
-
-
+    else:
+        assert True  # we
 
 
 @pytest.mark.parametrize(
     "config",
     [
-
-        ([1, 840], [1, 840], 35, 120, DataType["BIPOLAR"]), # extra word of padding
-        ([1, 840], [1, 840], 120, 35, DataType["BIPOLAR"]), # extra word of padding
-
-
-        ([1, 1680], [1, 1680], 35, 280, DataType["BIPOLAR"]), # extra word of padding
-        ([1, 1680], [1, 1680], 280, 35, DataType["BIPOLAR"]), # extra word of padding
-
+        ([1, 840], [1, 840], 35, 120, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 840], [1, 840], 120, 35, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 1680], [1, 1680], 35, 280, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 1680], [1, 1680], 280, 35, DataType["BIPOLAR"]),  # extra word of padding
         # requires LCM for old version
-        ([1, 42], [1, 42], 6, 14, DataType["BIPOLAR"]), # extra word of padding
-        ([1, 1239], [1, 1239], 21, 59, DataType["BIPOLAR"]), # extra word of padding
-        ([1, 1680], [1, 1680], 70, 240, DataType["BIPOLAR"]), # extra word of padding
-
-        ([1, 42], [1, 42], 14, 6, DataType["BIPOLAR"]), # extra word of padding
-        ([1, 1239], [1, 1239], 59, 21, DataType["BIPOLAR"]), # extra word of padding
-        ([1, 1680], [1, 1680], 240, 70, DataType["BIPOLAR"]), # extra word of padding
-
-
+        ([1, 42], [1, 42], 6, 14, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 1239], [1, 1239], 21, 59, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 1680], [1, 1680], 70, 240, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 42], [1, 42], 14, 6, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 1239], [1, 1239], 59, 21, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 1680], [1, 1680], 240, 70, DataType["BIPOLAR"]),  # extra word of padding
         # conversion without needing LCMs
-        ([1, 180], [1, 180], 2, 18, DataType["BIPOLAR"]), # extra word of padding
-        ([1, 720], [1, 720], 8, 72, DataType["BIPOLAR"]), # extra word of padding
-        ([1, 2880], [1, 2880], 32, 288, DataType["BIPOLAR"]), # extra word of padding
-
-        ([1, 180], [1, 180], 18, 2, DataType["BIPOLAR"]), # extra word of padding
-        ([1, 720], [1, 720], 72, 8, DataType["BIPOLAR"]), # extra word of padding
-        ([1, 2880], [1, 2880], 288, 32, DataType["BIPOLAR"]), # extra word of padding
-
-
+        ([1, 180], [1, 180], 2, 18, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 720], [1, 720], 8, 72, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 2880], [1, 2880], 32, 288, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 180], [1, 180], 18, 2, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 720], [1, 720], 72, 8, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 2880], [1, 2880], 288, 32, DataType["BIPOLAR"]),  # extra word of padding
         # passthrough
-        ([1, 100], [1, 100], 10, 10, DataType["BIPOLAR"]), # extra word of padding
-        ([1, 400], [1, 400], 40, 40, DataType["BIPOLAR"]), # extra word of padding
-        ([1, 1600], [1, 1600], 160, 160, DataType["BIPOLAR"]), # extra word of padding
-        
-        
+        ([1, 100], [1, 100], 10, 10, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 400], [1, 400], 40, 40, DataType["BIPOLAR"]),  # extra word of padding
+        ([1, 1600], [1, 1600], 160, 160, DataType["BIPOLAR"]),  # extra word of padding
     ],
 )
 @pytest.mark.fpgadataflow
@@ -350,7 +298,9 @@ def test_fpgadataflow_dwc(config, exec_mode):
 @pytest.mark.parametrize("measure_performance", [False])
 @pytest.mark.parametrize("test_type", ["new"])
 @pytest.mark.vivado
-def test_fpgadataflow_dwc_stitched_rtlsim(config, measure_resources,measure_functionality, measure_performance, test_type):
+def test_fpgadataflow_dwc_stitched_rtlsim(
+    config, measure_resources, measure_functionality, measure_performance, test_type
+):
     in_shape, out_shape, inWidth, outWidth, finn_dtype = config
 
     test_fpga_part = "xc7z020clg400-1"
@@ -363,141 +313,79 @@ def test_fpgadataflow_dwc_stitched_rtlsim(config, measure_resources,measure_func
 
     build_dir = os.environ["FINN_BUILD_DIR"]
 
-
     build_dir = build_dir + "/test_model/"
     if not os.path.isdir(build_dir):
         build_dir = make_build_dir(prefix="dwc_performance_testing_")
 
-
     model = make_single_dwc_modelwrapper(in_shape, out_shape, inWidth, outWidth, finn_dtype)
-    model = model.transform(SpecializeLayers())
+    model = model.transform(SpecializeLayers(test_fpga_part))
     model_dir = f"{build_dir}/dwc_res_tests_{inWidth}_{outWidth}"
     model_file = f"{model_dir}/model.onnx"
     model.save(model_dir)
-    
-
-
 
     final_output_dir = build_dir
 
-    #Delete previous run results if exist
-   # if os.path.exists(final_output_dir):
-   #     shutil.rmtree(final_output_dir)
-   #     print("Previous run results deleted!")
-
-
+    # Delete previous run results if exist
+    # if os.path.exists(final_output_dir):
+    #     shutil.rmtree(final_output_dir)
+    #     print("Previous run results deleted!")
 
     cfg = build.DataflowBuildConfig(
-        output_dir          = final_output_dir,
-        mvau_wwidth_max     = 80,
-        target_fps          = 1000000,
-        synth_clk_period_ns = target_clk_ns,
-        board               = "Pynq-Z1",
-       # board               = "U250",
-        shell_flow_type     = build_cfg.ShellFlowType.VIVADO_ZYNQ,
+        output_dir=final_output_dir,
+        mvau_wwidth_max=80,
+        target_fps=1000000,
+        synth_clk_period_ns=target_clk_ns,
+        board="Pynq-Z1",
+        # board               = "U250",
+        shell_flow_type=build_cfg.ShellFlowType.VIVADO_ZYNQ,
         generate_outputs=[
-           # build_cfg.DataflowOutputType.STITCHED_IP,
-        #    build_cfg.DataflowOutputType.OOC_SYNTH,
+            # build_cfg.DataflowOutputType.STITCHED_IP,
+            #    build_cfg.DataflowOutputType.OOC_SYNTH,
             build_cfg.DataflowOutputType.BITFILE,
-        #    build_cfg.DataflowOutputType.PYNQ_DRIVER,
-        #    build_cfg.DataflowOutputType.DEPLOYMENT_PACKAGE,
-        ]
+            #    build_cfg.DataflowOutputType.PYNQ_DRIVER,
+            #    build_cfg.DataflowOutputType.DEPLOYMENT_PACKAGE,
+        ],
     )
     build.build_dataflow_cfg(model_dir, cfg)
 
-
-    """
-    parent_model = model.transform(CreateDataflowPartition())
-    #parent_model.save(build_dir + "/end2end_cnv_w1a1_dataflow_parent.onnx")
-    sdp_node = parent_model.get_nodes_by_op_type("StreamingDataflowPartition")[0]
-    sdp_node = getCustomOp(sdp_node)
-    dataflow_model_filename = sdp_node.get_nodeattr("model")
-    # save the dataflow partition with a different name for easier access
-    # and specialize the layers to HLS variants
-    dataflow_model = ModelWrapper(dataflow_model_filename)
-    model = dataflow_model.transform(SpecializeLayers())
-
-
-    
-    model = model.transform(GiveUniqueNodeNames())
-    model = model.transform(CreateDataflowPartition())
-
-    
-    kernel_model = model
-    sdp_nodes = model.get_nodes_by_op_type("StreamingDataflowPartition")
-    for sdp_node in sdp_nodes:
-        prefix = sdp_node.name + "_"
-        sdp_node = getCustomOp(sdp_node)
-        dataflow_model_filename = sdp_node.get_nodeattr("model")
-        kernel_model = ModelWrapper(dataflow_model_filename)
-        kernel_model = kernel_model.transform(InsertFIFO())
-        kernel_model = kernel_model.transform(SpecializeLayers())
-        kernel_model = kernel_model.transform(RemoveUnusedTensors())
-        kernel_model = kernel_model.transform(GiveUniqueNodeNames(prefix))
-        kernel_model.save(dataflow_model_filename)
-        kernel_model = kernel_model.transform(PrepareIP(test_fpga_part, target_clk_ns))
-        kernel_model = kernel_model.transform(HLSSynthIP())
-        kernel_model = kernel_model.transform(
-            CreateStitchedIP(test_fpga_part, target_clk_ns, sdp_node.onnx_node.name, True)
-        )
-        kernel_model.set_metadata_prop("platform", "alveo")
-        kernel_model = kernel_model.transform(CreateVitisXO(sdp_node.onnx_node.name))
-        kernel_model = kernel_model.transform(VitisLink(platform="alveo",f_mhz=round(1000/target_clk_ns)))
-        kernel_model.save(dataflow_model_filename)
-    model = kernel_model
-    
-    
-    
-    model = model.transform(VitisBuild(fpga_part=test_fpga_part,period_ns=target_clk_ns,platform="alveo"))
-    """
     model.set_metadata_prop("rtlsim_so", "")
     model.set_metadata_prop("exec_mode", "rtlsim")
-    res = post_synth_res_dwc(model,f"{final_output_dir}/report/post_synth_resources.xml")
+    res = post_synth_res_dwc(model, f"{final_output_dir}/report/post_synth_resources.xml")
     res = res[""]
     build_dir = os.environ["FINN_BUILD_DIR"]
     build_dir += f"/dwc_performance_testing_{test_type}"
     lut = res["LUT"]
     ff = res["FF"]
     target_clk = int(np.round(1000 / target_clk_ns))
-    with open(f'{build_dir}/measurements.txt',"a+") as f: 
-        f.writelines(f"{target_clk}\t{inWidth}\t{outWidth}\tnew_hls\t{lut}\t{ff}\n")  
+    with open(f"{build_dir}/measurements.txt", "a+") as f:
+        f.writelines(f"{target_clk}\t{inWidth}\t{outWidth}\tnew_hls\t{lut}\t{ff}\n")
 
-   # with open(f"{build_dir}_new_DWC_res.txt", 'a+') as f:
-     #   f.write(res) # here filter to only what we care about
+    # with open(f"{build_dir}_new_DWC_res.txt", 'a+') as f:
+    #   f.write(res) # here filter to only what we care about
     print(f"{target_clk}\t{inWidth}\t{outWidth}\tnew_hls\t{lut}\t{ff}\n")
 
-    #assert True == False
+    # assert True == False
 
     if measure_functionality:
         y = oxe.execute_onnx(model, input_dict)["outp"]
 
-
         assert y.shape == tuple(out_shape), """The output shape is incorrect."""
 
         # remove padding if it was performed
-        y = y.reshape(1,np.prod(y.shape))
-        x = x.reshape(1,np.prod(x.shape))
+        y = y.reshape(1, np.prod(y.shape))
+        x = x.reshape(1, np.prod(x.shape))
 
         if y.shape[-1] > x.shape[-1]:
-            y = y[0,:x.shape[-1]]
+            y = y[0, : x.shape[-1]]
         else:
-            x = x[0,:y.shape[-1]]
-
+            x = x[0, : y.shape[-1]]
 
         assert (
             y == x
         ).all(), """The output values are not the same as the
             input values anymore."""
 
-
     if measure_performance:
         rtlsim_bs = 50
         res = throughput_test_rtlsim(model, rtlsim_bs)
         print(f"Performance for {in_shape, out_shape,inWidth,outWidth} :", res)
-
-
-
-
-
-
-

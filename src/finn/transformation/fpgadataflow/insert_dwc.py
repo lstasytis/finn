@@ -118,9 +118,12 @@ class InsertDWC(Transformation):
                             ) == 0 and np.prod(n0_out_shape) == np.prod(n1_in_shape):
                                 # the DWC does not need to perform conversions between
                                 # widths which can be divided by one another,
+                                # nor is padding or cropping happening
                                 # thus we can use the optimal RTL variant
                                 style = "rtl"
                             else:
+                                # either complex width conversion or padding/cropping
+                                # are involved, so we use the generalized HLS variant
                                 style = "hls"
                             # determine dtype for dwc
                             dtype = n0.get_output_datatype()

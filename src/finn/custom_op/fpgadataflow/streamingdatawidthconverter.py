@@ -49,6 +49,7 @@ class StreamingDataWidthConverter(HWCustomOp):
             # bit width of input and output streams
             "inWidth": ("i", True, 0),
             "outWidth": ("i", True, 0),
+            "generalized_variant": ("i", True, 1),
             # FINN DataTypes for inputs/outputs
             "dataType": ("s", True, ""),
         }
