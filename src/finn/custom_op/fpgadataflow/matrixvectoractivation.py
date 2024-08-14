@@ -450,7 +450,11 @@ class MVAU(HWCustomOp):
         mw = self.get_nodeattr("MW")
         # since mmv != 1 is not supported yet, we set mmv for now to 1
         mmv = 1
-        exp_cycles = (mh / pe) * (mw / simd) * np.prod(num_inp_vec) / mmv
+        #windup is a small constant for loop initiation overheads
+        # this fixes characteristic function periods being too short for
+        # very small MVAUs
+        windup = 3
+        exp_cycles = (mh / pe) * (mw / simd) * np.prod(num_inp_vec) / mmv + windup
         return int(exp_cycles)
 
     def minimize_accumulator_width(self, model):
@@ -838,20 +842,6 @@ class MVAU(HWCustomOp):
             ret_dict[thres_param_type] = thres_count
         return ret_dict
 
-    def derive_characteristic_fxns(self, period):
-        n_inps = np.prod(self.get_folded_input_shape()[:-1])
-        io_dict = {
-            "inputs": {
-                "in0": [0 for i in range(n_inps)],
-            },
-            "outputs": {"out": []},
-        }
-        mem_mode = self.get_nodeattr("mem_mode")
-        if mem_mode in ["internal_decoupled", "external"]:
-            n_weight_inps = self.calc_wmem()
-            num_w_reps = np.prod(self.get_nodeattr("numInputVectors"))
-            io_dict["inputs"]["weights"] = [0 for i in range(num_w_reps * n_weight_inps)]
-        super().derive_characteristic_fxns(period, override_rtlsim_dict=io_dict)
 
     def get_verilog_top_module_intf_names(self):
         intf_names = super().get_verilog_top_module_intf_names()
@@ -971,3 +961,173 @@ class MVAU(HWCustomOp):
         else:
             raise Exception("Unrecognized mem_mode for MatrixVectorActivation")
         return cmd
+
+
+    def prepare_kwargs_for_characteristic_fx(self):
+
+        MW = self.get_nodeattr("MW")
+        MH = self.get_nodeattr("MH")
+
+        SIMD = self.get_nodeattr("SIMD")
+        PE = self.get_nodeattr("PE")
+        numVectors = np.prod(self.get_nodeattr("numInputVectors"))
+        BURST_SIZE = int(MW/SIMD)
+        BURST_COUNT = int(MH/PE)
+        
+        kwargs = (MW,MH,SIMD,PE,BURST_COUNT,BURST_SIZE,numVectors)
+
+        return kwargs
+
+
+    def characteristic_fx_input(self, txns, cycles, counter, kwargs):
+
+        (MW,MH,SIMD,PE,BURST_COUNT,BURST_SIZE,numVectors) = kwargs
+
+        tracker = 0
+        maximum = numVectors*BURST_SIZE
+
+        if numVectors > 1:
+            for i in range(2):
+                txns.append(counter)
+                counter+=1
+                cycles+=1
+                tracker+=1
+
+        for k in range(numVectors):
+            for j in range(BURST_SIZE):
+                if tracker < maximum:
+                    txns.append(counter)
+                    counter+=1         
+                    cycles+=1      
+                    tracker+=1
+
+
+            for i in range(BURST_COUNT-1):
+                for j in range(BURST_SIZE):
+                    txns.append(counter)
+                    cycles+=1
+
+        return txns, cycles, counter
+
+
+    def characteristic_fx_output(self, txns, cycles, counter, kwargs):
+
+        (MW,MH,SIMD,PE,BURST_COUNT,BURST_SIZE,numVectors) = kwargs
+
+        windup_clocks = 3
+
+        for i in range(0,windup_clocks):
+            txns.append(counter)
+            cycles+=1
+            
+        for k in range(numVectors):
+            for i in range(BURST_COUNT):
+                for j in range(BURST_SIZE):
+                    txns.append(counter)
+                    cycles+=1
+                counter+=1
+
+        return txns, cycles, counter
+
+
+    def derive_characteristic_fxns(self, period):
+        n_inps = np.prod(self.get_folded_input_shape()[:-1])
+        io_dict = {
+            "inputs": {
+                "in0": [0 for i in range(n_inps)],
+            },
+            "outputs": {"out": []},
+        }
+
+        
+        mem_mode = self.get_nodeattr("mem_mode")
+        if mem_mode in ["internal_decoupled", "external"]:
+            n_weight_inps = self.calc_wmem()
+            num_w_reps = np.prod(self.get_nodeattr("numInputVectors"))
+            io_dict["inputs"]["weights"] = [0 for i in range(num_w_reps * n_weight_inps)]
+
+
+        ignore = self.get_nodeattr("ipgen_ignore")
+        if ignore == 0: # this node is being derived using RTLSIM
+            # RTL-based flow
+            super().derive_characteristic_fxns(period, override_rtlsim_dict=io_dict)
+            return
+
+     
+
+        # Analytical flow 
+        
+        txns_in = {key: [] for (key, value) in io_dict["inputs"].items() if "in" in key}
+        txns_out = {key: [] for (key, value) in io_dict["outputs"].items() if "out" in key}
+
+        all_txns_in = np.empty((len(txns_in.keys()), 2 * period), dtype=np.int32)
+        all_txns_out = np.empty((len(txns_out.keys()), 2 * period), dtype=np.int32)
+
+
+        self.set_nodeattr("io_chrc_period",period)
+
+
+
+
+        txn_in = []
+        txn_out = []
+
+
+        # INPUT
+
+        counter = 0
+        padding = 0
+        
+
+        kwargs = self.prepare_kwargs_for_characteristic_fx()
+
+        
+        # first period
+        cycles = 0
+        txn_in, cycles, counter = self.characteristic_fx_input(txn_in,cycles,counter,kwargs)
+
+        for i in range(cycles,period):
+            txn_in.append(counter)
+            padding+=1
+        
+        
+
+        # second period
+        cycles = period
+        txn_in, cycles, counter = self.characteristic_fx_input(txn_in,cycles,counter,kwargs)
+
+        for i in range(cycles,period*2):
+            txn_in.append(counter)
+            padding+=1
+
+        # final assignments
+        all_txns_in[0, :] = np.array(txn_in)
+        self.set_nodeattr("io_chrc_in", all_txns_in)
+        self.set_nodeattr("io_chrc_pads_in", padding)
+
+
+        # OUTPUT
+        
+        counter = 0
+        cycles = 0  
+        padding = 0          
+
+
+        txn_out, cycles, counter = self.characteristic_fx_output(txn_out,cycles,counter,kwargs)
+
+        for i in range(cycles,period):
+            txn_out.append(counter)
+            padding+=1
+
+        cycles = period
+
+        txn_out, cycles, counter = self.characteristic_fx_output(txn_out,cycles,counter,kwargs)
+
+        for i in range(cycles,period*2):
+            txn_out.append(counter)
+            padding+=1
+
+
+        all_txns_out[0, :] = np.array(txn_out)   
+        self.set_nodeattr("io_chrc_out", all_txns_out)
+        self.set_nodeattr("io_chrc_pads_out", padding)

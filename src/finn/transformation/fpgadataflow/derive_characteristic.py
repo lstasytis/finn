@@ -34,7 +34,55 @@ from qonnx.core.modelwrapper import ModelWrapper
 from qonnx.transformation.base import NodeLocalTransformation
 
 from finn.util.fpgadataflow import is_hls_node, is_rtl_node
+import sys
+import numpy
 
+
+def characterized_nodes():
+    return [
+    "MVAU_hls",
+    "MVAU_rtl",
+    "StreamingDataWidthConverter_hls",
+    "StreamingDataWidthConverter_rtl",
+    "ConvolutionInputGenerator_rtl",
+    "ConvolutionInputGenerator_hls",
+    "StreamingMaxPool_hls",
+    "StreamingMaxPool_rtl",
+    "LabelSelect_hls",
+    "LabelSelect_rtl",
+    "Thresholding_hls",
+    "Thresholding_rtl",
+    "VVAU_hls",
+    "VVAU_rtl",
+    "FMPadding_hls",
+    "FMPadding_rtl",
+    "ChannelwiseOp_hls",
+    "ChannelwiseOp_rtl",
+    ]
+
+def set_ignore_list_for_ip_gen(model: ModelWrapper):
+    ch_nodes = characterized_nodes()
+    
+    for node in model.graph.node:
+        inst = registry.getCustomOp(node)
+        op_type = node.op_type
+        if op_type in ch_nodes:
+            inst.set_nodeattr("ipgen_ignore",1)
+            print(f"IGNORING ip gen for node type: {op_type}")
+        else:
+            print(f"NOT ignoring ip gen for node type: {op_type}")
+    return model
+
+def unset_ignore_list_for_ip_gen(model: ModelWrapper):
+    ch_nodes = characterized_nodes()
+    
+    for node in model.graph.node:
+        inst = registry.getCustomOp(node)
+        op_type = node.op_type
+        if is_hls_node(node) or is_rtl_node(node):
+            inst.set_nodeattr("ipgen_ignore",0)
+
+    return model
 
 class DeriveCharacteristic(NodeLocalTransformation):
     """For each node in the graph, run rtlsim to obtain the i/o
@@ -70,6 +118,8 @@ class DeriveCharacteristic(NodeLocalTransformation):
         return (node, False)
 
     def apply(self, model: ModelWrapper):
+
+        print("deriving characteristic")
         (model, run_again) = super().apply(model)
         if not self.manual_bypass:
             return (model, run_again)
@@ -115,6 +165,8 @@ class DeriveCharacteristic(NodeLocalTransformation):
         return (model, run_again)
 
 
+import numpy as np 
+
 class DeriveFIFOSizes(NodeLocalTransformation):
     """Prerequisite: DeriveCharacteristic already called on graph.
     For each node in the graph, use the accumulated I/O characteristic function
@@ -126,22 +178,68 @@ class DeriveFIFOSizes(NodeLocalTransformation):
     """
 
     def __init__(self, num_workers=None, io_fifo_depth=32):
-        super().__init__(num_workers=num_workers)
+        super().__init__(num_workers=1)
         self.io_fifo_depth = io_fifo_depth
 
     def applyNodeLocal(self, node):
         op_type = node.op_type
         if is_hls_node(node) or is_rtl_node(node):
             try:
+
+                numpy.set_printoptions(threshold=sys.maxsize)
                 # lookup op_type in registry of CustomOps
                 prod = registry.getCustomOp(node)
                 assert not (op_type.startswith("StreamingFIFO")), "Found existing FIFOs"
                 period = prod.get_nodeattr("io_chrc_period")
+                cons_chrc = prod.get_nodeattr("io_chrc_in")[0]
                 prod_chrc = prod.get_nodeattr("io_chrc_out")[0]
+                
                 assert len(prod_chrc) == 2 * period, "Found unexpected characterization attribute"
-                if any([x > 2 for x in prod.get_nodeattr("outFIFODepths")]):
-                    # FIFO depth already set, can skip this node
-                    return (node, False)
+                print("derive sizes producer")
+                print("PRODUCER")
+                print(node.op_type)
+                k = prod.get_nodeattr_types().keys()
+                for el in k:
+                    try:
+                        if el in ["code_gen_dir_ipgen","code_gen_dir_cppsim","MW","MH","PE","SIMD","Dim","Channels","Labels","Kernel","ConvKernelDim","IFMChannels","NumChannels","OFMDim","depthwise","parallel_window","is1D","IFMDim","Stride","Dilation","ImgDim", "PoolDim","numInputVectors"]:
+                            print(f'{el}: {prod.get_nodeattr(el)}')
+                    except:
+                        pass
+                #print("period:")
+                #print(period)
+
+                #print("PRODUCER IN chr:")
+                #print(prod_chrc)
+                unique, counts = np.unique(cons_chrc, return_counts=True)
+                io_chrc_in_concat = []
+
+                for pair in np.asarray((unique, counts)).T:
+                    if pair[1] > 1:
+                      #  print(pair) 
+                        io_chrc_in_concat.append(pair)
+
+                prod.set_nodeattr("io_chrc_in_concat",np.array(io_chrc_in_concat))
+                #print("PRODUCER OUT chr:")
+                #print(prod_chrc)
+                unique, counts = np.unique(prod_chrc, return_counts=True)
+                io_chrc_out_concat = []
+                for pair in np.asarray((unique, counts)).T:
+                    if pair[1] > 1:
+                       # print(pair) 
+                        io_chrc_out_concat.append(pair)
+
+                prod.set_nodeattr("io_chrc_out_concat",np.array(io_chrc_out_concat))
+                #print("con_chrc:")
+                #print(cons_chrc)
+
+
+                #if any([x > 2 for x in prod.get_nodeattr("outFIFODepths")]):
+                #    # FIFO depth already set, can skip this node
+                #    return (node, False)
+                
+
+
+              #  assert True == False
 
                 # find consumers
                 model = self.ref_input_model
@@ -154,7 +252,34 @@ class DeriveFIFOSizes(NodeLocalTransformation):
                         out_fifo_depths.append(self.io_fifo_depth)
                         continue
                     cons = registry.getCustomOp(cons_node)
+                    k = cons.get_nodeattr_types().keys()
+                   # print(cons_node.op_type)
+                    for el in k:
+                        try:
+                            if el in ["MW","MH","PE","SIMD","Dim","Channels","Labels","Kernel","IFMChannels","NumChannels","ConvKernelDim","OFMDim","IFMDim","Stride","Dilation","ImgDim", "PoolDim","numInputVectors"]:
+                                print(f'{el}: {cons.get_nodeattr(el)}')
+                        except:
+                            pass
+                    #print("CONSUMER IN chr:")
                     cons_chrc = cons.get_nodeattr("io_chrc_in")[0]
+
+                    unique, counts = np.unique(cons_chrc, return_counts=True)
+                    
+                    #for pair in np.asarray((unique, counts)).T:
+                    #    if pair[1] > 1:
+                    #        print(pair) 
+                            
+
+                   # print("CONSUMER OUT chr:")
+                    prod_chrc = cons.get_nodeattr("io_chrc_out")[0]
+
+                    unique, counts = np.unique(prod_chrc, return_counts=True)
+                    
+                    #for pair in np.asarray((unique, counts)).T:
+                    #    if pair[1] > 1:
+                    #        print(pair) 
+                            
+
                     # find minimum phase shift satisfying the constraint
                     pshift_min = period - 1
                     for pshift_cand in range(period):
@@ -167,6 +292,7 @@ class DeriveFIFOSizes(NodeLocalTransformation):
                     cons_chrc_part = cons_chrc[:period]
                     fifo_depth = int((prod_chrc_part - cons_chrc_part).max())
                     out_fifo_depths.append(fifo_depth)
+                   # print(f"fifo depth: {fifo_depth}")
                 # set output FIFO depth for this (producing) node
                 # InsertFIFO looks at the max of (outFIFODepths, inFIFODepths)
                 # for each tensor

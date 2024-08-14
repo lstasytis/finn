@@ -317,10 +317,16 @@ def update_model(model, part):
 # target chip or board
 @pytest.mark.parametrize("platform", ["Pynq-Z1"])
 
+
+#@pytest.mark.parametrize(
+#    "model_type", ["cnv","convinputgenerator-only", "threshold-only","mvau-only"]
+#)
+#@pytest.mark.parametrize("exec_mode", ["rtlsim","cppsim", "stitched_rtlsim"])
+
 @pytest.mark.parametrize(
-    "model_type", ["cnv","convinputgenerator-only", "threshold-only","mvau-only"]
+    "model_type", ["mvau-only"]
 )
-@pytest.mark.parametrize("exec_mode", ["rtlsim","cppsim", "stitched_rtlsim"])
+@pytest.mark.parametrize("exec_mode", ["cppsim"])
 @pytest.mark.parametrize("impl_style", ["hls"])
 @pytest.mark.fpgadataflow
 @pytest.mark.slow

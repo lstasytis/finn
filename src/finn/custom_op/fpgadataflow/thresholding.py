@@ -264,3 +264,136 @@ class Thresholding(HWCustomOp):
         num_channels = self.get_nodeattr("NumChannels")
         pe = self.get_nodeattr("PE")
         return num_channels // pe
+
+
+
+    def derive_characteristic_fxns(self, period):
+        n_inps = np.prod(self.get_folded_input_shape()[:-1])
+        io_dict = {
+            "inputs": {
+                "in0": [0 for i in range(n_inps)],
+            },
+            "outputs": {"out": []},
+        }
+
+        if self.onnx_node.op_type == "Thresholding_hls":
+            mem_mode = self.get_nodeattr("mem_mode")
+            if mem_mode in ["internal_decoupled", "external"]:
+                n_weight_inps = self.calc_tmem()
+                num_w_reps = np.prod(self.get_nodeattr("numInputVectors"))
+                io_dict["inputs"]["weights"] = [0 for i in range(num_w_reps * n_weight_inps)]
+
+
+        ignore = self.get_nodeattr("ipgen_ignore")
+        if ignore == 0: # this node is being derived using RTLSIM
+            # RTL-based flow
+            super().derive_characteristic_fxns(period, override_rtlsim_dict=io_dict)
+            return
+        
+        # Analytical flow
+        
+
+        txns_in = {key: [] for (key, value) in io_dict["inputs"].items() if "in" in key}
+        txns_out = {key: [] for (key, value) in io_dict["outputs"].items() if "out" in key}
+
+        all_txns_in = np.empty((len(txns_in.keys()), 2 * period), dtype=np.int32)
+        all_txns_out = np.empty((len(txns_out.keys()), 2 * period), dtype=np.int32)
+        all_pad_in = []
+        all_pad_out = []
+        txn_in = []
+        txn_out = []
+
+        NumChannels = self.get_nodeattr("NumChannels")
+        PE = self.get_nodeattr("PE")
+        reps = 1
+        ImgDim = int(np.prod(list(self.get_nodeattr("numInputVectors"))))
+        NF = int(NumChannels/PE)
+        
+
+        TOTAL_ITERATIONS = reps*ImgDim *NF
+        windup = 6
+        cycles = 0
+        padding = 0
+        p = 0
+        # first input period
+        for i in range(0,TOTAL_ITERATIONS):
+            txn_in.append(p)
+            p +=1
+            cycles+=1
+
+        # pad the rest
+        for j in range(cycles, period):
+            txn_in.append(p)
+            #cycles+=1
+            padding+=1
+
+        cycles = period
+        # second input period
+        for i in range(0,TOTAL_ITERATIONS):
+            txn_in.append(p)
+            p +=1
+            cycles+=1
+
+        # pad the rest
+        for j in range(cycles,period*2):
+            txn_in.append(p)
+            #cycles+=1
+            padding+=1
+
+        all_pad_in.append(padding)
+
+ 
+        cycles = 0
+        padding = 0
+        p = 0
+
+        for i in range(0,windup):
+            txn_out.append(p)
+            cycles+=1
+        # first input period
+        for i in range(0,TOTAL_ITERATIONS):
+            txn_out.append(p)
+            p +=1
+            cycles+=1
+
+        # pad the rest
+        for j in range(cycles, period):
+            txn_out.append(p)
+            #cycles+=1
+            padding+=1
+
+        cycles = period
+
+
+        # second input period
+
+        for i in range(0,windup):
+            txn_out.append(p)
+            cycles+=1
+
+        for i in range(0,TOTAL_ITERATIONS):
+            txn_out.append(p)
+            p +=1
+            cycles+=1
+
+        # pad the rest
+        for j in range(cycles,period*2):
+            txn_out.append(p)
+            #cycles+=1
+            padding+=1
+
+
+        all_pad_out.append(padding)
+ 
+
+
+        all_txns_in[0, :] = np.array(txn_in)
+        all_txns_out[0, :] = np.array(txn_out)   
+
+        self.set_nodeattr("io_chrc_in", all_txns_in)
+        self.set_nodeattr("io_chrc_out", all_txns_out)
+        self.set_nodeattr("io_chrc_pads_in", all_pad_in)
+        self.set_nodeattr("io_chrc_pads_out", all_pad_out)
+        self.set_nodeattr("io_chrc_period",period)
+
+        #assert True==False

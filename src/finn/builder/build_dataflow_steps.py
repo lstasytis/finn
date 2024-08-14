@@ -110,6 +110,10 @@ from finn.transformation.fpgadataflow.set_fifo_depths import (
     RemoveShallowFIFOs,
     SplitLargeFIFOs,
 )
+from finn.transformation.fpgadataflow.derive_characteristic import (
+    set_ignore_list_for_ip_gen,
+    unset_ignore_list_for_ip_gen,
+)
 from finn.transformation.fpgadataflow.set_folding import SetFolding
 from finn.transformation.fpgadataflow.specialize_layers import SpecializeLayers
 from finn.transformation.fpgadataflow.synth_ooc import SynthOutOfContext
@@ -546,18 +550,31 @@ def step_set_fifo_depths(model: ModelWrapper, cfg: DataflowBuildConfig):
     `GiveUniqueNodeNames`.
     """
 
+    print("ENTERED STEP FIFO DEPTHS")
     if cfg.auto_fifo_depths:
-        if cfg.auto_fifo_strategy == "characterize":
+        if cfg.auto_fifo_strategy in ["characterize_analytic", "characterize"]:
             model = model.transform(InsertDWC())
             model = model.transform(SpecializeLayers(cfg._resolve_fpga_part()))
             model = model.transform(GiveUniqueNodeNames())
+
+
+
+
+            if cfg.auto_fifo_strategy == "characterize_analytic":
+                # should RTL sim only nodes which are not supported right now with
+                # analytic characteristic derivations
+                model = set_ignore_list_for_ip_gen(model)
+
+            
             model = model.transform(
                 PrepareIP(cfg._resolve_fpga_part(), cfg._resolve_hls_clk_period())
             )
             model = model.transform(HLSSynthIP())
             model = model.transform(PrepareRTLSim())
             model = model.transform(AnnotateCycles())
-            period = model.analysis(dataflow_performance)["max_cycles"] + 10
+            
+            period = int(model.analysis(dataflow_performance)["max_cycles"]*1.1)
+            #assert True==False
             model = model.transform(DeriveCharacteristic(period))
             model = model.transform(DeriveFIFOSizes())
             model = model.transform(
@@ -630,11 +647,25 @@ def step_set_fifo_depths(model: ModelWrapper, cfg: DataflowBuildConfig):
         model = model.transform(SplitLargeFIFOs())
     model = model.transform(RemoveShallowFIFOs())
 
+    # FIFO sizing is done, we can allow all ipgen again
+    model = unset_ignore_list_for_ip_gen(model)
+
+    # after FIFOs are ready to go, call PrepareIP and HLSSynthIP again
+    # this will only run for the new nodes (e.g. FIFOs and DWCs)
+   # model = model.transform(PrepareIP(cfg._resolve_fpga_part(), cfg._resolve_hls_clk_period()))
+   # model = model.transform(HLSSynthIP())
+    return model
+
+def step_synth_ip(model: ModelWrapper, cfg: DataflowBuildConfig):
+
+    # split up final synth step in case of analytical FIFO sizing routines
+    # in a loop which do not require synth ip. 
     # after FIFOs are ready to go, call PrepareIP and HLSSynthIP again
     # this will only run for the new nodes (e.g. FIFOs and DWCs)
     model = model.transform(PrepareIP(cfg._resolve_fpga_part(), cfg._resolve_hls_clk_period()))
     model = model.transform(HLSSynthIP())
     return model
+
 
 
 def step_create_stitched_ip(model: ModelWrapper, cfg: DataflowBuildConfig):
@@ -875,9 +906,10 @@ build_dataflow_step_lookup = {
     "step_apply_folding_config": step_apply_folding_config,
     "step_minimize_bit_width": step_minimize_bit_width,
     "step_generate_estimate_reports": step_generate_estimate_reports,
+    "step_set_fifo_depths": step_set_fifo_depths,
     "step_hw_codegen": step_hw_codegen,
     "step_hw_ipgen": step_hw_ipgen,
-    "step_set_fifo_depths": step_set_fifo_depths,
+    "step_synth_ip": step_synth_ip,
     "step_create_stitched_ip": step_create_stitched_ip,
     "step_measure_rtlsim_performance": step_measure_rtlsim_performance,
     "step_make_pynq_driver": step_make_pynq_driver,

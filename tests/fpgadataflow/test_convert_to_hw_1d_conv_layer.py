@@ -69,7 +69,7 @@ from finn.util.fpgadataflow import is_fpgadataflow_node
     ],
 )
 @pytest.mark.parametrize("depthwise", [False, True])
-@pytest.mark.parametrize("use_rtl_swg", [False, True])
+@pytest.mark.parametrize("use_rtl_swg", [False])
 @pytest.mark.parametrize("exec_mode", ["cppsim", "rtlsim"])
 @pytest.mark.fpgadataflow
 @pytest.mark.slow

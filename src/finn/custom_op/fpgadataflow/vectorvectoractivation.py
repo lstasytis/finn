@@ -922,3 +922,172 @@ class VVAU(HWCustomOp):
         else:
             raise Exception("Unrecognized mem_mode for VectorVectorActivation")
         return cmd
+
+
+
+    def derive_characteristic_fxns(self, period):
+        n_inps = np.prod(self.get_folded_input_shape()[:-1])
+        io_dict = {
+            "inputs": {
+                "in0": [0 for i in range(n_inps)],
+            },
+            "outputs": {"out": []},
+        }
+
+        
+        mem_mode = self.get_nodeattr("mem_mode")
+        if mem_mode in ["internal_decoupled", "external"]:
+            n_weight_inps = self.calc_wmem()
+            num_w_reps = np.prod(self.get_nodeattr("numInputVectors"))
+            io_dict["inputs"]["weights"] = [0 for i in range(num_w_reps * n_weight_inps)]
+
+
+        ignore = self.get_nodeattr("ipgen_ignore")
+        if ignore == 0: # this node is being derived using RTLSIM
+            # RTL-based flow
+            super().derive_characteristic_fxns(period, override_rtlsim_dict=io_dict)
+            return
+
+        # Analytical flow
+        
+
+        txns_in = {key: [] for (key, value) in io_dict["inputs"].items() if "in" in key}
+        txns_out = {key: [] for (key, value) in io_dict["outputs"].items() if "out" in key}
+
+        all_txns_in = np.empty((len(txns_in.keys()), 2 * period), dtype=np.int32)
+        all_txns_out = np.empty((len(txns_out.keys()), 2 * period), dtype=np.int32)
+        all_pad_in = []
+        all_pad_out = []
+        txn_in = np.zeros(period*2)
+        txn_out = np.zeros(period*2)
+
+
+        if "hls" in self.onnx_node.name:
+            impl_style = "hls"
+        else:
+            impl_style = "rtl"
+
+        SIMD = self.get_nodeattr("SIMD")
+        PE = self.get_nodeattr("PE")
+        Channels = self.get_nodeattr("Channels")
+        Kernel_2 = np.prod(self.get_nodeattr("Kernel"))
+        NF = int(Channels / PE)
+        SF = Kernel_2
+        numReps = np.prod(self.get_nodeattr("Dim"))
+        TOTAL_FOLD = NF*SF*numReps
+
+
+        if impl_style == "rtl":
+            TOTAL_FOLD = int(TOTAL_FOLD/SIMD)
+
+
+        cycles = 0
+        sf = 0
+        p = 0
+        p_in = 0
+        p_out = 0
+        padding = 0
+ 
+
+        # input
+        for i in range(0,TOTAL_FOLD):
+            txn_in[cycles] = p_in
+            p_in+=1
+            cycles+=1
+
+        for i in range(cycles,period):
+            #txn_in[i] = p_in
+            txn_in[i] = p_in
+            padding += 1
+
+
+        cycles = period
+
+        # input 2nd period
+        for i in range(0,TOTAL_FOLD):
+            txn_in[cycles] = p_in
+            p_in+=1
+            cycles+=1
+
+        for i in range(cycles,period*2):
+            #txn_in[i] = p_in
+            txn_in[i] = p_in
+            padding += 1
+
+
+        all_pad_in.append(padding)   
+
+
+
+        cycles = 0
+        sf = 0
+        p = 0
+        p_in = 0
+        p_out = 0
+        padding = 0
+
+        if impl_style == "hls":
+            windup = 5
+        else:
+            windup = 7
+
+        for i in range(0,windup):
+            txn_out[cycles] = p_out
+            cycles+=1
+
+        # first input period
+        #txn_in[0:bursts] = np.arange(0,bursts)
+        for i in range(0,TOTAL_FOLD+1):
+
+            if sf == SF:
+                p_out+=1
+                sf = 0
+            sf+=1
+           # txn_in[cycles] = p_in
+            txn_out[cycles] = p_out
+            cycles+=1
+        #p = bursts
+
+
+        for i in range(cycles,period):
+            #txn_in[i] = p_in
+            txn_out[i] = p_out
+            padding += 1
+
+        cycles = period
+
+
+        for i in range(0,windup+1):
+            txn_out[cycles] = p_out
+            cycles+=1
+
+        # first input period
+        #txn_in[0:bursts] = np.arange(0,bursts)
+        for i in range(0,TOTAL_FOLD+1):
+
+            if sf == SF:
+                p_out+=1
+                sf = 0
+            sf+=1
+           # txn_in[cycles] = p_in
+            txn_out[cycles] = p_out
+            cycles+=1
+        #p = bursts
+
+        for i in range(cycles,period*2):
+            #txn_in[i] = p_in
+            txn_out[i] = p_out
+            padding += 1
+
+       # all_pad_in.append(padding)   
+        all_pad_out.append(padding)   
+
+
+        all_txns_in[0, :] = txn_in
+        all_txns_out[0, :] = txn_out  
+
+        self.set_nodeattr("io_chrc_in", all_txns_in)
+        self.set_nodeattr("io_chrc_out", all_txns_out)
+        self.set_nodeattr("io_chrc_pads_in", all_pad_in)
+        self.set_nodeattr("io_chrc_pads_out", all_pad_out)
+        self.set_nodeattr("io_chrc_period",period)

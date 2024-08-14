@@ -272,6 +272,7 @@ def _vvu_rtl_possible(n, fpgapart):
     # Currently, we only support RTL-VVU on DSP58 up to 8sx9s inputs
     # (8-bit signed weights x (9-bit signed OR 8-bit (un)signed) activations).
     # Next to that, embedded thresholding functionality is not supported.
+
     node_inst = getCustomOp(n)
     if not node_inst.get_nodeattr("noActivation"):
         return False

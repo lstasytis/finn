@@ -196,6 +196,7 @@ class CapConvolutionFIFODepths(Transformation):
         return (model, False)
 
 
+
 class InsertAndSetFIFODepths(Transformation):
     """Insert appropriate-depth StreamingFIFOs through RTLSim that preserve
     throughput in the created accelerator.

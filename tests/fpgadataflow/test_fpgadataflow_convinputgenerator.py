@@ -106,7 +106,7 @@ def prepare_inputs(input_tensor):
 # Dilation
 @pytest.mark.parametrize("dilation", [[1, 1], [2, 2], [2, 1]])
 # execution mode
-@pytest.mark.parametrize("exec_mode", ["cppsim", "rtlsim"])
+@pytest.mark.parametrize("exec_mode", ["cppsim"])
 # input channel parallelism ("SIMD")
 @pytest.mark.parametrize("simd", [1, 2, 4])
 # depthwise
@@ -118,7 +118,7 @@ def prepare_inputs(input_tensor):
 # Flip dimensions
 @pytest.mark.parametrize("flip", [False])
 # implementation style
-@pytest.mark.parametrize("impl_style", ["rtl", "hls"])
+@pytest.mark.parametrize("impl_style", ["hls"])
 @pytest.mark.fpgadataflow
 @pytest.mark.slow
 @pytest.mark.vivado

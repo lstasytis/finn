@@ -44,6 +44,11 @@ def _codegen_single_node(node, model, fpgapart, clk):
     try:
         # lookup op_type in registry of CustomOps
         inst = registry.getCustomOp(node)
+
+        # early return if requested 
+        if inst.get_nodeattr("ipgen_ignore") == 1:
+            return (node, False)
+
         # get the path of the code generation directory
         code_gen_dir = inst.get_nodeattr("code_gen_dir_ipgen")
         # ensure that there is a directory

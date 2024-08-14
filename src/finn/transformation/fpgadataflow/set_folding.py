@@ -57,18 +57,29 @@ def parameter_whitelist(padding_input):
     #d [ <parameter name> ] [ < op_type > ] [ padding amount, allow folding or not ]
     d["SIMD"]["DownSampler_hls"]=[padding_input,True]
     d["SIMD"]["FMPadding_hls"]=[padding_input,True]
-    d["SIMD"]["FMPadding_Pixel_hls"]=[padding_input,True]
-    d["SIMD"]["ConvolutionInputGenerator_hls"]=[0,True]
-    d["SIMD"]["ConvolutionInputGenerator_rtl"]=[0,True]
     d["SIMD"]["FMPadding_rtl"]=[padding_input,True]
+    d["SIMD"]["FMPadding_Pixel_hls"]=[padding_input,True]
+    d["SIMD"]["ConvolutionInputGenerator_hls"]=[0,False]    # SWGs are always optimized in tandem with a consumer mvau/vvau
+    d["SIMD"]["ConvolutionInputGenerator_rtl"]=[0,False]    # SWGs are always optimized in tandem with a consumer mvau/vvau
+    
     
     d["PE"]["AddStreams_hls"]=[padding_input,True]
     d["PE"]["ChannelwiseOp_hls"]=[padding_input,True]
     d["PE"]["DuplicateStreams_hls"]=[padding_input,True]
-    d["PE"]["GlobalAccPool_hls"]=[padding_input,True]
+    d["PE"]["GlobalAccPool_hls"]=[0,True]
     d["PE"]["Thresholding_hls"]=[padding_input,True]
     d["PE"]["Thresholding_rtl"]=[padding_input,True]
-    d["PE"]["StreamingMaxPool_hls"]=[padding_input,True]
+    d["PE"]["StreamingMaxPool_hls"]=[padding_input,False]
+    d["PE"]["StreamingMaxPool_rtl"]=[padding_input,False]
+
+    d["PE"]["Pool_hls"]=[0,False]                           # Pool nodes are always optimized in tandem with a consumer mvau/vvau
+
+    d["SIMD"]["VVAU_hls"]=[0,False] # only supported for rtl variant, need to add exceptions
+    # so that only if every condition to create a dsp variant is met, to then allow folding this parameter
+    d["PE"]["VVAU_hls"]=[padding_input,True]
+
+    d["SIMD"]["VVAU_rtl"]=[padding_input,True]
+    d["PE"]["VVAU_rtl"]=[padding_input,True]
 
     d["SIMD"]["MVAU_hls"]=[padding_input,True]
     d["PE"]["MVAU_hls"]=[padding_input,True]
@@ -76,11 +87,7 @@ def parameter_whitelist(padding_input):
     d["SIMD"]["MVAU_rtl"]=[padding_input,True]
     d["PE"]["MVAU_rtl"]=[padding_input,True]
 
-    d["SIMD"]["VVAU_hls"]=[0,True]
-    d["PE"]["VVAU_hls"]=[0,True]
 
-    d["SIMD"]["VVAU_rtl"]=[0,True]
-    d["PE"]["VVAU_rtl"]=[0,True]
 
     d["PE"]["LabelSelect_hls"]=[0,False]
 
@@ -100,7 +107,7 @@ def allowed_prod_divisors(cap, max_padding_count=0):
 
     all_divs = []
     all_bounding_values = []
-    print(cap, max_padding_count)
+    #print(cap, max_padding_count)
 
     
 
@@ -131,7 +138,7 @@ def allowed_divisors(cap, max_padding_count=0):
 
     all_divs = []
     all_bounding_values = []
-    print("max bound and padding: ",cap, max_padding_count)
+    #print("max bound and padding: ",cap, max_padding_count)
     for i in range(cap, cap + max_padding_count + 1):
         for x in range(1, i + 1):
 
@@ -160,11 +167,11 @@ class ParameterSet:
 
     def get_max_cycles(self):
         cycles = []
-        print("============")
+        #print("============")
         i = 0
         for n in self.nodes:
             cycles.append(n.get_exp_cycles())
-            print(i, n.get_exp_cycles())
+           # print(i, n.get_exp_cycles())
             i+=1
         return max(cycles)
 
@@ -202,8 +209,9 @@ class ParameterSet:
             self.nodes.append(p.node)
 
             # potentially have dependent nodes as well
-            if p.dependant_node is not None:
-                self.nodes.append(p.dependant_node)
+            if len(p.dependant_nodes) > 0:
+                for n in p.dependant_nodes:
+                    self.nodes.append(n)
 
         self.nodes = list(set(self.nodes))  # make this unique
 
@@ -220,6 +228,7 @@ class Parameter:
         value=None,
         possible_values=[],
         padding=0,
+        target_cycles_per_frame = 1,
         model=None,
         default_bounding_parameter=None,
         bounding_value_for_each_possible_value=[],
@@ -231,12 +240,14 @@ class Parameter:
         self.op_type = op_type
         self.name = name
         self.index = index
+        self.target_cycles_per_frame = target_cycles_per_frame
         self.value = value
         self.shapes_updated = 0
+        self.skip_optimization = False
         self.updated = True
         self.possible_values = possible_values
         self.bounding_value_for_each_possible_value = bounding_value_for_each_possible_value
-        self.dependant_node = None
+        self.dependant_nodes = []
         self.model = model
         self.padding=padding
         self.default_bounding_parameter = default_bounding_parameter
@@ -247,11 +258,11 @@ class Parameter:
         }
 
         
-        print(node_indx)
-        print(name)
-        print(default_bounding_parameter)
-        print(possible_values)
-        print("=====================")
+        #print(node_indx)
+       # print(name)
+       # print(default_bounding_parameter)
+       # print(possible_values)
+       # print("=====================")
 
     def update_value(self, value):
         if self.value == value:
@@ -271,15 +282,10 @@ class Parameter:
                 # since they do not influence the target function
 
                 # depthwise exception
-                if self.name in ["SIMD","PE"] and self.op_type in ["VVAU_hls", "VVAU_rtl"]:
+                if self.name in ["SIMD","PE"] and self.op_type in ["VVAU_hls", "VVAU_rtl","Pool_hls"]:
                     pe = self.node.get_nodeattr("PE")
                     max_pe = self.node.get_nodeattr("Channels")
                     
-                    max_simd = np.prod(self.node.get_nodeattr("Kernel"))
-
-                    if self.name == "SIMD":
-                        self.possible_values, bounding_values = allowed_prod_divisors(
-                            max_simd, 0) # or self.padding if we support padding TODO
                         
                     if self.value in self.possible_values:
                         if self.name == "SIMD":
@@ -288,40 +294,58 @@ class Parameter:
                         else:
                             self.value = self.value
                             self.node.set_nodeattr(self.name, self.value) 
-                            pe = self.value                           
-                        swu_node = self.model.find_producer(self.node.onnx_node.input[0])
+                            pe = self.value       
 
-                        if swu_node.op_type.startswith("ConvolutionInputGenerator"):
-                            swu_node_inst = getCustomOp(swu_node)
-                            swu_node_inst.set_nodeattr("IFMChannels", max_pe)
-                            #max_swu_simd = swu_node_inst.get_nodeattr("IFMChannels")
-                            depthwise = swu_node_inst.get_nodeattr("depthwise")
-                            if depthwise == 1 or (depthwise == 0 and pe == max_pe):
-                                swu_node_inst.set_nodeattr("SIMD", pe)
-                            #if swu_node.op_type == "ConvolutionInputGenerator_rtl":
-                            #    if self.value == max_pe:
-                            #        swu_node_inst.set_nodeattr("parallel_window", 1)
-                            #    else:
-                           #         swu_node_inst.set_nodeattr("parallel_window", 0)
-                            # enable parallel_window mode of RTL SWG if needed
-                            if swu_node.op_type == "ConvolutionInputGenerator_rtl":
-                                if self.op_type.startswith("VVAU") and self.value > 1 and self.name == "SIMD":
-                                    swu_node_inst.set_nodeattr("parallel_window", 0)
+
+
+                        if self.name == "SIMD":
+                            # Detect any Pool node that might exist prior to an SWG and fold               
+                            producer =  self.model.find_producer(self.node.onnx_node.input[0])
+                            if producer is not None:
+                                if producer.op_type.startswith("Pool"):
+                                    producer_inst = getCustomOp(producer)
+                                    producer_inst.set_nodeattr("PE",self.value)
+                                    swu_node = self.model.find_producer(producer.onnx_node.input[0])
                                 else:
-                                    swu_node_inst.set_nodeattr("parallel_window", 0)
-                        else:
-                            if self.op_type in ["VVAU_hls", "VVAU_rtl"]:
-                                ksize = np.prod(self.node.get_nodeattr("Kernel"))
-                            elif self.op_type == "Pool_hls":
-                                ksize = self.node.get_nodeattr("KernelSize")
-                            else:
-                                raise Exception("Undefined edge case for %s" % self.op_type)
-                            if ksize != 1:  # pointwise vvau/pool lack a SWU
-                                raise Exception(
-                                    "Expected SWU on DW op input, found " + swu_node.op_type
-                                )
+                                    swu_node = producer
+                                if swu_node is not None:
+                                    if swu_node.op_type.startswith("ConvolutionInputGenerator"):
+                                        swu_node_inst = getCustomOp(swu_node)
+                                        max_swu_simd = swu_node_inst.get_nodeattr("IFMChannels") 
+                                        #swu_node_inst.set_nodeattr("IFMChannels", max_pe)
+                                        #max_swu_simd = swu_node_inst.get_nodeattr("IFMChannels")
+                                        depthwise = swu_node_inst.get_nodeattr("depthwise")
+                                        if depthwise == 1 or (depthwise == 0 and pe == max_pe):
+                                            swu_node_inst.set_nodeattr("SIMD", pe)
+                                        #if swu_node.op_type == "ConvolutionInputGenerator_rtl":
+                                        #    if self.value == max_pe:
+                                        #        swu_node_inst.set_nodeattr("parallel_window", 1)
+                                        #    else:
+                                    #         swu_node_inst.set_nodeattr("parallel_window", 0)
+                                        # enable parallel_window mode of RTL SWG if needed
+                                        if swu_node.op_type == "ConvolutionInputGenerator_rtl":
+                                            if max_swu_simd == pe:
+                                                cycles = swu_node_inst.get_exp_cycles()
+                                                if cycles > self.target_cycles_per_frame:
+                                                    swu_node_inst.set_nodeattr("parallel_window", 1)
+                                            else:
+                                                swu_node_inst.set_nodeattr("parallel_window", 0)
 
-                        self.dependant_node = swu_node_inst
+                            else:
+                                if self.op_type in ["VVAU_hls", "VVAU_rtl"]:
+                                    ksize = np.prod(self.node.get_nodeattr("Kernel"))
+                                elif self.op_type == "Pool_hls":
+                                    ksize = self.node.get_nodeattr("KernelSize")
+                                    
+                                else:
+                                    raise Exception("Undefined edge case for %s" % self.op_type)
+                                if ksize != 1:  # pointwise vvau/pool lack a SWU
+                                    raise Exception(
+                                        "Expected SWU on DW op input, found " + swu_node.op_type
+                                    )
+
+
+                           # self.dependant_node = swu_node_inst
 
                 #if self.name == "SIMD" and self.op_type == "ConvolutionInputGenerator_rtl":
                 #    self.node.set_nodeattr(self.name, self.value)
@@ -352,6 +376,23 @@ class Parameter:
                     consumer_inst = getCustomOp(consumer)
 
                 if self.name in ["SIMD", "PE"] and self.op_type not in ["VVAU_hls", "VVAU_rtl"]:
+
+
+                    if self.op_type in ["MVAU_rtl","MVAU_hls"] and self.name == "SIMD":
+                        producer =  self.model.find_producer(self.node.onnx_node.input[0])
+                        if producer is not None:
+                            if producer.op_type.startswith("ConvolutionInputGenerator"):
+                                swu_node_inst = getCustomOp(producer)
+                                max_swu_simd = swu_node_inst.get_nodeattr("IFMChannels") 
+                                if self.value <= max_swu_simd:
+                                    swu_node_inst.set_nodeattr("SIMD",self.value)
+
+                                if self.value == max_swu_simd:
+                                    cycles = swu_node_inst.get_exp_cycles()
+                                    if cycles > self.target_cycles_per_frame:
+                                        swu_node_inst.set_nodeattr("parallel_window", 1)
+                                else:
+                                    swu_node_inst.set_nodeattr("parallel_window", 0)
 
                     
                     if (
@@ -386,6 +427,7 @@ class Parameter:
                         
                     else:
                         self.node.set_nodeattr(self.name, self.value)
+               # print(f"applied {self.value} to {self.name} of node {self.node}")
             # after the optimization routines, when the final values are being applied,
             # additionally update any bounding parameters such as MW and MH to introduce
             # padding if necessary to support more folding factors. Crucially, update the
@@ -409,50 +451,50 @@ class Parameter:
                 # update the proto tensors
 
                 # input shape adjustment
-                if self.default_bounding_parameter[0] in [
-                    "MW",
-                    "NumChannels",
-                    "IFMChannels",
-                    "Labels",
-                ]:
-                    new_shape = getCustomOp(
-                        self.model.graph.node[self.node_index]
-                    ).get_normal_input_shape()
-
-                    old_shape = self.model.get_tensor_shape(
-                        self.model.graph.node[self.node_index].input[0]
-                    )
+              #  if self.default_bounding_parameter[0] in [
+              #      "MW",
+              #      "NumChannels",
+              #      "IFMChannels",
+              #      "Labels",
+              #  ]:
+                 #   new_shape = getCustomOp(
+                 #       self.model.graph.node[self.node_index]
+                 #   ).get_normal_input_shape()
+                #
+                 #   old_shape = self.model.get_tensor_shape(
+                 #       self.model.graph.node[self.node_index].input[0]
+                #    )
                     
                 
-                    self.model.set_tensor_shape(
-                        self.model.graph.node[self.node_index].input[0], new_shape
-                    )
+                #    self.model.set_tensor_shape(
+                #        self.model.graph.node[self.node_index].input[0], new_shape
+               #     )
                 
-                    if old_shape != new_shape:
-                        self.shapes_updated += 1
+               #     if old_shape != new_shape:
+                #        self.shapes_updated += 1
 
                 # output shape adjustment
-                if self.default_bounding_parameter[0] in [
-                    "MH",
-                    "IFMChannels",
-                    "Channels",
-                    "NumChannels",
-                ]:
-                    new_shape = getCustomOp(
-                        self.model.graph.node[self.node_index]
-                    ).get_normal_output_shape()
+               # if self.default_bounding_parameter[0] in [
+               #     "MH",
+               #     "IFMChannels",
+               #     "Channels",
+               #     "NumChannels",
+               # ]:
+                new_shape = getCustomOp(
+                    self.model.graph.node[self.node_index]
+                ).get_normal_output_shape()
 
 
-                    old_shape = self.model.get_tensor_shape(
-                        self.model.graph.node[self.node_index].output[0]
-                    )
-                    
-                    self.model.set_tensor_shape(
-                        self.model.graph.node[self.node_index].output[0], new_shape
-                    )
-                    
-                    if old_shape != new_shape:
-                        self.shapes_updated += 1
+                old_shape = self.model.get_tensor_shape(
+                    self.model.graph.node[self.node_index].output[0]
+                )
+                
+                self.model.set_tensor_shape(
+                    self.model.graph.node[self.node_index].output[0], new_shape
+                )
+                
+                if old_shape != new_shape:
+                    self.shapes_updated += 1
                 #    self.model.set_initializer(f"outp",y)
                 #  self.model.graph.node[-1].output[0] = y
 
@@ -533,6 +575,54 @@ class Parameter:
                             self.model.graph.node[self.node_index].input[1], T_new
                         )
 
+                if self.op_type in ["VVAU_hls","VVAU_rtl"]:
+                    W = self.model.get_initializer(self.model.graph.node[self.node_index].input[1])
+                    ch = self.node.get_nodeattr("Channels")
+                    k = self.node.get_nodeattr("Kernel")
+                    #assert True == False
+                    if W.shape[0] != ch or W.shape[-2:] == tuple(k):
+                        # padding 
+
+                        self.shapes_updated += 1
+                        wdt = self.model.get_tensor_datatype(self.model.graph.node[self.node_index].input[1])
+						
+                        # W_new = np.zeros(wdt.min(), wdt.max() + 1, size=(mw, mh))
+
+                        W_new = gen_finn_dt_tensor(wdt, (ch ,W.shape[1],k[0],k[1]))
+                        W_new[...] = 0
+
+                        W_new[:min(ch, W.shape[0]) , : , : min(k[0], W.shape[2]) , : min(k[1], W.shape[3])] = W[:min(ch, W.shape[0]) , : , : min(k[0], W.shape[2]) , : min(k[1], W.shape[3])]
+                        
+                        self.model.set_initializer(
+                            self.model.graph.node[self.node_index].input[1], W_new
+                        )
+
+
+                    # proto T tensor
+                    if len(self.model.graph.node[self.node_index].input) == 3:
+                        T = self.model.get_initializer(
+                            self.model.graph.node[self.node_index].input[2]
+                        )
+
+                        ch = self.node.get_nodeattr("Channels")
+                        adt = self.model.get_tensor_datatype(
+                            self.model.graph.node[self.node_index].input[2]
+                        )
+                        # W_new = np.zeros(wdt.min(), wdt.max() + 1, size=(mw, mh))
+
+                        T_new = gen_finn_dt_tensor(adt, (ch, T.shape[1]))
+                        T_new[...] = 0
+
+                        T_new[: min(ch, T.shape[0]), :] = T[: min(ch, T.shape[0]), :]
+
+                        if T.shape != T_new.shape:
+                            self.shapes_updated += 1
+                            self.model.set_initializer(
+                                self.model.graph.node[self.node_index].input[2], T_new
+                            )
+
+
+
         if self.updated:
             return True
         else:
@@ -542,10 +632,12 @@ class Parameter:
         own_cycles = self.node.get_exp_cycles()
 
         # in case we have to tie in a DW input node, consider it as well
-        if self.dependant_node is not None:
-            own_cycles = min(own_cycles, self.dependant_node.get_exp_cycles())
-
+        if len(self.dependant_nodes) >0:
+            other_cycles = max([x.get_exp_cycles() for x in self.dependant_nodes])
+            own_cycles = max(own_cycles, other_cycles)
+        #assert True==False
         return
+
 
 
 
@@ -556,6 +648,7 @@ class Optimizer:
         name,
         targets,
         hard_constraint_target=None,
+        target_cycles_per_frame=1,
         padding=0,
         maxfun_per_parameter=100,
         fpgapart="xc7z020clg400-1",
@@ -563,6 +656,7 @@ class Optimizer:
         penalize_hls_dwc_variant_use=True,
         verbose=False,
         mvau_wwidth_max=1024,
+        init_run=False,
     ):
         self.params = None
         self.targets = targets
@@ -570,13 +664,15 @@ class Optimizer:
         self.param_indexes = []  # this might require insertion!!!
         self.param_ranges = []
         self.all_nodes = []
+        self.target_cycles_per_frame = target_cycles_per_frame
         self.padding = padding
         self.mvau_wwidth_max = mvau_wwidth_max
         self.model = model
         self.pad_io_nodes = False
         self.name = name
         self.fpgapart = fpgapart
-
+        self.metrics = None
+        self.init_run = init_run
 
         
         self.maxiter = 50
@@ -601,11 +697,27 @@ class Optimizer:
         self.total_paddings = 0
 
 
+    def cleanup_pass(self):
+        # some corrections that may be necessary
+
+        
+        for node in self.model.graph.node:
+            # SWG->MVAU should have the same stream width
+            if node.op_type.startswith("ConvolutionInputGenerator"):
+                node_inst = getCustomOp(node)
+                mvau_or_vvau = self.model.find_consumer(node.output[0])
+                if mvau_or_vvau.op_type.startswith("MVAU"):
+                    mvau_inst = getCustomOp(mvau_or_vvau)
+                    node_inst.set_nodeattr("SIMD",mvau_inst.get_nodeattr("SIMD"))
+
+
+
+
     def execute_target_function(self, param_guess, opt):
         opt.params.set_values(param_guess)
         opt.params.apply_updates(final=False, filter=self.parameters_to_apply)
-
-        print(f"working on nodes: {opt.params.nodes}")
+        #assert True == False
+       # print(f"working on nodes: {opt.params.nodes}")
         cycles = opt.params.get_max_cycles()
         resources = self.get_resources(opt.params.nodes)
         metrics = {**{"max_cycles": cycles}, **resources}
@@ -644,45 +756,46 @@ class Optimizer:
                         # use default folded input shape
                         n1_in_shape = node.get_folded_input_shape()
 
-                    n1_in_shape = node.get_folded_input_shape()
 
-                    print(f"inval vs outval: {inWidth}, {outWidth}")
-                    if max(inWidth, outWidth) % min(inWidth, outWidth) != 0 or np.prod(
-                        n0_out_shape
-                    ) != np.prod(n1_in_shape):
-                        cost += (inWidth + outWidth * 8) / opt.targets["LUT"]
+                    # dwcs cannot be inserted between mvau/vvau and pool/swg so we only run it for other combinations
+                    if (not ((prod.name.startswith("ConvolutionInputGenerator") or prod.name.startswith("Pool")) and 
+                        (node.onnx_node.name.startswith("MVAU") or node.onnx_node.name.startswith("VVAU")))): 
+                        n1_in_shape = node.get_folded_input_shape()
+
+                       # print(f"inval vs outval: {inWidth}, {outWidth}")
+                        if max(inWidth, outWidth) % min(inWidth, outWidth) != 0 or np.prod(
+                            n0_out_shape
+                        ) != np.prod(n1_in_shape):
+                            cost += (inWidth + outWidth * 8) / opt.targets["LUT"]
+
+                        else:
+                            cost += (inWidth + outWidth) / opt.targets["LUT"]
                 # else:
                 #    cost += ((node.get_instream_width() * 10) / opt.targets["LUT"])
                 # penalize large output folding as well
 
             # extra cost penalizing large widths
-            cost += ((opt.params.nodes[0].get_instream_width() * 5) / opt.targets["LUT"])
-            cost += ((opt.params.nodes[-1].get_outstream_width() * 5) / opt.targets["LUT"])
+            cost += ((opt.params.nodes[0].get_instream_width() * 4) / opt.targets["LUT"])
+            cost += ((opt.params.nodes[-1].get_outstream_width() * 4) / opt.targets["LUT"])
 
         for value_to_minimize in opt.targets:
             if value_to_minimize != opt.hard_constraint_target:
-                #print(
-                #    f"{value_to_minimize} value ratio to target:"
-                #    + f"{metrics[value_to_minimize]/opt.targets[value_to_minimize]}"
-               #     + f"({metrics[value_to_minimize]}/{opt.targets[value_to_minimize]})"
-                
-                # if opt.targets[value_to_minimize] != 0:
                 cost += metrics[value_to_minimize] / opt.targets[value_to_minimize]
             else:
                 if metrics[value_to_minimize]*self.value_to_minimize_relaxation > (opt.targets[value_to_minimize]):
-                    print(
-                        f"{value_to_minimize} value {metrics[value_to_minimize]}"
-                        + f" failed to meet  target {opt.targets[value_to_minimize]}"
-                    )
+                   # print(
+                   #     f"{value_to_minimize} value {metrics[value_to_minimize]}"
+                   #     + f" failed to meet  target {opt.targets[value_to_minimize]}"
+                   # )
                     cost = np.inf
 
-            print(
-                f"{value_to_minimize} value ratio to target:"
-                + f"{metrics[value_to_minimize]/opt.targets[value_to_minimize]}"
-                + f"({metrics[value_to_minimize]}/{opt.targets[value_to_minimize]})"
-            )                    
+           # print(
+           #     f"{value_to_minimize} value ratio to target:"
+           #     + f"{metrics[value_to_minimize]/opt.targets[value_to_minimize]}"
+            #    + f"({metrics[value_to_minimize]}/{opt.targets[value_to_minimize]})"
+           # )                    
 
-        print(f"guess: [{param_guess}] final cost: {cost}")
+       # print(f"guess: [{param_guess}] final cost: {cost}")
         return cost
 
     def execute_minimizer(self, discrete_args, init_guess):
@@ -726,12 +839,12 @@ class Optimizer:
         target_parameters=["SIMD", "PE"],
     ):
         # initial guess can be "min" or "max"
-        # min = least folding
-        # max = maximum folding
+        # min = least folding (makes sense when the hard constraint is resource use)
+        # max = maximum folding (makes sense when the hard constraint is max_cycles)
 
         # filter parameters based on target_parameters:
         # self.params.filter(target_parameters)
-        print("started optimizer with padding set to: ", self.padding)
+       # print("started optimizer with padding set to: ", self.padding)
         param_count = len(self.params.parameters)
 
         if param_count > self.max_parameters_per_partition and partitions != 1:
@@ -751,6 +864,10 @@ class Optimizer:
         self.params.apply_updates(filter=target_parameters)
         self.params.assign_involved_nodes()
         params = self.params.parameters
+
+
+       # init_cost = self.execute_target_function(init_guess, self)
+        #assert True==False
 
         # node-based partitioning
 
@@ -818,25 +935,43 @@ class Optimizer:
             self.params.assign_involved_nodes()
 
             init_guess = init_guess_partitions[p]
-
-            optimized_params = self.execute_minimizer(discrete_args, init_guess)
+            
+            if self.init_run:
+                optimized_params = init_guess
+            else:
+                optimized_params = self.execute_minimizer(discrete_args, init_guess)
 
             self.params.set_values(optimized_params)
             self.params.apply_updates(final=True, filter=target_parameters)
+        self.cleanup_pass()
 
             # self.model = self.model.transform(AnnotateCycles())
-        print("final parameters:")
-        print(self.params.parameters)
-        print("optimized param values: ",self.params.get_vals())
+        print(f"final parameters, init_run={self.init_run}:")
+
+        s = ""
+        for p in self.params.parameters:
+            s += f"{p.node.onnx_node.name}, {p.name}, {p.value}\n"
+        print(s)
+        #print("optimized param values: ",self.params.get_vals())
         for p in self.params.parameters:
             self.total_paddings += p.shapes_updated
 
-        print("total paddings: ",self.total_paddings)
+      #  print("total paddings: ",self.total_paddings)
 
     def get_resources(self, nodes):
         resources = {}
         for n in nodes:
             resources[n] = n.node_res_estimation(self.fpgapart)
+        resources = aggregate_dict_keys(resources)
+        
+        return resources
+    
+
+    def get_all_resources(self):
+        resources = {}
+        for n in self.model.graph.node:
+            node_inst = getCustomOp(n)
+            resources[node_inst] = node_inst.node_res_estimation(self.fpgapart)
         resources = aggregate_dict_keys(resources)
         
         return resources
@@ -900,6 +1035,7 @@ class Optimizer:
 
         node_indx = 0
         arg_indx = 0
+        
 
         for node in graph.node:
             
@@ -935,10 +1071,16 @@ class Optimizer:
                     mvau_wwidth_max / tmp_node.get_weight_datatype().bitwidth()
                 )
 
+                
+
 
                 param_name = "SIMD"
                 padding_internal = whitelist[param_name][op_type][0]
                 folding_internal = whitelist[param_name][op_type][1]
+
+                # in case the node is the first or last node, we override the padding
+                if node_indx==1:
+                    padding_internal = 0
 
                 possible_values, bounding_values = allowed_divisors(max_simd, padding_internal)
                 # SIMD has a restriction of SIMD >= MW / 1024
@@ -950,16 +1092,30 @@ class Optimizer:
 
                 # for SIMD, hls has restrictions on minimum and maximum stream
                 # widths which we have to take into account
+
+                producer_max_simd = max_simd
+                if node_indx > 0:
+                    swu_node = model.find_producer(node.input[0])
+                    if swu_node is not None:
+                        if swu_node.op_type.startswith("ConvolutionInputGenerator"):
+                            producer_max_simd = getCustomOp(swu_node).get_nodeattr("IFMChannels")
+                        elif swu_node.op_type.startswith("Pool"):
+                            producer_max_simd = getCustomOp(swu_node).get_nodeattr("Channels")
+                        has_producer = True
+                    else:
+                        has_producer = False
+
+
                 new_bounding_values = []
                 new_possible_values = []
                 pairs = zip(possible_values, bounding_values)
                 for pair in pairs:
-                    if pair[0] <= stream_width_bound and pair[0] > ((max_simd + padding) / 1024):
+                    if (pair[0] <= stream_width_bound) and (pair[0] > ((max_simd + padding_internal) / 1024) and ( (has_producer and producer_max_simd % pair[0] == 0) or has_producer is False)):
                         new_possible_values.append(pair[0])
                         new_bounding_values.append(pair[1])
 
 
-
+                #assert True == False
                 if folding_internal:
                     param = Parameter(
                         node=node_inst,
@@ -967,6 +1123,7 @@ class Optimizer:
                         op_type=op_type,
                         name=param_name,
                         index=arg_indx,
+                        target_cycles_per_frame=self.target_cycles_per_frame,
                         value=new_possible_values[0],
                         possible_values=new_possible_values,
                         padding=padding_internal,
@@ -977,11 +1134,37 @@ class Optimizer:
                     pset.parameters.append(param)
                     arg_indx += 1
 
+                    had_pooling_producer = False
+                    had_swg_producer = False
+                    # Detect any Pool node that might exist prior to an SWG and fold               
+                    producer =  self.model.find_producer(node.input[0])
+                    if producer is not None:
+                        if producer.op_type.startswith("Pool"):
+                            producer_inst = getCustomOp(producer)
+                            producer_inst.set_nodeattr("PE",1)
+                            swu_node = self.model.find_producer(producer.input[0])
+                            had_pooling_producer = True
+                        else:
+                            swu_node = producer
+                        if swu_node is not None:
+                            if swu_node.op_type.startswith("ConvolutionInputGenerator"):
+                                had_swg_producer = True
+                                swu_node_inst = getCustomOp(swu_node)
+
+                        param.dependant_nodes = []
+                        if had_pooling_producer:
+                            param.dependant_nodes.append(producer_inst)
+                        if had_swg_producer:
+                            param.dependant_nodes.append(swu_node_inst)
+
+
 
                 param_name = "PE"
                 padding_internal = whitelist[param_name][op_type][0]
                 folding_internal = whitelist[param_name][op_type][1]
-
+                # in case the node is the first or last node, we override the padding
+                if node_indx==len(graph.node):
+                    padding_internal = 0
                 max_pe = node_inst.get_nodeattr("MH")
                 possible_values, bounding_values = allowed_divisors(max_pe, padding_internal)
                 # print(possible_values)
@@ -995,6 +1178,7 @@ class Optimizer:
                         op_type=op_type,
                         name="PE",
                         index=arg_indx,
+                        target_cycles_per_frame=self.target_cycles_per_frame,
                         value=possible_values[0],
                         possible_values=possible_values,
                         padding=padding_internal,
@@ -1013,6 +1197,7 @@ class Optimizer:
                     name="ram_style",
                     index=arg_indx,
                     value=3,
+                    target_cycles_per_frame=self.target_cycles_per_frame,
                     possible_values=[0, 1, 2, 3],
                     padding=0,
                     model=model,
@@ -1038,6 +1223,7 @@ class Optimizer:
                     index=arg_indx,
                     value=1,
                     possible_values=pv,
+                    target_cycles_per_frame=self.target_cycles_per_frame,
                     padding=0,
                     model=model,
                     default_bounding_parameter=(None, 0),
@@ -1054,7 +1240,9 @@ class Optimizer:
                 param_name = "PE"
                 padding_internal = whitelist[param_name][op_type][0]
                 folding_internal = whitelist[param_name][op_type][1]
-
+                # in case the node is the first or last node, we override the padding
+                if padding == 0:
+                    padding_internal = 0
                 if folding_internal:
 
                     possible_values, bounding_values = allowed_divisors(max_pe, padding_internal)
@@ -1063,6 +1251,7 @@ class Optimizer:
                         node_indx=node_indx,
                         op_type=op_type,
                         name="PE",
+                        target_cycles_per_frame=self.target_cycles_per_frame,
                         index=arg_indx,
                         value=possible_values[0],
                         possible_values=possible_values,
@@ -1083,7 +1272,9 @@ class Optimizer:
                 param_name = "PE"
                 padding_internal = whitelist[param_name][op_type][0]
                 folding_internal = whitelist[param_name][op_type][1]
-
+                # in case the node is the first or last node, we override the padding
+                if padding == 0:
+                    padding_internal = 0
                 node_inst.set_nodeattr(param_name, 1)
 
                 if folding_internal:
@@ -1094,6 +1285,7 @@ class Optimizer:
                         op_type=op_type,
                         name=param_name,
                         index=arg_indx,
+                        target_cycles_per_frame=self.target_cycles_per_frame,
                         value=possible_values[0],
                         possible_values=possible_values,
                         padding=padding_internal,
@@ -1107,7 +1299,39 @@ class Optimizer:
             elif op_type in depthwise_op_exceptions:
                 # init/reset SIMD of VVAU
 
+
+
+                if op_type in ["Pool_hls"]:
+                    param_name = "PE"
+                    padding_internal = whitelist[param_name][op_type][0]
+                    folding_internal = whitelist[param_name][op_type][1]
+                    # in case the node is the first or last node, we override the padding
+                    node_inst.set_nodeattr("PE",1)
+                    if padding == 0:
+                        padding_internal = 0
+                    if folding_internal:
+
+                        possible_values, bounding_values = allowed_divisors(max_pe, 0)
+                        param = Parameter(
+                            node=node_inst,
+                            node_indx=node_indx,
+                            op_type=op_type,
+                            name=param_name,
+                            target_cycles_per_frame=self.target_cycles_per_frame,
+                            index=arg_indx,
+                            value=possible_values[0],
+                            possible_values=possible_values,
+                            padding=padding_internal,
+                            model=model,
+                            default_bounding_parameter=("Channels", max_pe),
+                            bounding_value_for_each_possible_value=bounding_values,
+                        )
+                        pset.parameters.append(param)
+                        arg_indx += 1                    
+
+
                 if op_type in ["VVAU_hls", "VVAU_rtl"]:
+
                     param = Parameter(
                         node=node_inst,
                         node_indx=node_indx,
@@ -1115,6 +1339,7 @@ class Optimizer:
                         name="resType",
                         index=arg_indx,
                         value=1,
+                        target_cycles_per_frame=self.target_cycles_per_frame,
                         possible_values=[0, 1],
                         padding=0,
                         model=model,
@@ -1133,7 +1358,9 @@ class Optimizer:
                 param_name = "PE"
                 padding_internal = whitelist[param_name][op_type][0]
                 folding_internal = whitelist[param_name][op_type][1]
-
+                # in case the node is the first or last node, we override the padding
+                if node_indx==len(graph.node):
+                    padding_internal = 0
                 if folding_internal:
 
                     possible_values, bounding_values = allowed_divisors(max_pe, 0)
@@ -1142,6 +1369,7 @@ class Optimizer:
                         node_indx=node_indx,
                         op_type=op_type,
                         name=param_name,
+                        target_cycles_per_frame=self.target_cycles_per_frame,
                         index=arg_indx,
                         value=possible_values[0],
                         possible_values=possible_values,
@@ -1156,7 +1384,7 @@ class Optimizer:
                 # increase SIMD for VVAU once PE is exhausted
                 pe = node_inst.get_nodeattr("PE")
                 # cyc = node_inst.get_exp_cycles()
-                if op_type in ["VVAU_hls", "VVAU_rtl"] and pe == max_pe:
+                if op_type in ["VVAU_hls", "VVAU_rtl"]:
                     max_simd = np.prod(node_inst.get_nodeattr("Kernel"))
                     # self.optimize_attribute_val(node_inst, max_simd, "SIMD")
                     possible_values, bounding_values = allowed_prod_divisors(max_simd)
@@ -1164,7 +1392,9 @@ class Optimizer:
                     param_name = "SIMD"
                     padding_internal = whitelist[param_name][op_type][0]
                     folding_internal = whitelist[param_name][op_type][1]
-
+                    # in case the node is the first or last node, we override the padding
+                    if node_indx==0:
+                        padding_internal = 0
                     if folding_internal:
 
                         param = Parameter(
@@ -1173,6 +1403,7 @@ class Optimizer:
                             op_type=op_type,
                             name=param_name,
                             index=arg_indx,
+                            target_cycles_per_frame=self.target_cycles_per_frame,
                             value=possible_values[0],
                             possible_values=possible_values,
                             padding=padding_internal,
@@ -1182,6 +1413,31 @@ class Optimizer:
                         )
                         pset.parameters.append(param)
                         arg_indx += 1
+
+
+                        had_pooling_producer = False
+                        had_swg_producer = False
+                        # Detect any Pool node that might exist prior to an SWG and fold               
+                        producer =  self.model.find_producer(node.input[0])
+                        if producer is not None:
+                            if producer.op_type.startswith("Pool"):
+                                producer_inst = getCustomOp(producer)
+                                producer_inst.set_nodeattr("PE",1)
+                                swu_node = self.model.find_producer(producer.input[0])
+                                had_pooling_producer = True 
+                            else:
+                                swu_node = producer
+                            if swu_node is not None:
+                                if swu_node.op_type.startswith("ConvolutionInputGenerator"):
+                                    had_swg_producer = True
+                                    swu_node_inst = getCustomOp(swu_node)
+
+                            param.dependant_nodes = []
+                            if had_pooling_producer:
+                                param.dependant_nodes.append(producer_inst)
+                            if had_swg_producer:
+                                param.dependant_nodes.append(swu_node_inst)
+
 
             elif op_type in simd_ops:
                 # print("entering simd conv exception")
@@ -1193,6 +1449,7 @@ class Optimizer:
                         name="ram_style",
                         index=arg_indx,
                         value=3,
+                        target_cycles_per_frame=self.target_cycles_per_frame,
                         possible_values=[0, 1, 2, 3],
                         padding=0,
                         model=model,
@@ -1205,6 +1462,10 @@ class Optimizer:
                     depthwise = node_inst.get_nodeattr("depthwise")
                     if depthwise == 0:
                         max_simd = node_inst.get_nodeattr("IFMChannels")
+                        if max_simd % 32 == 0:
+                            node_inst.set_nodeattr("SIMD",32)
+                        else:
+                            node_inst.set_nodeattr("SIMD",1)
                         # init/reset parallel_window mode of RTL SWG
                         if op_type == "ConvolutionInputGenerator_rtl":
                             node_inst.set_nodeattr("parallel_window", 0)
@@ -1217,26 +1478,30 @@ class Optimizer:
 
                             padding_internal = whitelist[param_name][op_type][0]
                             folding_internal = whitelist[param_name][op_type][1]
-
-                            possible_values, bounding_values = allowed_divisors(max_simd,padding_internal)
-                            param = Parameter(
-                                node=node_inst,
-                                node_indx=node_indx,
-                                op_type=op_type,
-                                name=param_name,
-                                index=arg_indx,
-                                value=possible_values[0],
-                                possible_values=possible_values,
-                                padding=padding_internal,
-                                model=model,
-                                default_bounding_parameter=(
-                                    "IFMChannels",
-                                    max_simd,
-                                ),
-                                bounding_value_for_each_possible_value=bounding_values,
-                            )
-                            pset.parameters.append(param)
-                            arg_indx += 1
+                            # in case the node is the first or last node, we override the padding
+                            if padding == 0:
+                                padding_internal = 0
+                            if folding_internal:
+                                possible_values, bounding_values = allowed_divisors(max_simd,padding_internal)
+                                param = Parameter(
+                                    node=node_inst,
+                                    node_indx=node_indx,
+                                    op_type=op_type,
+                                    name=param_name,
+                                    target_cycles_per_frame=self.target_cycles_per_frame,
+                                    index=arg_indx,
+                                    value=possible_values[0],
+                                    possible_values=possible_values,
+                                    padding=padding_internal,
+                                    model=model,
+                                    default_bounding_parameter=(
+                                        "IFMChannels",
+                                        max_simd,
+                                    ),
+                                    bounding_value_for_each_possible_value=bounding_values,
+                                )
+                                pset.parameters.append(param)
+                                arg_indx += 1
                     else:
                         node_inst.set_nodeattr("SIMD", max_simd)
                     #else:
@@ -1249,12 +1514,14 @@ class Optimizer:
                     # arg_indx+=1
 
                 else:
-
                     param_name = "SIMD"
                     padding_internal = whitelist[param_name][op_type][0]
                     folding_internal = whitelist[param_name][op_type][1]
-
+                    # in case the node is the first or last node, we override the padding
+                    if padding == 0:
+                        padding_internal = 0
                     max_simd = node_inst.get_nodeattr("NumChannels")
+                    node_inst.set_nodeattr("SIMD",1)
                     possible_values, bounding_values = allowed_divisors(max_simd, padding_internal)
 
 
@@ -1265,6 +1532,7 @@ class Optimizer:
                             node_indx=node_indx,
                             op_type=op_type,
                             name="SIMD",
+                            target_cycles_per_frame=self.target_cycles_per_frame,
                             index=arg_indx,
                             value=possible_values[0],
                             possible_values=possible_values,
@@ -1315,8 +1583,9 @@ class SetFolding(Transformation):
         two_pass_relaxation=True,
         style="optimizer",
         padding=0,
+        max_attempts = 1,
         platform="Pynq-Z1",
-        effort=200,
+        effort=300,
         devices=1,
         verbose=False
     ):
@@ -1324,6 +1593,7 @@ class SetFolding(Transformation):
         self.target_cycles_per_frame = target_cycles_per_frame
         self.mvau_wwidth_max = mvau_wwidth_max
         self.two_pass_relaxation = two_pass_relaxation
+        self.max_attempts = max_attempts
         self.padding = padding
         self.devices = devices
         self.platform = platform
@@ -1343,10 +1613,13 @@ class SetFolding(Transformation):
         self.optimization_parameters = ["SIMD", "PE", "ram_stype", "resType"]
         self.hard_constraint_target = "max_cycles"
         self.optimize_folding = True
-        self.optimize_resource_types = True
+        self.optimize_resource_types = False
         self.insert_dwcs = False
         self.penalize_hls_dwc_variant_use = True
         
+        self.target_resources = ["LUT","BRAM_18K","DSP","URAM"]
+
+
 
     def apply_optimized_folding(self, model):
         """
@@ -1362,22 +1635,29 @@ class SetFolding(Transformation):
 
         targets = {}
         targets["max_cycles"] = self.target_cycles_per_frame
+        current_throughput_target = self.target_cycles_per_frame
 
         # fetch all parameters and bounds from the model by
         #  running the optimizer once without padding
+
+
+
+
         init_model = copy.deepcopy(model)
         opt1 = Optimizer(
             init_model,
             "defaultOPT_for_parameter_extraction",
             targets,
             self.hard_constraint_target,
+            target_cycles_per_frame=self.target_cycles_per_frame,
             padding=0,
             fpgapart=self.fpgapart,
             maxfun_per_parameter=self.effort,
             parameters_to_apply=["SIMD", "PE"],
             penalize_hls_dwc_variant_use=self.penalize_hls_dwc_variant_use,
             verbose=self.verbose,
-            mvau_wwidth_max=self.mvau_wwidth_max
+            mvau_wwidth_max=self.mvau_wwidth_max,
+            init_run=True
         )
 
         opt1.targets = targets
@@ -1403,19 +1683,27 @@ class SetFolding(Transformation):
         param_set_min.apply_updates(self.optimization_parameters)
         param_set_max.apply_updates(self.optimization_parameters)
 
+
         param_set_min.assign_involved_nodes()
         param_set_max.assign_involved_nodes()
 
+       
+        # assign maximum throughput achievable
+        opt1.optimize(max_nodes_in_partition=1, target_parameters=["SIMD", "PE"])
+        init_model = init_model.transform(AnnotateCycles())
+        maximum_achievable_throughput = init_model.analysis(dataflow_performance)["max_cycles"]
+
+       # assert True==False
         limits = DEFAULT_RES_LIMITS
         self.max_luts = limits[0] * sum(
             [r["LUT"] for r in platforms[self.platform](self.devices).resource_count_dict.values()]
-        )
+        ) * 0.9
         self.max_bram = limits[2] * sum(
             [
                 r["BRAM_18K"]
                 for r in platforms[self.platform](self.devices).resource_count_dict.values()
             ]
-        )
+        ) * 0.9
         self.max_uram = limits[3] * sum(
             [r["URAM"] for r in platforms[self.platform](self.devices).resource_count_dict.values()]
         )
@@ -1433,36 +1721,168 @@ class SetFolding(Transformation):
             "padded OPT",
             targets,
             self.hard_constraint_target,
+            target_cycles_per_frame=current_throughput_target,
             padding=self.padding,
             fpgapart=self.fpgapart,
             maxfun_per_parameter=self.effort,
             parameters_to_apply=self.optimization_parameters,
             penalize_hls_dwc_variant_use=self.penalize_hls_dwc_variant_use,
             verbose=self.verbose,
-            mvau_wwidth_max=self.mvau_wwidth_max
+            mvau_wwidth_max=self.mvau_wwidth_max,
+            init_run=False,
         )
 
         opt2.targets = targets
         opt2.get_params()  # generate full param list
 
         # First pass which deals with folding factors only
-        if self.optimize_folding is True:
-            opt2.optimize(max_nodes_in_partition=3, target_parameters=["SIMD", "PE"])
 
-        # Second pass which adjusts ram style for memory and resource types for compute
-        if self.optimize_resource_types is True:
-            opt2.optimize(
-                max_nodes_in_partition=min(len(model.graph.node), 8),
-                target_parameters=["ram_style", "resType"],
-            )
+        optimization_attempts = 0
 
-        model = opt2.model
+        fifos_in_the_loop = True
+        last_successful_throughput_target = self.target_cycles_per_frame
+        
+        current_step = 1
+        min_step = 0.05
+
+        opt2_tmp = copy.deepcopy(opt2)
+
+        # store model to keep fetching
+
+        # first pass
+        print("entering optimization passes")
+        while current_step > min_step and optimization_attempts < self.max_attempts:
+            targets["max_cycles"] = current_throughput_target
+            opt2 = copy.deepcopy(opt2_tmp)
+            opt2.targets = targets
+            opt2.get_params()  # generate full param list
+            print(f'current_step: {current_step}, max_cycles: {targets["max_cycles"]}, attempts:{optimization_attempts}')
+            # dont optimize if throughput request is impossible to meet
+
+
+            opt2.target_cycles_per_frame=current_throughput_target
+            if self.optimize_folding is True:
+                opt2.optimize(max_nodes_in_partition=3, target_parameters=["SIMD", "PE"])
+
+            # Second pass which adjusts ram style for memory and resource types for compute
+            if self.optimize_resource_types is True:
+                opt2.optimize(
+                    max_nodes_in_partition=min(len(model.graph.node), 8),
+                    target_parameters=["ram_style", "resType"],
+                )
+
+            # generate extra model with fifos and dwcs for the final estimate
+                
+            
+            if fifos_in_the_loop:
+
+                # ONLY ANALYTICAL
+
+                from finn.transformation.fpgadataflow.set_fifo_depths import (
+                    InsertAndSetFIFODepths,
+                    RemoveShallowFIFOs,
+                    SplitLargeFIFOs,
+                )
+                from finn.transformation.fpgadataflow.derive_characteristic import (
+                    set_ignore_list_for_ip_gen,
+                    unset_ignore_list_for_ip_gen,
+                )
+
+
+                from finn.transformation.fpgadataflow.derive_characteristic import (
+                    DeriveCharacteristic,
+                    DeriveFIFOSizes,
+                )
+
+                from finn.transformation.fpgadataflow.insert_fifo import InsertFIFO
+
+                model_tmp = opt2.model
+                #assert True==False
+
+                #model_tmp.transform(InsertDWC())
+                model_tmp = model_tmp.transform(InsertDWC())
+                model_tmp = model_tmp.transform(SpecializeLayers(self.fpgapart))
+                model_tmp = model_tmp.transform(GiveUniqueNodeNames())
+
+                model_tmp = set_ignore_list_for_ip_gen(model_tmp)
+
+                model_tmp = model_tmp.transform(AnnotateCycles())
+                
+                period = int(model_tmp.analysis(dataflow_performance)["max_cycles"]*3)
+                #assert True==False
+                model_tmp = model_tmp.transform(DeriveCharacteristic(period))
+                model_tmp = model_tmp.transform(DeriveFIFOSizes())
+                model_tmp = model_tmp.transform(
+                    InsertFIFO(
+                        vivado_ram_style="auto",
+                        max_qsrl_depth=256,
+                        create_shallow_fifos=True,
+                    )
+                )
+                model_tmp = model_tmp.transform(SpecializeLayers(self.fpgapart))
+                model_tmp = model_tmp.transform(GiveUniqueNodeNames())
+                
+                resources = {}
+                for n in model_tmp.graph.node:
+                    node_inst = getCustomOp(n)
+                    resources[node_inst] = node_inst.node_res_estimation(self.fpgapart)
+                metrics = aggregate_dict_keys(resources)
+
+            else:
+                metrics = opt2.get_all_resources()
+            # extract costs
+            overshot = False
+            for resource in self.target_resources:
+                if metrics[resource] > targets[resource]:
+                    print(f"{resource}: {metrics[resource]} > {targets[resource]}")
+                    overshot = True
+
+
+            
+
+            if overshot:
+                # if we overshot, we try again, but with half the step size
+                print(f"overshot, new target: {current_throughput_target}")
+                print(f"step decreasing from {current_step} to {current_step/2}")
+                print(f"target changing from {current_throughput_target} to {int(last_successful_throughput_target - last_successful_throughput_target*(current_step/2))} by decreasing on {last_successful_throughput_target} by a lower step")                
+                current_step /= 2
+                current_throughput_target = int(last_successful_throughput_target - last_successful_throughput_target*current_step)
+                
+            else:
+                print(f"did not overshoot, still halving step size and repeating")
+                
+                #if optimization_attempts == 0:
+                    # first run we can adjust step size based on resources
+                for resource in self.target_resources:
+                    budget_left = 1 - (metrics[resource] / targets[resource])
+                    print(f"budget: {budget_left} from {metrics[resource]} / {targets[resource]} ratio for {resource}")
+                    current_step = min(current_step,budget_left)
+                    print(f"new step: {current_step}")
+
+
+               # else:
+                #    current_step /= 2
+                last_successful_throughput_target = current_throughput_target
+                current_throughput_target = int(current_throughput_target - current_throughput_target*current_step)
+                print(f"did NOT overshoot, new target: {current_throughput_target} from {last_successful_throughput_target}")
+                last_good_model = copy.deepcopy(opt2.model)
+
+            if current_throughput_target < maximum_achievable_throughput:
+                print("requested beyond maximal folding, limiting")
+                
+                current_throughput_target = maximum_achievable_throughput
+            optimization_attempts += 1
+
+
+
+        model = last_good_model
 
         if self.insert_dwcs:
+            # In case future steps do not insert DWCs
             model = model.transform(InsertDWC())
             model = model.transform(SpecializeLayers(self.fpgapart))
 
-        # necessary final transforms
+        # necessary final transformation
         model = model.transform(GiveUniqueNodeNames())
         model = model.transform(AnnotateCycles())
 

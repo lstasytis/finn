@@ -96,6 +96,11 @@ class HWCustomOp(CustomOp):
             # amount of zero padding inserted during chrc.
             "io_chrc_pads_in": ("ints", False, []),
             "io_chrc_pads_out": ("ints", False, []),
+            "io_chrc_in_concat": ("t", False, np.asarray([], dtype=np.int32)),
+            "io_chrc_out_concat": ("t", False, np.asarray([], dtype=np.int32)),
+            "ipgen_ignore": ("i", False, 0)
+
+
         }
 
     def get_verilog_top_module_name(self):
@@ -363,6 +368,8 @@ class HWCustomOp(CustomOp):
 
     def derive_characteristic_fxns(self, period, override_rtlsim_dict=None):
         """Return the unconstrained characteristic functions for this node."""
+
+       # assert True == False
         # ensure rtlsim is ready
         assert self.get_nodeattr("rtlsim_so") != "", "rtlsim not ready for " + self.onnx_node.name
         if self.get_nodeattr("io_chrc_period") > 0:
@@ -464,6 +471,7 @@ class HWCustomOp(CustomOp):
             txn_out = accumulate_char_fxn(txn_out)
             all_txns_out[out_idx, :] = txn_out
             all_pad_out.append(pad_out)
+
 
         self.set_nodeattr("io_chrc_in", all_txns_in)
         self.set_nodeattr("io_chrc_out", all_txns_out)
