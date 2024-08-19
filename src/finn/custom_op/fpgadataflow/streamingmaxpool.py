@@ -567,10 +567,10 @@ class StreamingMaxPool(HWCustomOp):
                         counter+=1
                         cycles+=1    
 
-                for z in range(0,PoolDim):
-                    for k in range(0,read_tail_latency):
-                        txns.append(counter)
-                        cycles+=1
+                #for z in range(0,PoolDim):
+                #    for k in range(0,read_tail_latency):
+                #        txns.append(counter)
+                #        cycles+=1
 
                 for k in range(int(NumChannels/PE)):
                     txns.append(counter)
@@ -630,10 +630,10 @@ class StreamingMaxPool(HWCustomOp):
                     counter+=1
                     cycles+=1     
 
-                for z in range(0,PoolDim):
-                    for k in range(0,read_tail_latency):
-                        txns.append(counter)
-                        cycles+=1
+                #for z in range(0,PoolDim):
+                #    for k in range(0,read_tail_latency):
+                #        txns.append(counter)
+                #        cycles+=1
 
 
         return txns, cycles, counter

@@ -429,6 +429,8 @@ def step_target_fps_parallelization(model: ModelWrapper, cfg: DataflowBuildConfi
                 two_pass_relaxation=cfg.folding_two_pass_relaxation,
                 style=cfg.style,
                 padding=cfg.padding,
+                folding_dwc_heuristic=cfg.folding_dwc_heuristic,
+                folding_effort=cfg.folding_effort,
                 platform=cfg.board,
             )
         )
@@ -573,7 +575,7 @@ def step_set_fifo_depths(model: ModelWrapper, cfg: DataflowBuildConfig):
             model = model.transform(PrepareRTLSim())
             model = model.transform(AnnotateCycles())
             
-            period = int(model.analysis(dataflow_performance)["max_cycles"]*1.1)
+            period = int(model.analysis(dataflow_performance)["max_cycles"]*1.6)
             #assert True==False
             model = model.transform(DeriveCharacteristic(period))
             model = model.transform(DeriveFIFOSizes())

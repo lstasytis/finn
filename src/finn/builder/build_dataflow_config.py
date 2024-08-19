@@ -262,6 +262,14 @@ class DataflowBuildConfig:
     # parameters
     padding: Optional[int] = 6
 
+    # (Optional) Heuristic to consider dwc LUT cost when performing folding
+    # this will make the folding optimizer avoid mismatching stream widths
+    folding_dwc_heuristic: Optional[int] = 1
+
+    # (Optional) How much effort to put into automatic folding
+    # 250 = typically under 1 minute compilation. Scales linearly
+    folding_effort: Optional[int] = 250
+
     #: (Optional) Whether thresholding layers (which implement quantized
     #: activations in FINN) will be implemented as stand-alone HW layers,
     #: instead of being part of MatrixVectorActivation layer. This gives larger

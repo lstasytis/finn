@@ -197,6 +197,7 @@ class DeriveFIFOSizes(NodeLocalTransformation):
                 assert len(prod_chrc) == 2 * period, "Found unexpected characterization attribute"
                 print("derive sizes producer")
                 print("PRODUCER")
+                print("PRODUCER OUT chr:")
                 print(node.op_type)
                 k = prod.get_nodeattr_types().keys()
                 for el in k:
@@ -208,8 +209,9 @@ class DeriveFIFOSizes(NodeLocalTransformation):
                 #print("period:")
                 #print(period)
 
-                #print("PRODUCER IN chr:")
-                #print(prod_chrc)
+                
+                #print(';'.join(map(str,prod_chrc)))
+
                 unique, counts = np.unique(cons_chrc, return_counts=True)
                 io_chrc_in_concat = []
 
@@ -219,13 +221,13 @@ class DeriveFIFOSizes(NodeLocalTransformation):
                         io_chrc_in_concat.append(pair)
 
                 prod.set_nodeattr("io_chrc_in_concat",np.array(io_chrc_in_concat))
-                #print("PRODUCER OUT chr:")
+                #print("PRODUCER IN chr:")
                 #print(prod_chrc)
                 unique, counts = np.unique(prod_chrc, return_counts=True)
                 io_chrc_out_concat = []
                 for pair in np.asarray((unique, counts)).T:
                     if pair[1] > 1:
-                       # print(pair) 
+                        #print(pair) 
                         io_chrc_out_concat.append(pair)
 
                 prod.set_nodeattr("io_chrc_out_concat",np.array(io_chrc_out_concat))
@@ -254,20 +256,26 @@ class DeriveFIFOSizes(NodeLocalTransformation):
                     cons = registry.getCustomOp(cons_node)
                     k = cons.get_nodeattr_types().keys()
                    # print(cons_node.op_type)
+                    #print("CONSUMER IN chr:")
                     for el in k:
                         try:
                             if el in ["MW","MH","PE","SIMD","Dim","Channels","Labels","Kernel","IFMChannels","NumChannels","ConvKernelDim","OFMDim","IFMDim","Stride","Dilation","ImgDim", "PoolDim","numInputVectors"]:
                                 print(f'{el}: {cons.get_nodeattr(el)}')
                         except:
                             pass
-                    #print("CONSUMER IN chr:")
+                    
+
+
                     cons_chrc = cons.get_nodeattr("io_chrc_in")[0]
+
+                    
+                   # print(';'.join(map(str,cons_chrc)))
 
                     unique, counts = np.unique(cons_chrc, return_counts=True)
                     
-                    #for pair in np.asarray((unique, counts)).T:
+                   # for pair in np.asarray((unique, counts)).T:
                     #    if pair[1] > 1:
-                    #        print(pair) 
+                     #       print(pair) 
                             
 
                    # print("CONSUMER OUT chr:")
@@ -279,6 +287,7 @@ class DeriveFIFOSizes(NodeLocalTransformation):
                     #    if pair[1] > 1:
                     #        print(pair) 
                             
+
 
                     # find minimum phase shift satisfying the constraint
                     pshift_min = period - 1

@@ -219,32 +219,6 @@ class StreamingDataWidthConverter(HWCustomOp):
         output = np.asarray([output], dtype=np.float32).reshape(*out_shape)
         context[node.output[0]] = output
 
-    def lut_estimation(self):
-        """Calculates resource estimations for LUTs"""
-
-        # TODO: This calculation does not currently take into account the extra
-        # tracking variables, nor the muxing of one of the stream ports to the buffer
-        # which shifts according to how many elements are in the buffer
-        # the true LUT cost is between 2*(inw+outw) and 10*(inw+outw)
-
-        inw = self.get_instream_width()
-        outw = self.get_outstream_width()
-
-        # we use an intermediate buffer of size inwidth+outwidth
-        intw = inw + outw
-
-        # we assume a shift-based implementation
-        # even if we don't use LUTs explicitly, we make some unavailable
-        # to other logic because they're tied into the DWC control sets
-
-        cnt_luts = 0
-        cset_luts = 0
-
-        cnt_luts += abs(math.ceil(math.log(intw / inw, 2)))
-
-        cset_luts += intw + outw
-
-        return int(cnt_luts + cset_luts)
     
     def get_exp_cycles(self):
 
@@ -262,9 +236,9 @@ class StreamingDataWidthConverter(HWCustomOp):
 
         ratio = max(in_width,out_width) / min(in_width,out_width)
         words = max(num_in_words,num_out_words)
-
-
-        exp_cycles = words * (1+ratio)  # multiply by 2x just in case?
+        min_words = min(num_in_words,num_out_words)
+        
+        exp_cycles = words + min_words  # multiply by 2x just in case?
     
         return int(exp_cycles)
     

@@ -29,7 +29,7 @@
 import numpy as np
 import os
 import shutil
-
+import math
 from finn.custom_op.fpgadataflow.rtlbackend import RTLBackend
 from finn.custom_op.fpgadataflow.streamingdatawidthconverter import (
     StreamingDataWidthConverter,
@@ -216,3 +216,34 @@ class StreamingDataWidthConverter_rtl(StreamingDataWidthConverter, RTLBackend):
             % (self.get_nodeattr("gen_top_module"), self.onnx_node.name)
         ]
         return cmd
+
+
+
+    def lut_estimation(self):
+        """Calculates resource estimations for LUTs"""
+
+        # TODO: This calculation does not currently take into account the extra
+        # tracking variables, nor the muxing of one of the stream ports to the buffer
+        # which shifts according to how many elements are in the buffer
+        # the true LUT cost is between 2*(inw+outw) and 10*(inw+outw)
+
+        inw = self.get_instream_width()
+        outw = self.get_outstream_width()
+
+        # we use an intermediate buffer of size inwidth+outwidth
+        intw = inw + outw
+
+        # we assume a shift-based implementation
+        # even if we don't use LUTs explicitly, we make some unavailable
+        # to other logic because they're tied into the DWC control sets
+
+        cnt_luts = 0
+        cset_luts = 0
+
+        cnt_luts += abs(math.ceil(math.log(intw / inw, 2)))
+
+        cset_luts += intw + outw
+
+        # generalized DWC cost penalty, this value is temporary
+ 
+        return int(cnt_luts + cset_luts)

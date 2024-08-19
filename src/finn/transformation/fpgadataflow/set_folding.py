@@ -69,8 +69,8 @@ def parameter_whitelist(padding_input):
     d["PE"]["GlobalAccPool_hls"]=[0,True]
     d["PE"]["Thresholding_hls"]=[padding_input,True]
     d["PE"]["Thresholding_rtl"]=[padding_input,True]
-    d["PE"]["StreamingMaxPool_hls"]=[padding_input,False]
-    d["PE"]["StreamingMaxPool_rtl"]=[padding_input,False]
+    d["PE"]["StreamingMaxPool_hls"]=[padding_input,True]
+    d["PE"]["StreamingMaxPool_rtl"]=[padding_input,True]
 
     d["PE"]["Pool_hls"]=[0,False]                           # Pool nodes are always optimized in tandem with a consumer mvau/vvau
 
@@ -675,7 +675,7 @@ class Optimizer:
         self.init_run = init_run
 
         
-        self.maxiter = 50
+        self.maxiter = 150
         self.accept = -5.0
 
 
@@ -766,7 +766,7 @@ class Optimizer:
                         if max(inWidth, outWidth) % min(inWidth, outWidth) != 0 or np.prod(
                             n0_out_shape
                         ) != np.prod(n1_in_shape):
-                            cost += (inWidth + outWidth * 8) / opt.targets["LUT"]
+                            cost += ((inWidth + outWidth) * 8) / opt.targets["LUT"]
 
                         else:
                             cost += (inWidth + outWidth) / opt.targets["LUT"]
@@ -838,6 +838,11 @@ class Optimizer:
         max_nodes_in_partition=2,
         target_parameters=["SIMD", "PE"],
     ):
+        
+        print("STARTED OPTIMIZER WITH PARAMS:")
+        print("penalize_hls_dwc_variant_use: ",self.penalize_hls_dwc_variant_use)
+        print("padding: ",self.padding)
+        print("effort: ",self.maxfun_per_parameter)
         # initial guess can be "min" or "max"
         # min = least folding (makes sense when the hard constraint is resource use)
         # max = maximum folding (makes sense when the hard constraint is max_cycles)
@@ -1099,9 +1104,12 @@ class Optimizer:
                     if swu_node is not None:
                         if swu_node.op_type.startswith("ConvolutionInputGenerator"):
                             producer_max_simd = getCustomOp(swu_node).get_nodeattr("IFMChannels")
+                            has_producer = True
                         elif swu_node.op_type.startswith("Pool"):
                             producer_max_simd = getCustomOp(swu_node).get_nodeattr("Channels")
-                        has_producer = True
+                            has_producer = True
+                        else:
+                            has_producer = False
                     else:
                         has_producer = False
 
@@ -1585,7 +1593,8 @@ class SetFolding(Transformation):
         padding=0,
         max_attempts = 1,
         platform="Pynq-Z1",
-        effort=300,
+        folding_effort=300,
+        folding_dwc_heuristic=1,
         devices=1,
         verbose=False
     ):
@@ -1607,7 +1616,7 @@ class SetFolding(Transformation):
         # recommended in the range of 50-200 depending on the network size
         # and how long the user is willing to wait for this step
         # ~20 parameters with <30 possible values per parameter @ 200 effort = <30s
-        self.effort = effort
+        self.effort = folding_effort
 
         # self.optimization_parameters = ["SIMD","PE"]
         self.optimization_parameters = ["SIMD", "PE", "ram_stype", "resType"]
@@ -1615,7 +1624,11 @@ class SetFolding(Transformation):
         self.optimize_folding = True
         self.optimize_resource_types = False
         self.insert_dwcs = False
-        self.penalize_hls_dwc_variant_use = True
+
+        if folding_dwc_heuristic == 1:
+            self.penalize_hls_dwc_variant_use = True
+        else:
+            self.penalize_hls_dwc_variant_use = False
         
         self.target_resources = ["LUT","BRAM_18K","DSP","URAM"]
 

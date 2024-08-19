@@ -978,7 +978,6 @@ class MVAU(HWCustomOp):
 
         return kwargs
 
-
     def characteristic_fx_input(self, txns, cycles, counter, kwargs):
 
         (MW,MH,SIMD,PE,BURST_COUNT,BURST_SIZE,numVectors) = kwargs
@@ -1088,7 +1087,7 @@ class MVAU(HWCustomOp):
 
         for i in range(cycles,period):
             txn_in.append(counter)
-            padding+=1
+        padding+=(period-cycles)
         
         
 
@@ -1098,7 +1097,7 @@ class MVAU(HWCustomOp):
 
         for i in range(cycles,period*2):
             txn_in.append(counter)
-            padding+=1
+        padding+=(period*2-cycles)
 
         # final assignments
         all_txns_in[0, :] = np.array(txn_in)
@@ -1117,7 +1116,7 @@ class MVAU(HWCustomOp):
 
         for i in range(cycles,period):
             txn_out.append(counter)
-            padding+=1
+        padding+=(period-cycles)
 
         cycles = period
 
@@ -1125,7 +1124,7 @@ class MVAU(HWCustomOp):
 
         for i in range(cycles,period*2):
             txn_out.append(counter)
-            padding+=1
+        padding+=(period*2-cycles)
 
 
         all_txns_out[0, :] = np.array(txn_out)   

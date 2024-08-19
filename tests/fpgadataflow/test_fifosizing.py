@@ -707,7 +707,7 @@ def test_fifosizing_linear(method, topology):
 
        # (Pdb) (ifm_dim,output_size,is1d, NumChannels,PoolDim,ImgDim,PE)
         #    ([1, 512], 256, True, 32, 2, 512, 1)
-       # ("StreamingMaxPool",DataType["INT4"],True,2,32,4,1 ,0,"hls"),
+        ("StreamingMaxPool",DataType["INT4"],True,2,32,4,1 ,0,"hls"),
       #  ("StreamingMaxPool",DataType["INT4"],True,1,4,1,1,0,"hls"),
         #("StreamingMaxPool",DataType["BIPOLAR"],False,1,10,1,1,1),
       #  ("StreamingMaxPool",DataType["BIPOLAR"],False,2,10,64,1,1,"hls"),
@@ -719,7 +719,7 @@ def test_fifosizing_linear(method, topology):
        #("ConvolutionInputGenerator",DataType["INT2"],[6,1],[12,1],16,   [1,1],  [1,1],    2,    0, 0,               1,   False,  1,"hls"),
       # """                           idt,           k, ifm_dim, ifm_ch,stride, dilation, simd, dw, parallel_window, m,  flip,   is1d"""
       
-        ("ConvolutionInputGenerator",DataType["INT2"],[6,1],[12,1],16,   [3,1],  [1,1],    2,    0, 0,               1,   False,  1,"hls"),
+       # ("ConvolutionInputGenerator",DataType["INT2"],[6,1],[12,1],16,   [3,1],  [1,1],    2,    0, 0,               1,   False,  1,"hls"),
        # ("ConvolutionInputGenerator",DataType["INT2"],[6,1],[12,1],16,   [1,1],  [1,1],    2,    1, 0,               1,   False,  1,"hls"),
        #("ConvolutionInputGenerator",DataType["INT2"],[6,1],[12,1],16,   [2,1],  [1,1],    2,    1, 0,               1,   False,  1,"hls"),
       # ("ConvolutionInputGenerator",DataType["INT2"],[4,4],[8,8],6,   [4,4],  [1,1],    2,    1, 0,               1,   False,  0,"hls"),
@@ -729,6 +729,9 @@ def test_fifosizing_linear(method, topology):
       # ("VVAU",DataType["INT4"], DataType["INT4"], DataType["INT4"], 3, 1, 10, 10, 3, 3, 3, "internal_embedded",0,"hls"),
      #  ("VVAU",DataType["INT4"], DataType["INT4"], None, 3, 3, 10, 10, 3, 3, 3, "internal_embedded",1,"rtl"),
     #    ("Thresholding",[15,3],True,True,"hls"),
+        
+      #  ("ConvolutionInputGenerator",DataType["INT2"],[6,1],[8,1],8,[3,1],[1,1],1,0, 0,1,False,  1,"hls"),
+      #  ("MVAU",48,1,4,1,[1,1],DataType["UINT2"],DataType["UINT2"],DataType["UINT2"],"hls"),
     ]
 )
 def test_fifosizing_analytical_characterization(node):
@@ -1050,8 +1053,12 @@ def test_fifosizing_analytical_characterization(node):
     print(node_inst1.get_nodeattr("io_chrc_out_concat"))
     #assert True==False
 
-    print("Producer")
-    print(node_inst1.get_nodeattr("io_chrc_out"))
+    #print("Producer")
+    # print(node_inst1.get_nodeattr("io_chrc_out"))
+
+   # print("Consumer")
+   # print(node_inst1.get_nodeattr("io_chrc_in"))
+
     #assert True==False
     #assert node_inst0.get_nodeattr("depth") == node_inst1.get_nodeattr("depth")
     if test_rtl:
