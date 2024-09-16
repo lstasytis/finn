@@ -54,6 +54,7 @@ def characterized_nodes():
     "Thresholding_rtl",
     "VVAU_hls",
     "VVAU_rtl",
+    "Pool_hls",
     "FMPadding_hls",
     "FMPadding_rtl",
     "ChannelwiseOp_hls",
@@ -111,7 +112,9 @@ class DeriveCharacteristic(NodeLocalTransformation):
             try:
                 # lookup op_type in registry of CustomOps
                 inst = registry.getCustomOp(node)
+                print(f"starting to characterize node {node.op_type}")
                 inst.derive_characteristic_fxns(period=self.period)
+                print(f"finished to characterize node {node.op_type}")
             except KeyError:
                 # exception if op_type is not supported
                 raise Exception("Custom op_type %s is currently not supported." % op_type)
@@ -185,7 +188,7 @@ class DeriveFIFOSizes(NodeLocalTransformation):
         op_type = node.op_type
         if is_hls_node(node) or is_rtl_node(node):
             try:
-
+                cons = None
                 numpy.set_printoptions(threshold=sys.maxsize)
                 # lookup op_type in registry of CustomOps
                 prod = registry.getCustomOp(node)
@@ -314,6 +317,16 @@ class DeriveFIFOSizes(NodeLocalTransformation):
                     if input_name in [x.name for x in model.graph.input]:
                         in_fifo_depths[i] = max(self.io_fifo_depth, in_fifo_depths[i])
                 prod.set_nodeattr("inFIFODepths", in_fifo_depths)
+
+                # clear the variables now for garbage collection since we will likely run out of
+                # mdoe space otherwise
+                prod.set_nodeattr("io_chrc_out",np.zeros(1))
+                
+                prod.set_nodeattr("io_chrc_out_concat",np.zeros(1))
+
+                if cons is not None:
+                    cons.set_nodeattr("io_chrc_in",np.zeros(1))
+                    cons.set_nodeattr("io_chrc_in_concat",np.zeros(1))
 
             except KeyError:
                 # exception if op_type is not supported

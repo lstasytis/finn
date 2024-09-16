@@ -266,6 +266,50 @@ class Thresholding(HWCustomOp):
         return num_channels // pe
 
 
+    def prepare_kwargs_for_characteristic_fx(self):
+
+        NumChannels = self.get_nodeattr("NumChannels")
+        PE = self.get_nodeattr("PE")
+        reps = 1
+        ImgDim = int(np.prod(list(self.get_nodeattr("numInputVectors"))))
+        NF = int(NumChannels/PE)
+        
+
+        TOTAL_ITERATIONS = reps*ImgDim *NF
+        
+        kwargs = (TOTAL_ITERATIONS,NumChannels,PE,reps,ImgDim,NF)
+
+        return kwargs
+
+
+    def characteristic_fx_input(self, txns, cycles, counter, kwargs):
+
+        (TOTAL_ITERATIONS,NumChannels,PE,reps,ImgDim,NF) = kwargs
+        for i in range(0,TOTAL_ITERATIONS):
+            txns.append(counter)
+            counter +=1
+            cycles+=1
+
+        return txns, cycles, counter
+
+
+    def characteristic_fx_output(self, txns, cycles, counter, kwargs):
+
+        (TOTAL_ITERATIONS,NumChannels,PE,reps,ImgDim,NF) = kwargs
+
+        windup = 6
+        for i in range(0,windup):
+            txns.append(counter)
+            cycles+=1
+        # first input period
+        for i in range(0,TOTAL_ITERATIONS):
+            txns.append(counter)
+            counter +=1
+            cycles+=1
+
+
+        return txns, cycles, counter
+
 
     def derive_characteristic_fxns(self, period):
         n_inps = np.prod(self.get_folded_input_shape()[:-1])
@@ -292,108 +336,74 @@ class Thresholding(HWCustomOp):
         
         # Analytical flow
         
-
         txns_in = {key: [] for (key, value) in io_dict["inputs"].items() if "in" in key}
         txns_out = {key: [] for (key, value) in io_dict["outputs"].items() if "out" in key}
 
         all_txns_in = np.empty((len(txns_in.keys()), 2 * period), dtype=np.int32)
         all_txns_out = np.empty((len(txns_out.keys()), 2 * period), dtype=np.int32)
-        all_pad_in = []
-        all_pad_out = []
+
+
+        self.set_nodeattr("io_chrc_period",period)
+
+
+
+
         txn_in = []
         txn_out = []
 
-        NumChannels = self.get_nodeattr("NumChannels")
-        PE = self.get_nodeattr("PE")
-        reps = 1
-        ImgDim = int(np.prod(list(self.get_nodeattr("numInputVectors"))))
-        NF = int(NumChannels/PE)
+
+        # INPUT
+
+        counter = 0
+        padding = 0
         
 
-        TOTAL_ITERATIONS = reps*ImgDim *NF
-        windup = 6
+        kwargs = self.prepare_kwargs_for_characteristic_fx()
+
+        
+        # first period
         cycles = 0
-        padding = 0
-        p = 0
-        # first input period
-        for i in range(0,TOTAL_ITERATIONS):
-            txn_in.append(p)
-            p +=1
-            cycles+=1
+        txn_in, cycles, counter = self.characteristic_fx_input(txn_in,cycles,counter,kwargs)
 
-        # pad the rest
-        for j in range(cycles, period):
-            txn_in.append(p)
-            #cycles+=1
-            padding+=1
+        txn_in += [counter] * (period-cycles)
+        padding+=(period*-cycles)
+        
 
+        # second period
         cycles = period
-        # second input period
-        for i in range(0,TOTAL_ITERATIONS):
-            txn_in.append(p)
-            p +=1
-            cycles+=1
-
-        # pad the rest
-        for j in range(cycles,period*2):
-            txn_in.append(p)
-            #cycles+=1
-            padding+=1
-
-        all_pad_in.append(padding)
-
- 
-        cycles = 0
-        padding = 0
-        p = 0
-
-        for i in range(0,windup):
-            txn_out.append(p)
-            cycles+=1
-        # first input period
-        for i in range(0,TOTAL_ITERATIONS):
-            txn_out.append(p)
-            p +=1
-            cycles+=1
-
-        # pad the rest
-        for j in range(cycles, period):
-            txn_out.append(p)
-            #cycles+=1
-            padding+=1
-
-        cycles = period
+        txn_in, cycles, counter = self.characteristic_fx_input(txn_in,cycles,counter,kwargs)
 
 
-        # second input period
+        txn_in += [counter] * (period*2-cycles)
+        padding+=(period*2-cycles)
 
-        for i in range(0,windup):
-            txn_out.append(p)
-            cycles+=1
-
-        for i in range(0,TOTAL_ITERATIONS):
-            txn_out.append(p)
-            p +=1
-            cycles+=1
-
-        # pad the rest
-        for j in range(cycles,period*2):
-            txn_out.append(p)
-            #cycles+=1
-            padding+=1
-
-
-        all_pad_out.append(padding)
- 
-
-
+        # final assignments
         all_txns_in[0, :] = np.array(txn_in)
-        all_txns_out[0, :] = np.array(txn_out)   
-
         self.set_nodeattr("io_chrc_in", all_txns_in)
-        self.set_nodeattr("io_chrc_out", all_txns_out)
-        self.set_nodeattr("io_chrc_pads_in", all_pad_in)
-        self.set_nodeattr("io_chrc_pads_out", all_pad_out)
-        self.set_nodeattr("io_chrc_period",period)
+        self.set_nodeattr("io_chrc_pads_in", padding)
 
-        #assert True==False
+
+        # OUTPUT
+        
+        counter = 0
+        cycles = 0  
+        padding = 0          
+
+
+        txn_out, cycles, counter = self.characteristic_fx_output(txn_out,cycles,counter,kwargs)
+
+
+        txn_out += [counter] * (period-cycles)
+        padding += (period*-cycles)
+
+        cycles = period
+
+        txn_out, cycles, counter = self.characteristic_fx_output(txn_out,cycles,counter,kwargs)
+
+        txn_out += [counter] * (period*2-cycles)
+        padding+=(period*2-cycles)
+
+
+        all_txns_out[0, :] = np.array(txn_out)   
+        self.set_nodeattr("io_chrc_out", all_txns_out)
+        self.set_nodeattr("io_chrc_pads_out", padding)

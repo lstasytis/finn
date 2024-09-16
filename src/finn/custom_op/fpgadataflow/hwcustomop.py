@@ -94,8 +94,8 @@ class HWCustomOp(CustomOp):
             # the period for which the characterization was run
             "io_chrc_period": ("i", False, 0),
             # amount of zero padding inserted during chrc.
-            "io_chrc_pads_in": ("ints", False, []),
-            "io_chrc_pads_out": ("ints", False, []),
+            "io_chrc_pads_in": ("i", False, 0),
+            "io_chrc_pads_out": ("i", False, 0),
             "io_chrc_in_concat": ("t", False, np.asarray([], dtype=np.int32)),
             "io_chrc_out_concat": ("t", False, np.asarray([], dtype=np.int32)),
             "ipgen_ignore": ("i", False, 0)
@@ -475,5 +475,5 @@ class HWCustomOp(CustomOp):
 
         self.set_nodeattr("io_chrc_in", all_txns_in)
         self.set_nodeattr("io_chrc_out", all_txns_out)
-        self.set_nodeattr("io_chrc_pads_in", all_pad_in)
-        self.set_nodeattr("io_chrc_pads_out", all_pad_out)
+        #self.set_nodeattr("io_chrc_pads_in", all_pad_in)
+        #self.set_nodeattr("io_chrc_pads_out", all_pad_out)

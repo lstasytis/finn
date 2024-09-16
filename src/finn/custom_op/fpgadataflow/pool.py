@@ -321,24 +321,26 @@ class Pool(HWCustomOp):
 
         kwargs = self.prepare_kwargs_for_characteristic_fx()
 
-       # assert True == False
+        
         # first period
         cycles = 0
         txn_in, cycles, counter = self.characteristic_fx_input(txn_in,cycles,counter,kwargs)
 
-        for i in range(cycles,period):
-            txn_in.append(counter)
-            padding+=1
-        
+        txn_in += [counter] * (period-cycles)
+        padding+=(period*-cycles)
         
 
         # second period
         cycles = period
         txn_in, cycles, counter = self.characteristic_fx_input(txn_in,cycles,counter,kwargs)
 
-        for i in range(cycles,period*2):
-            txn_in.append(counter)
-            padding+=1
+
+        #for i in range(cycles,period*2):
+        #    txn_in.append(counter)
+        #pads = (period*2-cycles)
+
+        txn_in += [counter] * (period*2-cycles)
+        padding+=(period*2-cycles)
 
         # final assignments
         all_txns_in[0, :] = np.array(txn_in)
@@ -355,21 +357,18 @@ class Pool(HWCustomOp):
 
         txn_out, cycles, counter = self.characteristic_fx_output(txn_out,cycles,counter,kwargs)
 
-        for i in range(cycles,period):
-            txn_out.append(counter)
-            padding+=1
+
+        txn_out += [counter] * (period-cycles)
+        padding += (period*-cycles)
 
         cycles = period
 
         txn_out, cycles, counter = self.characteristic_fx_output(txn_out,cycles,counter,kwargs)
 
-        for i in range(cycles,period*2):
-            txn_out.append(counter)
-            padding+=1
+        txn_out += [counter] * (period*2-cycles)
+        padding+=(period*2-cycles)
 
 
         all_txns_out[0, :] = np.array(txn_out)   
         self.set_nodeattr("io_chrc_out", all_txns_out)
         self.set_nodeattr("io_chrc_pads_out", padding)
-
-        

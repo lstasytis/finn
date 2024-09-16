@@ -238,7 +238,7 @@ class StreamingDataWidthConverter(HWCustomOp):
         words = max(num_in_words,num_out_words)
         min_words = min(num_in_words,num_out_words)
         
-        exp_cycles = words + min_words  # multiply by 2x just in case?
+        exp_cycles = words + min_words
     
         return int(exp_cycles)
     
@@ -367,7 +367,7 @@ class StreamingDataWidthConverter(HWCustomOp):
 
 
 
-        # HYPER PARAMETERS WHICH MAY CHANGE OVER TIME
+        # HYPER PARAMETERS WHICH MAY CHANGE
         windup_clocks_up_convert_input = 3
         windup_clocks_down_convert_input = 2
 
@@ -521,19 +521,21 @@ class StreamingDataWidthConverter(HWCustomOp):
         cycles = 0
         txn_in, cycles, counter = self.characteristic_fx_input(txn_in,cycles,counter,kwargs)
 
-        for i in range(cycles,period):
-            txn_in.append(counter)
-            padding+=1
-        
+        txn_in += [counter] * (period-cycles)
+        padding+=(period*-cycles)
         
 
         # second period
         cycles = period
         txn_in, cycles, counter = self.characteristic_fx_input(txn_in,cycles,counter,kwargs)
 
-        for i in range(cycles,period*2):
-            txn_in.append(counter)
-            padding+=1
+
+        #for i in range(cycles,period*2):
+        #    txn_in.append(counter)
+        #pads = (period*2-cycles)
+
+        txn_in += [counter] * (period*2-cycles)
+        padding+=(period*2-cycles)
 
         # final assignments
         all_txns_in[0, :] = np.array(txn_in)
@@ -550,17 +552,16 @@ class StreamingDataWidthConverter(HWCustomOp):
 
         txn_out, cycles, counter = self.characteristic_fx_output(txn_out,cycles,counter,kwargs)
 
-        for i in range(cycles,period):
-            txn_out.append(counter)
-            padding+=1
+
+        txn_out += [counter] * (period-cycles)
+        padding += (period*-cycles)
 
         cycles = period
 
         txn_out, cycles, counter = self.characteristic_fx_output(txn_out,cycles,counter,kwargs)
 
-        for i in range(cycles,period*2):
-            txn_out.append(counter)
-            padding+=1
+        txn_out += [counter] * (period*2-cycles)
+        padding+=(period*2-cycles)
 
 
         all_txns_out[0, :] = np.array(txn_out)   

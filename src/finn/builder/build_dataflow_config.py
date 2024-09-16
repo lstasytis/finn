@@ -255,20 +255,45 @@ class DataflowBuildConfig:
     #: very high performance.
     mvau_wwidth_max: Optional[int] = 1024
 
-    # (Optional) which SetFolding optimizer to use
-    style: Optional[str] = "naive"
+    # (Optional) which SetFolding optimizer to use (naive, optimized)
+    folding_style: Optional[str] = "naive"
 
     # (Optional) How much padding to allow for enabling more fine-grain folding
-    # parameters
-    padding: Optional[int] = 6
+    # parameters (generally, more than 6 is unnecessary)
+    folding_maximum_padding: Optional[int] = 6
+
+    # (Optional) Whether to allow padding IO nodes during folding
+    # If set to True, the model IO npy arrays would also need to be
+    # padded by the user!
+    folding_pad_io_nodes: Optional[bool] = False
 
     # (Optional) Heuristic to consider dwc LUT cost when performing folding
     # this will make the folding optimizer avoid mismatching stream widths
-    folding_dwc_heuristic: Optional[int] = 1
+    enable_folding_dwc_heuristic: Optional[int] = 1
+
+    # (Optional) Heuristic to consider dwc LUT cost when performing folding
+    # this will make the folding optimizer avoid mismatching stream widths
+    enable_folding_fifo_heuristic: Optional[int] = 0
 
     # (Optional) How much effort to put into automatic folding
+    # minimizer function
     # 250 = typically under 1 minute compilation. Scales linearly
-    folding_effort: Optional[int] = 250
+    folding_effort: Optional[int] = 100
+
+    # (Optional) How many times to attempt to optimize throughput
+    #  1: only attempts the target throughput
+    # >1: attempt to increase the throughput to the maximum possible
+    # for a given device. Increasing the value by one doubles the 
+    # precision towards reaching maximal throughput possible
+    # 2 attempts: within 100% of optimum
+    # 6 attempts: within 6.25% of optimum
+    folding_max_attempts: Optional[int] = 1
+
+
+    # (Optional) Flag for generating a hw config json in set_fifo_sizes
+    # this should be turned off during setFolding optimization's call
+    # to the set_fifo_sizes step
+    extract_hw_config: Optional[bool] = True
 
     #: (Optional) Whether thresholding layers (which implement quantized
     #: activations in FINN) will be implemented as stand-alone HW layers,

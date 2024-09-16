@@ -427,10 +427,13 @@ def step_target_fps_parallelization(model: ModelWrapper, cfg: DataflowBuildConfi
                 target_cycles_per_frame,
                 mvau_wwidth_max=cfg.mvau_wwidth_max,
                 two_pass_relaxation=cfg.folding_two_pass_relaxation,
-                style=cfg.style,
-                padding=cfg.padding,
-                folding_dwc_heuristic=cfg.folding_dwc_heuristic,
+                style=cfg.folding_style,
+                folding_maximum_padding=cfg.folding_maximum_padding,
+                enable_folding_dwc_heuristic=cfg.enable_folding_dwc_heuristic,
+                enable_folding_fifo_heuristic=cfg.enable_folding_fifo_heuristic,
                 folding_effort=cfg.folding_effort,
+                folding_max_attempts=cfg.folding_max_attempts,
+                folding_pad_io_nodes=cfg.folding_pad_io_nodes,
                 platform=cfg.board,
             )
         )
@@ -459,12 +462,6 @@ def step_apply_folding_config(model: ModelWrapper, cfg: DataflowBuildConfig):
         model = model.transform(GiveUniqueNodeNames())
         model = model.transform(ApplyConfig(cfg.folding_config_file))
 
-    if VerificationStepType.FOLDED_HLS_CPPSIM in cfg._resolve_verification_steps():
-        # prepare cppsim
-        model = model.transform(PrepareCppSim())
-        model = model.transform(CompileCppSim())
-        model = model.transform(SetExecMode("cppsim"))
-        verify_step(model, cfg, "folded_hls_cppsim", need_parent=True)
     return model
 
 
@@ -504,6 +501,15 @@ def step_generate_estimate_reports(model: ModelWrapper, cfg: DataflowBuildConfig
         estimate_network_performance["estimated_latency_ns"] = est_latency_ns
         with open(report_dir + "/estimate_network_performance.json", "w") as f:
             json.dump(estimate_network_performance, f, indent=2)
+
+    if VerificationStepType.FOLDED_HLS_CPPSIM in cfg._resolve_verification_steps():
+        # prepare cppsim
+        model = model.transform(PrepareCppSim())
+        model = model.transform(CompileCppSim())
+        model = model.transform(SetExecMode("cppsim"))
+        verify_step(model, cfg, "folded_hls_cppsim", need_parent=True)
+
+
     return model
 
 
@@ -514,6 +520,10 @@ def step_minimize_bit_width(model: ModelWrapper, cfg: DataflowBuildConfig):
         model = model.transform(MinimizeAccumulatorWidth())
         # make sure the changed datatypes are propagated through the network
         model = model.transform(InferDataTypes())
+
+        #model = model.transform(InsertDWC())
+        #model = model.transform(GiveUniqueNodeNames())
+        #model = model.transform(AnnotateCycles())
     return model
 
 
@@ -559,15 +569,11 @@ def step_set_fifo_depths(model: ModelWrapper, cfg: DataflowBuildConfig):
             model = model.transform(SpecializeLayers(cfg._resolve_fpga_part()))
             model = model.transform(GiveUniqueNodeNames())
 
-
-
-
             if cfg.auto_fifo_strategy == "characterize_analytic":
                 # should RTL sim only nodes which are not supported right now with
                 # analytic characteristic derivations
                 model = set_ignore_list_for_ip_gen(model)
 
-            
             model = model.transform(
                 PrepareIP(cfg._resolve_fpga_part(), cfg._resolve_hls_clk_period())
             )
@@ -575,7 +581,7 @@ def step_set_fifo_depths(model: ModelWrapper, cfg: DataflowBuildConfig):
             model = model.transform(PrepareRTLSim())
             model = model.transform(AnnotateCycles())
             
-            period = int(model.analysis(dataflow_performance)["max_cycles"]*1.6)
+            period = int(model.analysis(dataflow_performance)["max_cycles"]*3)
             #assert True==False
             model = model.transform(DeriveCharacteristic(period))
             model = model.transform(DeriveFIFOSizes())
@@ -640,7 +646,9 @@ def step_set_fifo_depths(model: ModelWrapper, cfg: DataflowBuildConfig):
         "depth_trigger_uram",
         "depth_trigger_bram",
     ]
-    extract_model_config_to_json(model, cfg.output_dir + "/final_hw_config.json", hw_attrs)
+
+    if cfg.extract_hw_config:
+        extract_model_config_to_json(model, cfg.output_dir + "/final_hw_config.json", hw_attrs)
 
     # perform FIFO splitting and shallow FIFO removal only after the final config
     # json file has been written. otherwise, since these transforms may add/remove
