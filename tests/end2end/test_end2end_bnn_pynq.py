@@ -94,6 +94,7 @@ from finn.transformation.streamline.reorder import (
     MoveScalarLinearPastInvariants,
 )
 from finn.transformation.streamline.round_thresholds import RoundAndClipThresholds
+from finn.transformation.streamline.round_thresholds import RoundAndClipThresholds
 from finn.util.basic import get_finn_root, make_build_dir, test_board_map
 from finn.util.pytorch import ToTensor
 from finn.util.test import (
