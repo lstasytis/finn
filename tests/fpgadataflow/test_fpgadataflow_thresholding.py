@@ -57,6 +57,7 @@ from finn.util.test import (
     debug_chr_funcs,
     get_characteristic_fnc,
 )
+from finn.transformation.streamline.round_thresholds import RoundAndClipThresholds
 
 test_fpga_part = "xczu3eg-sbva484-1-e"
 target_clk_ns = 5
