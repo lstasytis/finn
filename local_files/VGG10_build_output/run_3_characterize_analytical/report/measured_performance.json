@@ -1,0 +1,13 @@
+{
+  "error": false,
+  "checksum": 17,
+  "min_latency_cycles": 2873,
+  "latency_cycles": 4655,
+  "interval_cycles": 1029,
+  "frequency_mhz": 100,
+  "min_latency_ms": 0.02873,
+  "latency_ms": 0.04655,
+  "throughput_fps": 97181,
+  "min_pipeline_depth": 2.79,
+  "pipeline_depth": 4.52
+}
