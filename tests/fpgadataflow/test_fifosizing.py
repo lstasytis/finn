@@ -61,7 +61,7 @@ def fetch_test_model(topology, wbits=2, abits=2):
         "largefifo_rtlsim",
     ],
 )
-@pytest.mark.parametrize("topology", ["cnv","tfc"])
+@pytest.mark.parametrize("topology", ["tfc", "cnv"])
 def test_fifosizing_linear(method, topology):
     tmp_output_dir = fetch_test_model(topology)
     if method == "characterize_analytic":
