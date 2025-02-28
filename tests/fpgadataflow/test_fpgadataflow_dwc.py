@@ -49,7 +49,7 @@ from finn.transformation.fpgadataflow.set_exec_mode import SetExecMode
 from finn.transformation.fpgadataflow.specialize_layers import SpecializeLayers
 
 
-def make_single_dwc_modelwrapper(shape, inWidth, outWidth, resize, finn_dtype, impl_style):
+def make_single_dwc_modelwrapper(shape, inWidth, outWidth, finn_dtype, impl_style):
     inp = helper.make_tensor_value_info("inp", TensorProto.FLOAT, shape)
     outp = helper.make_tensor_value_info("outp", TensorProto.FLOAT, shape)
 
@@ -68,6 +68,7 @@ def make_single_dwc_modelwrapper(shape, inWidth, outWidth, resize, finn_dtype, i
         preferred_impl_style=impl_style,
 
         dataType=str(finn_dtype.name),
+        preferred_impl_style=impl_style,
     )
 
     graph = helper.make_graph(nodes=[DWC_node], name="dwc_graph", inputs=[inp], outputs=[outp])
@@ -90,36 +91,30 @@ def prepare_inputs(input_tensor, dt):
 @pytest.mark.parametrize(
     "config",
     [
-        # the LCM <= shape[1] hard constraint should hold
-        # for the values after padding/cropping
-        ([1, 2, 8], 4, 2, -1, DataType["INT2"]),
-        ([1, 24], 6, 6, 1, DataType["INT2"]),
-        ([1, 2, 8], 8, 16, 0,  DataType["INT2"]),
-        ([1, 2, 8], 4, 4, 0, DataType["INT2"]),
-        ([1, 2, 8], 8, 18, 1,  DataType["INT2"]),
-        ([1, 2, 24], 4, 6, 0, DataType["INT2"]),
-        ([1, 24], 6, 4, 0, DataType["INT2"]),
-        ([1, 96], 24, 28, 2, DataType["INT2"]),
-        ([1, 5, 512], 1024, 1028, 2, DataType["INT2"]),
-        ([1, 512], 1024, 1020, -2, DataType["INT2"]),
-        
+        ([1, 24], 6, 4, DataType["INT2"]),
+        ([1, 24], 4, 6, DataType["INT2"]),
+        ([1, 4], 2, 4, DataType["BIPOLAR"]),
+        ([1, 4], 4, 2, DataType["INT2"]),
+        ([1, 2, 8], 4, 4, DataType["INT2"]),
+        ([1, 2, 8], 8, 16, DataType["INT2"]),
     ],
 )
-@pytest.mark.parametrize("exec_mode", ["cppsim","rtlsim"])
+@pytest.mark.parametrize("exec_mode", ["cppsim", "rtlsim"])
+@pytest.mark.parametrize("impl_style", ["hls", "rtl"])
 @pytest.mark.fpgadataflow
 @pytest.mark.slow
 # impl style
 @pytest.mark.parametrize("impl_style", ["hls"])
 @pytest.mark.vivado
 def test_fpgadataflow_dwc(config, exec_mode, impl_style):
-    shape, inWidth, outWidth, resize, finn_dtype = config
+    shape, inWidth, outWidth, finn_dtype = config
 
     test_fpga_part = "xc7z020clg400-1"
     # generate input data
     x = gen_finn_dt_tensor(finn_dtype, shape)
     input_dict = prepare_inputs(x, finn_dtype)
 
-    model = make_single_dwc_modelwrapper(shape, inWidth, outWidth, resize, finn_dtype, impl_style)
+    model = make_single_dwc_modelwrapper(shape, inWidth, outWidth, finn_dtype, impl_style)
     # verify abstraction level execution
     y = oxe.execute_onnx(model, input_dict)["outp"]
     golden_shape = copy.copy(shape)
@@ -132,7 +127,7 @@ def test_fpgadataflow_dwc(config, exec_mode, impl_style):
 
     assert y.shape == tuple(golden_shape), """The output shape is incorrect."""
 
-    model = model.transform(SpecializeLayers())
+    model = model.transform(SpecializeLayers(test_fpga_part))
     model = model.transform(GiveUniqueNodeNames())
     if exec_mode == "cppsim":
         model = model.transform(PrepareCppSim())
@@ -155,39 +150,20 @@ def test_fpgadataflow_dwc(config, exec_mode, impl_style):
 @pytest.mark.parametrize(
     "config",
     [
-
-        # stitching currently fails tests with non-zero resizing
-        # RTL outputs are correct thus the issue is in the 
-        # way rtsim_exec takes folded_output_shape()
-        # TODO: adjust these public functions to work for
-        # rtlsim_exec 
-        ([1, 2, 8], 4, 2, -1, DataType["INT2"]),
-        ([1, 24], 6, 6, 1, DataType["INT2"]),
-        ([1, 2, 8], 8, 16, 0,  DataType["INT2"]),
-        ([1, 2, 8], 4, 4, 0, DataType["INT2"]),
-        ([1, 2, 8], 8, 18, 1,  DataType["INT2"]),
-        ([1, 2, 24], 4, 6, 0, DataType["INT2"]),
-        ([1, 24], 6, 4, 0, DataType["INT2"]),
-        ([1, 96], 24, 28, 2, DataType["INT2"]),
-        ([1, 5, 512], 1024, 1028, 2, DataType["INT2"]),
-        ([1, 512], 1024, 1020, -2, DataType["INT2"]),
-        
+        ([1, 4], 2, 4, DataType["BIPOLAR"]),
+        ([1, 4], 4, 2, DataType["INT2"]),
+        ([1, 2, 8], 4, 4, DataType["INT2"]),
+        ([1, 2, 8], 8, 16, DataType["INT2"]),
     ],
 )
+@pytest.mark.parametrize("impl_style", ["hls", "rtl"])
 @pytest.mark.fpgadataflow
 @pytest.mark.slow
 # impl style
 @pytest.mark.parametrize("impl_style", ["hls"])
 @pytest.mark.vivado
 def test_fpgadataflow_dwc_stitched_rtlsim(config, impl_style):
-    shape, inWidth, outWidth, resize, finn_dtype = config
-
-    golden_shape = copy.copy(shape)
-
-    # adjusting the output shape based on what we expect ----
-    out_els = outWidth / finn_dtype.bitwidth() - resize
-    num_words = int(shape[-1] // out_els) 
-    golden_shape[-1] += resize * num_words
+    shape, inWidth, outWidth, finn_dtype = config
 
     test_fpga_part = "xc7z020clg400-1"
     target_clk_ns = 10.0
@@ -195,10 +171,10 @@ def test_fpgadataflow_dwc_stitched_rtlsim(config, impl_style):
     x = gen_finn_dt_tensor(finn_dtype, shape)
     input_dict = prepare_inputs(x, finn_dtype)
 
-    model = make_single_dwc_modelwrapper(shape, inWidth, outWidth, resize, finn_dtype, impl_style)
-    model = model.transform(SpecializeLayers())
+    model = make_single_dwc_modelwrapper(shape, inWidth, outWidth, finn_dtype, impl_style)
+    model = model.transform(SpecializeLayers(test_fpga_part))
     model = model.transform(InsertFIFO(create_shallow_fifos=True))
-    model = model.transform(SpecializeLayers())
+    model = model.transform(SpecializeLayers(test_fpga_part))
     model = model.transform(GiveUniqueNodeNames())
     model = model.transform(PrepareIP(test_fpga_part, target_clk_ns))
     model = model.transform(HLSSynthIP())

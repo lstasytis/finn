@@ -95,7 +95,7 @@ class StreamingFIFO_rtl(StreamingFIFO, RTLBackend):
         code_gen_dict["$TOP_MODULE_NAME$"] = topname
         # make instream width a multiple of 8 for axi interface
         in_width = self.get_instream_width_padded()
-        count_width = int(self.get_nodeattr("depth") - 1).bit_length()
+        count_width = int(self.get_nodeattr("depth")).bit_length()
         code_gen_dict["$COUNT_RANGE$"] = "[{}:0]".format(count_width - 1)
         code_gen_dict["$IN_RANGE$"] = "[{}:0]".format(in_width - 1)
         code_gen_dict["$OUT_RANGE$"] = "[{}:0]".format(in_width - 1)
@@ -133,10 +133,18 @@ class StreamingFIFO_rtl(StreamingFIFO, RTLBackend):
         elif mode == "rtlsim":
             code_gen_dir = self.get_nodeattr("code_gen_dir_ipgen")
             # create a npy file for the input of the node
-            assert (
-                str(inp.dtype) == "float32"
-            ), """Input datatype is
-                not float32 as expected."""
+
+            # Make sure the input has the right container datatype
+            if inp.dtype is not np.float32:
+                # Issue a warning to make the user aware of this type-cast
+                warnings.warn(
+                    f"{node.name}: Changing input container datatype from "
+                    f"{inp.dtype} to {np.float32}"
+                )
+                # Convert the input to floating point representation as the
+                # container datatype
+                inp = inp.astype(np.float32)
+
             expected_inp_shape = self.get_folded_input_shape()
             reshaped_input = inp.reshape(expected_inp_shape)
             if DataType[self.get_nodeattr("dataType")] == DataType["BIPOLAR"]:
