@@ -68,7 +68,7 @@ def test_fifosizing_linear(method, topology):
         characterizatio_strategy_key = "analytical"
     else:
         characterizatio_strategy_key = "rtlsim"
-
+        
     cfg = build_cfg.DataflowBuildConfig(
         output_dir=tmp_output_dir,
         auto_fifo_depths=True,

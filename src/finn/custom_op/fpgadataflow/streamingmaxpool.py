@@ -33,7 +33,7 @@ from onnx import TensorProto, helper
 from qonnx.core.datatype import DataType
 from qonnx.custom_op.general.maxpoolnhwc import compute_pool_output_dim
 from qonnx.util.basic import qonnx_make_model
-
+from finn.util.basic import Characteristic_Node
 from finn.custom_op.fpgadataflow.hwcustomop import HWCustomOp
 
 # TODO: consider splitting this into separate implementations for 1D and 2D
@@ -136,6 +136,18 @@ class StreamingMaxPool(HWCustomOp):
         # derived from StreamingMaxPool_Batch loop nest
         ifm_dim, k, ifm_ch = self.get_1d_attrs_normalized()
 
+        ceil_mode = self.get_nodeattr("CeilMode")
+        ofm_dim = compute_pool_output_dim(ifm_dim[1], k[1], k[1], 0, ceil_mode)
+        is1d = self.is_1d()
+
+        NumChannels = self.get_nodeattr("NumChannels")
+        PoolDim = k[1]
+        ImgDim = ifm_dim[1]
+        inputDataType = self.get_nodeattr("dataType")
+        isBinary = inputDataType == DataType["BIPOLAR"]
+
+
+
         warnings.warn(
             """Estimated latency for layer {} can be lower than
              actual latency!""".format(
@@ -144,13 +156,22 @@ class StreamingMaxPool(HWCustomOp):
         )
         if self.is_1d():
             _, _, _, nf, _ = self.get_folded_output_shape()
-            ceil_mode = self.get_nodeattr("CeilMode")
-            ofm_dim = compute_pool_output_dim(ifm_dim[1], k[1], k[1], 0, ceil_mode)
-            exp_cycles = ofm_dim * nf * (k[1] + 1)
+
+            
+            exp_cycles = ofm_dim * nf * (k[1] + 1) + 1000# + 5 + nf # 5 is delay latency
             return int(exp_cycles)
         else:
             # TODO: adjust inaccurate formula
-            return int(ifm_dim[1] * ifm_dim[1] * (1 + 1 / (k[1] * k[1])))
+
+            if isBinary:
+                setup_clocks = 1
+            else:
+                setup_clocks = ImgDim // PoolDim
+
+            read_tail_inner_loop_latency = ImgDim//PoolDim*6
+            read_tail_inner_loop_latency = 1
+
+            return int(ifm_dim[1] * ifm_dim[1] * (1 + 1 / (k[1] * k[1]))) + setup_clocks + read_tail_inner_loop_latency + 10000
 
     def get_instream_width(self, ind=0):
         dt_bits = self.get_input_datatype().bitwidth()
@@ -235,6 +256,168 @@ class StreamingMaxPool(HWCustomOp):
         result = np.transpose(result, (0, 2, 3, 1))
         context[node.output[0]] = result
 
+
+
+
+    def prepare_kwargs_for_characteristic_fx(self):
+        # key parameters
+        # this depends on the kernel type, hls or rtl etc
+
+
+        # extract node attr
+        ifm_dim, k, ifm_ch = self.get_1d_attrs_normalized()
+        ceil_mode = self.get_nodeattr("CeilMode")
+        output_size = compute_pool_output_dim(ifm_dim[1], k[1], k[1], 0, ceil_mode)
+        is1d = self.is_1d()
+
+        NumChannels = self.get_nodeattr("NumChannels")
+        PoolDim = k[1]
+        ImgDim = ifm_dim[1]
+        inputDataType = self.get_nodeattr("dataType")
+        isBinary = inputDataType == DataType["BIPOLAR"]
+
+        if isBinary:
+            setup_clocks = 1
+        else:
+            setup_clocks = ImgDim // PoolDim
+
+        numReps = 1
+
+        # SIMD = self.get_nodeattr("SIMD")
+        PE = self.get_nodeattr("PE")
+        NF = NumChannels // PE
+            
+        windup_clocks = 4
+        read_delay = 5
+
+
+        print("\nImgDim, output_size, PoolDim,NF: ", ImgDim, output_size, PoolDim, NF)
+        print("Number of CHANNELS: ", NumChannels
+        )
+        #print("NUMBER_OF_FULL_OUTPUT_SIZE_LOOPS, MAIN_INPUT_REMAINDER_COUNT, REMAINDER_PIXELS: ",NUMBER_OF_FULL_OUTPUT_SIZE_LOOPS, MAIN_INPUT_REMAINDER_COUNT, REMAINDER_PIXELS)
+        # for i in range(0,windup_clocks):
+        #    txn_out[cycles] = i
+        #    cycles+=1
+        #    p+=1
+
+        bursts = int(read_delay + ImgDim // PoolDim)
+        if isBinary:
+            read_tail_latency = 10
+        else:
+            read_tail_latency = 5
+        write_tail_latency = 14
+
+        if is1d:
+            # 1d case, two implementations are possible - for binary inputs and non-binary.
+
+            total_loops = output_size * PoolDim
+            full_output_loops_with_input_read = ImgDim // PoolDim # how many times output_size is fully covered
+            remainder = ImgDim % PoolDim
+            assert full_output_loops_with_input_read <= output_size, "ImgDim is larger than output_size*PoolDim"
+            remainding_loops = output_size - full_output_loops_with_input_read
+
+            remainder_input_loop = ImgDim % PoolDim
+            
+
+            if ImgDim > PoolDim*output_size:
+                REMAINDER_PIXELS = ImgDim - output_size * PoolDim
+            else:
+                REMAINDER_PIXELS = 0
+
+            print("full outer_loops,  remainder, remaining_pix: ", full_output_loops_with_input_read, remainder, REMAINDER_PIXELS)
+
+            remainder_read_phase = Characteristic_Node("remainder read phase", [(REMAINDER_PIXELS*NF, [1,0])], True)
+            read_phase = Characteristic_Node("read phase", [(PoolDim*NF, [1,0])], True)
+
+            read_one = Characteristic_Node("read phase", [(1, [1,0])], True)
+            write_phase = Characteristic_Node("write phase", [(NF, [0,1])], True)
+
+            idle = Characteristic_Node("idle", [(1, [0,0])], True)
+
+            first_set = Characteristic_Node("read and write phase pair", [(1, read_phase) ,(1, write_phase)], False)
+            remainder_set = Characteristic_Node("read and write phase pair", [(remainder, read_one) ,(1, write_phase)], False)
+
+            traverse_fm = Characteristic_Node("read and write phase pair", [(full_output_loops_with_input_read, first_set) ,(remainding_loops, remainder_set), (1, remainder_read_phase)], False)
+            streamingmaxpool_fm = Characteristic_Node("StreamingMaxPool_Precision_1d", [(NF,idle), (1, traverse_fm)], False)
+
+            streamingmaxpool_top = Characteristic_Node(
+                "StreamingMaxPool_Precision_1d_Batch", [(numReps, streamingmaxpool_fm)], False
+            )
+            return streamingmaxpool_top  # top level phase of this node
+
+
+        else:
+            # 2d case, two implementations are possible - for binary inputs and non-binary.
+
+            assert ImgDim % PoolDim == 0, "ImgDim % PoolDim for 2d case" # and inputDataType == DataType["BIPOLAR"]
+            # reads = Characteristic_Node("read only", [(NF, [1, 0])], True)
+
+            #  compute_k = Characteristic_Node("compute k", [(output_delay, [0, 0])], True)
+
+            # write_k = Characteristic_Node("write k", [(K, [0, 1])], True)
+
+            if isBinary:
+                print("in binary 2d case")
+                #StreamingMaxPool
+
+                tail_end_of_reads = 3*(PoolDim-2)-1
+                #tail_end_of_reads = ImgDim // PoolDim
+                tail_end_of_reads =  ImgDim // (PoolDim-1)
+                if ImgDim // PoolDim in [3,4]: tail_end_of_reads = 4
+                else:
+                    tail_end_of_reads = 0
+                idle = Characteristic_Node("idle", [(1, [0,0])], True)
+                read_phase = Characteristic_Node("read phase", [(PoolDim, [1,0])], True)
+                read_idle_phase = Characteristic_Node("read phase", [(tail_end_of_reads, [0,0])], True)
+                write_idle_phase = Characteristic_Node("read phase", [(5, [0,0])], True)
+                inner_most_read_loop = Characteristic_Node("read phase", [(1, read_phase),(1, read_idle_phase)], False)
+                inner_read_loop = Characteristic_Node("read phase", [(ImgDim//PoolDim, inner_most_read_loop)], False)
+                write_phase = Characteristic_Node("write phase", [(ImgDim // PoolDim, [0,1])], True)
+
+                
+
+                traverse_fm = Characteristic_Node("read and write phase pair", [(2,idle), (PoolDim,inner_read_loop) ,(1, idle), (1, write_phase), (1, write_idle_phase)], False)
+
+
+                streamingmaxpool_fm = Characteristic_Node("StreamingMaxPool_Precision", [(ImgDim//PoolDim, traverse_fm)], False)
+
+                streamingmaxpool_top = Characteristic_Node(
+                    "StreamingMaxPool_Batch", [(0,idle),(numReps, streamingmaxpool_fm)], False
+                )
+
+                return streamingmaxpool_top  # top level phase of this node
+            else:
+                print("in NOT binary 2d case")
+                #StreamingMaxPool
+
+                tail_end_of_reads = 3*(PoolDim-2)+1
+                tail_end_of_reads = ImgDim // PoolDim
+                if ImgDim // PoolDim in [3,4]: tail_end_of_reads = 4
+                else:
+                    tail_end_of_reads = 0
+                    
+                idle = Characteristic_Node("idle", [(1, [0,0])], True)
+                read_phase = Characteristic_Node("read phase", [(PoolDim, [1,0])], True)
+                read_idle_phase = Characteristic_Node("read phase", [(tail_end_of_reads, [0,0])], True)
+                write_idle_phase = Characteristic_Node("read phase", [(5, [0,0])], True)
+                inner_most_read_loop = Characteristic_Node("read phase", [(1, read_phase),(1, read_idle_phase)], False)
+                inner_read_loop = Characteristic_Node("read phase", [(ImgDim//PoolDim, inner_most_read_loop)], False)
+                write_phase = Characteristic_Node("write phase", [(ImgDim // PoolDim, [0,1])], True)
+
+                
+
+                traverse_fm = Characteristic_Node("read and write phase pair", [(2,idle), (PoolDim,inner_read_loop) ,(1, idle), (1, write_phase), (1, write_idle_phase)], False)
+
+
+                streamingmaxpool_fm = Characteristic_Node("StreamingMaxPool_Precision", [(ImgDim//PoolDim, traverse_fm)], False)
+
+                streamingmaxpool_top = Characteristic_Node(
+                    "StreamingMaxPool_Precision_Batch", [(ImgDim//PoolDim+2,idle),(numReps, streamingmaxpool_fm)], False
+                )
+
+                return streamingmaxpool_top  # top level phase of this node
+
+
     def prepare_kwargs_for_characteristic_fx_old(self):
         ifm_dim, k, ifm_ch = self.get_1d_attrs_normalized()
         ceil_mode = self.get_nodeattr("CeilMode")
@@ -244,6 +427,17 @@ class StreamingMaxPool(HWCustomOp):
         NumChannels = self.get_nodeattr("NumChannels")
         PoolDim = self.get_nodeattr("PoolDim")[0]
         ImgDim = self.get_nodeattr("ImgDim")[0]
+
+
+        ifm_dim_h, ifm_dim_w = self.get_nodeattr("ImgDim")
+        k_h, k_w = tuple(self.get_nodeattr("PoolDim"))
+        ifm_ch = self.get_nodeattr("NumChannels")
+        ceil_mode = self.get_nodeattr("CeilMode")
+
+        if not self.is_1d():
+            assert ifm_dim_h % k_h == 0, "StreamingMaxPool needs ImgDim_h % PoolDim_h == 0"
+            assert ifm_dim_w % k_w == 0, "StreamingMaxPool needs ImgDim_w % PoolDim_w == 0"
+
 
         # SIMD = self.get_nodeattr("SIMD")
         PE = self.get_nodeattr("PE")
