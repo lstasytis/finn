@@ -28,6 +28,64 @@
 
 import pytest
 
+
+import numpy as np
+import onnx
+import os
+import qonnx.custom_op.registry as registry
+import shutil
+import subprocess
+from finn_examples_model_configs import get_model_configs
+from onnx import helper as oh
+from qonnx.core.datatype import DataType
+from qonnx.core.modelwrapper import ModelWrapper
+from qonnx.custom_op.registry import getCustomOp
+from qonnx.transformation.change_3d_tensors_to_4d import Change3DTo4DTensors
+from qonnx.transformation.general import (
+    ApplyConfig,
+    GiveReadableTensorNames,
+    GiveUniqueNodeNames,
+    RemoveStaticGraphInputs,
+    RemoveUnusedTensors,
+)
+from qonnx.util.basic import qonnx_make_model
+from qonnx.util.config import extract_model_config_to_json
+
+import finn.builder.build_dataflow as build
+import finn.builder.build_dataflow_config as build_cfg
+import finn.transformation.fpgadataflow.convert_to_hw_layers as to_hw
+import finn.transformation.streamline.absorb as absorb
+from finn.analysis.fpgadataflow.dataflow_performance import dataflow_performance
+from finn.builder.build_dataflow_config import (
+    DataflowBuildConfig,
+    default_build_dataflow_steps,
+)
+from finn.transformation.fpgadataflow.annotate_cycles import AnnotateCycles
+from finn.transformation.fpgadataflow.derive_characteristic import (
+    DeriveCharacteristic,
+    DeriveFIFOSizes,
+    StretchCharacteristicFunctions,
+)
+from finn.transformation.fpgadataflow.insert_dwc import InsertDWC
+from finn.transformation.fpgadataflow.insert_fifo import InsertFIFO
+from finn.transformation.fpgadataflow.prepare_ip import PrepareIP, _codegen_single_node
+from finn.transformation.fpgadataflow.prepare_rtlsim import PrepareRTLSim
+
+# def _codegen_single_node(node, model, fpgapart, clk):
+from finn.transformation.fpgadataflow.replace_verilog_relpaths import (
+    ReplaceVerilogRelPaths,
+)
+from finn.transformation.fpgadataflow.specialize_layers import SpecializeLayers
+from finn.util.basic import decompress_string_to_numpy, make_build_dir
+from finn.util.fpgadataflow import is_hls_node, is_rtl_node
+from finn.util.test import (
+    compare_two_chr_funcs,
+    debug_chr_funcs,
+    get_characteristic_fnc,
+)
+from finn.util.visualization import showInNetron
+
+
 import importlib_resources as importlib
 import numpy as np
 import onnx
@@ -206,14 +264,21 @@ def crop_center(size, img):
     return torchvision_util.center_crop(img, size)
 
 
-def compare_two_chr_funcs(a, b, relaxation):
+def compare_two_chr_funcs(a, b, relaxation, period_override=None):
     # relaxation determines how much leeway we allow for the
     # analytical implementation to be off from RTL ground truth
+    # this leeway may produce larger fifos.
+    # Output delays due to long pipelines generally do not effect 
+    # fifo sizes and so large relaxation factors for them are expected.
 
     # a = characteristic
     # b = ground truth
     for inp in range(len(a)):
-        for i in range(len(a[inp])):
+        if period_override is None:
+            l = len(a[inp])
+        else:
+            l = period_override
+        for i in range(l):
             start_internal_relaxation = min([relaxation, i])
             end_internal_relaxation = min([relaxation, abs(len(a[inp]) - i)])
             if a[inp][i] not in b[inp][i - start_internal_relaxation : i + end_internal_relaxation]:
@@ -221,14 +286,21 @@ def compare_two_chr_funcs(a, b, relaxation):
     return True
 
 
-DEBUGGING = False
-CACHING = False
+
+
 
 
 def get_characteristic_fnc(model, node0, part, target_clk_ns, strategy):
-    # If set to True: attempt to cache a pre-existing variant of the model
-    # this is to avoid generating RTL multiple times during
-    # test debugging
+    """
+    This helper performs FINN node characterization using either rtlsim
+    or characteristic functions. If chacteristic function strategy is
+    requested, but the node does not support it, a fallback to rtlsim
+    is performed. The primary purpose of this helper is for testing purposes
+    to evaluate characteristic function final dump equivalence between rtlsim
+    and characteristic functions.
+    The CACHING flag controls storing the .onnx model in /tmp/ to reuse,
+    which is useful for vastly speeding up debugging."""
+    CACHING = True
 
     model_cache = None
     if strategy == "rtlsim" and CACHING:
@@ -323,9 +395,14 @@ def get_characteristic_fnc(model, node0, part, target_clk_ns, strategy):
     return getCustomOp(model.graph.node[0])
 
 
-def debug_chr_funcs(chr_in, chr_out, rtlsim_in, rtlsim_out, direction):
-    if DEBUGGING:
+def debug_chr_funcs(chr_in, chr_out, rtlsim_in, rtlsim_out, direction, printout_limit=100):
+    """This helper prints out characteristic functions for a clean comparison
+    between the rtlsim-based and characteristic-function-based flows to find bugs
+    Setting DEBUGGING=True will enable these prints in all relevant unit-tests"""
+    DEBUG_RAW_FUNCS = True
+    DEBUG_CONCAT_FUNCS = True
 
+    if DEBUG_RAW_FUNCS or DEBUG_CONCAT_FUNCS:
         def concat_list(a):
             b = []
             current = a[0]
@@ -338,6 +415,8 @@ def debug_chr_funcs(chr_in, chr_out, rtlsim_in, rtlsim_out, direction):
                     current = i
             return b
 
+
+
         chr_in_concat = concat_list(chr_in[0])
         chr_out_concat = concat_list(chr_out[0])
         rtlsim_in_concat = concat_list(rtlsim_in[0])
@@ -345,17 +424,211 @@ def debug_chr_funcs(chr_in, chr_out, rtlsim_in, rtlsim_out, direction):
 
         np.set_printoptions(threshold=np.inf)
         if direction == "input":
-            print(f"\nchr IN:    {chr_in[:100]}, {len(chr_in[0])}")
-            print(f"rtlsim IN: {rtlsim_in[:100]}, {len(rtlsim_in[0])}")
 
-            print(f"chr IN CONCAT:    {chr_in_concat[:100]}, {len(chr_in_concat)}")
-            print(f"rtlsim IN CONCAT: {rtlsim_in_concat[:100]}, {len(rtlsim_in_concat)}")
+            if DEBUG_RAW_FUNCS:
+                print(f"\nchr IN:    {chr_in[0][:printout_limit]}, {len(chr_in[0])}")
+                print(f"rtlsim IN: {rtlsim_in[0][:printout_limit]}, {len(rtlsim_in[0])}")
+            
+            if DEBUG_CONCAT_FUNCS:
+                print(f"chr IN CONCAT:    {chr_in_concat[:printout_limit]}, {len(chr_in_concat)}")
+                print(f"rtlsim IN CONCAT: {rtlsim_in_concat[:printout_limit]}, {len(rtlsim_in_concat)}")
 
         elif direction == "output":
-            print(f"\nchr OUT:    {chr_out[:100]}, {len(chr_out[0])}")
-            print(f"rtlsim OUT: {rtlsim_out[:100]}, {len(rtlsim_out[0])}")
 
-            print(f"chr OUT CONCAT:    {chr_out_concat[:100]}, {len(chr_out_concat)}")
-            print(f"rtlsim OUT CONCAT: {rtlsim_out_concat[:100]}, {len(rtlsim_out_concat)}")
+            if DEBUG_RAW_FUNCS:
+                print(f"\nchr OUT:    {chr_out[0][:printout_limit]}, {len(chr_out[0])}")
+                print(f"rtlsim OUT: {rtlsim_out[0][:printout_limit]}, {len(rtlsim_out[0])}")
+            
+            if DEBUG_CONCAT_FUNCS:
+                print(f"chr OUT CONCAT:    {chr_out_concat[:printout_limit]}, {len(chr_out_concat)}")
+                print(f"rtlsim OUT CONCAT: {rtlsim_out_concat[:printout_limit]}, {len(rtlsim_out_concat)}")
     else:
         return True
+
+def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg):
+    # determine root folder for a given model where the jsons are located
+
+
+    zynq_platforms = ["ZCU104", "ZCU102", "Pynq-Z1"]
+    alveo_platforms = ["U250"]
+
+    model_root = f"{model_root}/{cfg['model_name']}"
+
+    # searches for fifo sizing strategy json or downloads from a remote release repo
+    fifo_json = f"{cfg['model_name']}_{cfg['model_config']}_{fifo_sizing_strategy}_fifo_config"
+
+    # if config json does not already exist in the directory, attempt to download
+    if os.path.isfile(fifo_json) is False:
+        print("Downloading config json from the remote repo")
+        # TODO download from releases in some undecided remote repo
+        fifo_json = ""  # override with download path when implemented
+    else:
+        print(f"found json for {fifo_sizing_strategy}")
+
+    # assign final dataflow step
+    if fifo_sizing_strategy is None:
+        model_step = "step_generate_estimate_reports"
+        model_key = "estimate_model"
+        extra_steps = []
+    else:
+        model_step = "step_set_fifo_depths"
+        model_key = f"{fifo_sizing_strategy}_model"
+        extra_steps = ["step_set_fifo_depths"]
+
+    # if fifo json is prepared, use that to skip rerunning the sizing transformations
+    if fifo_sizing_strategy is not None and fifo_json != "":
+        model = prepare_test_model(build_dir, model_root, None, cfg)
+        model = model.transform(InsertFIFO(create_shallow_fifos=True))
+        model = model.transform(SpecializeLayers(cfg._resolve_fpga_part()))
+        model = model.transform(GiveUniqueNodeNames())
+        model = model.transform(GiveReadableTensorNames())
+        if cfg.folding_config_file is not None:
+            model = model.transform(ApplyConfig(fifo_json))
+
+        return model
+
+    # fetch specialization and folding layers if applicable
+    layer_specialization_config = cfg["specialize_layers_json_path"]
+    if layer_specialization_config is not None:
+        layer_specialization_config = (
+            f"{model_root}/specialize_layers_config/{layer_specialization_config}"
+        )
+
+    folding_config = cfg["folding_config_json_path"]
+    if folding_config is not None:
+        folding_config = f"{model_root}/folding_config/{folding_config}"
+
+    # preparing cfg arguments
+    dataflow_steps = cfg["dataflow_steps"] + extra_steps
+    auto_fifo_depths = True
+    if fifo_sizing_strategy == "largefifo_rtlsim":
+        auto_fifo_strategy = "largefifo_rtlsim"
+        characterization_strategy = None
+
+    elif fifo_sizing_strategy == "characterize_analytical":
+        auto_fifo_strategy = "characterize"
+        characterization_strategy = "analytical"
+
+    elif fifo_sizing_strategy == "characterize_rtlsim":
+        auto_fifo_strategy = "characterize"
+        characterization_strategy = "rtlsim"
+
+    elif fifo_sizing_strategy == None:
+        # using json to determine fifo sizes
+        auto_fifo_depths = False
+        characterization_strategy = "rtlsim"
+        auto_fifo_strategy = None
+    else:
+        print("unsupported fifo sizing strategy")
+        return None
+
+    # first check for a cached version of this model variant
+    for x in os.listdir(build_dir):
+        if x.startswith(
+            f"build_finn_examples_tests_{cfg['model_name']}_{cfg['model_config']}_{cfg['platform']}_{fifo_sizing_strategy}_"
+        ):
+            model_file = f"{build_dir}/{x}/{model_key}.onnx"
+            if os.path.isfile(model_file):
+                print("Reusing a cached model")
+                model = ModelWrapper(model_file)
+                return model
+
+    # create a new directory to generate the model
+    output_dir = make_build_dir(
+        f"build_finn_examples_tests_{cfg['model_name']}_{cfg['model_config']}_{cfg['platform']}_{fifo_sizing_strategy}_"
+    )
+
+    subprocess.call([f"./{model_root}/models/download-model.sh", f"{output_dir}/"])
+
+    # determine which shell flow to use for a given platform
+    def platform_to_shell(platform):
+        if platform in zynq_platforms:
+            return build_cfg.ShellFlowType.VIVADO_ZYNQ
+        elif platform in alveo_platforms:
+            return build_cfg.ShellFlowType.VITIS_ALVEO
+        else:
+            raise Exception("Unknown platform, can't determine ShellFlowType")
+
+    # create a release dir, used for finn-examples release packaging
+    os.makedirs(f"{build_dir}", exist_ok=True)
+
+    shell_flow_type = platform_to_shell(cfg["platform"])
+    vitis_platform = None
+    # for Zynq, use the board name as the release name
+    # e.g. ZCU104
+    # release_cfg["platform"] = cfg["platform"]
+    platform_dir = f"{build_dir}"
+    os.makedirs(platform_dir, exist_ok=True)
+
+    # set up the build configuration for this model
+    build_cfg0 = build_cfg.DataflowBuildConfig(
+        output_dir=output_dir,
+        auto_fifo_depths=auto_fifo_depths,
+        auto_fifo_strategy=auto_fifo_strategy,
+        characteristic_function_strategy=characterization_strategy,
+        target_fps=cfg["fps"],
+        mvau_wwidth_max=cfg["mvau_wwidth_max"],
+        synth_clk_period_ns=cfg["clk_ns"],
+        board=cfg["platform"],
+        steps=dataflow_steps,
+        folding_config_file=folding_config,
+        shell_flow_type=shell_flow_type,
+        vitis_platform=vitis_platform,
+        generate_outputs=[
+            build_cfg.DataflowOutputType.ESTIMATE_REPORTS,
+        ],
+        specialize_layers_config_file=layer_specialization_config,
+    )
+
+    # special cfg flags just for the vgg10 model
+    if "vgg10" in cfg["model_name"]:
+        build_cfg0.split_large_fifos = True
+        build_cfg0.standalone_thresholds = True
+
+    # launch FINN compiler to build
+    print("build to: ")
+    print(f"{output_dir}/{cfg['model_config']}.onnx")
+    build.build_dataflow_cfg(f"{output_dir}/{cfg['model_config']}.onnx", build_cfg0)
+
+    model = ModelWrapper(f"{output_dir}/intermediate_models/{model_step}.onnx")
+
+    model.save(f"{output_dir}/{model_key}.onnx")
+    if fifo_sizing_strategy is not None:
+        if json != "":
+            attr = ["depths", "inFIFODepths", "outFIFODepths"]
+            if fifo_sizing_strategy in ["characterize_analytical", "characterize_rtlsim"]:
+                attr.append("io_chrc_period")
+                attr.append("io_chrc_pads_in")
+                attr.append("io_chrc_pads_out")
+                attr.append("io_chrc_in")
+                attr.append("io_chrc_out")
+            json_filename = (
+                f"{cfg['model_name']}_{cfg['model_config']}_{fifo_sizing_strategy}_fifo_config"
+            )
+            print(f"Extracting json with name {json_filename}")
+            extract_model_config_to_json(model, json_filename, attr)
+
+    return model
+
+
+def get_finn_examples_models():
+    #strategies_to_test = [None, "characterize_analytical", "characterize_rtlsim", "largefifo_rtlsim"]
+    strategies_to_test = [None]
+    model_configs = get_model_configs()
+
+    models = []
+
+    for model_name, model_config in model_configs.items():
+        print(model_config)
+        for fifo_sizing_strategy in strategies_to_test:
+            build_dir = os.environ["FINN_BUILD_DIR"]
+            model_root = "finn_examples_model_configs"
+
+            # fetch or generate all necessary models
+            model = prepare_test_model(build_dir, model_root, fifo_sizing_strategy, model_config)
+            models.append(model)
+            print(
+                f"added {fifo_sizing_strategy} strategy for {model_config['model_name']} model of config {model_name}"
+            )
+
+    return models
