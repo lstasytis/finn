@@ -315,6 +315,12 @@ def get_dsp_block(fpgapart):
         return "DSP48E2"
 
 
+def stretch(a, new_length):
+    a_stretched = np.linspace(0., len(a), new_length)
+    return np.round(np.interp(a_stretched, np.arange(len(a)), a))
+
+
+
 class Characteristic_Node:
     def __init__(self, name, sub_phases, leaf):
         self.name = name
@@ -352,6 +358,34 @@ class Characteristic_Node:
                         op, counter, cycles, ch_fnc
                     )
             return counter, cycles, ch_fnc
+
+
+    def get_total_cycles(self, op):
+        """
+        Returns the total length of a characterized node period with the final
+        timesample being either the final input our output transaction.
+        op ["in", "out"]
+        """
+
+       # import pdb
+
+        counter = 0
+        cycles = 0
+        ch_fnc = []
+        counter,cycles, ch_fnc = self.traverse_phase_tree(op, counter,cycles,ch_fnc)
+        last_update = 0
+        last_val = ch_fnc[op]
+        for i in range(1, len(ch_fnc[1:])+1):
+           # print(i, ch_fnc[i],last_val, last_update)
+            if ch_fnc[i] > last_val:
+                last_update = i
+                last_val = ch_fnc[i]
+            
+       # breakpoint()
+       # print("returning: ", cycles,last_update)
+        return cycles, last_update, ch_fnc
+
+
 
     def construct_dataflow_table(self):
         # this function should traverse the entire tree of this phase

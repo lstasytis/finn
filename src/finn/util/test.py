@@ -31,12 +31,17 @@ import pytest
 
 import numpy as np
 import onnx
+import onnx.numpy_helper as nph
 import os
 import qonnx.custom_op.registry as registry
 import shutil
 import subprocess
-from finn_examples_model_configs import get_model_configs
+import torchvision.transforms.functional as torchvision_util
+import warnings
+from brevitas_examples import bnn_pynq, imagenet_classification
+
 from onnx import helper as oh
+from pkgutil import get_data
 from qonnx.core.datatype import DataType
 from qonnx.core.modelwrapper import ModelWrapper
 from qonnx.custom_op.registry import getCustomOp
@@ -60,6 +65,7 @@ from finn.builder.build_dataflow_config import (
     DataflowBuildConfig,
     default_build_dataflow_steps,
 )
+from finn.core.onnx_exec import execute_onnx
 from finn.transformation.fpgadataflow.annotate_cycles import AnnotateCycles
 from finn.transformation.fpgadataflow.derive_characteristic import (
     DeriveCharacteristic,
@@ -68,45 +74,11 @@ from finn.transformation.fpgadataflow.derive_characteristic import (
 )
 from finn.transformation.fpgadataflow.insert_dwc import InsertDWC
 from finn.transformation.fpgadataflow.insert_fifo import InsertFIFO
+from finn.transformation.fpgadataflow.make_zynq_proj import ZynqBuild
 from finn.transformation.fpgadataflow.prepare_ip import PrepareIP, _codegen_single_node
 from finn.transformation.fpgadataflow.prepare_rtlsim import PrepareRTLSim
 
 # def _codegen_single_node(node, model, fpgapart, clk):
-from finn.transformation.fpgadataflow.replace_verilog_relpaths import (
-    ReplaceVerilogRelPaths,
-)
-from finn.transformation.fpgadataflow.specialize_layers import SpecializeLayers
-from finn.util.basic import decompress_string_to_numpy, make_build_dir
-from finn.util.fpgadataflow import is_hls_node, is_rtl_node
-from finn.util.test import (
-    compare_two_chr_funcs,
-    debug_chr_funcs,
-    get_characteristic_fnc,
-)
-from finn.util.visualization import showInNetron
-
-
-import importlib_resources as importlib
-import numpy as np
-import onnx
-import onnx.numpy_helper as nph
-import os
-import qonnx.custom_op.registry as registry
-import torchvision.transforms.functional as torchvision_util
-import warnings
-from brevitas_examples import bnn_pynq, imagenet_classification
-from pkgutil import get_data
-from qonnx.core.modelwrapper import ModelWrapper
-from qonnx.custom_op.registry import getCustomOp
-from qonnx.transformation.general import GiveUniqueNodeNames
-
-from finn.analysis.fpgadataflow.dataflow_performance import dataflow_performance
-from finn.core.onnx_exec import execute_onnx
-from finn.transformation.fpgadataflow.annotate_cycles import AnnotateCycles
-from finn.transformation.fpgadataflow.derive_characteristic import DeriveCharacteristic
-from finn.transformation.fpgadataflow.make_zynq_proj import ZynqBuild
-from finn.transformation.fpgadataflow.prepare_ip import _codegen_single_node
-
 # def _codegen_single_node(node, model, fpgapart, clk):
 from finn.transformation.fpgadataflow.replace_verilog_relpaths import (
     ReplaceVerilogRelPaths,
@@ -118,10 +90,12 @@ from finn.transformation.fpgadataflow.vitis_build import VitisBuild, VitisOptStr
 from finn.util.basic import (
     alveo_default_platform,
     alveo_part_map,
+    decompress_string_to_numpy,
     make_build_dir,
     pynq_part_map,
 )
 from finn.util.fpgadataflow import is_hls_node, is_rtl_node
+
 
 # map of (wbits,abits) -> model
 example_map = {
@@ -268,26 +242,22 @@ def compare_two_chr_funcs(a, b, relaxation, period_override=None):
     # relaxation determines how much leeway we allow for the
     # analytical implementation to be off from RTL ground truth
     # this leeway may produce larger fifos.
-    # Output delays due to long pipelines generally do not effect 
+    # Output delays due to long pipelines generally do not effect
     # fifo sizes and so large relaxation factors for them are expected.
 
     # a = characteristic
     # b = ground truth
     for inp in range(len(a)):
         if period_override is None:
-            l = len(a[inp])
+            length = len(a[inp])
         else:
-            l = period_override
-        for i in range(l):
+            length = period_override
+        for i in range(length):
             start_internal_relaxation = min([relaxation, i])
             end_internal_relaxation = min([relaxation, abs(len(a[inp]) - i)])
             if a[inp][i] not in b[inp][i - start_internal_relaxation : i + end_internal_relaxation]:
                 return False
     return True
-
-
-
-
 
 
 def get_characteristic_fnc(model, node0, part, target_clk_ns, strategy):
@@ -403,6 +373,7 @@ def debug_chr_funcs(chr_in, chr_out, rtlsim_in, rtlsim_out, direction, printout_
     DEBUG_CONCAT_FUNCS = True
 
     if DEBUG_RAW_FUNCS or DEBUG_CONCAT_FUNCS:
+
         def concat_list(a):
             b = []
             current = a[0]
@@ -415,8 +386,6 @@ def debug_chr_funcs(chr_in, chr_out, rtlsim_in, rtlsim_out, direction, printout_
                     current = i
             return b
 
-
-
         chr_in_concat = concat_list(chr_in[0])
         chr_out_concat = concat_list(chr_out[0])
         rtlsim_in_concat = concat_list(rtlsim_in[0])
@@ -424,30 +393,34 @@ def debug_chr_funcs(chr_in, chr_out, rtlsim_in, rtlsim_out, direction, printout_
 
         np.set_printoptions(threshold=np.inf)
         if direction == "input":
-
             if DEBUG_RAW_FUNCS:
                 print(f"\nchr IN:    {chr_in[0][:printout_limit]}, {len(chr_in[0])}")
                 print(f"rtlsim IN: {rtlsim_in[0][:printout_limit]}, {len(rtlsim_in[0])}")
-            
+
             if DEBUG_CONCAT_FUNCS:
                 print(f"chr IN CONCAT:    {chr_in_concat[:printout_limit]}, {len(chr_in_concat)}")
-                print(f"rtlsim IN CONCAT: {rtlsim_in_concat[:printout_limit]}, {len(rtlsim_in_concat)}")
+                print(
+                    f"rtlsim IN CONCAT: {rtlsim_in_concat[:printout_limit]}, {len(rtlsim_in_concat)}"
+                )
 
         elif direction == "output":
-
             if DEBUG_RAW_FUNCS:
                 print(f"\nchr OUT:    {chr_out[0][:printout_limit]}, {len(chr_out[0])}")
                 print(f"rtlsim OUT: {rtlsim_out[0][:printout_limit]}, {len(rtlsim_out[0])}")
-            
+
             if DEBUG_CONCAT_FUNCS:
-                print(f"chr OUT CONCAT:    {chr_out_concat[:printout_limit]}, {len(chr_out_concat)}")
-                print(f"rtlsim OUT CONCAT: {rtlsim_out_concat[:printout_limit]}, {len(rtlsim_out_concat)}")
+                print(
+                    f"chr OUT CONCAT:    {chr_out_concat[:printout_limit]}, {len(chr_out_concat)}"
+                )
+                print(
+                    f"rtlsim OUT CONCAT: {rtlsim_out_concat[:printout_limit]}, {len(rtlsim_out_concat)}"
+                )
     else:
         return True
 
+
 def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg):
     # determine root folder for a given model where the jsons are located
-
 
     zynq_platforms = ["ZCU104", "ZCU102", "Pynq-Z1"]
     alveo_platforms = ["U250"]
@@ -456,14 +429,19 @@ def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg):
 
     # searches for fifo sizing strategy json or downloads from a remote release repo
     fifo_json = f"{cfg['model_name']}_{cfg['model_config']}_{fifo_sizing_strategy}_fifo_config"
-
+    # fifo_json = f"{cfg['model_name']}_{cfg['model_config']}_{fifo_sizing_strategy}_fifo_config"
+    
+    print(fifo_json)
+    
     # if config json does not already exist in the directory, attempt to download
-    if os.path.isfile(fifo_json) is False:
-        print("Downloading config json from the remote repo")
-        # TODO download from releases in some undecided remote repo
-        fifo_json = ""  # override with download path when implemented
-    else:
-        print(f"found json for {fifo_sizing_strategy}")
+    if fifo_sizing_strategy != None:
+        if os.path.isfile(fifo_json) is False:
+            print("Downloading config json from the remote repo")
+            # TODO download from releases in some undecided remote repo 
+            # if not, then the file will be generated at the end of the compilation
+            fifo_json = ""  # override with download path when implemented
+        else:
+            print(f"found json for {fifo_sizing_strategy}")
 
     # assign final dataflow step
     if fifo_sizing_strategy is None:
@@ -477,13 +455,32 @@ def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg):
 
     # if fifo json is prepared, use that to skip rerunning the sizing transformations
     if fifo_sizing_strategy is not None and fifo_json != "":
+        print("regenerating model")
         model = prepare_test_model(build_dir, model_root, None, cfg)
+        model = model.transform(InsertDWC())
         model = model.transform(InsertFIFO(create_shallow_fifos=True))
-        model = model.transform(SpecializeLayers(cfg._resolve_fpga_part()))
+
+        # fetch specialization and folding layers if applicable
+        layer_specialization_config = cfg["specialize_layers_json_path"]
+        if layer_specialization_config is not None:
+            layer_specialization_config = (
+                f"{model_root}/specialize_layers_config/{layer_specialization_config}"
+            )
+            model = model.transform(SpecializeLayers(layer_specialization_config))        
+        else:
+            model = model.transform(SpecializeLayers(cfg["platform"]))
         model = model.transform(GiveUniqueNodeNames())
         model = model.transform(GiveReadableTensorNames())
-        if cfg.folding_config_file is not None:
-            model = model.transform(ApplyConfig(fifo_json))
+
+        folding_config = cfg["folding_config_json_path"]
+        if folding_config is not None:
+            folding_config = f"{model_root}/folding_config/{folding_config}"
+            model = model.transform(ApplyConfig(folding_config))
+
+        # assign fifos
+        model = model.transform(ApplyConfig(fifo_json))
+        #import pdb
+        #breakpoint()
 
         return model
 
@@ -594,7 +591,7 @@ def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg):
 
     model.save(f"{output_dir}/{model_key}.onnx")
     if fifo_sizing_strategy is not None:
-        if json != "":
+        if fifo_json == "":
             attr = ["depths", "inFIFODepths", "outFIFODepths"]
             if fifo_sizing_strategy in ["characterize_analytical", "characterize_rtlsim"]:
                 attr.append("io_chrc_period")
@@ -611,18 +608,18 @@ def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg):
     return model
 
 
-def get_finn_examples_models():
-    #strategies_to_test = [None, "characterize_analytical", "characterize_rtlsim", "largefifo_rtlsim"]
-    strategies_to_test = [None]
+def get_finn_examples_models(strategies=[None]):
+    # strategies = [None, "characterize_analytical", "characterize_rtlsim", "largefifo_rtlsim"]
+    from finn_examples_model_configs import get_model_configs
     model_configs = get_model_configs()
 
     models = []
 
     for model_name, model_config in model_configs.items():
         print(model_config)
-        for fifo_sizing_strategy in strategies_to_test:
+        for fifo_sizing_strategy in strategies:
             build_dir = os.environ["FINN_BUILD_DIR"]
-            model_root = "finn_examples_model_configs"
+            model_root = "finn_examples_models"
 
             # fetch or generate all necessary models
             model = prepare_test_model(build_dir, model_root, fifo_sizing_strategy, model_config)
