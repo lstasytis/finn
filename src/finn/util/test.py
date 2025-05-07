@@ -425,13 +425,11 @@ def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg):
     zynq_platforms = ["ZCU104", "ZCU102", "Pynq-Z1"]
     alveo_platforms = ["U250"]
 
-    model_root = f"{model_root}/{cfg['model_name']}"
+    model_root_with_name = f"{model_root}/{cfg['model_name']}"
 
     # searches for fifo sizing strategy json or downloads from a remote release repo
     fifo_json = f"{cfg['model_name']}_{cfg['model_config']}_{fifo_sizing_strategy}_fifo_config"
     # fifo_json = f"{cfg['model_name']}_{cfg['model_config']}_{fifo_sizing_strategy}_fifo_config"
-    
-    print(fifo_json)
     
     # if config json does not already exist in the directory, attempt to download
     if fifo_sizing_strategy != None:
@@ -455,16 +453,19 @@ def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg):
 
     # if fifo json is prepared, use that to skip rerunning the sizing transformations
     if fifo_sizing_strategy is not None and fifo_json != "":
-        print("regenerating model")
         model = prepare_test_model(build_dir, model_root, None, cfg)
         model = model.transform(InsertDWC())
-        model = model.transform(InsertFIFO(create_shallow_fifos=True))
+        
+        
+        if fifo_sizing_strategy == "largefifo_rtlsim":
+            model = model.transform(InsertFIFO(create_shallow_fifos=True))
+        # skip insert for rtlsim to do in the test. TODO: remove this later
 
         # fetch specialization and folding layers if applicable
         layer_specialization_config = cfg["specialize_layers_json_path"]
         if layer_specialization_config is not None:
             layer_specialization_config = (
-                f"{model_root}/specialize_layers_config/{layer_specialization_config}"
+                f"{model_root_with_name}/specialize_layers_config/{layer_specialization_config}"
             )
             model = model.transform(SpecializeLayers(layer_specialization_config))        
         else:
@@ -474,7 +475,7 @@ def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg):
 
         folding_config = cfg["folding_config_json_path"]
         if folding_config is not None:
-            folding_config = f"{model_root}/folding_config/{folding_config}"
+            folding_config = f"{model_root_with_name}/folding_config/{folding_config}"
             model = model.transform(ApplyConfig(folding_config))
 
         # assign fifos
@@ -488,12 +489,12 @@ def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg):
     layer_specialization_config = cfg["specialize_layers_json_path"]
     if layer_specialization_config is not None:
         layer_specialization_config = (
-            f"{model_root}/specialize_layers_config/{layer_specialization_config}"
+            f"{model_root_with_name}/specialize_layers_config/{layer_specialization_config}"
         )
 
     folding_config = cfg["folding_config_json_path"]
     if folding_config is not None:
-        folding_config = f"{model_root}/folding_config/{folding_config}"
+        folding_config = f"{model_root_with_name}/folding_config/{folding_config}"
 
     # preparing cfg arguments
     dataflow_steps = cfg["dataflow_steps"] + extra_steps
@@ -535,7 +536,7 @@ def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg):
         f"build_finn_examples_tests_{cfg['model_name']}_{cfg['model_config']}_{cfg['platform']}_{fifo_sizing_strategy}_"
     )
 
-    subprocess.call([f"./{model_root}/models/download-model.sh", f"{output_dir}/"])
+    subprocess.call([f"./{model_root_with_name}/models/download-model.sh", f"{output_dir}/"])
 
     # determine which shell flow to use for a given platform
     def platform_to_shell(platform):
@@ -616,7 +617,6 @@ def get_finn_examples_models(strategies=[None]):
     models = []
 
     for model_name, model_config in model_configs.items():
-        print(model_config)
         for fifo_sizing_strategy in strategies:
             build_dir = os.environ["FINN_BUILD_DIR"]
             model_root = "finn_examples_models"
