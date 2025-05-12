@@ -420,11 +420,14 @@ def debug_chr_funcs(chr_in, chr_out, rtlsim_in, rtlsim_out, direction, printout_
 
 
 def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg, runtime_test=False):
+    
+    """
+    returns a fifo-sized model from finn-examples using a given strategy
+    must be ran with runtime_test=False the first time,
+    can be run with true afterwards to perform dataflow analysis on a stitched model
+    the cfg can be picked up from util/finn_examples_model_configs.py
+    """
     # determine root folder for a given model where the jsons are located
-
-    zynq_platforms = ["ZCU104", "ZCU102", "Pynq-Z1"]
-    alveo_platforms = ["U250"]
-
     model_root_with_name = f"{model_root}/{cfg['model_name']}"
 
     # searches for fifo sizing strategy json or downloads from a remote release repo
@@ -441,7 +444,7 @@ def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg, runtime
         else:
             print(f"found json for {fifo_sizing_strategy}")
 
-    # assign final dataflow step
+    # assign dataflow steps to perform during build
 
     extra_steps = []
 
@@ -472,9 +475,10 @@ def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg, runtime
 
     # if fifo json is prepared, use that to skip rerunning the sizing transformations
     if fifo_sizing_strategy is not None and fifo_json != "":
+        # recursive call back to prepare_test_model, but with strategy set to None
+        #will return an estimate_report onnx.
         model = prepare_test_model(build_dir, model_root, None, cfg)
         model = model.transform(InsertDWC())
-        
         
         if fifo_sizing_strategy == "largefifo_rtlsim":
             model = model.transform(InsertFIFO(create_shallow_fifos=True))
@@ -499,8 +503,6 @@ def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg, runtime
 
         # assign fifos
         model = model.transform(ApplyConfig(fifo_json))
-        #import pdb
-        #breakpoint()
         if not runtime_test:
             return model
 
@@ -565,6 +567,10 @@ def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg, runtime
     subprocess.call([f"./{model_root_with_name}/models/download-model.sh", f"{output_dir}/"])
 
     # determine which shell flow to use for a given platform
+
+    zynq_platforms = ["ZCU104", "ZCU102", "Pynq-Z1"]
+    alveo_platforms = ["U250"]
+
     def platform_to_shell(platform):
         if platform in zynq_platforms:
             return build_cfg.ShellFlowType.VIVADO_ZYNQ
@@ -589,7 +595,10 @@ def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg, runtime
 
     if runtime_test:
         
-       # breakpoint()
+        # in case of runtime test, where we want to only perform stitching and such
+        # we fetch back the pre-existing fifo-sized onnx of the model
+        # this is why runtime_test=true necessitates this function being called with
+        #runtime_test=false first
         model = ModelWrapper(f"{output_dir}/intermediate_models/step_set_fifo_depths.onnx")
         
     # set up the build configuration for this model
@@ -611,6 +620,11 @@ def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg, runtime
     )
 
     # special cfg flags just for the vgg10 model
+    # implies we might want to introduce these sorts of
+    # parameters as part of the model config dict/yaml
+    # one option is ["dataflow_cfg_extr_params"]["split_large_fifo"] : True
+    # and then something like eval("split_large_fifo") = True
+    # to set the dataflow cfg?
     if "vgg10" in cfg["model_name"]:
         build_cfg0.split_large_fifos = True
         build_cfg0.standalone_thresholds = True
@@ -624,6 +638,9 @@ def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg, runtime
         build.build_dataflow_cfg(f"{output_dir}/{cfg['model_config']}.onnx", build_cfg0)
     model = ModelWrapper(f"{output_dir}/intermediate_models/{model_step}.onnx")
 
+    # generate the json for fifo sizing node attributes post-sizing
+    # this json will get picked up next time this function is called with the same
+    # signature (model, strategy)
     if not runtime_test:
         model.save(f"{output_dir}/{model_key}.onnx")
         if fifo_sizing_strategy is not None:
