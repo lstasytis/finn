@@ -39,7 +39,7 @@ import subprocess
 import torchvision.transforms.functional as torchvision_util
 import warnings
 from brevitas_examples import bnn_pynq, imagenet_classification
-
+import pdb
 from onnx import helper as oh
 from pkgutil import get_data
 from qonnx.core.datatype import DataType
@@ -419,7 +419,7 @@ def debug_chr_funcs(chr_in, chr_out, rtlsim_in, rtlsim_out, direction, printout_
         return True
 
 
-def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg):
+def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg, runtime_test=False):
     # determine root folder for a given model where the jsons are located
 
     zynq_platforms = ["ZCU104", "ZCU102", "Pynq-Z1"]
@@ -442,14 +442,33 @@ def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg):
             print(f"found json for {fifo_sizing_strategy}")
 
     # assign final dataflow step
+
+    extra_steps = []
+
+    outputs = [
+        build_cfg.DataflowOutputType.ESTIMATE_REPORTS,
+        ]   
+
     if fifo_sizing_strategy is None:
         model_step = "step_generate_estimate_reports"
         model_key = "estimate_model"
-        extra_steps = []
     else:
         model_step = "step_set_fifo_depths"
         model_key = f"{fifo_sizing_strategy}_model"
         extra_steps = ["step_set_fifo_depths"]
+
+        if runtime_test:
+            model_step = "step_measure_rtlsim_performance"
+            extra_steps = [
+                "step_hw_codegen",
+                "step_hw_ipgen",
+                "step_create_stitched_ip",
+                "step_measure_rtlsim_performance",]
+            outputs = [
+                build_cfg.DataflowOutputType.ESTIMATE_REPORTS,
+                build_cfg.DataflowOutputType.STITCHED_IP,
+                build_cfg.DataflowOutputType.RTLSIM_PERFORMANCE,
+            ]
 
     # if fifo json is prepared, use that to skip rerunning the sizing transformations
     if fifo_sizing_strategy is not None and fifo_json != "":
@@ -482,8 +501,8 @@ def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg):
         model = model.transform(ApplyConfig(fifo_json))
         #import pdb
         #breakpoint()
-
-        return model
+        if not runtime_test:
+            return model
 
     # fetch specialization and folding layers if applicable
     layer_specialization_config = cfg["specialize_layers_json_path"]
@@ -497,7 +516,10 @@ def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg):
         folding_config = f"{model_root_with_name}/folding_config/{folding_config}"
 
     # preparing cfg arguments
-    dataflow_steps = cfg["dataflow_steps"] + extra_steps
+    if not runtime_test:
+        dataflow_steps = cfg["dataflow_steps"] + extra_steps
+    else:
+        dataflow_steps = extra_steps
     auto_fifo_depths = True
     if fifo_sizing_strategy == "largefifo_rtlsim":
         auto_fifo_strategy = "largefifo_rtlsim"
@@ -521,6 +543,7 @@ def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg):
         return None
 
     # first check for a cached version of this model variant
+    output_dir = None
     for x in os.listdir(build_dir):
         if x.startswith(
             f"build_finn_examples_tests_{cfg['model_name']}_{cfg['model_config']}_{cfg['platform']}_{fifo_sizing_strategy}_"
@@ -529,12 +552,15 @@ def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg):
             if os.path.isfile(model_file):
                 print("Reusing a cached model")
                 model = ModelWrapper(model_file)
-                return model
+                output_dir = f"{build_dir}/{x}"
+                if not runtime_test:
+                    return model
 
     # create a new directory to generate the model
-    output_dir = make_build_dir(
-        f"build_finn_examples_tests_{cfg['model_name']}_{cfg['model_config']}_{cfg['platform']}_{fifo_sizing_strategy}_"
-    )
+    if output_dir is None:
+        output_dir = make_build_dir(
+            f"build_finn_examples_tests_{cfg['model_name']}_{cfg['model_config']}_{cfg['platform']}_{fifo_sizing_strategy}_"
+        )
 
     subprocess.call([f"./{model_root_with_name}/models/download-model.sh", f"{output_dir}/"])
 
@@ -548,16 +574,24 @@ def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg):
             raise Exception("Unknown platform, can't determine ShellFlowType")
 
     # create a release dir, used for finn-examples release packaging
-    os.makedirs(f"{build_dir}", exist_ok=True)
-
+    
+    
     shell_flow_type = platform_to_shell(cfg["platform"])
     vitis_platform = None
     # for Zynq, use the board name as the release name
     # e.g. ZCU104
     # release_cfg["platform"] = cfg["platform"]
     platform_dir = f"{build_dir}"
-    os.makedirs(platform_dir, exist_ok=True)
 
+    if not runtime_test:
+        os.makedirs(f"{build_dir}", exist_ok=True)
+        os.makedirs(platform_dir, exist_ok=True)
+
+    if runtime_test:
+        
+       # breakpoint()
+        model = ModelWrapper(f"{output_dir}/intermediate_models/step_set_fifo_depths.onnx")
+        
     # set up the build configuration for this model
     build_cfg0 = build_cfg.DataflowBuildConfig(
         output_dir=output_dir,
@@ -572,9 +606,7 @@ def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg):
         folding_config_file=folding_config,
         shell_flow_type=shell_flow_type,
         vitis_platform=vitis_platform,
-        generate_outputs=[
-            build_cfg.DataflowOutputType.ESTIMATE_REPORTS,
-        ],
+        generate_outputs=outputs,
         specialize_layers_config_file=layer_specialization_config,
     )
 
@@ -586,25 +618,28 @@ def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg):
     # launch FINN compiler to build
     print("build to: ")
     print(f"{output_dir}/{cfg['model_config']}.onnx")
-    build.build_dataflow_cfg(f"{output_dir}/{cfg['model_config']}.onnx", build_cfg0)
-
+    if runtime_test:
+        build.build_dataflow_cfg(f"{output_dir}/intermediate_models/step_set_fifo_depths.onnx", build_cfg0)
+    else:
+        build.build_dataflow_cfg(f"{output_dir}/{cfg['model_config']}.onnx", build_cfg0)
     model = ModelWrapper(f"{output_dir}/intermediate_models/{model_step}.onnx")
 
-    model.save(f"{output_dir}/{model_key}.onnx")
-    if fifo_sizing_strategy is not None:
-        if fifo_json == "":
-            attr = ["depths", "inFIFODepths", "outFIFODepths"]
-            if fifo_sizing_strategy in ["characterize_analytical", "characterize_rtlsim"]:
-                attr.append("io_chrc_period")
-                attr.append("io_chrc_pads_in")
-                attr.append("io_chrc_pads_out")
-                attr.append("io_chrc_in")
-                attr.append("io_chrc_out")
-            json_filename = (
-                f"{cfg['model_name']}_{cfg['model_config']}_{fifo_sizing_strategy}_fifo_config"
-            )
-            print(f"Extracting json with name {json_filename}")
-            extract_model_config_to_json(model, json_filename, attr)
+    if not runtime_test:
+        model.save(f"{output_dir}/{model_key}.onnx")
+        if fifo_sizing_strategy is not None:
+            if fifo_json == "":
+                attr = ["depths", "inFIFODepths", "outFIFODepths"]
+                if fifo_sizing_strategy in ["characterize_analytical", "characterize_rtlsim"]:
+                    attr.append("io_chrc_period")
+                    attr.append("io_chrc_pads_in")
+                    attr.append("io_chrc_pads_out")
+                    attr.append("io_chrc_in")
+                    attr.append("io_chrc_out")
+                json_filename = (
+                    f"{cfg['model_name']}_{cfg['model_config']}_{fifo_sizing_strategy}_fifo_config"
+                )
+                print(f"Extracting json with name {json_filename}")
+                extract_model_config_to_json(model, json_filename, attr)
 
     return model
 
