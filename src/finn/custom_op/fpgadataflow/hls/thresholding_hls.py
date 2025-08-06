@@ -184,12 +184,19 @@ class Thresholding_hls(Thresholding, HLSBackend):
         """Returns the template parameter values according to input, output and weight
         data types."""
         ret = dict()
+        m = self.get_nodeattr("M")
         inp_hls_str = self.get_input_datatype(0).get_hls_datatype_str()
         out_hls_str = self.get_output_datatype().get_hls_datatype_str()
         # fill in TSrcI
-        ret["TSrcI"] = "Slice<%s>" % inp_hls_str
+        if m > 1:
+            ret["TSrcI"] = "Slice_mmv<%s,%d>" % (inp_hls_str, m)
+        else:
+            ret["TSrcI"] = "Slice<%s>" % inp_hls_str
         # fill in TDstI
-        ret["TDstI"] = "Slice<%s>" % out_hls_str
+        if m > 1:
+            ret["TDstI"] = "Slice_mmv<%s,%d>" % (out_hls_str, m)
+        else:
+            ret["TDstI"] = "Slice<%s>" % out_hls_str
 
         return ret
 
@@ -439,16 +446,18 @@ class Thresholding_hls(Thresholding, HLSBackend):
     # TODO check and add whatever missing
     def defines(self, var):
         numReps = 1
-        numInputVectors = list(self.get_nodeattr("numInputVectors"))
+        numInputVectors = self.get_numInputVectors_mmv()
+        m = self.get_nodeattr("M")
         total_spatial_size = int(np.prod(numInputVectors))
 
         self.code_gen_dict["$DEFINES$"] = [
             """#define NumChannels1 {}\n #define PE1 {}\n #define numReps {}\n
-               #define ImgDim1 {}""".format(
+               #define ImgDim1 {}\n #define M {}""".format(
                 self.get_nodeattr("NumChannels"),
                 self.get_nodeattr("PE"),
                 numReps,
                 total_spatial_size,
+                m
             )
         ]
         if self.get_nodeattr("mem_mode") == "internal_decoupled":
@@ -517,15 +526,52 @@ class Thresholding_hls(Thresholding, HLSBackend):
     def docompute(self):
         tmpl_args = self.get_template_param_values()
         mem_mode = self.get_nodeattr("mem_mode")
+        m = self.get_nodeattr("M")
         if mem_mode == "internal_embedded":
-            self.code_gen_dict["$DOCOMPUTE$"] = [
-                """Thresholding_Batch<ImgDim1, NumChannels1, PE1, {}, {}>
-                (in0_V, out0_V, threshs, numReps);""".format(
-                    tmpl_args["TSrcI"],
-                    tmpl_args["TDstI"],
-                )
-            ]
+            if m > 1:
+                multichan_width_in = self.get_instream_width() // m
+                multichan_width_out = self.get_outstream_width() // m
+                
+                self.code_gen_dict["$DOCOMPUTE$"] = [
+                    """
+                    #pragma HLS dataflow
+                    hls::stream<MultiChanData<{ch}, {width_in}>> in_mmv("in_mmv");
+                    hls::stream<MultiChanData<{ch}, {width_out}>> out_mmv("out_mmv");
+                    PackMultiChanData<{ch}, {width_in}>(in0_V, in_mmv, numReps);
+                    """.format(
+                        ch=m,
+                        width_in=multichan_width_in,
+                        width_out=multichan_width_out,
+                    )
+                ]
+                
+                self.code_gen_dict["$DOCOMPUTE$"] += [
+                    """Thresholding_Batch<ImgDim1, NumChannels1, PE1, M, {}, {}>
+                    (in_mmv, out_mmv, threshs, numReps);""".format(
+                        tmpl_args["TSrcI"],
+                        tmpl_args["TDstI"],
+                    )
+                ]
+                
+                self.code_gen_dict["$DOCOMPUTE$"] += [
+                    """
+                    FlattenMultiChanData<{ch}, {width_out}>(out_mmv, out0_V, numReps);
+                    """.format(
+                        ch=m,
+                        width_out=multichan_width_out,
+                    )
+                ]
+            else:
+                self.code_gen_dict["$DOCOMPUTE$"] = [
+                    """Thresholding_Batch<ImgDim1, NumChannels1, PE1, 1, {}, {}>
+                    (in0_V, out0_V, threshs, numReps);""".format(
+                        tmpl_args["TSrcI"],
+                        tmpl_args["TDstI"],
+                    )
+                ]
         elif mem_mode == "internal_decoupled":
+            if m > 1:
+                raise Exception("M>1 not supported in decoupled mode")
             # note that numReps is set to 1 in the invocation below, since
             # - for cppsim the repetition comes from the threshold stream reader+input
             # - for synth the unit runs continuously anyway (ap_ctrl_none)

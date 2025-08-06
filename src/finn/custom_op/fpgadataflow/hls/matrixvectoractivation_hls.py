@@ -54,8 +54,6 @@ class MVAU_hls(MVAU, HLSBackend):
         my_attrs = {}
         my_attrs.update(MVAU.get_nodeattr_types(self))
         my_attrs.update(HLSBackend.get_nodeattr_types(self))
-        # for HLS MVAU default resType to lut
-        my_attrs["resType"] = ("s", False, "lut", {"auto", "lut", "dsp"})
         return my_attrs
 
     def lut_estimation(self):
@@ -158,6 +156,7 @@ class MVAU_hls(MVAU, HLSBackend):
         """Returns the template parameter values according to input, output and weight
         data types."""
         ret = dict()
+        m = self.get_nodeattr("M")
         inp_hls_str = self.get_input_datatype(0).get_hls_datatype_str()
         out_hls_str = self.get_output_datatype().get_hls_datatype_str()
         inp_is_binary = self.get_input_datatype(0) == DataType["BINARY"]
@@ -179,17 +178,26 @@ class MVAU_hls(MVAU, HLSBackend):
             ret["TSrcI"] = "Recast<XnorMul>"
             ret["TWeightI"] = "Identity"
         elif (not inp_is_bipolar) and wt_is_bipolar:
-            ret["TSrcI"] = "Slice<%s>" % inp_hls_str
+            if m > 1:
+                ret["TSrcI"] = "Slice_mmv<%s,%d>" % (inp_hls_str, m)
+            else:
+                ret["TSrcI"] = "Slice<%s>" % inp_hls_str
             ret["TWeightI"] = "Recast<Binary>"
         elif inp_is_bipolar and (not wt_is_bipolar):
             ret["TSrcI"] = "Recast<Binary>"
             ret["TWeightI"] = "Identity"
         elif (not inp_is_bipolar) and (not wt_is_bipolar):
-            ret["TSrcI"] = "Slice<%s>" % inp_hls_str
+            if m > 1:
+                ret["TSrcI"] = "Slice_mmv<%s,%d>" % (inp_hls_str, m)
+            else:
+                ret["TSrcI"] = "Slice<%s>" % inp_hls_str
             ret["TWeightI"] = "Identity"
 
         # fill in TDstI
-        ret["TDstI"] = "Slice<%s>" % out_hls_str
+        if m > 1:
+            ret["TDstI"] = "Slice_mmv<%s,%d>" % (out_hls_str, m)
+        else:
+            ret["TDstI"] = "Slice<%s>" % out_hls_str
 
         return ret
 
@@ -221,12 +229,13 @@ class MVAU_hls(MVAU, HLSBackend):
             )
             assert condition, msg
         mem_mode = self.get_nodeattr("mem_mode")
-        numInputVectors = list(self.get_nodeattr("numInputVectors"))
+        numInputVectors = self.get_numInputVectors_mmv()
+        m = self.get_nodeattr("M")
         numReps = np.prod(numInputVectors)
         self.code_gen_dict["$DEFINES$"] = [
             """#define MW1 {}\n #define MH1 {}\n
             #define SIMD1 {}\n #define PE1 {}\n #define WMEM1 {}\n
-            #define TMEM1 {}\n #define numReps {}""".format(
+            #define TMEM1 {}\n #define numReps {}\n #define M {}""".format(
                 self.get_nodeattr("MW"),
                 self.get_nodeattr("MH"),
                 self.get_nodeattr("SIMD"),
@@ -234,6 +243,7 @@ class MVAU_hls(MVAU, HLSBackend):
                 self.calc_wmem(),
                 self.calc_tmem(),
                 numReps,
+                m
             )
         ]
         if (
@@ -316,6 +326,7 @@ class MVAU_hls(MVAU, HLSBackend):
 
     def docompute(self):
         mem_mode = self.get_nodeattr("mem_mode")
+        m = self.get_nodeattr("M")
         map_to_hls_mult_style = {
             "auto": "ap_resource_dflt()",
             "lut": "ap_resource_lut()",
@@ -328,21 +339,60 @@ class MVAU_hls(MVAU, HLSBackend):
         else:
             threshs = "threshs"
         if mem_mode == "internal_embedded":
-            self.code_gen_dict["$DOCOMPUTE$"] = [
-                """Matrix_Vector_Activate_Batch<MW1, MH1, SIMD1, PE1, 1, {}, {}, {}>
-                (in0_V, out0_V, weights, {}, numReps, {});""".format(
-                    tmpl_args["TSrcI"],
-                    tmpl_args["TDstI"],
-                    tmpl_args["TWeightI"],
-                    threshs,
-                    map_to_hls_mult_style[self.get_nodeattr("resType")],
-                )
-            ]
+            if m > 1:
+                multichan_width_in = self.get_instream_width() // m
+                multichan_width_out = self.get_outstream_width() // m
+
+                self.code_gen_dict["$DOCOMPUTE$"] = [
+                    """
+                    #pragma HLS dataflow
+                    hls::stream<MultiChanData<{ch}, {width_in}>> in_mmv("in_mmv");
+                    hls::stream<MultiChanData<{ch}, {width_out}>> out_mmv("out_mmv");
+                    PackMultiChanData<{ch}, {width_in}>(in0_V, in_mmv, numReps);
+                    """.format(
+                        ch=m,
+                        width_in=multichan_width_in,
+                        width_out=multichan_width_out,
+                    )
+                ]
+
+                self.code_gen_dict["$DOCOMPUTE$"] += [
+                    """Matrix_Vector_Activate_Batch<MW1, MH1, SIMD1, PE1, M, {}, {}, {}>
+                (in_mmv, out_mmv, weights, {}, numReps, {});""".format(
+                        tmpl_args["TSrcI"],
+                        tmpl_args["TDstI"],
+                        tmpl_args["TWeightI"],
+                        threshs,
+                        map_to_hls_mult_style[self.get_nodeattr("resType")],
+                    )
+                ]
+
+                self.code_gen_dict["$DOCOMPUTE$"] += [
+                    """
+                    FlattenMultiChanData<{ch}, {width_out}>(out_mmv, out0_V, numReps);
+                    """.format(
+                        ch=m,
+                        width_out=multichan_width_out,
+                    )
+                ]
+            else:
+                self.code_gen_dict["$DOCOMPUTE$"] = [
+                    """Matrix_Vector_Activate_Batch<MW1, MH1, SIMD1, PE1, 1, {}, {}, {}>
+                    (in0_V, out0_V, weights, {}, numReps, {});""".format(
+                        tmpl_args["TSrcI"],
+                        tmpl_args["TDstI"],
+                        tmpl_args["TWeightI"],
+                        threshs,
+                        map_to_hls_mult_style[self.get_nodeattr("resType")],
+                    )
+                ]
         elif (
             mem_mode == "internal_decoupled"
             or mem_mode == "external"
             or self.get_nodeattr("mlo_max_iter")
         ):
+            if m > 1:
+                raise Exception("M>1 not supported in decoupled or external mem mode")
             wdt = self.get_input_datatype(1)
             if wdt == DataType["BIPOLAR"]:
                 export_wdt = DataType["BINARY"]

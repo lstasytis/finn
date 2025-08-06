@@ -60,6 +60,7 @@ class MVAU(HWCustomOp):
         my_attrs = {
             "PE": ("i", True, 0),
             "SIMD": ("i", True, 0),
+            "M": ("i", False, 1),
             "MW": ("i", True, 0),
             "MH": ("i", True, 0),
             "resType": ("s", False, "auto", {"auto", "lut", "dsp"}),
@@ -252,11 +253,29 @@ class MVAU(HWCustomOp):
     def get_output_datatype(self, ind=0):
         """Returns FINN DataType of output."""
         return DataType[self.get_nodeattr("outputDataType")]
+    
+    def get_numInputVectors_mmv(self):
+        # support spatial parallelism by adjusting numInputVectors internally
+        # apply the M ('MMV') factor to the last dimension that is > 1
+        # for 2D conv: applies to W dimension [N,H,W] -> [N,H,W/M]
+        # for 1D conv: applies to either W or H dimension
+        # for FC: applies to N (batch) dimension (theoretic use case)
+        vecs = list(self.get_nodeattr("numInputVectors"))
+        m = self.get_nodeattr("M")
+        for dim in reversed(range(len(vecs))):
+            if vecs[dim] > 1:
+                assert (
+                    vecs[dim] % m == 0
+                ), "Requirement spatial dim divisible by M is violated."
+                vecs[dim] = vecs[dim] // m
+                break
+        return vecs
 
     def get_instream_width(self, ind=0):
         if ind == 0:
             i_bits = self.get_input_datatype(0).bitwidth()
-            width = i_bits * self.get_nodeattr("SIMD")
+            m = self.get_nodeattr("M")
+            width = i_bits * self.get_nodeattr("SIMD") * m
         elif ind == 1:
             if self.get_nodeattr("dynamic_input"):
                 width = (
@@ -289,7 +308,8 @@ class MVAU(HWCustomOp):
 
     def get_outstream_width(self, ind=0):
         o_bits = self.get_output_datatype().bitwidth()
-        out_width = o_bits * self.get_nodeattr("PE")
+        m = self.get_nodeattr("M")
+        out_width = o_bits * self.get_nodeattr("PE") * m
         return out_width
 
     def get_folded_input_shape(self, ind=0):
@@ -297,13 +317,14 @@ class MVAU(HWCustomOp):
         mh = self.get_nodeattr("MH")
         simd = self.get_nodeattr("SIMD")
         pe = self.get_nodeattr("PE")
+        m = self.get_nodeattr("M")
         sf = mw // simd
         nf = mh // pe
-        vecs = list(self.get_nodeattr("numInputVectors"))
+        vecs = self.get_numInputVectors_mmv()
 
         if ind == 0:
             # calculate shape of input 0
-            folded_input_shape = tuple(vecs + [sf, simd])
+            folded_input_shape = tuple(vecs + [sf, simd * m])
         elif ind == 1:
             if self.get_nodeattr("dynamic_input"):
                 # calculate shape of input 1 (weights dynamic)
@@ -319,9 +340,10 @@ class MVAU(HWCustomOp):
     def get_folded_output_shape(self, ind=0):
         mh = self.get_nodeattr("MH")
         pe = self.get_nodeattr("PE")
+        m = self.get_nodeattr("M")
         nf = mh // pe
-        vecs = list(self.get_nodeattr("numInputVectors"))
-        folded_output_shape = tuple(vecs + [nf, pe])
+        vecs = self.get_numInputVectors_mmv()
+        folded_output_shape = tuple(vecs + [nf, pe * m])
         return folded_output_shape
 
     def get_normal_input_shape(self, ind=0):
@@ -341,6 +363,10 @@ class MVAU(HWCustomOp):
         vecs = list(self.get_nodeattr("numInputVectors"))
         normal_output_shape = tuple(vecs + [mh])
         return normal_output_shape
+
+    def get_number_output_values(self):
+        nf = np.prod(self.get_folded_output_shape()[:-1])
+        return nf
 
     def calc_wmem(self):
         """Calculates and returns WMEM."""
@@ -458,12 +484,10 @@ class MVAU(HWCustomOp):
     def get_exp_cycles(self):
         pe = self.get_nodeattr("PE")
         simd = self.get_nodeattr("SIMD")
-        num_inp_vec = self.get_nodeattr("numInputVectors")
+        num_inp_vec = self.get_numInputVectors_mmv()
         mh = self.get_nodeattr("MH")
         mw = self.get_nodeattr("MW")
-        # since mmv != 1 is not supported yet, we set mmv for now to 1
-        mmv = 1
-        exp_cycles = (mh / pe) * (mw / simd) * np.prod(num_inp_vec) / mmv
+        exp_cycles = (mh / pe) * (mw / simd) * np.prod(num_inp_vec)
         return int(exp_cycles)
 
     def minimize_accumulator_width(self, model):

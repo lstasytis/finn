@@ -52,6 +52,7 @@ class Thresholding(HWCustomOp):
             "runtime_writeable_weights": ("i", False, 0, {0, 1}),
             # parallelization; channels thresholded per cycle
             "PE": ("i", True, 0),
+            "M": ("i", False, 1),
             # number of channels (each may have different thresholds)
             "NumChannels": ("i", True, 0),
             # number of steps in thresholding function. Used only in decoupled mode
@@ -169,11 +170,26 @@ class Thresholding(HWCustomOp):
         # Update QONNX DataType of tensor for consistency
         model.set_tensor_datatype(self.onnx_node.input[1], tdt)
         return DataType[self.get_nodeattr("weightDataType")]
+    
+    def get_numInputVectors_mmv(self):
+        # support spatial parallelism by adjusting numInputVectors internally
+        # apply the M ('MMV') factor to the last dimension that is > 1
+        vecs = list(self.get_nodeattr("numInputVectors"))
+        m = self.get_nodeattr("M")
+        for dim in reversed(range(len(vecs))):
+            if vecs[dim] > 1:
+                assert (
+                    vecs[dim] % m == 0
+                ), "Requirement spatial dim divisible by M is violated."
+                vecs[dim] = vecs[dim] // m
+                break
+        return vecs
 
     def get_instream_width(self, ind=0):
         if ind == 0:
             i_bits = self.get_input_datatype(0).bitwidth()
-            width = i_bits * self.get_nodeattr("PE")
+            m = self.get_nodeattr("M")
+            width = i_bits * self.get_nodeattr("PE") * m
         elif ind == 1:
             # try to access mem_mode attribute, doesn't exist for RTL Thresholding
             try:
@@ -193,13 +209,15 @@ class Thresholding(HWCustomOp):
 
     def get_outstream_width(self, ind=0):
         o_bits = self.get_output_datatype().bitwidth()
-        return o_bits * self.get_nodeattr("PE")
+        m = self.get_nodeattr("M")
+        return o_bits * self.get_nodeattr("PE") * m
 
     def get_folded_input_shape(self, ind=0):
         pe = self.get_nodeattr("PE")
         fold = self.calc_tmem()
-        vecs = list(self.get_nodeattr("numInputVectors"))
-        folded_input_shape = tuple(vecs + [fold, pe])
+        m = self.get_nodeattr("M")
+        vecs = self.get_numInputVectors_mmv()
+        folded_input_shape = tuple(vecs + [fold, pe * m])
         return folded_input_shape
 
     def get_folded_output_shape(self, ind=0):
@@ -215,6 +233,10 @@ class Thresholding(HWCustomOp):
     def get_normal_output_shape(self, ind=0):
         # same shape as input
         return self.get_normal_input_shape()
+
+    def get_number_output_values(self):
+        nf = np.prod(self.get_folded_output_shape()[:-1])
+        return nf
 
     def get_exp_cycles(self):
         # Channels/PE * batch size * fmdim * fmdim
