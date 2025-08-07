@@ -73,7 +73,7 @@ from finn.util.basic import is_versal
 finnxsi = xsi if xsi.is_available() else None
 
 
-def make_single_fclayer_modelwrapper(W, pe, simd, wdt, idt, odt, T=None, tdt=None):
+def make_single_fclayer_modelwrapper(W, pe, simd, wdt, idt, odt, T=None, tdt=None, num_chan = 1, m = 1):
     mw = W.shape[0]
     mh = W.shape[1]
     assert mh % pe == 0
@@ -94,8 +94,8 @@ def make_single_fclayer_modelwrapper(W, pe, simd, wdt, idt, odt, T=None, tdt=Non
         export_idt = idt
         binary_xnor_mode = 0
 
-    inp = helper.make_tensor_value_info("inp", TensorProto.FLOAT, [1, mw])
-    outp = helper.make_tensor_value_info("outp", TensorProto.FLOAT, [1, mh])
+    inp = helper.make_tensor_value_info("inp", TensorProto.FLOAT, [num_chan, mw])
+    outp = helper.make_tensor_value_info("outp", TensorProto.FLOAT, [num_chan, mh])
     if T is not None:
         no_act = 0
         node_inp_list = ["inp", "weights", "thresh"]
@@ -116,8 +116,10 @@ def make_single_fclayer_modelwrapper(W, pe, simd, wdt, idt, odt, T=None, tdt=Non
         backend="fpgadataflow",
         MW=mw,
         MH=mh,
+        numInputVectors = [num_chan],
         SIMD=simd,
         PE=pe,
+        M=m,
         inputDataType=export_idt.name,
         weightDataType=export_wdt.name,
         outputDataType=odt.name,
@@ -200,14 +202,18 @@ def prepare_inputs(input_tensor, idt, wdt, inp_name="inp"):
 @pytest.mark.parametrize("nf", [-1, 2, 1])
 # synapse folding, -1 is maximum possible
 @pytest.mark.parametrize("sf", [-1, 2, 1])
+# HLS MMV parameter (channel folding)
+@pytest.mark.parametrize("m", [1, 2, 4])
 # HLS matrix width (input features)
 @pytest.mark.parametrize("mw", [16])
 # HLS matrix height (output features)
 @pytest.mark.parametrize("mh", [16])
+# HLS number of channels (number of inputs)
+@pytest.mark.parametrize("num_chan", [4])
 @pytest.mark.fpgadataflow
 @pytest.mark.slow
 @pytest.mark.vivado
-def test_fpgadataflow_mvau_hwop(idt, wdt, act, nf, sf, mw, mh):
+def test_fpgadataflow_mvau_hwop(idt, wdt, act, nf, sf, m, mw, mh, num_chan):
     if nf == -1:
         nf = mh
     if sf == -1:
@@ -219,7 +225,7 @@ def test_fpgadataflow_mvau_hwop(idt, wdt, act, nf, sf, mw, mh):
     # generate weights
     W = gen_finn_dt_tensor(wdt, (mw, mh))
     # generate input data
-    x = gen_finn_dt_tensor(idt, (1, mw))
+    x = gen_finn_dt_tensor(idt, (num_chan, mw))
     if act is None:
         # no activation, produce accumulators
         T = None
@@ -243,7 +249,7 @@ def test_fpgadataflow_mvau_hwop(idt, wdt, act, nf, sf, mw, mh):
             assert (T >= 0).all()
         else:
             tdt = DataType["INT32"]
-    model = make_single_fclayer_modelwrapper(W, pe, simd, wdt, idt, odt, T, tdt)
+    model = make_single_fclayer_modelwrapper(W, pe, simd, wdt, idt, odt, T, tdt, num_chan, m)
     # prepare input data
     input_dict = prepare_inputs(x, idt, wdt)
     if wdt == DataType["BIPOLAR"] and idt == DataType["BIPOLAR"]:
@@ -283,14 +289,26 @@ def test_fpgadataflow_mvau_hwop(idt, wdt, act, nf, sf, mw, mh):
 @pytest.mark.parametrize("nf", [-1, 2, 1])
 # synapse folding, -1 is maximum possible
 @pytest.mark.parametrize("sf", [-1, 2, 1])
+# HLS MMV parameter (channel folding)
+@pytest.mark.parametrize("m", [1, 2, 4])
 # HLS matrix width (input features)
 @pytest.mark.parametrize("mw", [16])
 # HLS matrix height (output features)
 @pytest.mark.parametrize("mh", [16])
+# HLS number of channels (number of inputs)
+@pytest.mark.parametrize("num_chan", [4])
 @pytest.mark.fpgadataflow
 @pytest.mark.slow
 @pytest.mark.vivado
-def test_fpgadataflow_mvau_cppsim(mem_mode, idt, wdt, act, nf, sf, mw, mh):
+def test_fpgadataflow_mvau_cppsim(mem_mode, idt, wdt, act, nf, sf, m, mw, mh, num_chan):
+    if m > 1:
+        if (nf != 1 or sf != 1):
+            pytest.skip("""M > 1 only supported for maximal parallelization factors (PE, SIMD)""")
+        if idt == DataType["BIPOLAR"]:
+            pytest.skip("""M > 1 not supported for bipolar inputs""") #TODO: Verify claim
+        if mem_mode != "internal_embedded":
+            pytest.skip("""M > 1 only supported for internal embedded memory mode""")
+    
     if nf == -1:
         nf = mh
     if sf == -1:
@@ -302,7 +320,7 @@ def test_fpgadataflow_mvau_cppsim(mem_mode, idt, wdt, act, nf, sf, mw, mh):
     # generate weights
     W = gen_finn_dt_tensor(wdt, (mw, mh))
     # generate input data
-    x = gen_finn_dt_tensor(idt, (1, mw))
+    x = gen_finn_dt_tensor(idt, (num_chan, mw))
     if act is None:
         # no activation, produce accumulators
         T = None
@@ -326,7 +344,7 @@ def test_fpgadataflow_mvau_cppsim(mem_mode, idt, wdt, act, nf, sf, mw, mh):
             assert (T >= 0).all()
         else:
             tdt = DataType["INT32"]
-    model = make_single_fclayer_modelwrapper(W, pe, simd, wdt, idt, odt, T, tdt)
+    model = make_single_fclayer_modelwrapper(W, pe, simd, wdt, idt, odt, T, tdt, num_chan, m)
     model = model.transform(GiveUniqueNodeNames())
     for node in model.graph.node:
         # lookup op_type in registry of CustomOps
@@ -376,16 +394,27 @@ def test_fpgadataflow_mvau_cppsim(mem_mode, idt, wdt, act, nf, sf, mw, mh):
 @pytest.mark.parametrize("nf", [-1, 2, 1])
 # synapse folding, -1 is maximum possible
 @pytest.mark.parametrize("sf", [-1, 2, 1])
+# HLS MMV parameter (channel folding)
+@pytest.mark.parametrize("m", [1, 2, 4])
 # HLS matrix width (input features)
 @pytest.mark.parametrize("mw", [16])
 # HLS matrix height (output features)
 @pytest.mark.parametrize("mh", [16])
+# HLS number of channels (number of inputs)
+@pytest.mark.parametrize("num_chan", [4])
 # Pumped memory
 @pytest.mark.parametrize("pumpedMemory", [False, True])
 @pytest.mark.fpgadataflow
 @pytest.mark.slow
 @pytest.mark.vivado
-def test_fpgadataflow_mvau_rtlsim(mem_mode, idt, wdt, act, nf, sf, mw, mh, pumpedMemory):
+def test_fpgadataflow_mvau_rtlsim(mem_mode, idt, wdt, act, nf, sf, m, mw, mh, num_chan, pumpedMemory):
+    if m > 1:
+        if (nf != 1 or sf != 1):
+            pytest.skip("""M > 1 only supported for maximal parallelization factors (PE, SIMD)""")
+        if idt == DataType["BIPOLAR"]:
+            pytest.skip("""M > 1 not supported for bipolar inputs""") #TODO: Verify claim
+        if mem_mode != "internal_embedded":
+            pytest.skip("""M > 1 only supported for internal embedded memory mode""")
     if nf == -1:
         nf = mh
     if sf == -1:
@@ -402,7 +431,7 @@ def test_fpgadataflow_mvau_rtlsim(mem_mode, idt, wdt, act, nf, sf, mw, mh, pumpe
     # generate weights
     W = gen_finn_dt_tensor(wdt, (mw, mh))
     # generate input data
-    x = gen_finn_dt_tensor(idt, (1, mw))
+    x = gen_finn_dt_tensor(idt, (num_chan, mw))
     if act is None:
         # no activation, produce accumulators
         T = None
@@ -426,7 +455,7 @@ def test_fpgadataflow_mvau_rtlsim(mem_mode, idt, wdt, act, nf, sf, mw, mh, pumpe
             assert (T >= 0).all()
         else:
             tdt = DataType["INT32"]
-    model = make_single_fclayer_modelwrapper(W, pe, simd, wdt, idt, odt, T, tdt)
+    model = make_single_fclayer_modelwrapper(W, pe, simd, wdt, idt, odt, T, tdt, num_chan, m)
     for node in model.graph.node:
         # lookup op_type in registry of CustomOps
         inst = getCustomOp(node)
