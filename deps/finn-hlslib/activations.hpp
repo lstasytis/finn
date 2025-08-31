@@ -296,13 +296,12 @@ void Thresholding_Batch(hls::stream<TI> &in,
   for (unsigned i = 0; i < reps * ImgDim * NF; i++) {
 #pragma HLS pipeline style=flp II=1
 
-    TI const  inElem = in.read();
+    TI const inElem = in.read();
     auto outElem = TDstI().template operator()<TO>();
     for (unsigned pe = 0; pe < PE; pe++)
     {
 #pragma HLS UNROLL
       for (unsigned mmv = 0; mmv < MMV; mmv++){
-// Loop seems to get automatically unrolled due to unrolling of previous loop
         auto const  act = TSrcI()(inElem, mmv);
         outElem(pe,mmv,1) = activation.activate(nf, pe, act(pe, mmv));
       }
