@@ -84,12 +84,15 @@ def prepare_inputs(input_tensor, dt):
 @pytest.mark.parametrize(
     "config",
     [
-        ([1, 24], 6, 4, DataType["INT2"]),
-        ([1, 24], 4, 6, DataType["INT2"]),
+        ([1, 24], 6, 4, DataType["INT2"]), # Unsupported by RTL implementation since 6 and 4 not ratios from each other (6 % 4 !=0; 4 % 6 != 0)
+        ([1, 24], 4, 6, DataType["INT2"]), # Compiler should default to HLS implementation even in RTL case
         ([1, 4], 2, 4, DataType["BIPOLAR"]),
         ([1, 4], 4, 2, DataType["INT2"]),
         ([1, 2, 8], 4, 4, DataType["INT2"]),
         ([1, 2, 8], 8, 16, DataType["INT2"]),
+        ([1, 2, 8], 8, 32, DataType["INT2"]),
+        ([1, 4, 4], 8, 64, DataType["UINT4"]),
+        ([1, 8, 1], 2, 4, DataType["BIPOLAR"]),
     ],
 )
 @pytest.mark.parametrize("exec_mode", ["cppsim", "rtlsim"])
@@ -141,6 +144,9 @@ def test_fpgadataflow_dwc(config, exec_mode, impl_style):
         ([1, 4], 4, 2, DataType["INT2"]),
         ([1, 2, 8], 4, 4, DataType["INT2"]),
         ([1, 2, 8], 8, 16, DataType["INT2"]),
+        ([1, 2, 8], 8, 32, DataType["INT2"]),
+        ([1, 4, 4], 8, 64, DataType["UINT4"]),
+        ([1, 8, 1], 2, 4, DataType["BIPOLAR"]),
     ],
 )
 @pytest.mark.parametrize("impl_style", ["hls", "rtl"])
