@@ -95,10 +95,13 @@ class StreamingDataWidthConverter(HWCustomOp):
         ), """DWC input width must be divisible by
         input element bitwidth"""
         ielems = int(iwidth // ibits)
-        ichannels = ishape[-1]
         new_shape = []
-        for i in ishape[:-1]:
+        for i in ishape[:-2]:
             new_shape.append(i)
+        ichannels = ishape[-1]
+        # Treat second to last dimension as channels too (required for folding with M) unless it's first dimension - batch size 
+        if(len(ishape) > 2): ichannels = ichannels * ishape[-2]
+        else: new_shape.append(ishape[-2])
         new_shape.append(int(ichannels // ielems))
         new_shape.append(ielems)
         dummy_t = dummy_t.reshape(new_shape)
@@ -115,10 +118,13 @@ class StreamingDataWidthConverter(HWCustomOp):
         ), """DWC output width must be divisible by
         input element bitwidth"""
         oelems = int(owidth // obits)
-        ochannels = oshape[-1]
         new_shape = []
-        for i in oshape[:-1]:
+        for i in oshape[:-2]:
             new_shape.append(i)
+        ochannels = oshape[-1]
+        # Treat second to last dimension as channels too (required for folding with M) unless it's first dimension - batch size 
+        if(len(oshape) > 2): ochannels = ochannels * oshape[-2]
+        else: new_shape.append(oshape[-2])
         new_shape.append(int(ochannels // oelems))
         new_shape.append(oelems)
         dummy_t = dummy_t.reshape(new_shape)
