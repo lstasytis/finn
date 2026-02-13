@@ -228,7 +228,7 @@ def test_fifo_sizing_gtsrb(board, fifo_sizing_method):
     cfg.auto_fifo_strategy=auto_fifo_strategy
     cfg.tav_generation_strategy=tav_generation_strategy_key
     cfg.rtlsim_batch_size=15
-    cfg.skip_resynth_during_fifo_sizing=True
+    cfg.skip_resynth_during_fifo_sizing=False
 
     cfg.verify_steps = []
 
@@ -244,12 +244,12 @@ def test_fifo_sizing_gtsrb(board, fifo_sizing_method):
         build.build_dataflow_cfg(cached_model_file, cfg)
     else:
         deploy_steps = [    
-            "step_create_stitched_ip",
-            "step_measure_rtlsim_performance",
-            #"step_out_of_context_synthesis",
-            #"step_synthesize_bitfile",
-            #"step_make_driver",
-            #    "step_deployment_package",
+            #"step_create_stitched_ip",
+            #"step_measure_rtlsim_performance",
+            "step_out_of_context_synthesis",
+            "step_synthesize_bitfile",
+            "step_make_driver",
+            "step_deployment_package",
         ]
         cfg.steps = [x for x in custom_build_steps if x not in deploy_steps] 
         build.build_dataflow_cfg(model_file, cfg)
