@@ -41,7 +41,6 @@ from finn.builder.build_dataflow_config import default_build_dataflow_steps
 from finn.util.basic import make_build_dir
 
 build_flow_folder = "tests/benchmark/"
-output_dir = make_build_dir("build_gtsrb_")
 
 
 def custom_step_add_preproc(model, cfg):
@@ -128,6 +127,9 @@ def configure_build(board):
 @pytest.mark.finn_examples
 @pytest.mark.parametrize("board", ["Pynq-Z1", "AUP-ZU3_8GB"])
 def test_gtsrb(board):
+
+    output_dir = make_build_dir("build_gtsrb_")
+
     # Check vivado version
     vivado_path = os.environ.get("XILINX_VIVADO")
     match = re.search(r"\b(20\d{2})\.(1|2)\b", vivado_path)
@@ -163,3 +165,107 @@ def test_gtsrb(board):
     assert os.path.isfile(verify_out_dir + "/verify_folded_hls_cppsim_0_SUCCESS.npy")
     assert os.path.isfile(verify_out_dir + "/verify_node_by_node_rtlsim_0_SUCCESS.npy")
     assert os.path.isfile(verify_out_dir + "/verify_stitched_ip_rtlsim_0_SUCCESS.npy")
+
+
+
+
+
+import time
+from finn.util.basic import compute_total_model_fifo_size
+from qonnx.util.config import extract_model_config_to_json
+from qonnx.core.modelwrapper import ModelWrapper
+
+@pytest.mark.slow
+@pytest.mark.vivado
+@pytest.mark.finn_examples
+@pytest.mark.parametrize("board", ["Pynq-Z1"], 
+                         "fifo_sizing_method",[
+                         "analytic_model_based", 
+                         "analytic_rtlsim",
+                         "largefifo_rtlsim"
+                         ])
+def test_fifo_sizing_gtsrb(board, fifo_sizing_method):
+    # Check vivado version
+    vivado_path = os.environ.get("XILINX_VIVADO")
+    match = re.search(r"\b(20\d{2})\.(1|2)\b", vivado_path)
+    year, minor = int(match.group(1)), int(match.group(2))
+    if board == "AUP-ZU3_8GB" and (year, minor) != (2024, 1):
+        pytest.skip("""Vivado version 2024.1 needed for the AUP-ZU3.""")
+    elif board != "AUP-ZU3_8GB" and (year, minor) != (2022, 2):
+        pytest.skip("""Vivado version 2022.2 needed.""")
+
+    if fifo_sizing_method == "analytic_model_based":
+        auto_fifo_strategy = "analytical"
+        tav_generation_strategy_key = "tree_model"
+    elif fifo_sizing_method == "analytic_rtlsim":
+        auto_fifo_strategy = "analytical"
+        tav_generation_strategy_key = "rtlsim"
+    else:
+        auto_fifo_strategy = "largefifo_rtlsim"
+        tav_generation_strategy_key = "rtlsim"
+
+
+
+    # Run build flow
+    cfg = configure_build(board)
+
+    # force fifo-sizing strategy selection
+    cfg.auto_fifo_strategy=auto_fifo_strategy
+    cfg.tav_generation_strategy=tav_generation_strategy_key
+    cfg.rtlsim_batch_size=15
+    cfg.skip_resynth_during_fifo_sizing=True
+
+
+
+    # check if a model has already been generated for caching purposes
+    # if True: skip all generation and go straight to fifo sizing
+    # # if False: generate the build folder from scratch
+    if os.path.isfile(output_dir + "/intermediate_models/step_hw_ipgen"):
+        model_file = output_dir + "/intermediate_models/step_hw_ipgen"
+        cfg.steps = ["step_set_fifo_depths"]
+    else:
+        output_dir = make_build_dir("build_gtsrb_")
+
+    
+    t0 = time.time()
+    build.build_dataflow_cfg(model_file, cfg)
+    t1 = time.time()
+
+    model = ModelWrapper(output_dir + "/intermediate_models/step_set_fifo_depths.onnx")
+    size, depth = compute_total_model_fifo_size(model)
+    print(
+        f"fifo sizing method: {fifo_sizing_method}, total fifo size in kb: {size // 1024}, depth: {depth}, time: {t1-t0}s"
+    )
+
+    # def extract_final_fifo_depths(name, model):
+    attr = ["depths"]
+
+    json_filename = (
+        f"{model_name}_final_fifo_depths.json"
+    )
+    print(f"Extracting json with name {json_filename}")
+    extract_model_config_to_json(model, json_filename, attr)
+
+    # Check if the ezxpected output products are there
+    # assert os.path.isfile(output_dir + "/time_per_step.json")
+    # assert os.path.isfile(output_dir + "/final_hw_config.json")
+    # assert os.path.isfile(output_dir + "/template_specialize_layers_config.json")
+    # assert os.path.isfile(output_dir + "/stitched_ip/ip/component.xml")
+    # assert os.path.isfile(output_dir + "/driver/driver.py")
+    # assert os.path.isfile(output_dir + "/report/estimate_layer_cycles.json")
+    # assert os.path.isfile(output_dir + "/report/estimate_layer_resources.json")
+    # assert os.path.isfile(output_dir + "/report/estimate_network_performance.json")
+    # assert os.path.isfile(output_dir + "/report/rtlsim_performance.json")
+    # assert os.path.isfile(output_dir + "/bitfile/finn-accel.bit")
+    # assert os.path.isfile(output_dir + "/bitfile/finn-accel.hwh")
+    # assert os.path.isfile(output_dir + "/report/post_synth_resources.xml")
+    # assert os.path.isfile(output_dir + "/report/post_route_timing.rpt")
+    # assert os.path.isfile(output_dir + "/report/post_synth_resources.json")
+    # # Verification outputs
+    # verify_out_dir = output_dir + "/verification_output"
+    # assert os.path.isfile(verify_out_dir + "/verify_initial_python_0_SUCCESS.npy")
+    # assert os.path.isfile(verify_out_dir + "/verify_streamlined_python_0_SUCCESS.npy")
+    # assert os.path.isfile(verify_out_dir + "/verify_folded_hls_cppsim_0_SUCCESS.npy")
+    # assert os.path.isfile(verify_out_dir + "/verify_node_by_node_rtlsim_0_SUCCESS.npy")
+    # assert os.path.isfile(verify_out_dir + "/verify_stitched_ip_rtlsim_0_SUCCESS.npy")
+
