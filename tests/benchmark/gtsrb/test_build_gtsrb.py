@@ -209,7 +209,6 @@ def test_fifo_sizing_gtsrb(board, fifo_sizing_method):
     build_dir = os.environ["FINN_BUILD_DIR"]
     output_dir_fifo = None
     for x in os.listdir(build_dir):
-        print(f"dir: ",x)
         if x.startswith("build_fifo_gtsrb_"):
             print("found build dir:")
             output_dir_fifo = f"{build_dir}/{x}"
