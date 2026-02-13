@@ -41,6 +41,7 @@ from finn.builder.build_dataflow_config import default_build_dataflow_steps
 from finn.util.basic import make_build_dir
 
 build_flow_folder = "tests/benchmark/"
+output_dir = make_build_dir("build_gtsrb_")
 
 
 def custom_step_add_preproc(model, cfg):
@@ -112,12 +113,10 @@ def configure_build(board):
         verify_steps=verif_steps,
         verify_input_npy=verify_input_npy,
         verify_expected_output_npy=verify_expected_output_npy,
-        folding_config_file=f"""{build_flow_folder}gtsrb/
-            folding_config/gtsrb_folding_config_{board}.json""",
+        folding_config_file=f"""{build_flow_folder}gtsrb/folding_config/gtsrb_folding_config_{board}.json""",
         shell_flow_type=build_cfg.ShellFlowType.VIVADO_ZYNQ,
         generate_outputs=build_outputs,
-        specialize_layers_config_file=f"""{build_flow_folder}gtsrb/
-            specialize_layers_config/gtsrb_specialize_layers.json""",
+        specialize_layers_config_file=f"""{build_flow_folder}gtsrb/specialize_layers_config/gtsrb_specialize_layers.json""",
     )
     return cfg
 
@@ -128,7 +127,6 @@ def configure_build(board):
 @pytest.mark.parametrize("board", ["Pynq-Z1", "AUP-ZU3_8GB"])
 def test_gtsrb(board):
 
-    output_dir = make_build_dir("build_gtsrb_")
 
     # Check vivado version
     vivado_path = os.environ.get("XILINX_VIVADO")
@@ -136,9 +134,9 @@ def test_gtsrb(board):
     year, minor = int(match.group(1)), int(match.group(2))
     if board == "AUP-ZU3_8GB" and (year, minor) != (2024, 1):
         pytest.skip("""Vivado version 2024.1 needed for the AUP-ZU3.""")
-    elif board != "AUP-ZU3_8GB" and (year, minor) != (2022, 2):
-        pytest.skip("""Vivado version 2022.2 needed.""")
-
+    # elif board != "AUP-ZU3_8GB" and (year, minor) != (2022, 2):
+    #     pytest.skip("""Vivado version 2022.2 needed.""")
+    #
     # Run build flow
     cfg = configure_build(board)
     build.build_dataflow_cfg(model_file, cfg)
@@ -178,12 +176,14 @@ from qonnx.core.modelwrapper import ModelWrapper
 @pytest.mark.slow
 @pytest.mark.vivado
 @pytest.mark.finn_examples
-@pytest.mark.parametrize("board", ["Pynq-Z1"], 
-                         "fifo_sizing_method",[
-                         "analytic_model_based", 
-                         "analytic_rtlsim",
-                         "largefifo_rtlsim"
-                         ])
+@pytest.mark.parametrize(
+    "board,fifo_sizing_method",
+    [
+        ("Pynq-Z1", "analytic_model_based"),
+        ("Pynq-Z1", "analytic_rtlsim"),
+        ("Pynq-Z1", "largefifo_rtlsim"),
+    ],
+)
 def test_fifo_sizing_gtsrb(board, fifo_sizing_method):
     # Check vivado version
     vivado_path = os.environ.get("XILINX_VIVADO")
@@ -191,8 +191,8 @@ def test_fifo_sizing_gtsrb(board, fifo_sizing_method):
     year, minor = int(match.group(1)), int(match.group(2))
     if board == "AUP-ZU3_8GB" and (year, minor) != (2024, 1):
         pytest.skip("""Vivado version 2024.1 needed for the AUP-ZU3.""")
-    elif board != "AUP-ZU3_8GB" and (year, minor) != (2022, 2):
-        pytest.skip("""Vivado version 2022.2 needed.""")
+    # elif board != "AUP-ZU3_8GB" and (year, minor) != (2022, 2):
+    #     pytest.skip("""Vivado version 2022.2 needed.""")
 
     if fifo_sizing_method == "analytic_model_based":
         auto_fifo_strategy = "analytical"
@@ -205,33 +205,62 @@ def test_fifo_sizing_gtsrb(board, fifo_sizing_method):
         tav_generation_strategy_key = "rtlsim"
 
 
+    # search for build dir to not resynth if possible
+    build_dir = os.environ["FINN_BUILD_DIR"]
+    output_dir_fifo = None
+    for x in os.listdir(build_dir):
+        print(f"dir: ",x)
+        if x.startswith("build_fifo_gtsrb_"):
+            print("found build dir:")
+            output_dir_fifo = f"{build_dir}/{x}"
+            print(output_dir_fifo)
 
+    if output_dir_fifo is None:
+        output_dir_fifo = make_build_dir("build_fifo_gtsrb_")
+        print("no build dir found, creating:")
+        print(output_dir_fifo)
+
+    
     # Run build flow
     cfg = configure_build(board)
-
+    cfg.output_dir = output_dir_fifo
     # force fifo-sizing strategy selection
     cfg.auto_fifo_strategy=auto_fifo_strategy
     cfg.tav_generation_strategy=tav_generation_strategy_key
     cfg.rtlsim_batch_size=15
     cfg.skip_resynth_during_fifo_sizing=True
 
-
+    cfg.verify_steps = []
 
     # check if a model has already been generated for caching purposes
     # if True: skip all generation and go straight to fifo sizing
     # # if False: generate the build folder from scratch
-    if os.path.isfile(output_dir + "/intermediate_models/step_hw_ipgen"):
-        model_file = output_dir + "/intermediate_models/step_hw_ipgen"
-        cfg.steps = ["step_set_fifo_depths"]
-    else:
-        output_dir = make_build_dir("build_gtsrb_")
-
-    
+        # search for prepared model
     t0 = time.time()
-    build.build_dataflow_cfg(model_file, cfg)
+
+    if os.path.isfile(output_dir_fifo + "/intermediate_models/step_hw_ipgen"):
+        cached_model_file = output_dir_fifo + "/intermediate_models/step_hw_ipgen"
+        cfg.steps = ["step_set_fifo_depths"]
+        build.build_dataflow_cfg(cached_model_file, cfg)
+    else:
+        deploy_steps = [    
+            "step_create_stitched_ip",
+            "step_measure_rtlsim_performance",
+            #"step_out_of_context_synthesis",
+            #"step_synthesize_bitfile",
+            #"step_make_driver",
+            #    "step_deployment_package",
+        ]
+        cfg.steps = [x for x in custom_build_steps if x not in deploy_steps] 
+        build.build_dataflow_cfg(model_file, cfg)
+
+
+
     t1 = time.time()
 
-    model = ModelWrapper(output_dir + "/intermediate_models/step_set_fifo_depths.onnx")
+    
+        
+    model = ModelWrapper(output_dir_fifo + "/intermediate_models/step_set_fifo_depths.onnx")
     size, depth = compute_total_model_fifo_size(model)
     print(
         f"fifo sizing method: {fifo_sizing_method}, total fifo size in kb: {size // 1024}, depth: {depth}, time: {t1-t0}s"
