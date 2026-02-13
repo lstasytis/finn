@@ -96,10 +96,15 @@ class StreamingDataWidthConverter(HWCustomOp):
         ), """DWC input width must be divisible by
         input element bitwidth"""
         ielems = int(iwidth // ibits)
-        ichannels = ishape[-1]
+
+        ichannels = ishape[-1] * ishape[-2]
         new_shape = []
-        for i in ishape[:-1]:
+        for i in ishape[:-2]:
             new_shape.append(i)
+        # ichannels = ishape[-1]
+        # new_shape = []
+        # for i in ishape[:-1]:
+        #     new_shape.append(i)
         new_shape.append(int(ichannels // ielems))
         new_shape.append(ielems)
         dummy_t = dummy_t.reshape(new_shape)
@@ -116,10 +121,17 @@ class StreamingDataWidthConverter(HWCustomOp):
         ), """DWC output width must be divisible by
         input element bitwidth"""
         oelems = int(owidth // obits)
-        ochannels = oshape[-1]
+
+        ochannels = oshape[-1] * oshape[-2]
         new_shape = []
-        for i in oshape[:-1]:
+        for i in oshape[:-2]:
             new_shape.append(i)
+
+        # ochannels = oshape[-1]
+        # new_shape = []
+        # for i in oshape[:-1]:
+        #    new_shape.append(i)
+
         new_shape.append(int(ochannels // oelems))
         new_shape.append(oelems)
         dummy_t = dummy_t.reshape(new_shape)

@@ -79,7 +79,7 @@ SCRIPTPATH=$(dirname "$SCRIPT")
 : ${FINN_SSH_KEY_DIR="$SCRIPTPATH/ssh_keys"}
 : ${PLATFORM_REPO_PATHS="/opt/xilinx/platforms"}
 : ${XRT_DEB_VERSION="xrt_202220.2.14.354_22.04-amd64-xrt"}
-: ${FINN_HOST_BUILD_DIR="/tmp/$DOCKER_INST_NAME"}
+: ${FINN_HOST_BUILD_DIR="/home/lstasytis/finn_builds_fifo_pr_tests/$DOCKER_INST_NAME"}
 : ${FINN_DOCKER_TAG="xilinx/finn:$(OLD_PWD=$(pwd); cd $SCRIPTPATH; git describe --always --tags --dirty; cd $OLD_PWD).$XRT_DEB_VERSION"}
 : ${FINN_DOCKER_PREBUILT="0"}
 : ${FINN_DOCKER_RUN_AS_ROOT="0"}
@@ -204,6 +204,7 @@ DOCKER_EXEC+="-e LD_PRELOAD=/lib/x86_64-linux-gnu/libudev.so.1 "
 # Workaround for running multiple Vivado instances simultaneously, see:
 # https://adaptivesupport.amd.com/s/article/63253?language=en_US
 DOCKER_EXEC+="-e XILINX_LOCAL_USER_DATA=no "
+DOCKER_EXEC+="-v /home/lstasytis/finn_prs/finn-examples:/home/lstasytis/finn_prs/finn-examples "
 if [ "$FINN_DOCKER_RUN_AS_ROOT" = "0" ] && [ -z "$FINN_SINGULARITY" ];then
   DOCKER_EXEC+="-v /etc/group:/etc/group:ro "
   DOCKER_EXEC+="-v /etc/passwd:/etc/passwd:ro "

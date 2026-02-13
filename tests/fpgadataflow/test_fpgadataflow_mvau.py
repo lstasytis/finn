@@ -923,6 +923,9 @@ def test_fpgadataflow_analytical_characterization_mvau(
     pe = mh // nf
     simd = mw // sf
 
+    print(f"\nMW: {mw}, MH: {mh}, SIMD: {simd}, PE: {pe}")
+    
+
     assert mh % pe == 0
     assert mw % sf == 0
     # generate weights
@@ -946,6 +949,7 @@ def test_fpgadataflow_analytical_characterization_mvau(
         inst.set_nodeattr("preferred_impl_style", preferred_impl_style)
 
     node_details = ("MVAU", mem_mode, idt, wdt, act, nf, sf, mw, mh, preferred_impl_style)
+    print(f"equals: {node_details}")
     part = "xc7z020clg400-1"
     target_clk_ns = 4
     max_allowed_volume_delta = 20

@@ -1132,9 +1132,15 @@ class MVAU(HWCustomOp):
             False,
         )
 
+        read_SIMD = Characteristic_Node(
+            "Compute single feature map",
+            [(wind_up, idle), (SF - 1, read), (0, idle)],
+            False,
+        )
+
         feature_map = Characteristic_Node(
             "Compute single feature map",
-            [(wind_up, idle), (SF - 1, read), (0, idle), (1, read_and_write), (NF - 1, write_PE)],
+            [(1, read_SIMD), (1, read_and_write), (NF - 1, write_PE)],
             False,
         )
 

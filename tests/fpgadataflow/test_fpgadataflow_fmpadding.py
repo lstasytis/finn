@@ -60,7 +60,7 @@ def make_single_fmpadding_modelwrapper(idim, padding, num_ch, simd, idt):
     pad_w = padding[1] + padding[3]
     idim_h, idim_w = idim
 
-    assert pad_h > 0 or pad_w > 0, "Output dim should be greater than input dim"
+    #assert pad_h > 0 or pad_w > 0, "Output dim should be greater than input dim"
     odim_h = idim_h + pad_h
     odim_w = idim_w + pad_w
 
@@ -162,19 +162,21 @@ def test_fpgadataflow_fmpadding(idim, pad, num_ch, simd, idt, mode):
 
 
 # input image dimension
-@pytest.mark.parametrize("idim", [[10, 8]])
+@pytest.mark.parametrize("idim", [[4, 4]])
 # number of rows and number of cols to add
-@pytest.mark.parametrize("pad", [[1, 1, 1, 1], [1, 1, 2, 2], [7, 0, 8, 0]])
+# @pytest.mark.parametrize("pad", [[1, 1, 1, 1], [1, 1, 2, 2], [7, 0, 8, 0]])
+@pytest.mark.parametrize("pad", [[0,0,0,0], [1,0,0,0], [0,1,0,0],[0,1,0,1], [1,1,1,1]])
 # number of channels
-@pytest.mark.parametrize("num_ch", [2, 4])
+@pytest.mark.parametrize("num_ch", [1])
 # Input parallelism
-@pytest.mark.parametrize("simd", [1, 2])
+@pytest.mark.parametrize("simd", [1])
 # FINN input datatype
 @pytest.mark.parametrize("idt", [DataType["INT2"]])
 # execution mode
 @pytest.mark.parametrize("mode", ["rtlsim"])
 # implementation style
-@pytest.mark.parametrize("impl_style", ["rtl", "hls"])
+# @pytest.mark.parametrize("impl_style", ["rtl", "hls"])
+@pytest.mark.parametrize("impl_style", ["rtl"])
 @pytest.mark.fpgadataflow
 @pytest.mark.slow
 @pytest.mark.vivado

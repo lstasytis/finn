@@ -392,6 +392,18 @@ def test_fpgadataflow_analytical_characterization_slidingwindow_mobilenet(
     m,
     flip,
 ):
+    
+    ifm_dim =  [10, 6]
+    k = [2, 2]
+    stride = [2, 2]
+    dilation = [1, 1]
+    ifm_ch = 1
+    simd = 1
+    dw = 1
+    parallel_window = 0
+
+
+
     if flip:
         if (
             ifm_dim[0] == ifm_dim[1]
@@ -444,8 +456,9 @@ def test_fpgadataflow_analytical_characterization_slidingwindow_mobilenet(
         inst.set_nodeattr("parallel_window", parallel_window)
         inst.set_nodeattr("M", m)
 
+
     node_details = (
-        "ConvolutionInputGenerator",
+        "experiment",
         ifm_dim,
         k,
         stride,

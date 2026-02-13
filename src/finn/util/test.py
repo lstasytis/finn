@@ -390,8 +390,8 @@ def tree_model_test(
     target_clk_ns,
     max_allowed_volume_delta,
     max_allowed_length_delta,
-    CACHING=False,
-    DEBUGGING=False,
+    CACHING=True,
+    DEBUGGING=True,
 ):
     # caching means to run RTLSIM only once and store the model
     # so we can reuse the token access vector whenever we
@@ -506,7 +506,7 @@ def compare_nodes(
     tav_ref_in = decompress_string_to_numpy(ref_node.get_nodeattr("io_chrc_in"))[0]
     tav_ref_out = decompress_string_to_numpy(ref_node.get_nodeattr("io_chrc_out"))[0]
     tav_model_in = decompress_string_to_numpy(model_node.get_nodeattr("io_chrc_in"))[0]
-    tav_model_out = decompress_string_to_numpy(model_node.get_nodeattr("io_chrc_out"))[0]
+    tav_model_out = decompress_string_to_numpy(model_node.get_nodeattr("io_chrc_out"))[0] 
 
     # gaps_prod, _ = inter_token_gaps(tav_model_out)
     # gaps_cons, _ = inter_token_gaps(tav_model_in)
@@ -528,10 +528,27 @@ def compare_nodes(
     # print("reference production: ", local_max_delay_prod_list[:10])
 
     # Determine max length for slicing
+    in0 = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
+    out0 = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
+    in1 = np.array([1, 1, 1, 1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
+    out1 = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
+
+    in2 = np.array([1, 1, 2, 3, 4, 5, 5, 6, 7, 8, 9, 9, 10, 11, 12, 13, 13, 14, 15, 16])
+    out2 = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
+
+    in3 = np.array([0, 0, 1, 2, 3, 4, 4, 4, 5, 6, 7, 8, 8, 8, 9, 10, 11, 12, 12, 12, 13, 14, 15, 16])
+    out3 = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24])
+    max_len_temp = max(len(in3), len(out3))
+
+    #tav_ref_in = np.concatenate((np.zeros(40, dtype=tav_ref_in.dtype), tav_ref_in))
+    #tav_ref_out = np.concatenate((np.zeros(10, dtype=tav_ref_out.dtype), tav_ref_out))
+
     max_len = max(len(tav_ref_in), len(tav_model_in), len(tav_ref_out), len(tav_model_out))
     if max_cycle is None or max_cycle > max_len:
         max_cycle = max_len
+    max_cycle = max_cycle // 2
 
+    max_cycles = max(len(in3), len(out3))
     # Slice without padding
     y_ref_in = tav_ref_in[start_cycle:max_cycle]
     y_model_in = tav_model_in[start_cycle:max_cycle]
@@ -562,36 +579,69 @@ def compare_nodes(
             y_offset = int(y_sub[-1] * 0.1)
         else:
             y_offset = 0
-        if len(x_sub) > 0:
-            plt.text(
-                x_sub[-1],
-                y_sub[-1] + y_offset,
-                f"  {label} {y_sub[-1]:.2f}",
-                color=color,
-                va="center",
-                fontsize=9,
-            )
+        # if len(x_sub) > 0:
+        #     plt.text(
+        #         x_sub[-1],
+        #         y_sub[-1] + y_offset,
+        #         f"  {label} {y_sub[-1]:.2f}",
+        #         color=color,
+        #         va="center",
+        #         fontsize=15,
+        #     )
 
-    plot_with_subsample(tav_ref_in, "in: ref", "blue")
-    plot_with_subsample(tav_model_in, "in: tree model", "blue", linestyle="--")
-    plot_with_subsample(tav_ref_out, "out: ref", "red")
-    plot_with_subsample(tav_model_out, "out: tree model", "red", linestyle="--")
 
+    # print("in = np.array([" + ", ".join(str(el) for el in y_ref_in) + "])")
+    # print("out = np.array([" + ", ".join(str(el) for el in y_ref_out) + "])")
+
+    # print(node_details[2])
+    # if node_details[2] == [0,0,0,0]:
+    #     pass
+    # elif node_details[2] == [1,0,0,0]:
+    #     plot_with_subsample(in0, "previous TAV", "grey")
+    # elif node_details[2] == [0,1,0,0]:
+    #     plot_with_subsample(in0, "previous TAV", "grey")
+    #     plot_with_subsample(in1, "", "grey")
+    # elif node_details[2] == [0,1,0,1]:
+    #     plot_with_subsample(in0, "previous TAV", "grey")
+    #     plot_with_subsample(in1, "", "grey")
+    #     plot_with_subsample(in2, "", "grey")
+    # y_ref_in = np.array([y_ref_in[0]] * 20 + y_ref_in.tolist())
+
+
+    plot_with_subsample(y_ref_in, "in (token consumption)", "blue")
+    #v0_in = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32])
+    #v0_out = np.array([])
+   # plot_with_subsample()
+    #plot_with_subsample(tav_model_in, "in: tree model", "blue", linestyle="--")
+    plot_with_subsample(y_ref_out, "out (token production)", "red")
     metrics_ref = f"ref in: {tav_ref_in[-1]}, out: {tav_ref_out[-1]}"
     metrics_model = f"model in: {tav_model_in[-1]}, out: {tav_model_out[-1]}"
+    plt.xlim(0,40)
+    plt.ylim(0,40)
+    # plt.ylim(0,max(max(out3), max(in3)))
+    plt.legend(fontsize=18)
+    plt.xlabel("Cycle",size=18)
+    plt.ylabel("Accumulated Tokens",size=18)
 
-    plt.legend()
-    plt.xlabel("Cycle")
-    plt.ylabel("Accumulated Tokens")
-    plt.title(
-        f"Node {node_details} \n max_in_diff:"
-        f"{in_diff} max_out_diff: {out_diff}\n (Cycles "
-        f"{start_cycle}:{max_cycle})\n{metrics_ref}\n{metrics_model}"
-    )
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
+    # plt.title(
+    #     f"Node {node_details} \n max_in_diff:"
+    #     f"{in_diff} max_out_diff: {out_diff}\n (Cycles "
+    #     f"{start_cycle}:{max_cycle})\n{metrics_ref}\n{metrics_model}"
+    # )
     plt.grid(True)
-    plt.tight_layout()
-    plt.show()
+
+    
+    
     folder_path = "tree_modeling_plots"
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
-    plt.savefig(f"{folder_path}/{node_details}.png")
+
+    fig = plt.gcf()   # get current figure
+    fig.set_size_inches(6,5)  # resize
+    plt.tight_layout()
+    fig.savefig(f"{folder_path}/{node_details}.png")
+
+
+    plt.show()
