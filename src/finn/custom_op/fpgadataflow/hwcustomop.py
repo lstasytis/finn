@@ -230,22 +230,9 @@ class HWCustomOp(CustomOp):
         back to one"""
         finnxsi.reset_rtlsim(sim)
 
-    def rtlsim_multi_io_custom(self, sim, io_dict, sname="_V", batch_size=1):
+    def rtlsim_multi_io(self, sim, io_dict, sname="_V", batch_size=1):
         "Run rtlsim for this node, supports multiple i/o streams."
         num_out_values = self.get_number_output_values() * batch_size
-        total_cycle_count = finnxsi.rtlsim_multi_io(
-            sim,
-            io_dict,
-            num_out_values,
-            sname=sname,
-            liveness_threshold=get_liveness_threshold_cycles(),
-        )
-
-        self.set_nodeattr("cycles_rtlsim", total_cycle_count)
-
-    def rtlsim_multi_io(self, sim, io_dict, sname="_V"):
-        "Run rtlsim for this node, supports multiple i/o streams."
-        num_out_values = self.get_number_output_values()
         # Use the larger of expected cycles or liveness threshold
         exp_cycles = self.get_exp_cycles()
         liveness_threshold = get_liveness_threshold_cycles()
@@ -670,7 +657,7 @@ class HWCustomOp(CustomOp):
         for k in txns_out.keys():
             txns_out[k] = sim.trace_stream(k + sname)
 
-        self.rtlsim_multi_io_custom(sim, io_dict, sname="_V", batch_size=periods_to_simulate)
+        self.rtlsim_multi_io(sim, io_dict, sname="_V", batch_size=periods_to_simulate)
 
         total_cycle_count = self.get_nodeattr("cycles_rtlsim")
 
