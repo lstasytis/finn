@@ -26,6 +26,7 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import math
 import numpy as np
 import warnings
 from onnx import TensorProto, helper
@@ -559,7 +560,7 @@ class ConvolutionInputGenerator(HWCustomOp):
             steady = Characteristic_Node("Processing Loop", per_cycle_nodes, False)
 
             return Characteristic_Node("SlidingWindow_2D", [(1, startup), (1, steady)], False)
-            
+
     def get_tree_model(self):
         # Extract node attributes
         ifm_dim_y, ifm_dim_x = self.get_nodeattr("IFMDim")
@@ -586,8 +587,6 @@ class ConvolutionInputGenerator(HWCustomOp):
         # print("buffering threshold: ", buffering_threshold)
 
         stride_y_skips = (stride_y - 1) * ifm_dim_x
-
-        import math
 
         kernels_in_line = math.ceil(
             (ifm_dim_x - (k_x - 1 + (k_x - 1) * (dilation_x - 1))) / stride_x
@@ -863,4 +862,3 @@ class ConvolutionInputGenerator(HWCustomOp):
             )
 
         return swg
-

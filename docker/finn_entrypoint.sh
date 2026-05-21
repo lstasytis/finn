@@ -35,7 +35,6 @@ export LC_ALL="en_US.UTF-8"
 export LANGUAGE="en_US:en"
 # colorful terminal output
 export PS1='\[\033[1;36m\]\u\[\033[1;31m\]@\[\033[1;32m\]\h:\[\033[1;35m\]\w\[\033[1;31m\]\$\[\033[0m\] '
-export PATH=$PATH:$OHMYXILINX
 
 YELLOW='\033[0;33m'
 GREEN='\033[0;32m'
@@ -59,6 +58,7 @@ recho () {
 mv ${FINN_ROOT}/deps/qonnx/pyproject.toml ${FINN_ROOT}/deps/qonnx/pyproject.tmp
 pip install --user -e ${FINN_ROOT}/deps/qonnx
 mv ${FINN_ROOT}/deps/qonnx/pyproject.tmp ${FINN_ROOT}/deps/qonnx/pyproject.toml
+
 # finn-experimental
 pip install --user -e ${FINN_ROOT}/deps/finn-experimental
 # brevitas
@@ -106,15 +106,18 @@ fi
 if [ -z "${XILINX_VIVADO}" ]; then
   yecho "finnxsi will be unavailable since Vivado was not found"
 else
+  # Build finn_xsi using the new Python-based setup
   if [ -f "${FINN_ROOT}/finn_xsi/xsi.so" ]; then
-    gecho "Found finnxsi at ${FINN_ROOT}/finn_xsi/xsi.so"
+    gecho "Found existing finn_xsi at ${FINN_ROOT}/finn_xsi/xsi.so"
   else
-    OLDPWD=$(pwd)
-    cd ${FINN_ROOT}/finn_xsi
-    make
-    cd $OLDPWD
+    gecho "Building finn_xsi using finn.xsi.setup..."
+    python -m finn.xsi.setup --quiet
+    if [ $? -eq 0 ]; then
+      gecho "finn_xsi built successfully"
+    else
+      recho "Failed to build finn_xsi"
+    fi
   fi
-  export PYTHONPATH=$PYTHONPATH:${FINN_ROOT}/finn_xsi
   export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/lib/x86_64-linux-gnu/:${XILINX_VIVADO}/lib/lnx64.o
 fi
 
@@ -154,5 +157,6 @@ fi
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$VITIS_PATH/lnx64/tools/fpo_v7_1:$HLS_PATH/lnx64/tools/fpo_v7_1"
 
 export PATH=$PATH:$HOME/.local/bin
+
 # execute the provided command(s) as root
 exec "$@"
