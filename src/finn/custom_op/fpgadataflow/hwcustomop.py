@@ -319,7 +319,15 @@ class HWCustomOp(CustomOp):
         return None
 
     def derive_token_access_vectors(
-        self, model, period, strategy, fpga_part, clk_period, op_type, override_dict=None
+        self,
+        model,
+        period,
+        strategy,
+        fpga_part,
+        clk_period,
+        op_type,
+        override_dict=None,
+        pre_hook=None,
     ):
         if override_dict is None:
             n_inps = np.prod(self.get_folded_input_shape()[:-1])
@@ -342,7 +350,9 @@ class HWCustomOp(CustomOp):
         # there is a 20 clock marging added for when get_exp_cycles()
         # is underestimating the real operator runtime.
         period = self.get_exp_cycles() + 20
-        self.derive_token_access_vectors_using_rtlsim(model, period, fpga_part, clk_period, io_dict)
+        self.derive_token_access_vectors_using_rtlsim(
+            model, period, fpga_part, clk_period, io_dict, pre_hook=pre_hook
+        )
 
     def derive_token_access_vectors_using_tree_model(self, period, io_dict):
         # Analytical flow
@@ -469,9 +479,9 @@ class HWCustomOp(CustomOp):
 
     def generate_hdl_memstream(self, fpgapart, pumped_memory=0):
         """Helper function to generate verilog code for memstream component.
-        Currently utilized by MVAU, VVAU and HLS Thresholding layer."""
+        Currently utilized by MVAU, VVAU, HLS Thresholding and Elementwise layers."""
         ops = ["MVAU_hls", "MVAU_rtl", "VVAU_hls", "VVAU_rtl", "Thresholding_hls"]
-        if self.onnx_node.op_type in ops:
+        if self.onnx_node.op_type in ops or self.onnx_node.op_type.startswith("Elementwise"):
             template_path = (
                 os.environ["FINN_ROOT"] + "/finn-rtllib/memstream/hdl/memstream_wrapper_template.v"
             )
@@ -601,10 +611,16 @@ class HWCustomOp(CustomOp):
             f.write(template_wrapper)
 
     def derive_token_access_vectors_using_rtlsim(
-        self, model, period, fpga_part, clk_period, override_rtlsim_dict=None
+        self, model, period, fpga_part, clk_period, override_rtlsim_dict=None, pre_hook=None
     ):
         """Return the token access vectors for this node using rtlsim.
-        Used by analytical FIFO sizing approach."""
+        Used by analytical FIFO sizing approach.
+
+        Args:
+            pre_hook: Optional callable that takes sim as argument, called after
+                      reset_rtlsim but before running the simulation. Used by
+                      FINNLoop to initialize MLO state.
+        """
         # ensure rtlsim is ready
 
         periods_to_simulate = 5
@@ -650,6 +666,8 @@ class HWCustomOp(CustomOp):
         # signal name, note no underscore at the end (new finnxsi behavior)
         sname = "_V"
         self.reset_rtlsim(sim)
+        if pre_hook is not None:
+            pre_hook(sim)
 
         # create stream tracers for all input and output streams
         for k in txns_in.keys():
