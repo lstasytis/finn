@@ -151,8 +151,6 @@ class MVAU_hls(MVAU, HLSBackend):
                 ), """Layer with URAM weights must have runtime_writeable_weights=1
                     if Ultrascale device is targeted."""
             self.generate_hdl_memstream(fpgapart, pumped_memory=self.get_nodeattr("pumpedMemory"))
-        elif self.get_nodeattr("mlo_max_iter"):
-            self.generate_hdl_fetch_weights(fpgapart)
 
     def get_template_param_values(self):
         """Returns the template parameter values according to input, output and weight
