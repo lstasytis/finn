@@ -110,6 +110,9 @@ class InsertDWC(Transformation):
                                 dwc_shape,
                             )
                             graph.value_info.append(dwc_output_tensor)
+                            
+                            # Compute new attribute flattenVecs - Needed if sample-parallelism enabled for either node
+                            dwc_flatten_vecs = ("M" in n0.get_nodeattr_types() and n0.get_nodeattr("M") > 1) or ("M" in n1.get_nodeattr_types() and n1.get_nodeattr("M") > 1)
 
                             dwc_node = oh.make_node(
                                 node_optype,
@@ -121,6 +124,7 @@ class InsertDWC(Transformation):
                                 inWidth=dwc_in_width,
                                 outWidth=dwc_out_width,
                                 dataType=str(dtype.name),
+                                flattenVecs = dwc_flatten_vecs,
                             )
                             # insert dwc
                             graph.node.insert(node_ind + 1, dwc_node)

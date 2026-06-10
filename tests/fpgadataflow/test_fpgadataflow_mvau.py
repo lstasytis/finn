@@ -425,8 +425,7 @@ def test_fpgadataflow_mvau_rtlsim(mem_mode, idt, wdt, act, nf, sf, m, mw, mh, nu
     assert mw % sf == 0
     if (pumpedMemory and mem_mode != "internal_decoupled") or (simd == 1 and pumpedMemory):
         pytest.skip(
-            """Pumped memory can only be used in combination with
-            internal decoupled mem mode. And SIMD > 1."""
+            """Pumped memory can only be used in combination with internal decoupled mem mode. And SIMD > 1."""
         )
     # generate weights
     W = gen_finn_dt_tensor(wdt, (mw, mh))

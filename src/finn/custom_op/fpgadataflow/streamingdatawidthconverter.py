@@ -49,6 +49,8 @@ class StreamingDataWidthConverter(HWCustomOp):
             "outWidth": ("i", True, 0),
             # FINN DataTypes for inputs/outputs
             "dataType": ("s", True, ""),
+            # Flatten input/output vectors to support sample-parallelism
+            "flattenVecs": ("i", False, 0, {0, 1}),
         }
         my_attrs.update(super().get_nodeattr_types())
         return my_attrs
@@ -99,8 +101,9 @@ class StreamingDataWidthConverter(HWCustomOp):
         for i in ishape[:-2]:
             new_shape.append(i)
         ichannels = ishape[-1]
-        # Treat second to last dimension as channels too (required for folding with M) unless it's first dimension - batch size 
-        if(len(ishape) > 2): ichannels = ichannels * ishape[-2]
+        
+        flatten = self.get_nodeattr("flattenVectors")
+        if(flatten): ichannels = ichannels * ishape[-2]
         else: new_shape.append(ishape[-2])
         new_shape.append(int(ichannels // ielems))
         new_shape.append(ielems)
@@ -122,8 +125,9 @@ class StreamingDataWidthConverter(HWCustomOp):
         for i in oshape[:-2]:
             new_shape.append(i)
         ochannels = oshape[-1]
-        # Treat second to last dimension as channels too (required for folding with M) unless it's first dimension - batch size 
-        if(len(oshape) > 2): ochannels = ochannels * oshape[-2]
+
+        flatten = self.get_nodeattr("flattenVecs")
+        if(flatten): ochannels = ochannels * oshape[-2]
         else: new_shape.append(oshape[-2])
         new_shape.append(int(ochannels // oelems))
         new_shape.append(oelems)
