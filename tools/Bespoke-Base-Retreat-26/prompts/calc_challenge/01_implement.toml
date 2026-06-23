@@ -1,0 +1,27 @@
+name = "implement"
+max_turns = 20
+
+prompt = """
+Write `calc.py` containing a single function:
+
+    evaluate(expr: str) -> float
+
+that evaluates an arithmetic expression string.
+
+Requirements:
+- Operators: + - * / ** with standard mathematical precedence
+  (** binds tightest, then * /, then + -)
+- ** is RIGHT-associative: 2 ** 3 ** 2  ==  2 ** (3 ** 2)  ==  512
+- + - * / are LEFT-associative: 10 - 3 - 2  ==  (10 - 3) - 2  ==  5
+- Unary minus is supported: -3, -(4+2), 2**-1
+- Unary minus has LOWER precedence than **:
+    -3**2  ==  -(3**2)  ==  -9       (not 9)
+    (-3)**2 == 9                     (parentheses override this)
+- Parentheses override precedence in the usual way
+- Whitespace anywhere is ignored
+- Inputs are well-formed; no division by zero
+- Do NOT use eval(), exec(), compile(), or any parsing library.
+  Write the recursive descent parser yourself.
+
+Run the file once to confirm no syntax errors.
+"""

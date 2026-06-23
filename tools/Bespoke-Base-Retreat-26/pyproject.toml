@@ -1,0 +1,18 @@
+[project]
+name = "retreat-agent-stub"
+version = "0.1.0"
+description = "A tiny sandboxed LLM coding-agent framework (OpenAI + local vLLM) for the retreat."
+requires-python = ">=3.10"
+dependencies = [
+    "openai>=2.0",
+    "pydantic>=2.0",
+    "landlock>=1.0.0.dev5",
+    "python-dotenv>=1.0",
+]
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["agent_stub*"]

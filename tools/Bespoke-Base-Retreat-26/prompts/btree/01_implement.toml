@@ -1,0 +1,36 @@
+name = "implement"
+max_turns = 20
+
+prompt = """
+Write `btree.py` implementing a B-tree with the following interface:
+
+    class BTree:
+        def __init__(self, t: int = 2):
+            \"\"\"t is the minimum degree. Non-root nodes have [t-1, 2t-1] keys.\"\"\"
+
+        def insert(self, key: int) -> None:
+            \"\"\"Insert key. Split nodes as needed to maintain B-tree properties.\"\"\"
+
+        def search(self, key: int) -> bool:
+            \"\"\"Return True if key exists in the tree.\"\"\"
+
+        def delete(self, key: int) -> None:
+            \"\"\"Remove key. Handle all three cases:
+            - Key is in a leaf node
+            - Key is in an internal node (replace with in-order predecessor/successor)
+            - Key is not in the current node (descend, merging/borrowing as needed)
+            Raise KeyError if key is not in the tree.
+            \"\"\"
+
+        def to_sorted_list(self) -> list[int]:
+            \"\"\"In-order traversal returning all keys in sorted order.\"\"\"
+
+B-tree invariants to maintain:
+- Every non-root node has at least t-1 keys and at most 2t-1 keys
+- The root has at least 1 key (unless the tree is empty)
+- All leaves are at the same depth
+- Keys within each node are sorted ascending
+- For internal nodes: all keys in child[i] < keys[i] < all keys in child[i+1]
+
+Run the file once to confirm no syntax errors.
+"""

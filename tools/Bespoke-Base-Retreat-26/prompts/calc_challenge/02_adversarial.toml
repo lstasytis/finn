@@ -1,0 +1,42 @@
+name = "adversarial_test"
+max_turns = 20
+
+prompt = """
+calc.py is in the workspace. Your job is to adversarially test it.
+
+Write `test_calc.py` that systematically probes edge cases the original
+developer might have missed. For each test, print the expression, the
+expected value, the actual result from evaluate(), and PASS or FAIL.
+At the end print a summary line: "X/Y passed".
+
+Test areas — hit all of them:
+
+1. Operator precedence
+   - 2 + 3 * 4        →  14     (* before +)
+   - 10 - 2 * 3       →  4      (* before -)
+   - 2 * 3 ** 2       →  18     (** before *)
+
+2. Right-associativity of **
+   - 2 ** 3 ** 2      →  512    (2**(3**2), not (2**3)**2 = 64)
+   - 4 ** 3 ** 2      →  262144 (4**(3**2) = 4**9)
+
+3. Left-associativity of - and /
+   - 10 - 3 - 2       →  5      ((10-3)-2, not 10-(3-2) = 9)
+   - 8 / 4 / 2        →  1.0    ((8/4)/2, not 8/(4/2) = 4.0)
+
+4. Unary minus precedence (** binds tighter than unary minus)
+   - -3 ** 2          → -9      (-(3**2), not (-3)**2 = 9)
+   - -2 ** 3 ** 2     → -512    (-(2**(3**2)))
+   - (-3) ** 2        →  9      (parens make -3 the base)
+
+5. Unary minus in other positions
+   - -3 * -2          →  6
+   - 1 + -1           →  0
+   - 2 ** -1          →  0.5
+
+6. Deeply nested
+   - ((2+3)*(4-1))**2 →  225
+   - -(-(3))          →  3
+
+Run test_calc.py and report your findings.
+"""
