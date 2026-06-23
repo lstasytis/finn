@@ -400,7 +400,8 @@ def _verdict_tag(rec):
     return outcome.upper() if outcome else "UNKNOWN"
 
 
-def assemble_log(records_dir, pytest_log, out_log, header):
+def load_records(records_dir):
+    """Load the per-test JSON records produced by the plugin, sorted by nodeid."""
     records = []
     if os.path.isdir(records_dir):
         for fn in sorted(os.listdir(records_dir)):
@@ -410,6 +411,48 @@ def assemble_log(records_dir, pytest_log, out_log, header):
                 except Exception:
                     pass
     records.sort(key=lambda r: r.get("nodeid", ""))
+    return records
+
+
+def score_records(records):
+    """Reduce a set of records to an optimization fitness (lower is better).
+
+    score = sum over non-skipped cases of (peak_volume_delta + |len_delta|) for
+    both ports; ERROR cases (no comparison happened) get a large penalty so the
+    optimizer avoids broken candidates. score == 0 with no fails/errors means
+    the analytical TAVs match the rtlsim references exactly."""
+    ERROR_PENALTY = 1_000_000
+    score = 0.0
+    n_pass = n_fail = n_skip = n_error = 0
+    for r in records:
+        outcome = r.get("outcome")
+        if outcome == "skipped":
+            n_skip += 1
+            continue
+        ports = r.get("ports")
+        if not ports:
+            n_error += 1
+            score += ERROR_PENALTY
+            continue
+        if outcome == "passed":
+            n_pass += 1
+        else:
+            n_fail += 1
+        for p in ports:
+            score += abs(p.get("peak_volume_delta", 0)) + abs(p.get("len_delta", 0))
+    return {
+        "score": score,
+        "n_pass": n_pass,
+        "n_fail": n_fail,
+        "n_skip": n_skip,
+        "n_error": n_error,
+        "n_total": len(records),
+        "solved": n_fail == 0 and n_error == 0 and score == 0,
+    }
+
+
+def assemble_log(records_dir, pytest_log, out_log, header):
+    records = load_records(records_dir)
 
     lines = []
     lines.extend(header)
@@ -467,14 +510,18 @@ def evaluate_tree_model(
     func_name="get_tree_model",
     container=None,
     cache_dir=None,
+    quiet=False,
+    return_records=False,
 ):
     """Splice the candidate ``get_tree_model`` from ``tree_model_path`` into the
     given ``node``'s source, run its characterization pytest in docker, and
     write a per-case TAV-delta log into the mounted build directory.
 
-    Returns the absolute path of the log file. If ``verbose`` is True, the log
-    contents are also printed to stdout.
-    """
+    Returns the absolute path of the log file (or, if ``return_records`` is
+    True, a ``(log_path, records)`` tuple where ``records`` is the list of
+    per-test JSON records). If ``verbose`` is True, the log contents are also
+    printed to stdout; ``quiet`` suppresses the log-path stdout line (useful in
+    a loop)."""
     tree_model_path = os.path.abspath(tree_model_path)
     if not os.path.isfile(tree_model_path):
         raise SystemExit(f"tree-model file not found: {tree_model_path}")
@@ -520,9 +567,12 @@ def evaluate_tree_model(
     ]
     text = assemble_log(records_dir, pytest_log, out_log, header)
 
-    print(out_log)
+    if not quiet:
+        print(out_log)
     if verbose:
         print(text)
+    if return_records:
+        return out_log, load_records(records_dir)
     return out_log
 
 

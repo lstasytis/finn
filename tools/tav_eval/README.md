@@ -94,11 +94,49 @@ tools/tav_eval/run_downsampler.sh
 tools/tav_eval/run_downsampler.sh /path/to/my_candidate.py
 ```
 
+## Optimization loop (`evolve.py`)
+
+`evolve.py` is the AlphaEvolve-style loop that uses your local LLM to optimize a
+node's `get_tree_model`. Each iteration it asks the LLM for a new candidate
+(given the current best source + the latest TAV-delta feedback), validates it
+with `tav_eval`, scores it, keeps the best, and stops once a candidate matches
+the rtlsim reference on every case.
+
+**Hooking in your model:** edit **`llm_adapter.py`** — the loop only calls
+`propose_candidate(ctx)`. The default reads the prompt on **stdin** and expects
+the candidate `get_tree_model` on **stdout**, so you can point it at any CLI:
+
+```bash
+export TAV_LLM_CMD='python tools/Bespoke-Base-Retreat-26/generate.py'
+tools/tav_eval/run_evolve_downsampler.sh           # optimize the downsampler
+# or, generally:
+python tools/tav_eval/evolve.py ConvolutionInputGenerator \
+    --test tests/fpgadataflow/test_fpgadataflow_downsampler.py::test_fpgadataflow_analytical_characterization_downsampler \
+    -n 20 --llm-cmd "$TAV_LLM_CMD" --apply-best
+```
+
+Prefer a direct python/HTTP call? Replace the body of `_call_llm()` in
+`llm_adapter.py`. The LLM's output is sanitized down to a parseable
+`get_tree_model` (markdown fences / surrounding prose are stripped).
+
+**Scoring (lower = better):** `score = Σ (peak_volume_delta + |len_delta|)` over
+both ports of every non-skipped case; `ERROR` cases get a large penalty. A score
+of 0 with no fails/errors means the analytical TAVs match the references exactly
+— the loop stops there.
+
+**Outputs** (under `$FINN_HOST_BUILD_DIR/tav_evolve/<node>-<ts>/`):
+`best_get_tree_model.py`, `history.json` (per-iteration scores), and every
+candidate under `candidates/`. The node source is restored when the loop ends
+unless you pass `--apply-best`.
+
 ## Files
 
-* `tav_eval.py` — the harness (CLI + `evaluate_tree_model`).
+* `tav_eval.py` — the validator (CLI + `evaluate_tree_model`, `score_records`).
 * `_tav_eval_plugin.py` — pytest plugin: caching override + TAV capture.
-* `run_downsampler.sh` — convenience runner for the downsampler test.
+* `evolve.py` — the LLM optimization loop.
+* `llm_adapter.py` — **the single place you wire in your LLM**.
+* `run_downsampler.sh` — convenience runner for the downsampler validation.
+* `run_evolve_downsampler.sh` — convenience runner for the downsampler loop.
 * `examples/<node>_tree_model.py` — a baseline candidate `get_tree_model` for
   every node that ships one in `src/` (FMPadding, ConvolutionInputGenerator,
   LabelSelect, Thresholding, StreamingDataWidthConverter, MVAU, VVAU, Pool,
