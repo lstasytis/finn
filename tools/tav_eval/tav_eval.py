@@ -227,21 +227,71 @@ def _container_running(name):
     return name in out.split()
 
 
-def ensure_container(name, timeout=900):
+def _finn_docker_tag():
+    """The image tag run-docker.sh would use, but with the unstable ``-dirty``
+    suffix stripped. The harness dirties the working tree when it splices in a
+    candidate get_tree_model, so we must NOT let the tag float with ``--dirty``
+    (otherwise it never matches the image that was built on a clean tree).
+    Honors an explicit FINN_DOCKER_TAG override."""
+    override = os.environ.get("FINN_DOCKER_TAG")
+    if override:
+        return override
+    describe = subprocess.run(
+        ["git", "describe", "--always", "--tags"],
+        cwd=FINN_ROOT,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    xrt = os.environ.get("XRT_DEB_VERSION", "xrt_202220.2.14.354_22.04-amd64-xrt")
+    return f"xilinx/finn:{describe}.{xrt}"
+
+
+def _list_finn_images():
+    out = subprocess.run(
+        ["docker", "images", "--format", "{{.Repository}}:{{.Tag}}", "xilinx/finn"],
+        capture_output=True,
+        text=True,
+    ).stdout
+    return [ln for ln in out.split() if ln and "<none>" not in ln]
+
+
+def ensure_container(name, timeout=1800):
     """Make sure a long-running FINN container called ``name`` exists and has
-    its python dependencies installed. Starts one (detached) if needed."""
+    its python dependencies installed. Starts one (detached) if needed.
+
+    Image selection (in order): an existing image matching the stable tag; any
+    existing ``xilinx/finn`` image; otherwise build one via run-docker.sh."""
     if not _container_running(name):
-        print(f"[tav_eval] starting container '{name}' ...", file=sys.stderr)
         env = dict(os.environ)
-        env["FINN_DOCKER_PREBUILT"] = "1"
-        env["FINN_SKIP_DEP_REPOS"] = "1"
-        env["FINN_DOCKER_EXTRA"] = f"-d --name {name}"
+        env["FINN_DOCKER_EXTRA"] = (env.get("FINN_DOCKER_EXTRA", "") + f" -d --name {name}").strip()
+        tag = _finn_docker_tag()
+        images = _list_finn_images()
+        if tag in images:
+            env["FINN_DOCKER_PREBUILT"] = "1"
+            env["FINN_DOCKER_TAG"] = tag
+            print(f"[tav_eval] starting container '{name}' from image {tag}", file=sys.stderr)
+        elif images:
+            env["FINN_DOCKER_PREBUILT"] = "1"
+            env["FINN_DOCKER_TAG"] = images[0]
+            print(
+                f"[tav_eval] starting container '{name}' from existing image {images[0]}",
+                file=sys.stderr,
+            )
+        else:
+            # no image available: let run-docker.sh build one, pinned to the
+            # stable tag so it is reused on subsequent runs despite the dirty tree
+            env["FINN_DOCKER_TAG"] = tag
+            env.setdefault("FINN_DOCKER_PREBUILT", "0")
+            print(
+                f"[tav_eval] no xilinx/finn image found; building {tag} via run-docker.sh "
+                "(first run only, this can take a while) ...",
+                file=sys.stderr,
+            )
         subprocess.run(
             ["./run-docker.sh", "sleep", "infinity"],
             cwd=FINN_ROOT,
             env=env,
             check=True,
-            stdout=subprocess.DEVNULL,
         )
     # wait until the FINN python stack is importable (entrypoint installs -e deps)
     print("[tav_eval] waiting for container python environment ...", file=sys.stderr)
@@ -301,16 +351,22 @@ def run_pytest(name, test_nodeids, records_dir, pytest_log):
         f"python -m pytest {' '.join(repr(t) for t in test_nodeids)} "
         f"-p _tav_eval_plugin -p no:cacheprovider -o addopts='' -rA -v"
     )
+    # run the exec as the same uid:gid run-docker.sh used to start the container,
+    # so files written into the build dir stay owned by the host user
+    try:
+        uid_gid = f"{os.getuid()}:{os.getgid()}"
+    except AttributeError:  # pragma: no cover - non-POSIX
+        uid_gid = None
     cmd = [
         "docker", "exec",
         "-e", "HOME=/tmp/home_dir",
         "-e", f"FINN_BUILD_DIR={build_dir}",
         "-e", f"TAV_EVAL_OUT={records_dir}",
         "-e", f"PYTHONPATH={plugin_dir}",
-        "--user", "0:0",
-        name,
-        "bash", "-lc", inner,
     ]
+    if uid_gid:
+        cmd += ["--user", uid_gid]
+    cmd += [name, "bash", "-lc", inner]
     with open(pytest_log, "w") as logf:
         proc = subprocess.run(cmd, stdout=logf, stderr=subprocess.STDOUT)
     return proc.returncode

@@ -64,7 +64,12 @@ For a node not in the registry, pass `--src <source.py>` and
 
 * A long-running `finn_dev_<user>` container. The harness starts one
   automatically (detached, `sleep infinity`) if none is running, and waits for
-  the entrypoint to finish installing the editable deps.
+  the entrypoint to finish installing the editable deps. For the image it
+  reuses an existing `xilinx/finn` image if one is present, otherwise it builds
+  one via `run-docker.sh` (first run only). The image tag is pinned **without**
+  the `git describe --dirty` suffix, because splicing in a candidate
+  `get_tree_model` dirties the working tree — otherwise the tag would float and
+  never match the built image. Override with `FINN_DOCKER_TAG=...` if needed.
 * **rtlsim cache.** Generating the rtlsim reference needs the Xilinx simulator
   (XSI/Vivado). In an environment without it, the first run reports `ERROR`
   (`'NoneType' object has no attribute 'compile_sim_obj'`). Populate the cache by
