@@ -83,8 +83,25 @@ For a node not in the registry, pass `--src <source.py>` and
   torch/torchvision/CUDA stack); it is only used by unrelated image-resize
   helpers in `finn.util.test`, not by the TAV path.
 
+## Quick start
+
+```bash
+# downsampler (ConvolutionInputGenerator), baseline candidate, against the
+# committed cached_models rtlsim references:
+tools/tav_eval/run_downsampler.sh
+
+# or evaluate your own candidate:
+tools/tav_eval/run_downsampler.sh /path/to/my_candidate.py
+```
+
 ## Files
 
 * `tav_eval.py` — the harness (CLI + `evaluate_tree_model`).
 * `_tav_eval_plugin.py` — pytest plugin: caching override + TAV capture.
-* `examples/fmpadding_tree_model.py` — example candidate `get_tree_model`.
+* `run_downsampler.sh` — convenience runner for the downsampler test.
+* `examples/<node>_tree_model.py` — a baseline candidate `get_tree_model` for
+  every node that ships one in `src/` (FMPadding, ConvolutionInputGenerator,
+  LabelSelect, Thresholding, StreamingDataWidthConverter, MVAU, VVAU, Pool,
+  DuplicateStreams). Each is the current in-tree function exported standalone,
+  so running it unchanged is an identity check (all-zero delta on a cache hit) —
+  the starting point for an optimizer to mutate.

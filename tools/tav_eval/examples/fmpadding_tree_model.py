@@ -1,21 +1,21 @@
-"""Example candidate get_tree_model for the FMPadding node.
+"""Baseline candidate get_tree_model for the FMPadding node.
 
-This file is the kind of artifact an AlphaEvolve-style optimizer would emit: a
-single ``get_tree_model`` definition. The harness extracts this function and
-splices it into ``src/finn/custom_op/fpgadataflow/fmpadding.py``, re-indenting
-it to live as a method on the FMPadding class.
+This is the current in-tree get_tree_model for src/finn/custom_op/fpgadataflow/fmpadding.py, exported as a standalone
+candidate for the tav_eval harness. Running it as-is performs an identity
+replacement, so against a matching rtlsim cache the TAV delta vectors are all
+zero -- it is the starting point an optimizer mutates.
 
-It may be written at module level (as here) or inside a class -- the harness
-finds the first ``get_tree_model`` definition either way. The body may use any
-symbol already imported by the target module (e.g. ``Characteristic_Node``).
-
-This particular example reproduces the current in-tree behaviour, so it should
-match the rtlsim reference exactly (all-zero delta vectors).
+The body may reference any symbol already imported by the target module (e.g.
+Characteristic_Node); the harness only extracts this function via AST and
+splices it back, it never imports this file.
 """
 
 
 def get_tree_model(self):
-    # extract node attrs
+    # key parameters
+    # this depends on the kernel type, hls or rtl etc
+
+    # extract node attr
     IMGDIM = self.get_nodeattr("ImgDim")
     PADDING = self.get_nodeattr("Padding")
     NUMCHANNELS = self.get_nodeattr("NumChannels")
@@ -36,6 +36,7 @@ def get_tree_model(self):
         loop_overhead = 0
 
     ch_pad = Characteristic_Node("Channel_Pad", [(NF, [0, 1]), (loop_overhead, [0, 0])], True)
+
     ch_pass = Characteristic_Node("Channel_Pass", [(NF, [1, 1]), (loop_overhead, [0, 0])], True)
 
     x_inner_line = Characteristic_Node(
@@ -43,9 +44,11 @@ def get_tree_model(self):
         [(x_padding_left, ch_pad), (x_dim, ch_pass), (x_padding_right, ch_pad)],
         False,
     )
+
     x_outer_line = Characteristic_Node(
         "Pad X outer line", [(x_padding_left + x_dim + x_padding_right, ch_pad)], False
     )
+
     fmpadding = Characteristic_Node(
         "FMPadding FM",
         [
@@ -55,6 +58,7 @@ def get_tree_model(self):
         ],
         False,
     )
+
     fmpadding_top = Characteristic_Node(
         "FMPadding FM",
         [
@@ -63,4 +67,4 @@ def get_tree_model(self):
         False,
     )
 
-    return fmpadding_top
+    return fmpadding_top  # top level phase of this node
