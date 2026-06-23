@@ -67,6 +67,8 @@ from finn.analysis.fpgadataflow.res_estimation import (
     res_estimation,
     res_estimation_complete,
 )
+from finn.transformation.fpgadataflow.derive_characteristic import DeriveCharacteristic, DeriveFIFOSizes, StretchCharacteristicFunctions
+
 from finn.builder.build_dataflow_config import (
     DataflowBuildConfig,
     DataflowOutputType,
@@ -126,6 +128,15 @@ from finn.transformation.streamline.round_thresholds import RoundAndClipThreshol
 from finn.util.basic import get_liveness_threshold_cycles, get_rtlsim_trace_depth
 from finn.util.test import execute_parent
 
+from finn.util.fpgadataflow import is_hls_node, is_rtl_node
+
+from finn.transformation.fpgadataflow.prepare_ip import PrepareIP, _codegen_single_node
+from finn.transformation.fpgadataflow.prepare_rtlsim import PrepareRTLSim
+
+# def _codegen_single_node(node, model, fpgapart, clk):
+from finn.transformation.fpgadataflow.replace_verilog_relpaths import (
+    ReplaceVerilogRelPaths,
+)
 
 def verify_step(
     model: ModelWrapper,
@@ -558,9 +569,13 @@ def step_set_fifo_depths(model: ModelWrapper, cfg: DataflowBuildConfig):
             for node in model.graph.node:
                 inst = registry.getCustomOp(node)
                 if (is_hls_node(node) or is_rtl_node(node)) and (
-                    inst.prepare_kwargs_for_characteristic_fx() is None
-                    or cfg.characteristic_function_strategy == "rtlsim"
+                    (inst.prepare_kwargs_for_characteristic_fx() is None
+                    or cfg.characteristic_function_strategy == "rtlsim") and (
+                        inst.get_nodeattr("io_chrc_in") == ""
+                    )
                 ):
+
+                    print("GENERATING CODE DUE TO UNCHARACTERIZED NODE")
                     _codegen_single_node(
                         node, model, cfg._resolve_fpga_part(), cfg._resolve_hls_clk_period()
                     )
@@ -627,7 +642,10 @@ def step_set_fifo_depths(model: ModelWrapper, cfg: DataflowBuildConfig):
                 )
             )
 
-            model = model.transform(DeriveFIFOSizes())
+            model = model.transform(StretchCharacteristicFunctions(1,period))
+            model = model.transform(DeriveFIFOSizes(period=period))
+
+
             model = model.transform(
                 InsertFIFO(
                     vivado_ram_style=cfg.large_fifo_mem_style,

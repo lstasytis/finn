@@ -49,7 +49,17 @@ class AnnotateCycles(Transformation):
         for node in graph.node:
             if is_hls_node(node) or is_rtl_node(node):
                 op_inst = registry.getCustomOp(node)
+
+                print("OLD PERIOD:")
                 cycles = op_inst.get_exp_cycles()
+                print(cycles)
+
+                chr_node = op_inst.prepare_kwargs_for_characteristic_fx()
+                if chr_node is not None:
+                    print("NEW PERIOD:")
+                    cycles, _, _ = chr_node.get_total_cycles(0)
+                    print(cycles)
+                    print(type(cycles))
                 op_inst.set_nodeattr("cycles_estimate", cycles)
             elif node.op_type == "StreamingDataflowPartition":
                 # recurse into model to manually annotate per-layer cycles

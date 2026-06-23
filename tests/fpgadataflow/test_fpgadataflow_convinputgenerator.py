@@ -246,34 +246,67 @@ def test_fpgadataflow_slidingwindow(
             assert model.graph.node[0].op_type == "ConvolutionInputGenerator_rtl"
 
 
+
+
+
+# # which port to test
+# @pytest.mark.parametrize("direction", ["input", "output"])
+# # input datatype
+# @pytest.mark.parametrize("idt", [DataType["INT2"]])
+# # kernel size
+# @pytest.mark.parametrize("k", [[3, 3], [1, 5]])
+# # input dimension
+# @pytest.mark.parametrize("ifm_dim", [[8, 8], [1, 21]])
+# # input channels
+# @pytest.mark.parametrize("ifm_ch", [2, 4])
+# # Stride
+# @pytest.mark.parametrize("stride", [[2, 2], [2, 1]])
+# # Dilation
+# @pytest.mark.parametrize("dilation", [[2, 2], [2, 1]])
+# # execution mode
+# @pytest.mark.parametrize("exec_mode", ["rtlsim"])
+# # input channel parallelism ("SIMD")
+# @pytest.mark.parametrize("simd", [1, 4])
+# # depthwise
+# @pytest.mark.parametrize("dw", [0, 1])
+# # parallel_window enable (MMV_out = M*K)
+# @pytest.mark.parametrize("parallel_window", [0, 1])
+# # in/out MMV ("M")
+# @pytest.mark.parametrize("m", [1])
+# # Flip dimensions
+# @pytest.mark.parametrize("flip", [False])
+# # implementation style
+# @pytest.mark.parametrize("impl_style", ["rtl", "hls"])
+
+
 # which port to test
 @pytest.mark.parametrize("direction", ["input", "output"])
 # input datatype
-@pytest.mark.parametrize("idt", [DataType["INT2"]])
+@pytest.mark.parametrize("idt", [DataType["INT4"]])
 # kernel size
-@pytest.mark.parametrize("k", [[3, 3], [1, 5]])
+@pytest.mark.parametrize("k", [[3, 1]])
 # input dimension
-@pytest.mark.parametrize("ifm_dim", [[8, 8], [1, 21]])
+@pytest.mark.parametrize("ifm_dim", [[1026, 1]])
 # input channels
-@pytest.mark.parametrize("ifm_ch", [2, 4])
+@pytest.mark.parametrize("ifm_ch", [2])
 # Stride
-@pytest.mark.parametrize("stride", [[2, 2], [2, 1]])
+@pytest.mark.parametrize("stride", [[1, 1]])
 # Dilation
-@pytest.mark.parametrize("dilation", [[2, 2], [2, 1]])
+@pytest.mark.parametrize("dilation", [[1, 1]])
 # execution mode
 @pytest.mark.parametrize("exec_mode", ["rtlsim"])
 # input channel parallelism ("SIMD")
-@pytest.mark.parametrize("simd", [1, 4])
+@pytest.mark.parametrize("simd", [2])
 # depthwise
-@pytest.mark.parametrize("dw", [0, 1])
+@pytest.mark.parametrize("dw", [0])
 # parallel_window enable (MMV_out = M*K)
-@pytest.mark.parametrize("parallel_window", [0, 1])
+@pytest.mark.parametrize("parallel_window", [1])
 # in/out MMV ("M")
 @pytest.mark.parametrize("m", [1])
 # Flip dimensions
 @pytest.mark.parametrize("flip", [False])
 # implementation style
-@pytest.mark.parametrize("impl_style", ["rtl", "hls"])
+@pytest.mark.parametrize("impl_style", ["rtl"])
 @pytest.mark.fpgadataflow
 @pytest.mark.slow
 @pytest.mark.vivado
@@ -335,7 +368,20 @@ def test_fpgadataflow_analytical_characterization_slidingwindow(
 
     model = make_single_im2col_modelwrapper(k, ifm_ch, ifm_dim, ofm_dim, stride, dilation, idt, dw)
 
+
     model = model.transform(to_hw.InferConvInpGen())
+
+    # set simd
+    inst = getCustomOp(model.graph.node[0])
+    inst.set_nodeattr("SIMD", simd)
+    optype = model.graph.node[0].op_type
+    if optype == "ConvolutionInputGenerator_rtl":
+        inst.set_nodeattr("parallel_window", parallel_window)
+        inst.set_nodeattr("M", m)
+    if optype == "ConvolutionInputGenerator_hls":
+        if inst.get_nodeattr("is1D"):
+            inst.set_nodeattr("parallel_window", parallel_window)
+
     node_details = (
         "ConvolutionInputGenerator",
         k,

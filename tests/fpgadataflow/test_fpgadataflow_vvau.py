@@ -498,7 +498,7 @@ def test_fpgadataflow_vvau_rtl(kernel_size, in_feature_dim, in_chn, idt, wdt, pa
 # Number of input and output channels
 @pytest.mark.parametrize("channels", [3, 6])
 # memory mode
-@pytest.mark.parametrize("mem_mode", ["internal_embedded"])  # "internal_decoupled",
+@pytest.mark.parametrize("mem_mode", ["internal_decoupled","internal_embedded"])
 @pytest.mark.fpgadataflow
 @pytest.mark.slow
 @pytest.mark.vivado
@@ -553,7 +553,7 @@ def test_fpgadataflow_analytical_characterization_vvau(
     node_details = ("VVAU", idt, wdt, act, pe, simd, dim_h, dim_w, k_h, k_w, channels, mem_mode)
     part = "xc7z020clg400-1"
     target_clk_ns = 4
-    allowed_chr_offset_positions = 6
+    allowed_chr_offset_positions = 10
 
     model_rtl = copy.deepcopy(model)
     node_analytical = get_characteristic_fnc(

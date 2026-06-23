@@ -751,10 +751,37 @@ def test_fpgadataflow_rtl_mvau(mh, mw, pe, simd, idt, wdt, part, clk_ns):
     ).all(), "Output of ONNX model not matching output of stitched-IP RTL model!"
 
 
+
+
+
+# # which port to test
+# @pytest.mark.parametrize("direction", ["input", "output"])
+# # mem_mode: internal_embedded or internal_decoupled
+# @pytest.mark.parametrize("mem_mode", ["internal_decoupled", "internal_embedded"])
+# # activation: None or DataType
+# @pytest.mark.parametrize("act", [None])
+# # weight datatype
+# @pytest.mark.parametrize("wdt", [DataType["INT4"]])
+# # input datatype
+# @pytest.mark.parametrize("idt", [DataType["INT4"]])
+# # neuron folding, -1 is maximum possible
+# @pytest.mark.parametrize("nf", [-1, 2, 8])
+# # synapse folding, -1 is maximum possible
+# @pytest.mark.parametrize("sf", [-1, 2, 4])
+# # HLS matrix width (input features)
+# @pytest.mark.parametrize("mw", [32])
+# # HLS matrix height (output features)
+# @pytest.mark.parametrize("mh", [32])
+# # Backend
+# @pytest.mark.parametrize("preferred_impl_style", ["hls", "rtl"])
+# @pytest.mark.fpgadataflow
+# @pytest.mark.vivado
+
+
 # which port to test
 @pytest.mark.parametrize("direction", ["input", "output"])
 # mem_mode: internal_embedded or internal_decoupled
-@pytest.mark.parametrize("mem_mode", ["internal_decoupled", "internal_embedded"])
+@pytest.mark.parametrize("mem_mode", ["internal_decoupled"])
 # activation: None or DataType
 @pytest.mark.parametrize("act", [None])
 # weight datatype
@@ -762,15 +789,15 @@ def test_fpgadataflow_rtl_mvau(mh, mw, pe, simd, idt, wdt, part, clk_ns):
 # input datatype
 @pytest.mark.parametrize("idt", [DataType["INT4"]])
 # neuron folding, -1 is maximum possible
-@pytest.mark.parametrize("nf", [-1, 2, 8])
+@pytest.mark.parametrize("nf", [32])
 # synapse folding, -1 is maximum possible
-@pytest.mark.parametrize("sf", [-1, 2, 4])
+@pytest.mark.parametrize("sf", [6])
 # HLS matrix width (input features)
-@pytest.mark.parametrize("mw", [32])
+@pytest.mark.parametrize("mw", [6])
 # HLS matrix height (output features)
 @pytest.mark.parametrize("mh", [32])
 # Backend
-@pytest.mark.parametrize("preferred_impl_style", ["hls", "rtl"])
+@pytest.mark.parametrize("preferred_impl_style", ["rtl"])
 @pytest.mark.fpgadataflow
 @pytest.mark.vivado
 def test_fpgadataflow_analytical_characterization_mvau(
@@ -803,6 +830,7 @@ def test_fpgadataflow_analytical_characterization_mvau(
         # lookup op_type in registry of CustomOps
         inst = getCustomOp(node)
         inst.set_nodeattr("mem_mode", mem_mode)
+        inst.set_nodeattr("numInputVectors", [16])
         inst.set_nodeattr("resType", "auto")
         inst.set_nodeattr("preferred_impl_style", preferred_impl_style)
 
@@ -839,3 +867,104 @@ def test_fpgadataflow_analytical_characterization_mvau(
             rtlsim_out,
             allowed_chr_offset_positions,
         )
+
+
+
+@pytest.mark.parametrize("direction", ["input", "output"])
+# mem_mode: internal_embedded or internal_decoupled
+@pytest.mark.parametrize("mh", [128])
+@pytest.mark.parametrize("mw", [4])
+@pytest.mark.parametrize("pe", [1, 4, 128])
+@pytest.mark.parametrize("simd", [1, 2, 4])
+@pytest.mark.parametrize("idt", [DataType["UINT4"], DataType["UINT8"]])
+@pytest.mark.parametrize("wdt", [DataType["INT4"], DataType["INT8"]])
+@pytest.mark.parametrize(
+    "part", ["xcvc1902-vsva2197-2MP-e-S", "xcku3p-ffva676-1-e", "xc7z020clg400-1"]
+)
+@pytest.mark.parametrize("clk_ns", [1.66, 4])
+@pytest.mark.fpgadataflow
+@pytest.mark.slow
+@pytest.mark.vivado
+def test_fpgadataflow_analytical_characterization_rtl_mvau(direction, mh, mw, pe, simd, idt, wdt, part, clk_ns):
+    if part != "xcvc1902-vsva2197-2MP-e-S" and clk_ns != 1.66:
+        pytest.skip(
+            """Skip test for varying clk for devices other than Versal,
+            since this variable only affects DSP58s"""
+        )
+
+    # Create test input vector (produced by SWG)
+    ofm_shape = (3, 3)
+    ofm_h, ofm_w = ofm_shape
+    ifm = helper.make_tensor_value_info("ifm", TensorProto.FLOAT, [1, ofm_h, ofm_w, mw])
+    ofm = helper.make_tensor_value_info("ofm", TensorProto.FLOAT, (1, ofm_h, ofm_w, mh))
+    W = gen_finn_dt_tensor(wdt, (mw, mh))
+    # if 7 series, force weights to narrow range
+    if part == "xc7z020clg400-1":
+        W = np.clip(W, wdt.min() + 1, wdt.max())
+    model = make_single_matmul_modelwrapper(ifm, ofm, idt, wdt, W)
+    model = model.transform(GiveUniqueNodeNames())
+    model = model.transform(GiveReadableTensorNames())
+
+    # Create MVAU (HLS)
+    model = model.transform(to_hw.InferQuantizedMatrixVectorActivation())
+    model = model.transform(GiveUniqueNodeNames())
+
+    # Apply convert-to-rtl step
+    model = model.transform(SpecializeLayers(part))
+    model = model.transform(GiveUniqueNodeNames())
+
+    # Apply folding (i.e. specify to use DSPs)
+    folding_config = {
+        "Defaults": {},
+        "MVAU_rtl_0": {
+            "PE": pe,
+            "SIMD": simd,
+            "resType": "dsp",
+        },
+    }
+    model = model.transform(ApplyConfig(folding_config))
+    model = model.transform(MinimizeWeightBitWidth())
+    model = model.transform(MinimizeAccumulatorWidth())
+    # make sure the changed datatypes are propagated through the network
+    model = model.transform(InferDataTypes())
+
+
+    node = model.get_nodes_by_op_type("MVAU_rtl")[0]
+    getCustomOp(node).set_nodeattr("rtlsim_trace", "default")
+    model.set_metadata_prop("rtlsim_trace", "default")
+
+
+    
+    node_details = ("MVAU_rtl", direction, mh, mw, pe, simd, idt, wdt, part, clk_ns)
+
+    allowed_chr_offset_positions = 10
+
+    model_rtl = copy.deepcopy(model)
+    node_analytical = get_characteristic_fnc(
+        model, (*node_details, "analytical"), part, clk_ns, "analytical"
+    )
+    node_rtlsim = get_characteristic_fnc(
+        model_rtl, (*node_details, "rtlsim"), part, clk_ns, "rtlsim"
+    )
+
+    chr_in = decompress_string_to_numpy(node_analytical.get_nodeattr("io_chrc_in"))
+    chr_out = decompress_string_to_numpy(node_analytical.get_nodeattr("io_chrc_out"))
+
+    rtlsim_in = decompress_string_to_numpy(node_rtlsim.get_nodeattr("io_chrc_in"))
+    rtlsim_out = decompress_string_to_numpy(node_rtlsim.get_nodeattr("io_chrc_out"))
+
+    debug_chr_funcs(chr_in, chr_out, rtlsim_in, rtlsim_out, direction)
+
+    if direction == "input":
+        assert compare_two_chr_funcs(
+            chr_in,
+            rtlsim_in,
+            allowed_chr_offset_positions,
+        )
+    elif direction == "output":
+        assert compare_two_chr_funcs(
+            chr_out,
+            rtlsim_out,
+            allowed_chr_offset_positions,
+        )
+

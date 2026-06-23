@@ -32,26 +32,26 @@ GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 
 # green echo
-gecho () {
+gecho() {
   echo -e "${GREEN}$1${NC}"
 }
 
 # red echo
-recho () {
+recho() {
   echo -e "${RED}$1${NC}"
 }
 
-if [ -z "$FINN_XILINX_PATH" ];then
+if [ -z "$FINN_XILINX_PATH" ]; then
   recho "Please set the FINN_XILINX_PATH environment variable to the path to your Xilinx tools installation directory (e.g. /opt/Xilinx)."
   recho "FINN functionality depending on Vivado, Vitis or HLS will not be available."
 fi
 
-if [ -z "$FINN_XILINX_VERSION" ];then
+if [ -z "$FINN_XILINX_VERSION" ]; then
   recho "Please set the FINN_XILINX_VERSION to the version of the Xilinx tools to use (e.g. 2022.2)"
   recho "FINN functionality depending on Vivado, Vitis or HLS will not be available."
 fi
 
-if [ -z "$PLATFORM_REPO_PATHS" ];then
+if [ -z "$PLATFORM_REPO_PATHS" ]; then
   recho "Please set PLATFORM_REPO_PATHS pointing to Vitis platform files (DSAs)."
   recho "This is required to be able to use Alveo PCIe cards."
 fi
@@ -71,22 +71,28 @@ SCRIPTPATH=$(dirname "$SCRIPT")
 
 # the settings below will be taken from environment variables if available,
 # otherwise the defaults below will be used
-: ${JUPYTER_PORT=8888}
+: ${JUPYTER_PORT=8889}
 : ${JUPYTER_PASSWD_HASH=""}
-: ${NETRON_PORT=8081}
+: ${NETRON_PORT=8083}
 : ${LOCALHOST_URL="localhost"}
 : ${PYNQ_USERNAME="xilinx"}
 : ${PYNQ_PASSWORD="xilinx"}
 : ${PYNQ_BOARD="Pynq-Z1"}
 : ${PYNQ_TARGET_DIR="/home/xilinx/$DOCKER_INST_NAME"}
-: ${NUM_DEFAULT_WORKERS=4}
+: ${NUM_DEFAULT_WORKERS=1}
 : ${FINN_SSH_KEY_DIR="$SCRIPTPATH/ssh_keys"}
 : ${PLATFORM_REPO_PATHS="/opt/xilinx/platforms"}
 : ${XRT_DEB_VERSION="xrt_202220.2.14.354_22.04-amd64-xrt"}
-: ${FINN_HOST_BUILD_DIR="/tmp/$DOCKER_INST_NAME"}
-: ${FINN_DOCKER_TAG="xilinx/finn:$(OLD_PWD=$(pwd); cd $SCRIPTPATH; git describe --always --tags --dirty; cd $OLD_PWD).$XRT_DEB_VERSION"}
+: ${FINN_HOST_BUILD_DIR="/home/lstasytis/$DOCKER_INST_NAME"}
+: ${EXTRAS_BUILD_DIR="/home/lstasytis/Accelerated_Orbits"}
+: ${FINN_DOCKER_TAG="xilinx/finn:$(
+  OLD_PWD=$(pwd)
+  cd $SCRIPTPATH
+  git describe --always --tags --dirty
+  cd $OLD_PWD
+).$XRT_DEB_VERSION"}
 : ${FINN_DOCKER_PREBUILT="0"}
-: ${FINN_DOCKER_RUN_AS_ROOT="0"}
+: ${FINN_DOCKER_RUN_AS_ROOT="1"}
 : ${FINN_DOCKER_EXTRA=""}
 : ${FINN_DOCKER_BUILD_EXTRA=""}
 : ${FINN_SKIP_DEP_REPOS="0"}
@@ -97,7 +103,7 @@ SCRIPTPATH=$(dirname "$SCRIPT")
 : ${FINN_SINGULARITY=""}
 : ${FINN_SKIP_XRT_DOWNLOAD=""}
 : ${FINN_XRT_PATH=""}
-: ${FINN_DOCKER_NO_CACHE="0"}
+: ${FINN_DOCKER_NO_CACHE="1"}
 
 DOCKER_INTERACTIVE=""
 
@@ -140,9 +146,9 @@ elif [ "$1" = "build_custom" ]; then
   gecho "Running build_custom: $BUILD_CUSTOM_DIR/$FLOW_NAME.py"
   DOCKER_CMD="python -mpdb -cc -cq $FLOW_NAME.py ${@:4}"
 elif [ -z "$1" ]; then
-   gecho "Running container only"
-   DOCKER_CMD="bash"
-   DOCKER_INTERACTIVE="-it"
+  gecho "Running container only"
+  DOCKER_CMD="bash"
+  DOCKER_INTERACTIVE="-it"
 else
   gecho "Running container with passed arguments"
   DOCKER_CMD="$@"
@@ -166,7 +172,7 @@ fi
 
 # If xrt path given, copy .deb file to this repo
 # Be aware that we assume a certain name of the xrt deb version
-if [ -d "$FINN_XRT_PATH" ];then
+if [ -d "$FINN_XRT_PATH" ]; then
   cp $FINN_XRT_PATH/$XRT_DEB_VERSION.deb .
   export LOCAL_XRT=1
 fi
@@ -185,7 +191,7 @@ if [ "$FINN_DOCKER_PREBUILT" = "0" ] && [ -z "$FINN_SINGULARITY" ]; then
 fi
 
 # Remove local xrt.deb file from repo
-if [ ! -z "$LOCAL_XRT" ];then
+if [ ! -z "$LOCAL_XRT" ]; then
   rm $XRT_DEB_VERSION.deb
 fi
 
@@ -197,6 +203,7 @@ DOCKER_EXEC="-e SHELL=/bin/bash "
 DOCKER_EXEC+="-w $SCRIPTPATH "
 DOCKER_EXEC+="-v $SCRIPTPATH:$SCRIPTPATH "
 DOCKER_EXEC+="-v $FINN_HOST_BUILD_DIR:$FINN_HOST_BUILD_DIR "
+DOCKER_EXEC+="-v $EXTRAS_BUILD_DIR:$EXTRAS_BUILD_DIR "
 DOCKER_EXEC+="-e FINN_BUILD_DIR=$FINN_HOST_BUILD_DIR "
 DOCKER_EXEC+="-e FINN_ROOT="$SCRIPTPATH" "
 DOCKER_EXEC+="-e LOCALHOST_URL=$LOCALHOST_URL "
@@ -208,7 +215,7 @@ DOCKER_EXEC+="-e LD_PRELOAD=/lib/x86_64-linux-gnu/libudev.so.1 "
 # Workaround for running multiple Vivado instances simultaneously, see:
 # https://adaptivesupport.amd.com/s/article/63253?language=en_US
 DOCKER_EXEC+="-e XILINX_LOCAL_USER_DATA=no "
-if [ "$FINN_DOCKER_RUN_AS_ROOT" = "0" ] && [ -z "$FINN_SINGULARITY" ];then
+if [ "$FINN_DOCKER_RUN_AS_ROOT" = "0" ] && [ -z "$FINN_SINGULARITY" ]; then
   DOCKER_EXEC+="-v /etc/group:/etc/group:ro "
   DOCKER_EXEC+="-v /etc/passwd:/etc/passwd:ro "
   DOCKER_EXEC+="-v /etc/shadow:/etc/shadow:ro "
@@ -218,26 +225,26 @@ if [ "$FINN_DOCKER_RUN_AS_ROOT" = "0" ] && [ -z "$FINN_SINGULARITY" ];then
 else
   DOCKER_EXEC+="-v $FINN_SSH_KEY_DIR:/root/.ssh "
 fi
-if [ ! -z "$IMAGENET_VAL_PATH" ];then
+if [ ! -z "$IMAGENET_VAL_PATH" ]; then
   DOCKER_EXEC+="-v $IMAGENET_VAL_PATH:$IMAGENET_VAL_PATH "
   DOCKER_EXEC+="-e IMAGENET_VAL_PATH=$IMAGENET_VAL_PATH "
 fi
-if [ ! -z "$FINN_XILINX_PATH" ];then
+if [ ! -z "$FINN_XILINX_PATH" ]; then
   VIVADO_PATH="$FINN_XILINX_PATH/Vivado/$FINN_XILINX_VERSION"
   VITIS_PATH="$FINN_XILINX_PATH/Vitis/$FINN_XILINX_VERSION"
   HLS_PATH="$FINN_XILINX_PATH/Vitis_HLS/$FINN_XILINX_VERSION"
   DOCKER_EXEC+="-v $FINN_XILINX_PATH:$FINN_XILINX_PATH "
-  if [ -d "$VIVADO_PATH" ];then
+  if [ -d "$VIVADO_PATH" ]; then
     DOCKER_EXEC+="-e "XILINX_VIVADO=$VIVADO_PATH" "
     DOCKER_EXEC+="-e VIVADO_PATH=$VIVADO_PATH "
   fi
-  if [ -d "$HLS_PATH" ];then
+  if [ -d "$HLS_PATH" ]; then
     DOCKER_EXEC+="-e HLS_PATH=$HLS_PATH "
   fi
-  if [ -d "$VITIS_PATH" ];then
+  if [ -d "$VITIS_PATH" ]; then
     DOCKER_EXEC+="-e VITIS_PATH=$VITIS_PATH "
   fi
-  if [ -d "$PLATFORM_REPO_PATHS" ];then
+  if [ -d "$PLATFORM_REPO_PATHS" ]; then
     DOCKER_EXEC+="-v $PLATFORM_REPO_PATHS:$PLATFORM_REPO_PATHS "
     DOCKER_EXEC+="-e PLATFORM_REPO_PATHS=$PLATFORM_REPO_PATHS "
   fi
@@ -271,10 +278,9 @@ if [ "$VERIFICATION_EN" = 1 ]; then
   fi
 fi
 
-
 DOCKER_EXEC+="$FINN_DOCKER_EXTRA "
 
-if [ -z "$FINN_SINGULARITY" ];then
+if [ -z "$FINN_SINGULARITY" ]; then
   CMD_TO_RUN="$DOCKER_BASE $DOCKER_EXEC $FINN_DOCKER_TAG $DOCKER_CMD"
 else
   SINGULARITY_BASE="singularity exec"

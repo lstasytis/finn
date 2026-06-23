@@ -933,12 +933,12 @@ class VVAU(HWCustomOp):
             SF = Kernel_2 // SIMD
             # wind_up = 7
 
-        print("impl: ", IMPL_STYLE)
-        print("SIMD, PE, dim, KERNEL_2, CH, SF, NF:", SIMD, PE, Kernel_2, Channels, SF, NF)
-        print("dim:", numReps)
-        print("SIMD, PE:", SIMD, PE)
-        print("Kernel2:", Kernel_2)
-        print("Ch:", Channels)
+        # print("impl: ", IMPL_STYLE)
+        # print("SIMD, PE, dim, KERNEL_2, CH, SF, NF:", SIMD, PE, Kernel_2, Channels, SF, NF)
+        # print("dim:", numReps)
+        # print("SIMD, PE:", SIMD, PE)
+        # print("Kernel2:", Kernel_2)
+        # print("Ch:", Channels)
 
         # INNER = TOTAL_FOLD // SF
 

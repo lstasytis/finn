@@ -449,6 +449,7 @@ class MVAU(HWCustomOp):
         pe = self.get_nodeattr("PE")
         simd = self.get_nodeattr("SIMD")
         num_inp_vec = self.get_nodeattr("numInputVectors")
+        #num_inp_vec = 1
         mh = self.get_nodeattr("MH")
         mw = self.get_nodeattr("MW")
         # since mmv != 1 is not supported yet, we set mmv for now to 1
@@ -971,40 +972,94 @@ class MVAU(HWCustomOp):
         SF = int(MW / SIMD)
         NF = int(MH / PE)
 
+
+
+
+        IMPL_STYLE = "rtl" if "_rtl" in (self.__class__.__name__) else "hls"
+        assert IMPL_STYLE in ["rtl", "hls"], "Implementation style must be 'rtl' or 'hls'"
+
+        print(self.onnx_node.name)
+        print("mvau vec shape: ", numVectors)
+        if IMPL_STYLE == "hls":
+            #numVectors = 1 # we don't consider batching in rtlsim of hls
+            #TODO: This is not exactly correct, since batching can also mean a conv layer where it is necesary to take into account
+            output_delay = 5  # cycles before output starts writing when input is read
+            wind_up = 2  # might be 3 for output if being precise
+        else:
+           #numVectors = 1
+            output_delay = 0
+            wind_up = 0
+        # this might be a bug!
+
         # exp_cycles = (mh / pe) * (mw / simd) * np.prod(num_inp_vec) / mmv
 
-        wind_up = 2  # might be 3 for output if being precise
-        output_delay = 5  # cycles before output starts writing when input is read
+        print("MW, MH: ",MW,MH)
+        print("SIMD, PE: ", SIMD, PE)
+        print("SF, NF: ", SF, NF)
+
+        #numVectors = 1
         # can represent with two windups, but then
         # input needs to be allowed to 'start early'
         # possible solution is simply splitting into two
         # top level phases. One for inputs and one for outputs
 
-        idle = Characteristic_Node("idle cycles", [(1, [0, 0])], True)
+        if IMPL_STYLE == "hls":
+            idle = Characteristic_Node("idle cycles", [(1, [0, 0])], True)
 
-        read_SIMD = Characteristic_Node("Read a burst of input", [(SF, [1, 0])], True)
+            read_SIMD = Characteristic_Node("Read a burst of input", [(SF, [1, 0])], True)
 
-        write_one = Characteristic_Node("update output", [(1, [0, 1])], True)
+            write_one = Characteristic_Node("update output", [(1, [0, 1])], True)
 
-        write_PE = Characteristic_Node(
-            "iterate MW/SIMD and update an output",
-            [
-                # (1, burst_compute),
-                (SF - 1, idle),
-                (1, write_one),
-            ],
-            False,
-        )
+            write_PE = Characteristic_Node(
+                "iterate MW/SIMD and update an output",
+                [
+                    # (1, burst_compute),
+                    (SF - 1, idle),
+                    (1, write_one),
+                ],
+                False,
+            )
 
-        feature_map = Characteristic_Node(
-            "Compute single feature map",
-            [(1, read_SIMD), (output_delay, idle), (1, write_one), (NF - 1, write_PE)],
-            False,
-        )
+            feature_map = Characteristic_Node(
+                "Compute single feature map",
+                [(wind_up, idle), (1, read_SIMD), (output_delay, idle), (1, write_one), (NF - 1, write_PE)],
+                False,
+            )
 
-        all_feature_maps = Characteristic_Node(
-            "compute set of feature maps", [(wind_up, idle), (numVectors, feature_map)], False
-        )
+            all_feature_maps = Characteristic_Node(
+                "compute set of feature maps", [(numVectors, feature_map)], False
+            )
+        else:
+            # RTL implementation of mvau is much more efficient
+
+            idle = Characteristic_Node("idle cycles", [(1, [0, 0])], True)
+
+            read_one = Characteristic_Node("Read a single input", [(1, [1, 0])], True)
+            read_SIMD = Characteristic_Node("Read a burst of input", [(1, [1, 0])], True)
+
+            read_write_one = Characteristic_Node("update output", [(1, [1, 1])], True)
+            write_one = Characteristic_Node("update output", [(1, [0, 1])], True)
+
+            write_PE = Characteristic_Node(
+                "iterate MW/SIMD and update an output",
+                [
+                    # (1, burst_compute),
+                    (SF-1, idle),
+                    (1, write_one),
+                ],
+                False,
+            )
+
+
+            feature_map = Characteristic_Node(
+                "Compute single feature map",
+                [(wind_up, idle),(SF-1, read_SIMD), (0, idle), (1, read_write_one), (NF - 1, write_PE)],
+                False,
+            )
+
+            all_feature_maps = Characteristic_Node(
+                "compute set of feature maps", [(1, idle), (numVectors, feature_map)], False
+            )            
 
         return all_feature_maps
 
@@ -1022,7 +1077,7 @@ class MVAU(HWCustomOp):
         mem_mode = self.get_nodeattr("mem_mode")
         if mem_mode in ["internal_decoupled", "external"]:
             n_weight_inps = self.calc_wmem()
-            num_w_reps = np.prod(self.get_nodeattr("numInputVectors"))
+            num_w_reps = int(np.prod(self.get_nodeattr("numInputVectors")))
             io_dict["inputs"]["weights"] = [0 for i in range(num_w_reps * n_weight_inps)]
 
         super().derive_characteristic_fxns(

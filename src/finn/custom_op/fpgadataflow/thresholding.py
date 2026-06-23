@@ -193,7 +193,7 @@ class Thresholding(HWCustomOp):
 
     def get_exp_cycles(self):
         # Channels/PE * batch size * fmdim * fmdim
-        return np.prod(self.get_folded_output_shape()[:-1])
+        return np.prod(self.get_folded_output_shape()[:-1]) + 20
 
     def get_hw_compatible_threshold_tensor(self, orig_thres_matrix):
         """Convert the original numpy weight matrix orig_weight_matrix into
@@ -274,16 +274,22 @@ class Thresholding(HWCustomOp):
         # an unknown bug.
 
         # parameters
-        reps = 1
+
+        reps = list(self.get_nodeattr("numInputVectors"))[0]
+        
         NumChannels = self.get_nodeattr("NumChannels")
         PE = self.get_nodeattr("PE")
-        ImgDim = np.prod(list(self.get_nodeattr("numInputVectors")))
+        ImgDim = np.prod(list(self.get_nodeattr("numInputVectors"))) // reps
+        #reps = ImgDim
+
         act = DataType[self.get_nodeattr("outputDataType")]
         IMPL_STYLE = "rtl" if "_rtl" in (self.__class__.__name__) else "hls"
         assert IMPL_STYLE in ["rtl", "hls"], "Implementation style must be 'rtl' or 'hls'"
 
+        print(f"THR STATS: {reps}, {ImgDim}")
+        print(list(self.get_nodeattr("numInputVectors")))
         NF = NumChannels // PE
-        total_iterations = reps * ImgDim * NF
+        total_iterations = ImgDim * NF
 
         if IMPL_STYLE == "hls":
             output_delay = 4
@@ -291,7 +297,9 @@ class Thresholding(HWCustomOp):
             if act == DataType["BIPOLAR"]:
                 output_delay = 4
             else:
-                output_delay = 12
+                output_delay = 0
+
+       # numReps = 1
 
         if total_iterations > output_delay:
             # we write out full input and delay

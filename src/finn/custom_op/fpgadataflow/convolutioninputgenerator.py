@@ -33,6 +33,7 @@ from qonnx.core.datatype import DataType
 from qonnx.core.modelwrapper import ModelWrapper
 from qonnx.custom_op.general.im2col import compute_conv_output_dim
 from qonnx.custom_op.registry import getCustomOp
+from finn.util.basic import Characteristic_Node
 from qonnx.util.basic import qonnx_make_model
 
 from finn.custom_op.fpgadataflow.hwcustomop import HWCustomOp
@@ -278,7 +279,187 @@ class ConvolutionInputGenerator(HWCustomOp):
         inst = getCustomOp(im2col_node)
         inst.execute_node(context, model_im2col.graph)
 
+
+
     def prepare_kwargs_for_characteristic_fx(self):
+        
+        IMPL_STYLE = "rtl" if "_rtl" in (self.__class__.__name__) else "hls"
+        assert IMPL_STYLE in ["rtl", "hls"], "Implementation style must be 'rtl' or 'hls'"
+
+        if IMPL_STYLE == "rtl":
+            """Generates HDL code and wrapper for the IP, depending on required
+            implementation style.
+            We perform this generation here to make use of parameter assignments
+            when specializing the node
+            """
+            impl_style = self.select_impl_style()
+
+            # prepare code generation by filling out dictionaries
+            if impl_style == "default":
+                template_path, code_gen_dict = self.prepare_codegen_default()
+            elif impl_style == "parallel":
+                template_path, code_gen_dict = self.prepare_codegen_parallel()
+                if self.get_nodeattr("dynamic_mode"):
+                    raise Exception("Dynamic mode is not compatible with parallel_window")
+            else:
+                raise Exception("Requested impl. style not implemented")
+
+            # extract the relevant parameters created using codegen
+
+            
+           # return None # not implement yet
+
+
+            # BUF_ELEM_TOTAL =  code_gen_dict["$BUF_ELEM_TOTAL$"] 
+            # LAST_READ_ELEM =  code_gen_dict["$LAST_READ_ELEM$"] 
+            # LAST_WRITE_ELEM = code_gen_dict["$LAST_WRITE_ELEM$"]
+            # INNERMOST_STATE =  code_gen_dict["$INNERMOST_STATE$"] 
+            # FIRST_WRITE_ELEM =  code_gen_dict["$FIRST_WRITE_ELEM$"] 
+            # CNTR_BITWIDTH = code_gen_dict["$CNTR_BITWIDTH$"]
+            # LOOP_H_ITERATIONS = code_gen_dict["$LOOP_H_ITERATIONS$"]
+            # LOOP_W_ITERATIONS = code_gen_dict["$LOOP_W_ITERATIONS$"]
+            # LOOP_KH_ITERATIONS =  code_gen_dict["$LOOP_KH_ITERATIONS$"] 
+            # LOOP_KW_ITERATIONS = code_gen_dict["$LOOP_KW_ITERATIONS$"]
+            # LOOP_SIMD_ITERATIONS = code_gen_dict["$LOOP_SIMD_ITERATIONS$"]
+            # INCR_BITWIDTH = code_gen_dict["$INCR_BITWIDTH$"]
+            # HEAD_INCR_SIMD =  code_gen_dict["$HEAD_INCR_SIMD$"] 
+            # HEAD_INCR_KW =  code_gen_dict["$HEAD_INCR_KW$"]
+            # HEAD_INCR_KH = code_gen_dict["$HEAD_INCR_KH$"]
+            # HEAD_INCR_W = code_gen_dict["$HEAD_INCR_W$"]
+            # HEAD_INCR_H = code_gen_dict["$HEAD_INCR_H$"]
+            # TAIL_INCR_W =  code_gen_dict["$TAIL_INCR_W$"] 
+            # TAIL_INCR_H = code_gen_dict["$TAIL_INCR_H$"]
+            # TAIL_INCR_LAST =  code_gen_dict["$TAIL_INCR_LAST$"] 
+            # IS_DEPTHWISE =  code_gen_dict["$IS_DEPTHWISE$"] 
+            # SIMD =  code_gen_dict["$SIMD$"] 
+            # MMV_IN =  code_gen_dict["$MMV_IN$"] 
+            # MMV_OUT =  code_gen_dict["$MMV_OUT$"] 
+
+
+            # key parameters
+            IFMDim_x = self.get_nodeattr("IFMDim")[0]
+            OFMDim_x = self.get_nodeattr("OFMDim")[0]
+            ConvKernelDim_x = self.get_nodeattr("ConvKernelDim")[0]
+            Stride_x = self.get_nodeattr("Stride")[0]
+
+            OFMDim_y = self.get_nodeattr("OFMDim")[1]
+            ConvKernelDim_y = self.get_nodeattr("ConvKernelDim")[1]
+            Stride_y = self.get_nodeattr("Stride")[1]
+
+            SIMD = self.get_nodeattr("SIMD")
+
+            IFMChannels = self.get_nodeattr("IFMChannels")
+
+            DEPTHWISE = self.get_nodeattr("depthwise")
+            is1d = self.get_nodeattr("is1D")
+
+
+            print("CIG params: ", IFMDim_x, OFMDim_x, ConvKernelDim_x, Stride_x, OFMDim_y, ConvKernelDim_y, Stride_y, SIMD, IFMChannels, DEPTHWISE, is1d)
+            # CIG params vgg10:   1026 1024 3 1 1 1 1 2 2 1 1
+            # CIG params test:  1026 1024 3 1 1 1 1 2 2 0 1
+
+            # m = self.get_nodeattr("m")
+            # flip = self.get_nodeattr("flip")
+
+            SF = IFMChannels // SIMD
+            OUTPUT_SIZE = OFMDim_x * ConvKernelDim_x * SF
+            INPUT_SIZE = IFMDim_x * SF
+            WINDOW_SIZE = ConvKernelDim_x * SF
+            if DEPTHWISE:
+                BUFFER_SIZE = ConvKernelDim_x * SF
+                READ_CYCLES = SF * (ConvKernelDim_x - 1) - (ConvKernelDim_x - 1)
+                FINISH = IFMDim_x - ConvKernelDim_x - 2
+            else:
+                BUFFER_SIZE = (ConvKernelDim_x - 1) * SF
+                READ_CYCLES = 0
+                FINISH = 0
+
+            OCNT_INITIAL = BUFFER_SIZE + (Stride_x - 1)
+
+            DEFAULT_FIFO_DEPTH = 2
+
+            number_blocks = int(ConvKernelDim_y / Stride_y + 1)
+            cycles_write_block = OFMDim_x * ConvKernelDim_x * ConvKernelDim_y * SF
+            cycles_read_block = Stride_x * IFMDim_x * SF
+            max_cycles = max(cycles_write_block, cycles_read_block)
+            baseIter = IFMDim_x * ConvKernelDim_y * SF + OFMDim_y * max(
+                cycles_write_block, cycles_read_block
+            )
+            initial_buffer = IFMDim_x * ConvKernelDim_y * SF
+
+            READ_DELAY = (
+                number_blocks
+                * ConvKernelDim_x
+                * ConvKernelDim_y
+                * OFMDim_x
+                * OFMDim_y
+                * SF
+                - ConvKernelDim_x * ConvKernelDim_y * OFMDim_x
+            )
+            READ_ITES = int((baseIter - OFMDim_y) / max(cycles_write_block, cycles_read_block))
+
+            print("input size: ", INPUT_SIZE)
+            print("Window size:", WINDOW_SIZE )
+            print("output size: ",OUTPUT_SIZE)
+            print("DEPTHWISE: ", DEPTHWISE)
+            print("SF: ", SF)
+            print("EXP CYCLES: ", self.get_exp_cycles())
+            #return None
+
+            # tail_end_of_reads = 3*(PoolDim-2)+1
+            # tail_end_of_reads = ImgDim // PoolDim
+            # if ImgDim // PoolDim in [3,4]: tail_end_of_reads = 4
+            # else:
+            #     tail_end_of_reads = 0
+                
+            idle = Characteristic_Node("idle", [(1, [0,0])], True)
+            write = Characteristic_Node("write", [(1, [0,1])], True)
+            read_and_write = Characteristic_Node("read_and_write", [(1, [1,1])], True)
+            
+            # read_idle_phase = Characteristic_Node("read phase", [(tail_end_of_reads, [0,0])], True)
+            # write_idle_phase = Characteristic_Node("read phase", [(5, [0,0])], True)
+            # inner_most_read_loop = Characteristic_Node("read phase", [(1, read_phase),(1, read_idle_phase)], False)
+            # inner_read_loop = Characteristic_Node("read phase", [(ImgDim//PoolDim, inner_most_read_loop)], False)
+            # write_phase = Characteristic_Node("write phase", [(ImgDim // PoolDim, [0,1])], True)
+            # traverse_fm = Characteristic_Node("read and write phase pair", [(2,idle), (PoolDim,inner_read_loop) ,(1, idle), (1, write_phase), (1, write_idle_phase)], False)
+
+            if DEPTHWISE == 1:
+                print("DW=1 IMPLEMENTATION")
+                generate_output = Characteristic_Node("ConvolutionInputGenerator_rtl_parallel_inner", [(WINDOW_SIZE-1, write), (1, read_and_write)], False)
+
+                convolution_input_generator_top = Characteristic_Node(
+                    "ConvolutionInputGenerator_rtl_parallel", [(1,idle),(WINDOW_SIZE,read_and_write),((OUTPUT_SIZE // WINDOW_SIZE)-2, generate_output), (WINDOW_SIZE, write)], False
+                )
+                return convolution_input_generator_top  # top level phase of this node
+
+            else:
+                print("DW=0 IMPLEMENTATION")
+                generate_output = Characteristic_Node("ConvolutionInputGenerator_rtl_parallel_inner", [(0, write), (1, read_and_write)], False)
+
+
+                convolution_input_generator_top = Characteristic_Node(
+                    "ConvolutionInputGenerator_rtl_parallel", [(1,idle),(1,read_and_write),((OUTPUT_SIZE // WINDOW_SIZE)-2, generate_output), (1, write)], False
+                )
+                return convolution_input_generator_top  # top level phase of this node
+
+
+                #return None  # don't support depthwise = 0 case yet
+
+
+            if is1d == False:
+                return None # don't support the 2d case yet
+
+
+            
+
+
+
+        else:
+            "hls variant not characterized yet"
+            return None
+
+
+    def prepare_kwargs_for_characteristic_fx_old(self):
         return None  # needs to be reimplemented in new tree format
 
         # key parameters

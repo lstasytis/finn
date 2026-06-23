@@ -126,6 +126,10 @@ class StreamingDataWidthConverter(HWCustomOp):
 
         return dummy_t.shape
 
+    def get_number_input_values(self):
+        folded_ishape = self.get_folded_input_shape()
+        return np.prod(folded_ishape[:-1])
+
     def get_number_output_values(self):
         folded_oshape = self.get_folded_output_shape()
         return np.prod(folded_oshape[:-1])
@@ -188,7 +192,7 @@ class StreamingDataWidthConverter(HWCustomOp):
         context[node.output[0]] = output
 
     def get_exp_cycles(self):
-        return np.prod(self.get_folded_input_shape()) + np.prod(self.get_folded_output_shape())
+        return np.max([self.get_number_input_values(), self.get_number_output_values()])
 
     def lut_estimation(self):
         """Calculates resource estimations for LUTs"""
@@ -223,20 +227,27 @@ class StreamingDataWidthConverter(HWCustomOp):
         """Characteristic function of the non-general DWC
         variant."""
 
-        numReps = int(np.prod(self.get_folded_input_shape()[:-1]))
+        print("NEW VARIANT"
+        )
+        
+        print("DWC INPUT SHAPE: ", self.get_folded_input_shape())
+        print("DWC OUTPUT SHAPE: ", self.get_folded_output_shape())
+        #numReps = 1
+       
 
         inWidth = self.get_nodeattr("inWidth")
         outWidth = self.get_nodeattr("outWidth")
 
         print("\nin,out widths:", inWidth, outWidth)
-        print("inshape:", self.get_folded_input_shape())
-        print("outshape:", self.get_folded_output_shape())
+        # print("inshape:", self.get_folded_input_shape())
+        # print("outshape:", self.get_folded_output_shape())
 
-        wind_up = 1
+        wind_up = 0
 
         idle = Characteristic_Node("idle", [(1, [0, 0])], True)
 
         if inWidth > outWidth:
+            numReps = self.get_number_input_values()
             # down-conversion
             if inWidth % outWidth != 0:
                 return None  # no support for gcd partial conversion yet
@@ -244,17 +255,15 @@ class StreamingDataWidthConverter(HWCustomOp):
             writes_per_read = inWidth // outWidth
             # read 1, write many, repeats for in-word count
 
-            read_input = Characteristic_Node("read 1 word", [(1, [1, 0])], True)
+            read_input = Characteristic_Node("read 1 word", [(1, [1, 1])], True)
 
-            write_output = Characteristic_Node("write words", [(writes_per_read, [0, 1])], True)
+            write_output = Characteristic_Node("write words", [(writes_per_read-1, [0, 1])], True)
 
             down_convert_word = Characteristic_Node(
                 "down convert all words in a single transaction",
                 [(1, read_input), (1, write_output)],
                 False,
             )
-
-            numReps = int(np.prod(self.get_folded_input_shape()[:-1]))
 
             dwc_top = Characteristic_Node(
                 "compute a set of DWCs with down conversion",
@@ -263,17 +272,21 @@ class StreamingDataWidthConverter(HWCustomOp):
             )
 
         elif inWidth < outWidth:
+
+            numReps = self.get_number_output_values()
+            print("num reps when in<out: ", numReps)
             # up-conversion
 
             if outWidth % inWidth != 0:
+                print("gcd partial conversion dwc, not analytical yet")
                 return None  # no support for gcd partial conversion yet
 
             reads_per_write = outWidth // inWidth
             # read 1, write many, repeats for in-word count
 
-            read_input = Characteristic_Node("read words", [(reads_per_write, [1, 0])], True)
+            read_input = Characteristic_Node("read first N-1 words", [(reads_per_write-1, [1, 0])], True)
 
-            write_output = Characteristic_Node("write 1 word", [(1, [0, 1])], True)
+            write_output = Characteristic_Node("read Nth word and write output word", [(1, [1, 1])], True)
 
             up_convert_word = Characteristic_Node(
                 "down convert all words in a single transaction",
@@ -281,7 +294,6 @@ class StreamingDataWidthConverter(HWCustomOp):
                 False,
             )
 
-            numReps = int(np.prod(self.get_folded_output_shape()[:-1]))
             dwc_top = Characteristic_Node(
                 "compute a set of DWCs with up conversion",
                 [(wind_up, idle), (numReps, up_convert_word)],
@@ -290,14 +302,15 @@ class StreamingDataWidthConverter(HWCustomOp):
 
         else:
             # pass-through
-
-            numReps = int(np.prod(self.get_folded_input_shape()[:-1]))
+            numReps = self.get_number_input_values()
 
             pass_through = Characteristic_Node("pass-through", [(1, [1, 1])], True)
 
             dwc_top = Characteristic_Node(
                 "DWC pass-through, no conversion", [(wind_up, idle), (numReps, pass_through)], False
             )
+
+        print(f"final nr reps: {numReps}")    
         return dwc_top
 
     # def prepare_kwargs_for_characteristic_fx_old(self):

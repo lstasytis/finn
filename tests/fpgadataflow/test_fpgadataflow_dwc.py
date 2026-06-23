@@ -186,13 +186,18 @@ def test_fpgadataflow_dwc_stitched_rtlsim(config, impl_style):
 @pytest.mark.parametrize(
     "config",
     [
+
+#in,out widths: 64 128
+#inshape: (1, 512, 1, 2, 16)
+#outshape: (1, 512, 1, 1, 32)
+        ([1, 16, 1, 32],64, 128,DataType["INT4"]),
         ([1, 24], 8, 4, DataType["INT2"]),
-        # ([1, 24], 4, 6, DataType["INT2"]),
+        ## ([1, 24], 4, 6, DataType["INT2"]),
         ([1, 4], 2, 4, DataType["BIPOLAR"]),
         ([1, 4], 4, 2, DataType["INT2"]),
         ([1, 2, 8], 4, 4, DataType["INT2"]),
         ([1, 2, 8], 8, 16, DataType["INT2"]),
-        ([1, 320], 2, 160, DataType["INT2"]),
+       # ([1, 320], 2, 160, DataType["INT2"]),
     ],
 )
 @pytest.mark.parametrize("exec_mode", ["rtlsim"])

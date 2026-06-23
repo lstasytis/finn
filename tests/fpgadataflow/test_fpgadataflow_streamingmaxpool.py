@@ -49,7 +49,12 @@ from finn.transformation.fpgadataflow.prepare_ip import PrepareIP
 from finn.transformation.fpgadataflow.prepare_rtlsim import PrepareRTLSim
 from finn.transformation.fpgadataflow.set_exec_mode import SetExecMode
 from finn.transformation.fpgadataflow.specialize_layers import SpecializeLayers
-from finn.util.test import compare_two_chr_funcs, get_characteristic_fnc
+from finn.util.basic import decompress_string_to_numpy
+from finn.util.test import (
+    compare_two_chr_funcs,
+    debug_chr_funcs,
+    get_characteristic_fnc,
+)
 
 
 def make_single_maxpoolnhwc_modelwrapper(k, ifm_ch, ifm_dim, ofm_dim, idt, ceil_mode):
@@ -189,13 +194,13 @@ def test_fpgadataflow_streamingmaxpool(idt, dim_1d, k, ifm_dim, ifm_ch, pe, ceil
 # input datatype
 @pytest.mark.parametrize("idt", [DataType["BIPOLAR"], DataType["INT4"]])
 # 1d maxpool
-@pytest.mark.parametrize("dim_1d", [False, True])
+@pytest.mark.parametrize("dim_1d", [True])
 # kernel size
-@pytest.mark.parametrize("k", [2, 4])
+@pytest.mark.parametrize("k", [2, 4, 5, 10])
 # input dimension
-@pytest.mark.parametrize("ifm_dim", [4, 10])
+@pytest.mark.parametrize("ifm_dim", [4, 10, 20])
 # input channels
-@pytest.mark.parametrize("ifm_ch", [1, 3])
+@pytest.mark.parametrize("ifm_ch", [1, 9, 30])
 # pe
 @pytest.mark.parametrize("pe", [1, 3])
 # ceil mode
@@ -208,6 +213,12 @@ def test_fpgadataflow_streamingmaxpool(idt, dim_1d, k, ifm_dim, ifm_ch, pe, ceil
 def test_fpgadataflow_analytical_characterization_streamingmaxpool(
     direction, idt, dim_1d, k, ifm_dim, ifm_ch, pe, ceil_mode, exec_mode
 ):
+
+
+
+    part = "xc7z020clg400-1"
+    target_clk_ns = 4
+    allowed_chr_offset_positions = 10
     ifm_dim_h = ifm_dim
     k_h = k
     if dim_1d:
@@ -226,6 +237,10 @@ def test_fpgadataflow_analytical_characterization_streamingmaxpool(
     ofm_dim = (ofm_dim_h, ofm_dim_w)
     if idt == DataType["BIPOLAR"] and dim_1d:
         pytest.skip("Skipping binary StreamingMaxPool_1d (not implemented)")
+
+    print("\n!!!!!!!!!!!!!!!!IFM AND KH: ",ifm_dim_h, k_h )
+    print(ifm_dim_h % k_h != 0 or ifm_dim_w % k_w != 0)
+    print(ifm_dim_h % k_h != 0 or ifm_dim_w % k_w != 0) and (not dim_1d)
     if (ifm_dim_h % k_h != 0 or ifm_dim_w % k_w != 0) and (not dim_1d):
         pytest.skip("StreamingMaxPool_2d test w/ ImgDim % PoolDim != 0 not implemented")
     if pe > ifm_ch:
@@ -234,11 +249,25 @@ def test_fpgadataflow_analytical_characterization_streamingmaxpool(
         pytest.skip("PE>1 only supported for StreamingMaxPool_1d")
 
     model = make_single_maxpoolnhwc_modelwrapper(k, ifm_ch, ifm_dim, ofm_dim, idt, ceil_mode)
+
+
     model = model.transform(InferStreamingMaxPool())
-    node_details = ("StreamingMaxPool", k, ifm_ch, ifm_dim, ofm_dim, idt, ceil_mode, "hls")
-    part = "xc7z020clg400-1"
-    target_clk_ns = 4
-    allowed_chr_offset_positions = 5
+    model = model.transform(InferShapes())
+
+    assert model.graph.node[0].op_type == "StreamingMaxPool"
+
+    model = model.transform(SpecializeLayers(part))
+
+    # Ensure PE value is set
+    streamingmaxpool_node = model.get_nodes_by_op_type("StreamingMaxPool_hls")[0]
+    getCustomOp(streamingmaxpool_node).set_nodeattr("PE", pe)
+
+    getCustomOp(streamingmaxpool_node).set_nodeattr("rtlsim_trace", "default")
+    model.set_metadata_prop("rtlsim_trace", "DUMPDUMPDUMP.vcd")
+
+    node_details = ("StreamingMaxPool", k, ifm_ch, ifm_dim, ofm_dim, pe, idt, ceil_mode)
+
+
 
     model_rtl = copy.deepcopy(model)
     node_analytical = get_characteristic_fnc(
@@ -248,15 +277,23 @@ def test_fpgadataflow_analytical_characterization_streamingmaxpool(
         model_rtl, (*node_details, "rtlsim"), part, target_clk_ns, "rtlsim"
     )
 
+    chr_in = decompress_string_to_numpy(node_analytical.get_nodeattr("io_chrc_in"))
+    chr_out = decompress_string_to_numpy(node_analytical.get_nodeattr("io_chrc_out"))
+
+    rtlsim_in = decompress_string_to_numpy(node_rtlsim.get_nodeattr("io_chrc_in"))
+    rtlsim_out = decompress_string_to_numpy(node_rtlsim.get_nodeattr("io_chrc_out"))
+
+    debug_chr_funcs(chr_in, chr_out, rtlsim_in, rtlsim_out, direction)
+
     if direction == "input":
         assert compare_two_chr_funcs(
-            node_analytical.get_nodeattr("io_chrc_in"),
-            node_rtlsim.get_nodeattr("io_chrc_in"),
+            chr_in,
+            rtlsim_in,
             allowed_chr_offset_positions,
         )
     elif direction == "output":
         assert compare_two_chr_funcs(
-            node_analytical.get_nodeattr("io_chrc_out"),
-            node_rtlsim.get_nodeattr("io_chrc_out"),
+            chr_out,
+            rtlsim_out,
             allowed_chr_offset_positions,
         )

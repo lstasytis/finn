@@ -65,15 +65,15 @@ def fetch_test_model(topology, wbits=2, abits=2):
 def test_fifosizing_linear(method, topology):
     tmp_output_dir = fetch_test_model(topology)
     if method == "characterize_analytical":
-        characterizatio_strategy_key = "analytical"
+        characterization_strategy_key = "analytical"
     else:
-        characterizatio_strategy_key = "rtlsim"
-        
+        characterization_strategy_key = "rtlsim"
+
     cfg = build_cfg.DataflowBuildConfig(
         output_dir=tmp_output_dir,
         auto_fifo_depths=True,
         auto_fifo_strategy=method_key,
-        characteristic_function_strategy=characterizatio_strategy_key,
+        characteristic_function_strategy=characterization_strategy_key,
         target_fps=10000 if topology == "tfc" else 1000,
         synth_clk_period_ns=10.0,
         board="Pynq-Z1",

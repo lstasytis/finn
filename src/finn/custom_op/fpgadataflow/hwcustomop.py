@@ -216,12 +216,15 @@ class HWCustomOp(CustomOp):
     def rtlsim_multi_io(self, sim, io_dict, hook_postclk=None):
         "Run rtlsim for this node, supports multiple i/o streams."
         # signal name suffix
+
+        trace_file = f"characterization_dump_{self.onnx_node.name}.vcd"
         sname = "_" + self.hls_sname() + "_"
         num_out_values = self.get_number_output_values()
         total_cycle_count = pyxsi_utils.rtlsim_multi_io(
             sim,
             io_dict,
             num_out_values,
+          #  trace_file=trace_file,
             sname=sname,
             liveness_threshold=get_liveness_threshold_cycles(),
             hook_postclk=hook_postclk,
@@ -309,37 +312,46 @@ class HWCustomOp(CustomOp):
         if strategy == "analytical":
             # check for override function
             if self.prepare_kwargs_for_characteristic_fx() is not None:
-                self.derive_characteristic_fxns_analytically(period, override_rtlsim_dict=io_dict)
+                self.derive_characteristic_fxns_analytically(period, io_dict=io_dict)
                 return
         # RTL-based flow
-        self.derive_characteristic_fxns_rtlsim(
-            model, period, fpga_part, clk_period, override_rtlsim_dict=io_dict
-        )
+        period = self.get_exp_cycles() +12
+        # don't rerun rtlsim if already generated (FOR TESTING ONLY)
+        if self.get_nodeattr("io_chrc_in") != "":
+            self.derive_characteristic_fxns_rtlsim(
+                model, period, fpga_part, clk_period, io_dict=io_dict
+            )
 
-    def derive_characteristic_fxns_analytically(self, period, override_rtlsim_dict):
+    def derive_characteristic_fxns_analytically(self, period, io_dict):
         # Analytical flow
         txns_in = {
-            key: [] for (key, value) in override_rtlsim_dict["inputs"].items() if "in" in key
+            key: [] for (key, value) in io_dict["inputs"].items() if "in" in key
         }
         txns_out = {
-            key: [] for (key, value) in override_rtlsim_dict["outputs"].items() if "out" in key
+            key: [] for (key, value) in io_dict["outputs"].items() if "out" in key
         }
 
+
+        
+        chr_node = self.prepare_kwargs_for_characteristic_fx()
+        period, in_clocks, _ = chr_node.get_total_cycles(0)
+        
         all_txns_in = np.empty((len(txns_in.keys()), 2 * period), dtype=np.int32)
         all_txns_out = np.empty((len(txns_out.keys()), 2 * period), dtype=np.int32)
 
+        
         self.set_nodeattr("io_chrc_period", period)
 
         txn_in = []
         txn_out = []
 
-        # INPUT
+
+        print(f"PERIOD OF NODE {self.onnx_node.name}: {period}")
 
         counter = 0
         padding = 0
 
         top_level_phase = self.prepare_kwargs_for_characteristic_fx()
-
         # first period
         cycles = 0
 
@@ -366,6 +378,19 @@ class HWCustomOp(CustomOp):
                     buffer = 2
 
             if "StreamingDataWidthConverter" in self.onnx_node.name:
+                if "_rtl" in (self.__class__.__name__):
+                    buffer = 1
+                else:
+                    buffer = 2
+
+            if "StreamingMaxPool" in self.onnx_node.name:
+                if "_rtl" in (self.__class__.__name__):
+                    buffer = 1
+                else:
+                    buffer = 2
+                    
+
+            if "MVAU" in self.onnx_node.name:
                 if "_rtl" in (self.__class__.__name__):
                     buffer = 1
                 else:
@@ -425,6 +450,7 @@ class HWCustomOp(CustomOp):
         self.set_nodeattr("io_chrc_pads_in", padding)
 
         # OUTPUT
+        
 
         counter = 0
         cycles = 0
@@ -448,15 +474,17 @@ class HWCustomOp(CustomOp):
         self.set_nodeattr("io_chrc_pads_out", padding)
 
     def derive_characteristic_fxns_rtlsim(
-        self, model, period, fpga_part, clk_period, override_rtlsim_dict=None
+        self, model, period, fpga_part, clk_period, io_dict=None
     ):
         """Return the unconstrained characteristic functions for this node."""
         # ensure rtlsim is ready
         assert self.get_nodeattr("rtlsim_so") != "", "rtlsim not ready for " + self.onnx_node.name
+        
 
         if self.get_nodeattr("io_chrc_period") > 0:
             warnings.warn("Skipping node %s: already has FIFO characteristic" % self.onnx_node.name)
             return
+        
         exp_cycles = self.get_exp_cycles()
         n_inps = np.prod(self.get_folded_input_shape()[:-1])
         n_outs = np.prod(self.get_folded_output_shape()[:-1])
@@ -500,11 +528,21 @@ class HWCustomOp(CustomOp):
 
         self.reset_rtlsim(sim)
 
+
+        # self.rtlsim_multi_io(
+        #     sim,
+        #     io_dict,
+        #     n_outs,
+        #    # liveness_threshold=period,
+        #     hook_preclk=monitor_txns,
+        # )
+
         self.rtlsim_multi_io(
             sim,
             io_dict,
             hook_postclk=monitor_txns,
         )
+
         total_cycle_count = self.get_nodeattr("cycles_rtlsim")
         assert (
             total_cycle_count <= period

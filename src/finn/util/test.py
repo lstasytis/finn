@@ -440,6 +440,8 @@ def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg, runtime
             print("Downloading config json from the remote repo")
             # TODO download from releases in some undecided remote repo 
             # if not, then the file will be generated at the end of the compilation
+            # so the function can be used both online and offline seamlessly
+
             fifo_json = ""  # override with download path when implemented
         else:
             print(f"found json for {fifo_sizing_strategy}")
@@ -564,7 +566,26 @@ def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg, runtime
             f"build_finn_examples_tests_{cfg['model_name']}_{cfg['model_config']}_{cfg['platform']}_{fifo_sizing_strategy}_"
         )
 
+    # this call might not be necessary if the onnx is already present, we can test
+    script_dir = os.path.join(".", model_root_with_name, "models")
+    script_path = os.path.join(script_dir, "download-model.sh")
+    onnx_model_filename = f"{cfg['model_config']}.onnx"
+    model_dest_path = os.path.join(output_dir, onnx_model_filename)
+    model_source_path = os.path.join(script_dir, onnx_model_filename)
+    
     subprocess.call([f"./{model_root_with_name}/models/download-model.sh", f"{output_dir}/"])
+
+    
+    # # Logic
+    # if os.path.isfile(model_source_path):
+    #     print(f"Model already exists at {model_source_path}. Copying to {model_dest_path}...")
+    #     os.makedirs(output_dir, exist_ok=True)
+    #     shutil.copy2(model_source_path, model_dest_path)
+    # else:
+    #     print("Model not found in local script directory. Running download script...")
+    #     print(script_path)
+    #     print(output_dir)
+    #     subprocess.call([script_path, output_dir])
 
     # determine which shell flow to use for a given platform
 
@@ -626,9 +647,9 @@ def prepare_test_model(build_dir, model_root, fifo_sizing_strategy, cfg, runtime
     # and then something like eval("split_large_fifo") = True
     # to set the dataflow cfg?
     if "vgg10" in cfg["model_name"]:
-        build_cfg0.split_large_fifos = True
         build_cfg0.standalone_thresholds = True
 
+    build_cfg0.split_large_fifos = True
     # launch FINN compiler to build
     print("build to: ")
     print(f"{output_dir}/{cfg['model_config']}.onnx")

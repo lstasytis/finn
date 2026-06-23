@@ -32,8 +32,8 @@ import qonnx.custom_op.registry as registry
 import warnings
 from qonnx.core.modelwrapper import ModelWrapper
 from qonnx.transformation.base import NodeLocalTransformation
-
-from finn.util.basic import decompress_string_to_numpy
+import numpy as np
+from finn.util.basic import decompress_string_to_numpy, compress_numpy_to_string, stretch
 from finn.util.fpgadataflow import is_hls_node, is_rtl_node
 
 
@@ -130,6 +130,140 @@ class DeriveCharacteristic(NodeLocalTransformation):
         return (model, run_again)
 
 
+
+class StretchCharacteristicFunctions(NodeLocalTransformation):
+    """Prerequisite: DeriveCharacteristic already called on graph.
+    For each node in the graph, use the accumulated I/O characteristic function
+    and stretch it if there is a difference in periods between the producer and consumer.
+
+    * num_workers (int or None) number of parallel workers, see documentation in
+      NodeLocalTransformation for more details.
+      period (int or None) the period to stretch the individual node chr function dumps to.
+    """
+
+    def __init__(self, num_workers=None, period=None):
+        super().__init__(num_workers=num_workers)
+        self.period = period
+
+    def applyNodeLocal(self, node):
+        op_type = node.op_type
+        if is_hls_node(node) or is_rtl_node(node):
+            try:
+                # lookup op_type in registry of CustomOps
+                prod = registry.getCustomOp(node)
+                assert not (op_type.startswith("StreamingFIFO")), "Found existing FIFOs"
+
+               # period = self.period
+                #prod_period = period
+                prod_chrc_out = decompress_string_to_numpy(prod.get_nodeattr("io_chrc_out"))[0]
+                prod_chrc_in = decompress_string_to_numpy(prod.get_nodeattr("io_chrc_in"))[0]
+                #assert len(prod_chrc) == 2 * period, "Found unexpected characterization attribute"
+               # if any([x > 2 for x in prod.get_nodeattr("outFIFODepths")]):
+                    # FIFO depth already set, can skip this node
+                #    print("depth set")
+                 #   return (node, False)
+                # find consumers
+                model = self.ref_input_model
+                for output_name in node.output:
+                    cons_node = model.find_consumer(output_name)
+                    if cons_node is None:
+                        continue
+                    cons = registry.getCustomOp(cons_node)
+                    cons_chrc_in = decompress_string_to_numpy(cons.get_nodeattr("io_chrc_in"))[0]
+                    cons_chrc_out = decompress_string_to_numpy(cons.get_nodeattr("io_chrc_out"))[0]
+
+                    cons_period = cons.get_nodeattr("io_chrc_period")
+
+                    c0_out = cons_chrc_out[:cons_period]
+                    c1_out = cons_chrc_out[cons_period:]
+
+                    c0_in = cons_chrc_in[:cons_period]
+                    c1_in = cons_chrc_in[cons_period:]  
+
+
+                    import sys
+                    np.set_printoptions(threshold=sys.maxsize)
+
+                    #print("NOT stretched")
+                    #print(cons_chrc_out)
+
+                    #print("will stretch")
+                    if ((len(c0_in)+len(c1_in)) < self.period*2 or (len(c0_out)+len(c1_out)) < self.period*2):
+                        # stretch faster producer periods
+                        c0_out = stretch(c0_out, self.period)
+                        c1_out = stretch(c1_out, self.period)
+                        c0_in = stretch(c0_in, self.period)
+                        c1_in = stretch(c1_in, self.period)
+
+                    cons_chrc_out =  np.concatenate([c0_out, c1_out]) 
+                    assert len(cons_chrc_out) == self.period *2
+                    #print("stretched")
+                    #print(cons_chrc_out)
+                    cons_chrc_in =  np.concatenate([c0_in, c1_in]) 
+                    assert len(cons_chrc_in) == self.period *2
+                    #cons.set_nodeattr("io_chrc_period", self.period)
+
+                    compressed_cons_chrc_in = compress_numpy_to_string(np.array([cons_chrc_in]))
+                    compressed_cons_chrc_out = compress_numpy_to_string(np.array([cons_chrc_out]))
+
+                    # setting these parameters here will make final characterization func comparisons impossible!
+                    cons.set_nodeattr("io_chrc_in", compressed_cons_chrc_in)
+                    cons.set_nodeattr("io_chrc_out", compressed_cons_chrc_out)
+
+
+
+                    # perform stretching if necessary
+                prod_period = prod.get_nodeattr("io_chrc_period")
+
+                p0_out = prod_chrc_out[:prod_period]
+                p1_out = prod_chrc_out[prod_period:]
+
+                p0_in = prod_chrc_in[:prod_period]
+                p1_in = prod_chrc_in[prod_period:]
+
+
+                import sys
+                np.set_printoptions(threshold=sys.maxsize)
+
+               # print("NOT stretched")
+                #print(prod_chrc_out)
+
+                #print("will stretch")
+                if ((len(p0_in)+len(p1_in)) < self.period*2 or (len(p0_out)+len(p1_out)) < self.period*2):
+                    # stretch faster producer periods
+                    p0_out = stretch(p0_out, self.period)
+                    p1_out = stretch(p1_out, self.period)
+                    p0_in = stretch(p0_in, self.period)
+                    p1_in = stretch(p1_in, self.period)
+
+                # if len(prod_chrc_out) > self.period *2:
+                #     import pdb
+                #     #breakpoint()
+                #     print("increased period to chr out")
+                #     self.period = len(prod_chrc_out) // 2
+
+
+                prod_chrc_out =  np.concatenate([p0_out[:self.period],p1_out[:self.period]]) 
+                assert len(prod_chrc_out) == self.period*2
+              #  print("stretched")
+               # print(prod_chrc_out)
+                prod_chrc_in =  np.concatenate([p0_in[:self.period],p1_in[:self.period]]) 
+                assert len(prod_chrc_in) == self.period*2
+                #prod.set_nodeattr("io_chrc_period", self.period)
+
+                compressed_prod_chrc_in = compress_numpy_to_string(np.array([prod_chrc_in]))
+                compressed_prod_chrc_out = compress_numpy_to_string(np.array([prod_chrc_out]))
+
+                # setting these parameters here will make final characterization func comparisons impossible!
+                prod.set_nodeattr("io_chrc_in", compressed_prod_chrc_in)
+                prod.set_nodeattr("io_chrc_out", compressed_prod_chrc_out)
+
+            except KeyError:
+                # exception if op_type is not supported
+                raise Exception("Custom op_type %s is currently not supported." % op_type)
+        return (node, False)
+
+
 class DeriveFIFOSizes(NodeLocalTransformation):
     """Prerequisite: DeriveCharacteristic already called on graph.
     For each node in the graph, use the accumulated I/O characteristic function
@@ -140,9 +274,10 @@ class DeriveFIFOSizes(NodeLocalTransformation):
       NodeLocalTransformation for more details.
     """
 
-    def __init__(self, num_workers=None, io_fifo_depth=32):
+    def __init__(self, num_workers=None, io_fifo_depth=32, period=None):
         super().__init__(num_workers=num_workers)
         self.io_fifo_depth = io_fifo_depth
+        self.period = period
 
     def applyNodeLocal(self, node):
         op_type = node.op_type
@@ -151,13 +286,16 @@ class DeriveFIFOSizes(NodeLocalTransformation):
                 # lookup op_type in registry of CustomOps
                 prod = registry.getCustomOp(node)
                 assert not (op_type.startswith("StreamingFIFO")), "Found existing FIFOs"
-                period = prod.get_nodeattr("io_chrc_period")
+                #period = prod.get_nodeattr("io_chrc_period")
+                period = self.period
+                prod_period = period
                 prod_chrc = decompress_string_to_numpy(prod.get_nodeattr("io_chrc_out"))[0]
-                assert len(prod_chrc) == 2 * period, "Found unexpected characterization attribute"
-                if any([x > 2 for x in prod.get_nodeattr("outFIFODepths")]):
+                prod_chrc_in = decompress_string_to_numpy(prod.get_nodeattr("io_chrc_in"))[0]
+                #assert len(prod_chrc) == 2 * period, "Found unexpected characterization attribute"
+               # if any([x > 2 for x in prod.get_nodeattr("outFIFODepths")]):
                     # FIFO depth already set, can skip this node
-                    return (node, False)
-
+                #    print("depth set")
+                 #   return (node, False)
                 # find consumers
                 model = self.ref_input_model
                 out_fifo_depths = []
@@ -170,14 +308,20 @@ class DeriveFIFOSizes(NodeLocalTransformation):
                         continue
                     cons = registry.getCustomOp(cons_node)
                     cons_chrc = decompress_string_to_numpy(cons.get_nodeattr("io_chrc_in"))[0]
+                    cons_chrc_out = decompress_string_to_numpy(cons.get_nodeattr("io_chrc_out"))[0]
+
+
                     # find minimum phase shift satisfying the constraint
                     pshift_min = period - 1
+
+
                     for pshift_cand in range(period):
                         prod_chrc_part = prod_chrc[pshift_cand:period]
                         cons_chrc_part = cons_chrc[: period - pshift_cand]
                         if (prod_chrc_part >= cons_chrc_part).all():
                             pshift_min = pshift_cand
                             break
+
                     prod_chrc_part = prod_chrc[pshift_min : (pshift_min + period)]
                     cons_chrc_part = cons_chrc[:period]
                     fifo_depth = int((prod_chrc_part - cons_chrc_part).max())
@@ -186,6 +330,7 @@ class DeriveFIFOSizes(NodeLocalTransformation):
                 # InsertFIFO looks at the max of (outFIFODepths, inFIFODepths)
                 # for each tensor
                 prod.set_nodeattr("outFIFODepths", out_fifo_depths)
+                print(f"SET FIFO for {prod.onnx_node.name} as {out_fifo_depths}")
 
                 # finally, check node inputs to ensure FIFOs are added to
                 # any top-level inputs (at least self.io_fifo_depth deep)

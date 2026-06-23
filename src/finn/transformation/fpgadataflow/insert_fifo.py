@@ -127,7 +127,7 @@ class InsertFIFO(Transformation):
                             fld_shape, fld_shape_2
                         ), """The
                         folded output shape of the first node is not the same as the
-                        folded output shape of the second node. A streaming fifo can't
+                        folded input shape of the second node. A streaming fifo can't
                         be implemented in between these nodes."""
                         n_shape = n0.get_normal_output_shape()
 

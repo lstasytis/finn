@@ -137,6 +137,7 @@ def rtlsim_exec_cppxsi(
     will be used.
     throttle_cycles will be used to pause the input stream every time an input frame is finished.
     """
+
     # TODO: support running functional rtlsim with real I/O data
     # TODO: support running with multiple inputs/outputs
     if timeout_cycles is None:

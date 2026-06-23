@@ -158,7 +158,7 @@ class StreamingMaxPool(HWCustomOp):
             _, _, _, nf, _ = self.get_folded_output_shape()
 
             
-            exp_cycles = ofm_dim * nf * (k[1] + 1) + 1000# + 5 + nf # 5 is delay latency
+            exp_cycles = ofm_dim * nf * (k[1] + 1) + 5# + 5 + nf # 5 is delay latency
             return int(exp_cycles)
         else:
             # TODO: adjust inaccurate formula
@@ -168,10 +168,8 @@ class StreamingMaxPool(HWCustomOp):
             else:
                 setup_clocks = ImgDim // PoolDim
 
-            read_tail_inner_loop_latency = ImgDim//PoolDim*6
-            read_tail_inner_loop_latency = 1
-
-            return int(ifm_dim[1] * ifm_dim[1] * (1 + 1 / (k[1] * k[1]))) + setup_clocks + read_tail_inner_loop_latency + 10000
+            loop_tail_worst_case_latency = 5
+            return int(ifm_dim[1] * ifm_dim[1] * ((1 + 1 / (k[1] * k[1]))+loop_tail_worst_case_latency)) + setup_clocks
 
     def get_instream_width(self, ind=0):
         dt_bits = self.get_input_datatype().bitwidth()
@@ -294,6 +292,7 @@ class StreamingMaxPool(HWCustomOp):
         print("\nImgDim, output_size, PoolDim,NF: ", ImgDim, output_size, PoolDim, NF)
         print("Number of CHANNELS: ", NumChannels
         )
+        
         #print("NUMBER_OF_FULL_OUTPUT_SIZE_LOOPS, MAIN_INPUT_REMAINDER_COUNT, REMAINDER_PIXELS: ",NUMBER_OF_FULL_OUTPUT_SIZE_LOOPS, MAIN_INPUT_REMAINDER_COUNT, REMAINDER_PIXELS)
         # for i in range(0,windup_clocks):
         #    txn_out[cycles] = i
@@ -323,6 +322,9 @@ class StreamingMaxPool(HWCustomOp):
                 REMAINDER_PIXELS = ImgDim - output_size * PoolDim
             else:
                 REMAINDER_PIXELS = 0
+
+
+            print(f"remainders:, {REMAINDER_PIXELS}")
 
             print("full outer_loops,  remainder, remaining_pix: ", full_output_loops_with_input_read, remainder, REMAINDER_PIXELS)
 

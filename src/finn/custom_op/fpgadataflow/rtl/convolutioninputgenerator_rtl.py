@@ -164,6 +164,7 @@ class ConvolutionInputGenerator_rtl(ConvolutionInputGenerator, RTLBackend):
                     )
                 else:
                     exp_cycles = ofm_dim_w * k_w * channel_factor + 2
+                    
             else:
                 # 2D case
                 buffer_min_size = (
