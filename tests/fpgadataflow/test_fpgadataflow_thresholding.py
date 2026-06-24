@@ -569,8 +569,8 @@ def test_fpgadataflow_analytical_characterization_thresholding(
         impl_style,
     )
 
-    max_allowed_volume_delta = 8
-    max_allowed_length_delta = 6
+    max_allowed_volume_delta = 0
+    max_allowed_length_delta = 0
 
     assert tree_model_test(
         model,

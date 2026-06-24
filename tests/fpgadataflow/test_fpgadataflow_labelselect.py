@@ -167,8 +167,8 @@ def test_fpgadataflow_analytical_characterization_labelselect(idt, labels, fold,
     node_details = ("LabelSelect", idt, labels, fold, k, impl_style)
     part = "xc7z020clg400-1"
     target_clk_ns = 4
-    max_allowed_volume_delta = 10
-    max_allowed_length_delta = 398  # RTLSIM is inconsistent
+    max_allowed_volume_delta = 0
+    max_allowed_length_delta = 0
 
     assert tree_model_test(
         model, node_details, part, target_clk_ns, max_allowed_volume_delta, max_allowed_length_delta

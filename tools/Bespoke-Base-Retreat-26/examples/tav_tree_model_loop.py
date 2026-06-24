@@ -115,41 +115,37 @@ def _node_refs(node, src_path):
 # This is the part meant to be tuned by hand; check_output() below does not
 # depend on its wording.
 TASK_HEADER = textwrap.dedent("""\
-    You are an fpga expert at vitis hls and system verilog, you want to
-    design characteristic tree models of ML operators described in this
-    repository's deps/finn-hlslib and finn-rtllib directories. You are
-    optimizing one node in this task, the node {node}. The source code of a
-    tree that we already have is in {src_path} get_tree_model() function. The
-    node's hls functionality is described in: {hls_ref} and rtl in {rtl_ref}.
+    You are an FPGA expert in Vitis HLS and SystemVerilog, designing
+    characteristic tree models of ML operators described in this repo's
+    deps/finn-hlslib and finn-rtllib directories. You are optimizing node
+    {node}. The existing tree is in {src_path}'s get_tree_model() function.
+    HLS reference: {hls_ref}. RTL reference: {rtl_ref}.
 
-    Each time you create your own tree model, we will execute it to produce a
-    token access vector which we then compare vs an rtl-simulated ground
-    truth. Your goal is to make your tree model produce an identical tav to
-    rtlsim for a variety of testcases.
+    Each candidate tree is executed to produce a token access vector (TAV),
+    compared against an rtl-simulated ground truth. Goal: make the tree
+    produce a TAV identical to rtlsim across all testcases.
 
-    The way token access vectors are produced using the tree is the following:
-    We use a class called Characteristic_Node which is found in finn's src/finn/util/basic.py
-    file. A Characterististic_Node encodes a list of states that the node is in
-     (actual tree nodes) as well as the number of times the state is accessed repeatedly (values on an edge). 
-     A leaf Characterististic_Node is a special case that encodes tuple which state if the current state is a write state,
-    a read state, neither or both. Depending on this, in this exact state clock cycle, a produced TAV
-    would have a +1 added to either the read or the write vector at that clock cycle.
-    Characteristic_Nodes effectively attempt to provide a cycle-accurate model of the entire node, where
-    the only property we want to really model is the state of the input and output channels (reads/writes).
+    TAVs come from Characteristic_Node (src/finn/util/basic.py). Each
+    Characteristic_Node holds a list of states (tree nodes) plus how many
+    times each state repeats (edge values). A leaf node is a tuple flagging
+    whether its state reads, writes, both, or neither -- each flag adds +1 to
+    the read/write vector at that clock cycle. The tree is effectively a
+    cycle-accurate model of the node, but the only thing it needs to capture
+    is input/output channel activity (reads/writes), not full datapath
+    behavior.
 
-    The plan for building a tree model is to to first extract all parameters of a node using self.get_nodeattr(...),
-    which may affect what states the node will contain and how many times they will be accessed.
-    These parameters are typically set at compile-time and so we wish to encode them in some way into the tree edges.
+    Approach: extract the node's compile-time parameters via
+    self.get_nodeattr(...) -- these determine which states exist and their
+    repeat counts, and should be encoded into the tree's edges. Look at other
+    nodes' trees in src/finn/custom_op for examples (RTL and HLS backends
+    typically need distinct trees, since their cycle behavior differs). The
+    most common mistake is misjudging when a read and a write overlap in the
+    same cycle.
 
-    You may look at tree modes of other nodes in the src/finn/custom_op folder for inspiration.
-    Many of these trees are close to the rtl-sim equivalents in what token access vectors they produce,
-    we typically have distinct trees for RTL and HLS-based nodes as their behavior may heavily warry.
-    The primary design mistake that can be made is to wrongly assume when a read and a write overlap during a node's execution.
-
-    You should first design a a tree that, when traversed, produces the input and output token access vectors that have correct volume:
-    that is their total number of tokens reads and written matches rtlsim. Then you should start fusing phases or creating sub-phases such that
-    you fuse reads and writes correctly (or introduce delay idle states) such that the length of the vector is also correct (how many cycles it took to execute).
-    Lastly, you would make sure that the vectors are completely identical, this is the hard part where the fusing and partial states are most important.
+    Build incrementally: first get correct volume (total tokens read/written
+    matches rtlsim), then correct length (fuse/split phases or add idle
+    states so cycle count matches), then exact equality (fusing reads/writes
+    and partial states correctly, cycle by cycle).
 
     The FINN repository is checked out at {finn_root} -- you may read any
     file in it (including the hls/rtl sources above and {src_path} itself)
@@ -280,6 +276,26 @@ def _baseline_path(node, src_override=None, test_override=None):
     return os.path.join(_TAV_EVAL_DIR, "examples", base)
 
 
+DEFAULT_LOG_PATH = "llm_tree_modeling.log"
+
+
+def _make_logger(log_path):
+    """Open log_path (truncated) and return a log(msg) that both prints and
+    appends a timestamped line, flushed immediately so it can be tailed."""
+    path = Path(log_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fh = path.open("w", buffering=1)
+
+    def log(msg=""):
+        print(msg)
+        ts = datetime.datetime.now().strftime("%H:%M:%S")
+        for line in msg.splitlines() or [""]:
+            fh.write(f"[{ts}] {line}\n")
+        fh.flush()
+
+    return log, fh
+
+
 def run_loop(
     node,
     model=DEFAULT_MODEL,
@@ -293,76 +309,83 @@ def run_loop(
     cache_dir=None,
     apply_best=False,
     out_dir=None,
+    log_path=DEFAULT_LOG_PATH,
 ):
-    entry = tav_eval.resolve_node(node, src_override, test_override)
-    src_path = entry["src"]
+    log, log_fh = _make_logger(log_path)
+    try:
+        entry = tav_eval.resolve_node(node, src_override, test_override)
+        src_path = entry["src"]
 
-    baseline = baseline or _baseline_path(node, src_override, test_override)
-    if not os.path.isfile(baseline):
-        raise SystemExit(f"baseline candidate not found: {baseline}")
+        baseline = baseline or _baseline_path(node, src_override, test_override)
+        if not os.path.isfile(baseline):
+            raise SystemExit(f"baseline candidate not found: {baseline}")
 
-    run_id = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    safe_node = re.sub(r"[^A-Za-z0-9_.-]", "_", node)
-    out_dir = Path(out_dir or os.path.join(
-        tav_eval._host_build_dir(), "tav_bespoke", f"{safe_node}-{run_id}"
-    ))
-    cand_dir = out_dir / "candidates"
-    cand_dir.mkdir(parents=True, exist_ok=True)
+        run_id = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        safe_node = re.sub(r"[^A-Za-z0-9_.-]", "_", node)
+        out_dir = Path(out_dir or os.path.join(
+            tav_eval._host_build_dir(), "tav_bespoke", f"{safe_node}-{run_id}"
+        ))
+        cand_dir = out_dir / "candidates"
+        cand_dir.mkdir(parents=True, exist_ok=True)
 
-    workspace.mkdir(parents=True, exist_ok=True)
-    candidate_path = workspace / CANDIDATE_FILENAME
+        workspace.mkdir(parents=True, exist_ok=True)
+        candidate_path = workspace / CANDIDATE_FILENAME
 
-    baseline_src = Path(baseline).read_text()
-    best = {"iteration": 0, "source": baseline_src, "score": float("inf")}
-    history = []
+        baseline_src = Path(baseline).read_text()
+        best = {"iteration": 0, "source": baseline_src, "score": float("inf")}
+        history = []
 
-    previous, feedback = None, None
-    for i in range(1, max_iterations + 1):
-        print(f"\n{'=' * 60}\niteration {i}\n{'=' * 60}")
-        task = build_task(node, src_path, baseline_src, previous=previous, feedback=feedback)
-        run_agent(task, model, workspace, max_turns=max_turns)
+        log(f"node={node} model={model} max_iterations={max_iterations} out_dir={out_dir}")
 
-        passed, feedback, records, sc = check_output(
-            workspace, node,
-            src_override=src_override, test_override=test_override,
-            include_extra_tests=include_extra_tests, cache_dir=cache_dir,
-        )
-        previous = candidate_path.read_text() if candidate_path.exists() else None
+        previous, feedback = None, None
+        for i in range(1, max_iterations + 1):
+            log(f"\n{'=' * 60}\niteration {i}\n{'=' * 60}")
+            task = build_task(node, src_path, baseline_src, previous=previous, feedback=feedback)
+            run_agent(task, model, workspace, max_turns=max_turns)
 
-        if previous is not None:
-            (cand_dir / f"iter_{i:03d}.py").write_text(previous)
-        if sc is not None:
-            print(f"\niter {i}: score={sc['score']} (pass={sc['n_pass']} fail={sc['n_fail']} "
-                  f"error={sc['n_error']})")
-            history.append({"iteration": i, **sc})
-            if sc["score"] < best["score"] and previous is not None:
-                best = {"iteration": i, "source": previous, "score": sc["score"]}
+            passed, feedback, records, sc = check_output(
+                workspace, node,
+                src_override=src_override, test_override=test_override,
+                include_extra_tests=include_extra_tests, cache_dir=cache_dir,
+            )
+            previous = candidate_path.read_text() if candidate_path.exists() else None
+
+            if previous is not None:
+                (cand_dir / f"iter_{i:03d}.py").write_text(previous)
+            if sc is not None:
+                log(f"\niter {i}: score={sc['score']} (pass={sc['n_pass']} fail={sc['n_fail']} "
+                    f"error={sc['n_error']})")
+                history.append({"iteration": i, **sc})
+                if sc["score"] < best["score"] and previous is not None:
+                    best = {"iteration": i, "source": previous, "score": sc["score"]}
+            else:
+                history.append({"iteration": i, "error": feedback})
+
+            if passed:
+                log(f"\nAll cases matched the rtlsim reference on iteration {i}.")
+                break
+            log(f"\nfeedback:\n{feedback}")
         else:
-            history.append({"iteration": i, "error": feedback})
+            log(f"\nStopped after {max_iterations} iterations.")
 
-        if passed:
-            print(f"\nAll cases matched the rtlsim reference on iteration {i}.")
-            break
-        print(f"\nfeedback:\n{feedback}")
-    else:
-        print(f"\nStopped after {max_iterations} iterations.")
+        best_path = out_dir / "best_get_tree_model.py"
+        best_path.write_text(best["source"])
+        (out_dir / "history.json").write_text(json.dumps({"node": node, "best": best["iteration"],
+                                                            "best_score": best["score"],
+                                                            "history": history}, indent=1))
 
-    best_path = out_dir / "best_get_tree_model.py"
-    best_path.write_text(best["source"])
-    (out_dir / "history.json").write_text(json.dumps({"node": node, "best": best["iteration"],
-                                                        "best_score": best["score"],
-                                                        "history": history}, indent=1))
+        if not os.path.isabs(src_path):
+            src_path = os.path.join(tav_eval.FINN_ROOT, src_path)
+        tav_eval.restore_original(src_path)
+        if apply_best:
+            tav_eval.replace_function(src_path, str(best_path))
+            log(f"applied best candidate (iteration {best['iteration']}) to {src_path}")
 
-    if not os.path.isabs(src_path):
-        src_path = os.path.join(tav_eval.FINN_ROOT, src_path)
-    tav_eval.restore_original(src_path)
-    if apply_best:
-        tav_eval.replace_function(src_path, str(best_path))
-        print(f"applied best candidate (iteration {best['iteration']}) to {src_path}")
-
-    print(f"\nbest candidate: {best_path}")
-    print(f"history:        {out_dir / 'history.json'}")
-    return best_path
+        log(f"\nbest candidate: {best_path}")
+        log(f"history:        {out_dir / 'history.json'}")
+        return best_path
+    finally:
+        log_fh.close()
 
 
 def main() -> None:
@@ -381,6 +404,8 @@ def main() -> None:
     ap.add_argument("--out", help="output directory (default under $FINN_HOST_BUILD_DIR/tav_bespoke)")
     ap.add_argument("--apply-best", action="store_true",
                      help="splice the best candidate into the node source at the end")
+    ap.add_argument("--log", default=DEFAULT_LOG_PATH,
+                     help=f"log file to tail while the loop runs (default: {DEFAULT_LOG_PATH})")
     args = ap.parse_args()
 
     run_loop(
@@ -393,6 +418,7 @@ def main() -> None:
         src_override=args.src,
         test_override=args.test,
         include_extra_tests=args.extra_tests,
+        log_path=args.log,
         cache_dir=args.cache_dir,
         apply_best=args.apply_best,
         out_dir=args.out,
