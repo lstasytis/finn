@@ -27,6 +27,7 @@ import os
 import re
 import sys
 import textwrap
+import traceback
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -192,8 +193,11 @@ RETRY_SUFFIX = textwrap.dedent("""
     {previous}
     ```
 
-    Evaluation feedback (delta = analytical - rtlsim; zero everywhere is the
-    goal):
+    Evaluation feedback (delta = analytical - rtlsim per cycle, zero
+    everywhere is the goal). Each port's full delta vector is run-length
+    encoded as a lossless list of (run_length, value) pairs, e.g. (480,-1)
+    means the next 480 cycles are each off by -1; (1,0),(20,-1) means one
+    matching cycle then 20 cycles off by -1:
     {feedback}
 
     Write an improved `{filename}` that reduces these deltas.
@@ -219,25 +223,87 @@ def build_task(node, src_path, baseline, previous=None, feedback=None):
 
 
 # ── evaluation (the part that matters -- wires tav_eval in as the evaluator)─
-def _format_feedback(records, max_cases=12, vec_preview=24):
+def _rle(vec):
+    """Lossless run-length encoding of an integer sequence into a list of
+    (run_length, value) pairs, e.g. [1, 1, -1, -1, -1] -> [(2, 1), (3, -1)]."""
+    pairs = []
+    for v in vec:
+        if pairs and pairs[-1][1] == v:
+            pairs[-1] = (pairs[-1][0] + 1, v)
+        else:
+            pairs.append((1, v))
+    return pairs
+
+
+def _fmt_rle(vec):
+    return ", ".join(f"({n},{v:+d})" if v else f"({n},0)" for n, v in _rle(vec))
+
+
+# Some characterization tests parametrize over a single packed "config"
+# tuple instead of individually named arguments (see e.g. config = (shape,
+# inWidth, outWidth, finn_dtype) in test_fpgadataflow_dwc.py) -- the LLM
+# would otherwise have to reverse-engineer the tuple order from the test
+# file, so decode known ones into named fields here.
+_CONFIG_TUPLE_FIELDS = {
+    "StreamingDataWidthConverter": ("shape", "inWidth", "outWidth", "dataType"),
+}
+
+
+def _split_top_level(s):
+    """Split the inside of a tuple/list repr on top-level commas, respecting
+    nested brackets, e.g. "[1, 24], 8, INT2" -> ["[1, 24]", "8", "INT2"]."""
+    parts, depth, cur = [], 0, ""
+    for ch in s:
+        if ch in "([":
+            depth += 1
+        elif ch in ")]":
+            depth -= 1
+        if ch == "," and depth == 0:
+            parts.append(cur.strip())
+            cur = ""
+        else:
+            cur += ch
+    if cur.strip():
+        parts.append(cur.strip())
+    return parts
+
+
+def _fmt_node_params(node, params):
+    fields = _CONFIG_TUPLE_FIELDS.get(node)
+    bits = []
+    for k, v in params.items():
+        if k == "config" and fields:
+            inner = v.strip()
+            if inner.startswith("(") and inner.endswith(")"):
+                inner = inner[1:-1]
+            bits.extend(f"{name}={val}" for name, val in zip(fields, _split_top_level(inner)))
+        else:
+            bits.append(f"{k}={v}")
+    return " ".join(bits)
+
+
+def _format_feedback(node, records, max_cases=None):
     lines = []
-    for r in records[:max_cases]:
+    cases = records if max_cases is None else records[:max_cases]
+    for r in cases:
         tag = tav_eval._verdict_tag(r)
-        params = tav_eval._fmt_params(r.get("params", {}))
+        params = _fmt_node_params(node, r.get("params", {}))
         if r.get("ports"):
             bits = []
             for p in r["ports"]:
-                vec = p["delta_vector"][:vec_preview]
-                more = len(p["delta_vector"]) - len(vec)
-                vec_s = "[" + ", ".join(str(x) for x in vec) + (f", +{more}...]" if more > 0 else "]")
-                bits.append(f"{p['port']} peak={p['peak_volume_delta']} len_delta={p['len_delta']} delta={vec_s}")
+                rle_s = _fmt_rle(p["delta_vector"])
+                bits.append(
+                    f"{p['port']} peak={p['peak_volume_delta']} len_delta={p['len_delta']} "
+                    f"delta=[{rle_s}]"
+                )
             lines.append(f"  [{tag}] {params} | " + " | ".join(bits))
         else:
             tail = (r.get("longrepr") or "").splitlines()
             lines.append(f"  [{tag}] {params} | {tail[-1] if tail else ''}")
-    more = len(records) - max_cases
-    if more > 0:
-        lines.append(f"  ... +{more} more case(s)")
+    if max_cases is not None:
+        more = len(records) - max_cases
+        if more > 0:
+            lines.append(f"  ... +{more} more case(s)")
     return "\n".join(lines)
 
 
@@ -270,15 +336,22 @@ def check_output(
             quiet=True,
             return_records=True,
         )
-    except SystemExit as e:
-        return False, f"tav_eval could not evaluate the candidate: {e}", [], None
+    except (SystemExit, Exception) as e:
+        # A malformed candidate (e.g. a bad patch leaving invalid Python
+        # behind) can raise from deep inside tav_eval/replace_function
+        # (SyntaxError, etc.) rather than the SystemExit it raises for
+        # expected CLI-style errors -- catch both so one bad iteration
+        # doesn't take down the whole run, and print the traceback (the
+        # tee in run_loop captures it into the log) for debugging.
+        print(f"tav_eval could not evaluate the candidate ({type(e).__name__}):\n{traceback.format_exc()}")
+        return False, f"tav_eval could not evaluate the candidate ({type(e).__name__}): {e}", [], None
 
     sc = tav_eval.score_records(records)
     if sc["solved"]:
         return True, "", records, sc
     feedback = (
         f"score={sc['score']} (pass={sc['n_pass']} fail={sc['n_fail']} "
-        f"error={sc['n_error']} skip={sc['n_skip']})\n" + _format_feedback(records)
+        f"error={sc['n_error']} skip={sc['n_skip']})\n" + _format_feedback(node, records)
     )
     return False, feedback, records, sc
 
@@ -293,21 +366,33 @@ def _baseline_path(node, src_override=None, test_override=None):
 DEFAULT_LOG_PATH = "llm_tree_modeling.log"
 
 
-def _make_logger(log_path):
-    """Open log_path (truncated) and return a log(msg) that both prints and
-    appends a timestamped line, flushed immediately so it can be tailed."""
-    path = Path(log_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fh = path.open("w", buffering=1)
+class _TeeStream:
+    """Mirrors writes to the original stream and to a timestamped log file,
+    so the log file captures everything printed during the loop -- our own
+    progress lines, run_agent's verbose tool-call/result trace, and tracebacks
+    -- without having to touch agent_stub's own print() calls."""
 
-    def log(msg=""):
-        print(msg)
-        ts = datetime.datetime.now().strftime("%H:%M:%S")
-        for line in msg.splitlines() or [""]:
-            fh.write(f"[{ts}] {line}\n")
-        fh.flush()
+    def __init__(self, original, fh):
+        self._original = original
+        self._fh = fh
+        self._buf = ""
 
-    return log, fh
+    def write(self, s):
+        self._original.write(s)
+        self._buf += s
+        while "\n" in self._buf:
+            line, self._buf = self._buf.split("\n", 1)
+            ts = datetime.datetime.now().strftime("%H:%M:%S")
+            self._fh.write(f"[{ts}] {line}\n")
+        self._fh.flush()
+        return len(s)
+
+    def flush(self):
+        self._original.flush()
+        self._fh.flush()
+
+    def isatty(self):
+        return False
 
 
 def run_loop(
@@ -325,7 +410,12 @@ def run_loop(
     out_dir=None,
     log_path=DEFAULT_LOG_PATH,
 ):
-    log, log_fh = _make_logger(log_path)
+    log_path = Path(log_path)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_fh = log_path.open("w", buffering=1)
+    orig_stdout, orig_stderr = sys.stdout, sys.stderr
+    sys.stdout = _TeeStream(orig_stdout, log_fh)
+    sys.stderr = _TeeStream(orig_stderr, log_fh)
     try:
         entry = tav_eval.resolve_node(node, src_override, test_override)
         src_path = entry["src"]
@@ -349,11 +439,11 @@ def run_loop(
         best = {"iteration": 0, "source": baseline_src, "score": float("inf")}
         history = []
 
-        log(f"node={node} model={model} max_iterations={max_iterations} out_dir={out_dir}")
+        print(f"node={node} model={model} max_iterations={max_iterations} out_dir={out_dir}")
 
         previous, feedback = None, None
         for i in range(1, max_iterations + 1):
-            log(f"\n{'=' * 60}\niteration {i}\n{'=' * 60}")
+            print(f"\n{'=' * 60}\niteration {i}\n{'=' * 60}")
             task = build_task(node, src_path, baseline_src, previous=previous, feedback=feedback)
             run_agent(task, model, workspace, max_turns=max_turns)
 
@@ -367,8 +457,8 @@ def run_loop(
             if previous is not None:
                 (cand_dir / f"iter_{i:03d}.py").write_text(previous)
             if sc is not None:
-                log(f"\niter {i}: score={sc['score']} (pass={sc['n_pass']} fail={sc['n_fail']} "
-                    f"error={sc['n_error']})")
+                print(f"\niter {i}: score={sc['score']} (pass={sc['n_pass']} fail={sc['n_fail']} "
+                      f"error={sc['n_error']})")
                 history.append({"iteration": i, **sc})
                 if sc["score"] < best["score"] and previous is not None:
                     best = {"iteration": i, "source": previous, "score": sc["score"]}
@@ -376,11 +466,11 @@ def run_loop(
                 history.append({"iteration": i, "error": feedback})
 
             if passed:
-                log(f"\nAll cases matched the rtlsim reference on iteration {i}.")
+                print(f"\nAll cases matched the rtlsim reference on iteration {i}.")
                 break
-            log(f"\nfeedback:\n{feedback}")
+            print(f"\nfeedback:\n{feedback}")
         else:
-            log(f"\nStopped after {max_iterations} iterations.")
+            print(f"\nStopped after {max_iterations} iterations.")
 
         best_path = out_dir / "best_get_tree_model.py"
         best_path.write_text(best["source"])
@@ -393,12 +483,16 @@ def run_loop(
         tav_eval.restore_original(src_path)
         if apply_best:
             tav_eval.replace_function(src_path, str(best_path))
-            log(f"applied best candidate (iteration {best['iteration']}) to {src_path}")
+            print(f"applied best candidate (iteration {best['iteration']}) to {src_path}")
 
-        log(f"\nbest candidate: {best_path}")
-        log(f"history:        {out_dir / 'history.json'}")
+        print(f"\nbest candidate: {best_path}")
+        print(f"history:        {out_dir / 'history.json'}")
         return best_path
+    except Exception:
+        print(traceback.format_exc())
+        raise SystemExit(1)
     finally:
+        sys.stdout, sys.stderr = orig_stdout, orig_stderr
         log_fh.close()
 
 
