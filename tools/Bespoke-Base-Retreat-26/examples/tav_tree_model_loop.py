@@ -118,7 +118,8 @@ def _node_refs(node, src_path):
 TASK_HEADER = textwrap.dedent("""\
     You are an FPGA expert in Vitis HLS and SystemVerilog, designing
     characteristic tree models of ML operators described in this repo's
-    deps/finn-hlslib and finn-rtllib directories. You are optimizing node
+    deps/finn-hlslib directory (HLS) and finn-rtllib directory at the repo
+    root (RTL, not under deps/). You are optimizing node
     {node}. The existing tree is in {src_path}'s get_tree_model() function.
     HLS reference: {hls_ref}. RTL reference: {rtl_ref}.
 
