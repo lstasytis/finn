@@ -180,6 +180,16 @@ TASK_HEADER = textwrap.dedent("""\
     yourself (there is no real `self` outside the node); just write it and
     make sure it's syntactically valid.
 
+    Since the file is small and tends to change substantially between
+    attempts, prefer rewriting it wholesale with `*** Add File: {filename}`
+    plus the full new contents -- it overwrites unconditionally whether or
+    not the file already exists, so there's no patch context to get wrong.
+    If you do use `*** Update File: {filename}` for a small targeted edit,
+    follow the format the tool describes exactly (context lines, '-'/'+',
+    bare '@@ anchor' lines) -- do not emit git-style unified-diff headers
+    ('--- file', '+++ file', or '@@ -a,b +c,d @@' line-count headers), they
+    are not supported and will fail to apply.
+
     Reference -- the node's current get_tree_model:
     ```python
     {baseline}
