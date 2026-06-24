@@ -340,6 +340,37 @@ def sync_cache(cache_dir=None):
     return n
 
 
+# docker/finn_entrypoint.sh sources Vitis/Vivado's settings64.sh (which puts
+# xelab etc. on PATH) once, in the entrypoint process, right before it execs
+# into "sleep infinity". Those exports never reach `docker exec` -- a fresh
+# exec only inherits the image's ENV plus whatever was passed via `docker run
+# -e`, not env changes a script made at runtime inside the container. So
+# rtlsim tools are invisible to `docker exec` sessions unless we re-source the
+# same settings64.sh here; this mirrors finn_entrypoint.sh's logic (Vitis
+# preferred, falling back to Vivado-only, plus the matching LD_LIBRARY_PATH
+# additions) without repeating its one-time pip-install/finn_xsi-build steps.
+_XILINX_ENV_SOURCE = textwrap.dedent("""\
+    if [ -f "$VITIS_PATH/settings64.sh" ]; then
+        export XILINX_VITIS="$VITIS_PATH"
+        export XILINX_XRT="${XILINX_XRT:-/opt/xilinx/xrt}"
+        source "$VITIS_PATH/settings64.sh"
+        if [ -f "$XILINX_XRT/setup.sh" ]; then
+            source "$XILINX_XRT/setup.sh"
+        fi
+    elif [ -f "$VIVADO_PATH/settings64.sh" ]; then
+        export XILINX_VIVADO="$VIVADO_PATH"
+        source "$VIVADO_PATH/settings64.sh"
+    fi
+    if [ -n "$XILINX_VIVADO" ]; then
+        export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/lib/x86_64-linux-gnu/:${XILINX_VIVADO}/lib/lnx64.o"
+    fi
+    if [ -f "$HLS_PATH/settings64.sh" ]; then
+        source "$HLS_PATH/settings64.sh"
+    fi
+    export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$VITIS_PATH/lnx64/tools/fpo_v7_1:$HLS_PATH/lnx64/tools/fpo_v7_1"
+""")
+
+
 def run_pytest(name, test_nodeids, records_dir, pytest_log):
     """Run the given pytest nodeids inside the container, capturing the plugin
     JSON records into ``records_dir`` and the raw pytest output into
@@ -347,6 +378,7 @@ def run_pytest(name, test_nodeids, records_dir, pytest_log):
     build_dir = _host_build_dir()  # mounted at the same path inside the container
     plugin_dir = os.path.join(FINN_ROOT, "tools", "tav_eval")
     inner = (
+        f"{_XILINX_ENV_SOURCE}"
         f"cd {FINN_ROOT} && "
         f"python -m pytest {' '.join(repr(t) for t in test_nodeids)} "
         f"-p _tav_eval_plugin -p no:cacheprovider -o addopts='' -rA -v"
