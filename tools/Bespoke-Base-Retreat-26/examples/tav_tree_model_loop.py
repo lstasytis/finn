@@ -184,6 +184,11 @@ TASK_HEADER = textwrap.dedent("""\
     attempts, prefer rewriting it wholesale with `*** Add File: {filename}`
     plus the full new contents -- it overwrites unconditionally whether or
     not the file already exists, so there's no patch context to get wrong.
+    For `*** Add File: {filename}`, the body is just the raw file contents,
+    one line per line -- start directly with `def get_tree_model(self):` on
+    the first body line. Do not prepend a `+++` (or `---`) marker line of
+    any kind, even a bare one with nothing after it; the tool does not use
+    that convention and a stray marker line will corrupt the file.
     If you do use `*** Update File: {filename}` for a small targeted edit,
     follow the format the tool describes exactly (context lines, '-'/'+',
     bare '@@ anchor' lines) -- do not emit git-style unified-diff headers
