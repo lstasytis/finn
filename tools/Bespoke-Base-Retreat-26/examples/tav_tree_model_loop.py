@@ -123,9 +123,33 @@ TASK_HEADER = textwrap.dedent("""\
     node's hls functionality is described in: {hls_ref} and rtl in {rtl_ref}.
 
     Each time you create your own tree model, we will execute it to produce a
-    token access vector which we then compare vs an rtl-simulated group
+    token access vector which we then compare vs an rtl-simulated ground
     truth. Your goal is to make your tree model produce an identical tav to
     rtlsim for a variety of testcases.
+
+    The way token access vectors are produced using the tree is the following:
+    We use a class called Characteristic_Node which is found in finn's src/finn/util/basic.py
+    file. A Characterististic_Node encodes a list of states that the node is in
+     (actual tree nodes) as well as the number of times the state is accessed repeatedly (values on an edge). 
+     A leaf Characterististic_Node is a special case that encodes tuple which state if the current state is a write state,
+    a read state, neither or both. Depending on this, in this exact state clock cycle, a produced TAV
+    would have a +1 added to either the read or the write vector at that clock cycle.
+    Characteristic_Nodes effectively attempt to provide a cycle-accurate model of the entire node, where
+    the only property we want to really model is the state of the input and output channels (reads/writes).
+
+    The plan for building a tree model is to to first extract all parameters of a node using self.get_nodeattr(...),
+    which may affect what states the node will contain and how many times they will be accessed.
+    These parameters are typically set at compile-time and so we wish to encode them in some way into the tree edges.
+
+    You may look at tree modes of other nodes in the src/finn/custom_op folder for inspiration.
+    Many of these trees are close to the rtl-sim equivalents in what token access vectors they produce,
+    we typically have distinct trees for RTL and HLS-based nodes as their behavior may heavily warry.
+    The primary design mistake that can be made is to wrongly assume when a read and a write overlap during a node's execution.
+
+    You should first design a a tree that, when traversed, produces the input and output token access vectors that have correct volume:
+    that is their total number of tokens reads and written matches rtlsim. Then you should start fusing phases or creating sub-phases such that
+    you fuse reads and writes correctly (or introduce delay idle states) such that the length of the vector is also correct (how many cycles it took to execute).
+    Lastly, you would make sure that the vectors are completely identical, this is the hard part where the fusing and partial states are most important.
 
     The FINN repository is checked out at {finn_root} -- you may read any
     file in it (including the hls/rtl sources above and {src_path} itself)
