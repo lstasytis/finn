@@ -414,7 +414,7 @@ def run_loop(
     node,
     model=DEFAULT_MODEL,
     workspace=Path("workspace"),
-    max_iterations=10,
+    max_iterations=100,
     max_turns=30,
     baseline=None,
     src_override=None,
@@ -517,7 +517,7 @@ def main() -> None:
     ap.add_argument("node", help="FINN node name, e.g. ConvolutionInputGenerator (tav_eval.py --list)")
     ap.add_argument("--model", default=DEFAULT_MODEL)
     ap.add_argument("--workspace", default="workspace")
-    ap.add_argument("--max-iterations", type=int, default=10)
+    ap.add_argument("--max-iterations", type=int, default=100)
     ap.add_argument("--max-turns", type=int, default=30, help="agent tool-call turns per iteration")
     ap.add_argument("--baseline", help="seed get_tree_model.py (default: tav_eval's example for this node)")
     ap.add_argument("--src", help="override the node source file path")
