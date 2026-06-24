@@ -147,6 +147,20 @@ TASK_HEADER = textwrap.dedent("""\
     states so cycle count matches), then exact equality (fusing reads/writes
     and partial states correctly, cycle by cycle).
 
+    You should not attempt to simulate the node internally with for loops,
+    you are trying to determine the unique states that make up the node being modelled.
+    The tree is used to generate the TAV by traversing each node recursively and upon
+    hitting a leaf, append 1 value to the TAV (effectively progressing the node's cycle counter by 1.
+    If the leaf contains a value 1, that means that either the input (if its the first value) or the output (if its the second),
+    value being appended (a counter of total tokens read or written) is incremented by one.
+
+    When the test is executed, we produce a TAV by traversing the tree and compare to a ground truth rtlsim result.
+    The vectors produced need to become identical. This is possible as the number of unique states is limited,
+    you should need to use more than 10-40 nodes to simulate any node. You should perform the tree construction systematically,
+    tree nodes should be described similarly to how they are in the current tree models, starting with a root node and working 
+    downwards to more fine-grain stages of the operator's execution.
+
+
     The FINN repository is checked out at {finn_root} -- you may read any
     file in it (including the hls/rtl sources above and {src_path} itself)
     with the bash tool; only writes are confined to your workspace.
