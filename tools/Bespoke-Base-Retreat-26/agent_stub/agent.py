@@ -157,7 +157,7 @@ def run_agent_with_history(
                 messages=messages,
                 tools=TOOLS,
                 tool_choice="auto",
-                temperature=0.0,
+                temperature=1.0,
             )
             msg = resp.choices[0].message
 
