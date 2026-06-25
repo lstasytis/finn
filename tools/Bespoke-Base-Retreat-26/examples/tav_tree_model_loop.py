@@ -115,8 +115,8 @@ def _node_refs(node, src_path):
     refs = NODE_REFS.get(node)
     if refs is None:
         return (
-            "(unlisted node -- inspect src/finn/custom_op/fpgadataflow/hls/ and "
-            "src/finn/custom_op/fpgadataflow/rtl/ for the matching backend file)",
+            f"(unlisted node -- its backend file is not yet mirrored under "
+            f"{INPUTS_DIR}; mirror it there before running this node)",
             "(unlisted node -- see above)",
         )
     return refs["hls"], refs["rtl"]
@@ -201,15 +201,18 @@ TASK_HEADER = textwrap.dedent("""\
 
     DO NOT ATTEMPT TO SIMULATE THE NODES YOURSELF. Your task is to build the tree models,
     not guess at the RTL/HLS behavior, that you get from the validation using a pytest.
-    All source code you need for this task -- the hls/rtl reference sources
-    above and {src_path} itself (license/copyright headers stripped,
-    nothing else changed) -- must be read from {inputs_dir}, mirroring the
-    same relative paths, e.g. {inputs_dir}/deps/finn-hlslib/streamtools.h.
-    Do not read those same files from the live FINN repository checked out
-    at {finn_root}; only go to {finn_root} for things with no cleaned copy
-    under {inputs_dir} (e.g. other nodes' trees in src/finn/custom_op, or
-    an unlisted node's backend source). Only writes are confined to your
-    workspace.
+    Only read files under {inputs_dir} -- never read, grep, or list anything
+    under the live FINN repository checked out at {finn_root}, for any
+    reason (not the node's pytest file, not other transformation/analysis
+    source, nothing). Every file you need -- the hls/rtl reference sources
+    above, {src_path} itself, every other node's tree model under
+    src/finn/custom_op/fpgadataflow, hwcustomop.py, and basic.py -- is
+    already mirrored under {inputs_dir} at the same relative path (license/
+    copyright headers stripped, nothing else changed), e.g.
+    {inputs_dir}/deps/finn-hlslib/streamtools.h. The evaluation feedback you
+    get each iteration already reports every test case's exact parameters
+    and values, so you never need the pytest source itself to know what's
+    being tested. Only writes are confined to your workspace.
 
     Write your tree model as a file named `{filename}` in the workspace,
     containing exactly one top-level function:
@@ -278,13 +281,14 @@ ANALYSIS_TASK = textwrap.dedent("""\
     compared against an rtl-simulated ground truth. HLS reference:
     {hls_ref}. RTL reference: {rtl_ref}. All source code you need for
     these references -- the hls/rtl reference sources (license/copyright
-    headers stripped, nothing else changed) -- must be read from
-    {inputs_dir}, mirroring the same relative paths, e.g.
-    {inputs_dir}/deps/finn-hlslib/streamtools.h. Do not read those same
-    files from the live FINN repository checked out at {finn_root}; only
-    use the bash tool against {finn_root} for things with no cleaned copy
-    under {inputs_dir}, such as the node's specific pytest file under
-    tests/fpgadataflow/.
+    headers stripped, nothing else changed) -- is already mirrored under
+    {inputs_dir} at the same relative paths, e.g.
+    {inputs_dir}/deps/finn-hlslib/streamtools.h. Only read files under
+    {inputs_dir}. Never read, grep, or list anything under the live FINN
+    repository checked out at {finn_root} -- not the node's pytest file,
+    not any transformation/analysis source, nothing; you do not need it,
+    and the evaluation feedback below already reports everything about
+    how the test is run.
 
     You are NOT generating or editing the tree yourself -- a separate agent
     does that. Your only job is to analyze the candidate below against its
@@ -321,9 +325,9 @@ ANALYSIS_TASK = textwrap.dedent("""\
     pytest's shared helpers, useful for understanding what is actually
     being compared against rtlsim.
 
-    If the existing parametrize values on the characterization test (read
-    its source under tests/fpgadataflow/ to see them -- e.g. idim, pad,
-    num_ch, simd, idt, depending on the node) are not enough to tell apart
+    If the existing parametrize values on the characterization test (visible
+    in the per-case `params=...` of the evaluation feedback below -- e.g.
+    idim, pad, num_ch, simd, idt, depending on the node) are not enough to tell apart
     two competing theories about the node's behavior, you may propose
     adding ONE new value to ONE of those parameters by ending your reply
     with a line of exactly this form:
