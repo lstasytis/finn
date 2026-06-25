@@ -30,6 +30,15 @@ class Model:
     api_base: str | None  # None -> OpenAI cloud; otherwise a local vLLM /v1 URL
     context_window: int
     use_responses: bool = False  # True -> POST /v1/responses (Codex models)
+    # default sampling temperature for chat-completions models (ignored by the
+    # Responses API). Lower = more exploitative; the loop overrides per-candidate
+    # to run a temperature portfolio across a parallel population.
+    temperature: float = 1.0
+    # reasoning effort for models that support it (gpt-5.x / Responses + some
+    # chat models). None -> don't send the param. We default the strong models
+    # to "high" because this is a reasoning-bound reverse-engineering task and
+    # cost is explicitly not a concern.
+    reasoning_effort: str | None = None
 
     @property
     def is_local(self) -> bool:
@@ -38,9 +47,10 @@ class Model:
 
 MODELS: dict[str, Model] = {
     # --- OpenAI cloud (api_base=None -> default OpenAI endpoint) ---
-    "gpt-5.1": Model("gpt-5.1", None, 400_000),
-    "gpt-5.1-codex": Model("gpt-5.1-codex", None, 400_000, use_responses=True),
-    "gpt-5.2-codex": Model("gpt-5.2-codex", None, 400_000, use_responses=True),
+    # reasoning_effort="high": maximize solve quality, cost is irrelevant here.
+    "gpt-5.1": Model("gpt-5.1", None, 272_000, reasoning_effort="high"),
+    "gpt-5.1-codex": Model("gpt-5.1-codex", None, 400_000, use_responses=True, reasoning_effort="high"),
+    "gpt-5.2-codex": Model("gpt-5.2-codex", None, 400_000, use_responses=True, reasoning_effort="high"),
     # --- local vLLM on dgx02 (Hopper+) ---
     "unsloth/MiniMax-M3": Model("unsloth/MiniMax-M3", DGX02, 376_832),
     "unsloth/DeepSeek-V4-Flash": Model("unsloth/DeepSeek-V4-Flash", DGX02, 262_144),
@@ -48,7 +58,9 @@ MODELS: dict[str, Model] = {
     "unsloth/gemma-4-31B-it": Model("unsloth/gemma-4-31B-it", DGX01, 262_144),
 }
 
-DEFAULT_MODEL = "unsloth/gemma-4-31B-it"
+# Strongest reasoning model by default: this is a hard analytical task and the
+# brief is absolute performance, not cost. Override with --model for local runs.
+DEFAULT_MODEL = "gpt-5.1"
 
 
 def get_model(name: str) -> Model:

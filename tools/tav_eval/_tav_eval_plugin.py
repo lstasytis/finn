@@ -52,6 +52,59 @@ import finn.util.test as _ft
 # each entry: (analytical_vector, rtlsim_vector, verdict)
 _captured = []
 
+# per-test node metadata, populated by the patched characteristic fnc, so the
+# host-side local oracle (agent_stub/tav_runtime.py) can replay the candidate's
+# get_tree_model with the exact attrs / class name the real node had.
+_node_meta = {}
+
+
+def _jsonable(v):
+    """Coerce a node attribute value into something json.dump can handle
+    (numpy scalars/arrays, bytes, tuples) -- best effort, drop on failure."""
+    try:
+        if isinstance(v, (bool, int, float, str)) or v is None:
+            return v
+        if isinstance(v, bytes):
+            return v.decode("utf-8", "replace")
+        if isinstance(v, (list, tuple)):
+            return [_jsonable(x) for x in v]
+        if isinstance(v, np.generic):
+            return v.item()
+        if isinstance(v, np.ndarray):
+            return v.tolist()
+        json.dumps(v)
+        return v
+    except Exception:
+        return None
+
+
+def _capture_node_meta(inst):
+    """Record the specialized node's class name, onnx name/op_type and full
+    attribute set. Capturing every declared attr (not just the ones the current
+    baseline reads) keeps the local oracle robust to candidates that reach for a
+    different attr than the baseline did."""
+    try:
+        attrs = {}
+        try:
+            names = list(inst.get_nodeattr_types().keys())
+        except Exception:
+            names = []
+        for name in names:
+            try:
+                attrs[name] = _jsonable(inst.get_nodeattr(name))
+            except Exception:
+                continue
+        _node_meta.update(
+            {
+                "class_name": type(inst).__name__,
+                "onnx_node_name": getattr(inst.onnx_node, "name", ""),
+                "op_type": getattr(inst.onnx_node, "op_type", ""),
+                "node_attrs": attrs,
+            }
+        )
+    except Exception:
+        pass
+
 
 # ---------------------------------------------------------------------------
 # runtime monkeypatches (resolved through module globals at call time, so they
@@ -68,9 +121,14 @@ def _patched_get_characteristic_fnc(
     # has been computed at least once for a given parameter set
     if strategy == "rtlsim":
         caching = True
-    return _orig_get_characteristic_fnc(
+    inst = _orig_get_characteristic_fnc(
         model, node0, part, target_clk_ns, strategy, caching
     )
+    # capture metadata off the specialized node so the host local oracle can
+    # replay get_tree_model faithfully (the analytical/tree_model pass carries
+    # the same attrs as the rtlsim pass, so either call populates this).
+    _capture_node_meta(inst)
+    return inst
 
 
 def _patched_compare_two_chr_funcs(a, b, max_allowed_volume_delta, max_allowed_length_delta):
@@ -113,6 +171,11 @@ def _port_record(port, analytical, rtlsim, verdict):
         "len_delta": int(a.size - b.size),
         "peak_volume_delta": int(np.max(np.abs(delta))) if delta.size else 0,
         "delta_vector": delta.tolist(),
+        # full raw vectors -- the rtlsim one is the optimization target the host
+        # local oracle fits against; the analytical one lets the host confirm its
+        # reimplementation matches FINN exactly (see tav_runtime.selftest...).
+        "rtlsim_vector": b.tolist(),
+        "analytical_vector": a.tolist(),
     }
 
 
@@ -121,6 +184,7 @@ def _port_record(port, analytical, rtlsim, verdict):
 # ---------------------------------------------------------------------------
 def pytest_runtest_setup(item):
     _captured.clear()
+    _node_meta.clear()
 
 
 def pytest_runtest_makereport(item, call):
@@ -156,6 +220,8 @@ def pytest_runtest_makereport(item, call):
         "outcome": outcome,
         "longrepr": None,
         "ports": ports,
+        # node metadata for the host local oracle (empty if capture failed)
+        "node_meta": dict(_node_meta),
     }
     if outcome in ("failed", "error") and call.excinfo is not None:
         # keep it short -- just the exception type and message

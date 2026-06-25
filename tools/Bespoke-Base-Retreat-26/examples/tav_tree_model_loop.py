@@ -1,48 +1,67 @@
-"""Iteration loop for FINN get_tree_model search, evaluated by tav_eval.
+"""AlphaEvolve-style optimizer for FINN ``get_tree_model`` functions, rebuilt to
+maximize solve rate (cost/turns are explicitly not a concern).
 
-Same generate -> run -> evaluate -> reprompt shape as iteration_loop.py: the
-agent writes `get_tree_model.py` into the workspace; check_output() here
-splices it into the target FINN node (via tools/tav_eval) and runs the node's
-analytical-characterization pytest in the FINN docker container, comparing the
-analytical token access vector (TAV) against the rtlsim reference. The
-per-case delta feedback drives the next prompt. Stops when every case matches
-the reference exactly, or after --max-iterations.
+What changed vs. the original blind loop
+----------------------------------------
+The original wrote a file blind, waited a full dockerized pytest, and showed the
+agent only a *delta* against its own guess -- one information-starved evaluation
+per iteration, with no memory across iterations. This version:
 
-check_output() also runs a second "analyzer" agent (same model, its own
-fresh context per iteration) that reviews the candidate and feedback and
-proposes structural fixes in plain text; its reply is appended to the
-feedback the tree-generating agent sees next.
+1. **Local oracle + visible target.** The agent calls an ``eval_tree_model`` tool
+   that scores its candidate *in-process* against the cached rtlsim reference and
+   shows it the TARGET vector, its vector, and the delta -- as often as it wants.
+   The local oracle (agent_stub/tav_runtime.py) is a faithful copy of FINN's
+   analytical derivation, self-tested on the baseline so a divergence is caught
+   before it can mislead. Backend selectable via ``--oracle {local,docker,both}``.
+   Docker remains the source of truth: a locally-solved candidate is **confirmed**
+   with a real docker run before it counts.
 
-The TASK prompt below is a starting point -- tune it for whatever guidance
-gets the model to converge faster; the evaluation side (check_output) doesn't
-need to change when you do.
+2. **Population / portfolio search** (``--parallel N``): N agents per iteration at
+   spread temperatures, all candidates pooled into an archive, global best kept.
+
+3. **Archive + recombination** (``--recombine K``): trees that each solve part of
+   the problem are fed back with an explicit "combine these" instruction.
+
+4. **Curriculum** (``--curriculum``): start on the smallest test case, lock it,
+   then widen one case at a time -- far easier than fitting everything at once.
+
+5. **Persistent memory** (``--memory``): the best lineage's conversation carries
+   forward across iterations instead of restarting cold each time.
+
+6. **Domain-expert system prompt + strongest model + high reasoning effort** by
+   default (see agent_stub/agent.py:TAV_SYSTEM_PROMPT and models.py).
 
 Run:
     python examples/tav_tree_model_loop.py ConvolutionInputGenerator
-    python examples/tav_tree_model_loop.py FMPadding --model gpt-5.1 --max-iterations 10
-    python examples/tav_tree_model_loop.py ConvolutionInputGenerator --apply-best
+    python examples/tav_tree_model_loop.py FMPadding --model gpt-5.1 --parallel 8 --curriculum
+    python examples/tav_tree_model_loop.py MVAU --oracle both --memory --apply-best
 """
 
 from __future__ import annotations
 
 import argparse
-import ast
 import datetime
 import json
 import os
 import re
 import sys
 import textwrap
+import threading
 import traceback
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-from agent_stub.agent import run_agent
-from agent_stub.models import DEFAULT_MODEL
+from agent_stub.agent import TAV_SYSTEM_PROMPT, run_agent_with_history
+from agent_stub.models import DEFAULT_MODEL, get_model
+from agent_stub.oracle import Oracle
+from agent_stub.tools.bash import run_bash
+from agent_stub.tools.eval_tree import EVAL_TOOL_SCHEMA, make_eval_handler
+from agent_stub.tools.run import run_program
 
-# tav_eval lives one level up in the FINN repo (tools/tav_eval), not inside
-# this package -- add it to sys.path rather than vendoring a copy.
+# tav_eval lives one level up in the FINN repo (tools/tav_eval).
 _TAV_EVAL_DIR = os.path.abspath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "tav_eval")
 )
@@ -56,11 +75,7 @@ INPUTS_DIR = os.path.join(_PACKAGE_DIR, "inputs")
 
 CANDIDATE_FILENAME = "get_tree_model.py"
 
-# ── per-node HLS/RTL reference pointers ─────────────────────────────────────
-# Filled into the task prompt below so the agent knows where to go read the
-# node's "ground truth" hardware behaviour. Paths are relative to the FINN
-# repo root (given to the agent separately). Kept here (not in tav_eval) since
-# it's prompt content, not evaluation logic.
+# ── per-node HLS/RTL reference pointers (prompt content) ────────────────────
 NODE_REFS = {
     "FMPadding": {
         "hls": "(no HLS backend for this node -- it is RTL-only)",
@@ -111,678 +126,101 @@ NODE_REFS = {
 }
 
 
-def _node_refs(node, src_path):
+def _node_refs(node):
     refs = NODE_REFS.get(node)
     if refs is None:
         return (
-            f"(unlisted node -- its backend file is not yet mirrored under "
-            f"{INPUTS_DIR}; mirror it there before running this node)",
+            f"(unlisted node -- mirror its backend under {INPUTS_DIR} first)",
             "(unlisted node -- see above)",
         )
     return refs["hls"], refs["rtl"]
 
 
-# ── prompt ───────────────────────────────────────────────────────────────────
-# This is the part meant to be tuned by hand; check_output() below does not
-# depend on its wording.
-TASK_HEADER = textwrap.dedent("""\
-    You are an FPGA expert in Vitis HLS and SystemVerilog, designing
-    characteristic tree models of ML operators described in this repo's
-    deps/finn-hlslib directory (HLS) and finn-rtllib directory at the repo
-    root (RTL, not under deps/). You are optimizing node
-    {node}. The existing tree is in {src_path}'s get_tree_model() function.
-    HLS reference: {hls_ref}. RTL reference: {rtl_ref}.
+# ── prompts (hand-tunable; the eval side does not depend on wording) ────────
+TASK_TEMPLATE = textwrap.dedent("""\
+    Node under optimization: {node} (FINN fpgadataflow).
+    HLS reference: {hls_ref}
+    RTL reference: {rtl_ref}
+    Reference source is mirrored read-only under {inputs_dir} (same relative
+    paths, headers stripped); read it with bash. Never read the live FINN repo.
 
-    Each candidate tree is executed to produce a token access vector (TAV),
-    compared against an rtl-simulated ground truth. Goal: make the tree
-    produce a TAV identical to rtlsim across all testcases.
+    Your goal: write `get_tree_model(self)` so that, for EVERY active test case,
+    both the input and output token access vectors match the rtlsim reference
+    EXACTLY (zero delta). Use the `eval_tree_model` tool to see the target and
+    your delta -- call it as many times as you need.
 
-    TAVs come from Characteristic_Node (src/finn/util/basic.py). Each
-    Characteristic_Node holds a list of states (tree nodes) plus how many
-    times each state repeats (edge values). A leaf node is a tuple flagging
-    whether its state reads, writes, both, or neither -- each flag adds +1 to
-    the read/write vector at that clock cycle. The tree is effectively a
-    cycle-accurate model of the node, but the only thing it needs to capture
-    is input/output channel activity (reads/writes), not full datapath
-    behavior.
+    Active test cases this round: {n_active}{curriculum_note}
 
-    Three more files, not specific to {node}, are also cleaned and
-    available under {inputs_dir}: hwcustomop.py
-    ({inputs_dir}/src/finn/custom_op/fpgadataflow/hwcustomop.py) is the
-    base class every node inherits, showing how FINN stores and exposes
-    compile-time parameters via get_nodeattr; basic.py
-    ({inputs_dir}/src/finn/util/basic.py) contains Characteristic_Node and
-    the tree-traversal function that turns a tree into a TAV; test.py
-    ({inputs_dir}/src/finn/util/test.py) contains the characterization
-    pytest's shared helpers, useful for understanding what is actually
-    being compared against rtlsim.
+    Recommended approach:
+      1. Call eval_tree_model with the baseline below to see each port's TARGET.
+      2. Describe the target's structure (period, run-lengths of read/write
+         steps, idle gaps) and map it to the loop nest in the reference source.
+      3. Encode it as a tree, eval, and drive the delta to zero -- one port and
+         one case at a time, then make a single tree that covers all of them.
 
-    Approach: extract the node's compile-time parameters via
-    self.get_nodeattr(...) -- these determine which states exist and their
-    repeat counts, and should be encoded into the tree's edges. Look at other
-    nodes' trees in src/finn/custom_op for examples (RTL and HLS backends
-    typically need distinct trees, since their cycle behavior differs). The
-    most common mistake is misjudging when a read and a write overlap in the
-    same cycle.
-
-    Build incrementally: first get correct volume (total tokens read/written
-    matches rtlsim), then correct length (fuse/split phases or add idle
-    states so cycle count matches), then exact equality (fusing reads/writes
-    and partial states correctly, cycle by cycle).
-
-    Feedback reports each test case's input and output ports as separate
-    pass/fail cases -- you don't need both sides right at once. It's
-    usually easier to get one port (often input) passing across all cases
-    first, then build on that working tree to additionally get the other
-    port correct, rather than trying to fix both simultaneously.
-
-    You should not attempt to simulate the node internally with for loops,
-    you are trying to determine the unique states that make up the node being modelled.
-    The tree is used to generate the TAV by traversing each node recursively and upon
-    hitting a leaf, append 1 value to the TAV (effectively progressing the node's cycle counter by 1.
-    If the leaf contains a value 1, that means that either the input (if its the first value) or the output (if its the second),
-    value being appended (a counter of total tokens read or written) is incremented by one.
-
-    When the test is executed, we produce a TAV by traversing the tree and compare to a ground truth rtlsim result.
-    The vectors produced need to become identical. This is possible as the number of unique states is limited,
-    you should need to use more than 10-40 nodes to simulate any node. You should perform the tree construction systematically,
-    tree nodes should be described similarly to how they are in the current tree models, starting with a root node and working 
-    downwards to more fine-grain stages of the operator's execution.
-
-    To summarize, you should follow the following approach:
-    1. Use the original tree as a first guess and run the validator.
-    2. Analyze the result deltas and adjust the tree edges and states to minimize delta for individual tests.
-    3. Once you pass for an individual test, adjust the tree to pass another test, this is likely going to break
-    the original test.
-    4. Look at how you can merge two trees that cover two seperate test cases to pass both.
-    5. Once you have 2 cases passing, add a 3rd case, iterate in this order on producing more trees.
-    6. Do NOT internaly attempt to simulate a node's behavior, rely on the validator's provided delta,
-    as that contains the ground truth of how the source code translated to actual reads and writes.
-
-    DO NOT ATTEMPT TO SIMULATE THE NODES YOURSELF. Your task is to build the tree models,
-    not guess at the RTL/HLS behavior, that you get from the validation using a pytest.
-    Only read files under {inputs_dir} -- never read, grep, or list anything
-    under the live FINN repository checked out at {finn_root}, for any
-    reason (not the node's pytest file, not other transformation/analysis
-    source, nothing). Every file you need -- the hls/rtl reference sources
-    above, {src_path} itself, every other node's tree model under
-    src/finn/custom_op/fpgadataflow, hwcustomop.py, and basic.py -- is
-    already mirrored under {inputs_dir} at the same relative path (license/
-    copyright headers stripped, nothing else changed), e.g.
-    {inputs_dir}/deps/finn-hlslib/streamtools.h. The evaluation feedback you
-    get each iteration already reports every test case's exact parameters
-    and values, so you never need the pytest source itself to know what's
-    being tested. Only writes are confined to your workspace.
-
-    Write your tree model as a file named `{filename}` in the workspace,
-    containing exactly one top-level function:
-
-        def get_tree_model(self):
-            ...
-            return <top-level Characteristic_Node>
-
-    This file is spliced directly into the node's module in place of its
-    existing get_tree_model -- do not write import statements; you may use
-    any name already available in that module (e.g. Characteristic_Node,
-    math, np, self.get_nodeattr(...)). Don't try to call the function
-    yourself (there is no real `self` outside the node); just write it and
-    make sure it's syntactically valid.
-
-    Since the file is small and tends to change substantially between
-    attempts, prefer rewriting it wholesale with `*** Add File: {filename}`
-    plus the full new contents -- it overwrites unconditionally whether or
-    not the file already exists, so there's no patch context to get wrong.
-    For `*** Add File: {filename}`, the body is just the raw file contents,
-    one line per line -- start directly with `def get_tree_model(self):` on
-    the first body line. Do not prepend a `+++` (or `---`) marker line of
-    any kind, even a bare one with nothing after it; the tool does not use
-    that convention and a stray marker line will corrupt the file.
-    If you do use `*** Update File: {filename}` for a small targeted edit,
-    follow the format the tool describes exactly (context lines, '-'/'+',
-    bare '@@ anchor' lines) -- do not emit git-style unified-diff headers
-    ('--- file', '+++ file', or '@@ -a,b +c,d @@' line-count headers), they
-    are not supported and will fail to apply.
-
-    Reference -- the node's current get_tree_model:
+    Baseline get_tree_model (your starting point):
     ```python
     {baseline}
     ```
+    {extra}
+    When every active port reads 'exact', stop and reply with a one-line summary.
 """)
 
-RETRY_SUFFIX = textwrap.dedent("""
-
-    Your previous attempt:
+RETRY_BLOCK = textwrap.dedent("""
+    Best candidate so far (score {score}):
     ```python
-    {previous}
+    {best}
     ```
-
-    Evaluation feedback (delta = analytical - rtlsim per cycle, zero
-    everywhere is the goal). Each port's full delta vector is run-length
-    encoded as a lossless list of (run_length, value) pairs, e.g. (480,-1)
-    means the next 480 cycles are each off by -1; (1,0),(20,-1) means one
-    matching cycle then 20 cycles off by -1. You are aiming for each port's
-    encoding to collapse to a single pair, (vector_length,0), meaning no
-    deltas anywhere:
+    Its latest evaluation:
     {feedback}
+    """)
 
-    Write an improved `{filename}` that reduces these deltas.
-""")
+RECOMBINE_BLOCK = textwrap.dedent("""
+    These archived trees each solve PART of the problem. Study what structure
+    each gets right and synthesize a single tree that satisfies all cases:
+    {partials}
+    """)
 
-# ── second agent: analysis only, no tree-writing ────────────────────────────
-# Reviews the candidate plus this and the previous iteration's feedback in
-# its own fresh context and proposes concrete structural fixes; its reply is
-# appended to the feedback the tree-generating agent sees next (see
-# check_output below), it never edits the candidate itself.
-ANALYSIS_TASK = textwrap.dedent("""\
-    You are an FPGA expert in Vitis HLS and SystemVerilog, reviewing a
-    candidate characteristic tree model for node {node}, used by
-    Characteristic_Node (src/finn/util/basic.py) to produce a token access
-    vector (TAV) of the node's input/output channel read/write activity,
-    compared against an rtl-simulated ground truth. HLS reference:
-    {hls_ref}. RTL reference: {rtl_ref}. All source code you need for
-    these references -- the hls/rtl reference sources (license/copyright
-    headers stripped, nothing else changed) -- is already mirrored under
-    {inputs_dir} at the same relative paths, e.g.
-    {inputs_dir}/deps/finn-hlslib/streamtools.h. Only read files under
-    {inputs_dir}. Never read, grep, or list anything under the live FINN
-    repository checked out at {finn_root} -- not the node's pytest file,
-    not any transformation/analysis source, nothing; you do not need it,
-    and the evaluation feedback below already reports everything about
-    how the test is run.
+ANALYZER_TEMPLATE = textwrap.dedent("""\
+    You are an FPGA expert reviewing a candidate characteristic tree for node
+    {node}. You do NOT write trees -- another agent does. Read the candidate and
+    its per-port TARGET/YOURS/DELTA feedback and write concrete, specific
+    structural fixes (a missing state, a wrong repeat count, a misjudged
+    read/write overlap, a phase to fuse or split). Reference source is under
+    {inputs_dir} (read-only, via bash); never read the live FINN repo. Reply with
+    plain-text analysis only -- do not write files.
 
-    You are NOT generating or editing the tree yourself -- a separate agent
-    does that. Your only job is to analyze the candidate below against its
-    evaluation feedback and write concrete, actionable suggestions for how
-    the tree's structure should change (e.g. a missing state, a wrong
-    repeat count, a misjudged read/write overlap, a phase that should be
-    fused or split) to close the remaining gaps. Reply with your analysis
-    as plain text -- do not use apply_patch or write any files.
+    HLS reference: {hls_ref}
+    RTL reference: {rtl_ref}
 
-    Each candidate tree is executed to produce a token access vector (TAV),
-    compared against an rtl-simulated ground truth. Goal: make the tree
-    produce a TAV identical to rtlsim across all testcases.
-
-    DO NOT ATTEMPT TO SIMULATE THE NODES YOURSELF. Your task is to build the tree models,
-    not guess at the RTL/HLS behavior, that you get from the validation using a pytest.
-
-    TAVs come from Characteristic_Node (src/finn/util/basic.py). Each
-    Characteristic_Node holds a list of states (tree nodes) plus how many
-    times each state repeats (edge values). A leaf node is a tuple flagging
-    whether its state reads, writes, both, or neither -- each flag adds +1 to
-    the read/write vector at that clock cycle. The tree is effectively a
-    cycle-accurate model of the node, but the only thing it needs to capture
-    is input/output channel activity (reads/writes), not full datapath
-    behavior.
-
-    Three more files, not specific to {node}, are also cleaned and
-    available under {inputs_dir}: hwcustomop.py
-    ({inputs_dir}/src/finn/custom_op/fpgadataflow/hwcustomop.py) is the
-    base class every node inherits, showing how FINN stores and exposes
-    compile-time parameters via get_nodeattr; basic.py
-    ({inputs_dir}/src/finn/util/basic.py) contains Characteristic_Node and
-    the tree-traversal function that turns a tree into a TAV; test.py
-    ({inputs_dir}/src/finn/util/test.py) contains the characterization
-    pytest's shared helpers, useful for understanding what is actually
-    being compared against rtlsim.
-
-    If the existing parametrize values on the characterization test (visible
-    in the per-case `params=...` of the evaluation feedback below -- e.g.
-    idim, pad, num_ch, simd, idt, depending on the node) are not enough to tell apart
-    two competing theories about the node's behavior, you may propose
-    adding ONE new value to ONE of those parameters by ending your reply
-    with a line of exactly this form:
-        PROPOSE_TEST_CASE: <param_name>=<python_literal>
-    e.g. `PROPOSE_TEST_CASE: idim=[12, 8]` or `PROPOSE_TEST_CASE: simd=4`.
-    The literal must be the same kind of value as the parameter's existing
-    ones (e.g. a list for idim, an int for simd) and must not already be
-    one of them. You may NOT propose this for `mode` or `impl_style` --
-    those select which simulation/backend runs, not a property of the node,
-    and any such proposal is rejected. You have no tool to edit the test
-    file yourself; a line in this exact format is parsed by the harness
-    running this conversation and, if valid, applied on your behalf before
-    the next iteration -- at most one proposal is honored per reply, and
-    most replies should have none at all. Only propose one when you have a
-    specific, stated hypothesis the current cases can't distinguish.
-
-    Keep proposed values small: each is a real rtlsim run, and must stay
-    within roughly a few thousand cycles. As a rule of thumb, the product
-    of the magnitudes in the value (e.g. idim=[H, W] is about H*W; simd=N
-    is about N) should stay well under a few thousand -- e.g. idim=[20, 20]
-    (~400) is fine, idim=[200, 200] (~40000) is not. An oversized proposal
-    is rejected outright. If a proposal you made is reported back to you as
-    rejected or rolled back, do not repeat the same value -- propose a
-    smaller one or drop the idea.
-
-    Candidate `{filename}` under test:
+    Candidate:
     ```python
     {candidate}
     ```
 
-    Evaluation feedback (delta = analytical - rtlsim per cycle). Each
-    port's full delta vector is run-length encoded as a lossless list of
-    (run_length, value) pairs, e.g. (480,-1) means the next 480 cycles are
-    each off by -1; (1,0),(20,-1) means one matching cycle then 20 cycles
-    off by -1. You are aiming for each port's encoding to collapse to a
-    single pair, (vector_length,0), meaning no deltas anywhere:
+    Evaluation feedback:
     {feedback}
-    {previous_block}""")
-
-PREVIOUS_FEEDBACK_BLOCK = textwrap.dedent("""
-    For comparison, here is the previous iteration's evaluation feedback
-    (one step back only -- not the full history):
-    {previous_feedback}
 """)
 
 
-def build_analysis_task(node, candidate_source, feedback, previous_feedback=None):
-    hls_ref, rtl_ref = _node_refs(node, None)
-    previous_block = (
-        PREVIOUS_FEEDBACK_BLOCK.format(previous_feedback=previous_feedback)
-        if previous_feedback else ""
-    )
-    return ANALYSIS_TASK.format(
-        node=node,
-        hls_ref=hls_ref,
-        rtl_ref=rtl_ref,
-        finn_root=tav_eval.FINN_ROOT,
-        inputs_dir=INPUTS_DIR,
-        filename=CANDIDATE_FILENAME,
-        candidate=candidate_source.strip(),
-        feedback=feedback,
-        previous_block=previous_block,
-    )
-
-
-def build_task(node, src_path, baseline, previous=None, feedback=None):
-    hls_ref, rtl_ref = _node_refs(node, src_path)
-    task = TASK_HEADER.format(
-        node=node,
-        src_path=src_path,
-        hls_ref=hls_ref,
-        rtl_ref=rtl_ref,
-        finn_root=tav_eval.FINN_ROOT,
-        inputs_dir=INPUTS_DIR,
-        filename=CANDIDATE_FILENAME,
-        baseline=baseline.strip(),
-    )
-    if previous is not None:
-        task += RETRY_SUFFIX.format(
-            previous=previous.strip(), feedback=feedback, filename=CANDIDATE_FILENAME
-        )
-    return task
-
-
-# ── evaluation (the part that matters -- wires tav_eval in as the evaluator)─
-def _rle(vec):
-    """Lossless run-length encoding of an integer sequence into a list of
-    (run_length, value) pairs, e.g. [1, 1, -1, -1, -1] -> [(2, 1), (3, -1)]."""
-    pairs = []
-    for v in vec:
-        if pairs and pairs[-1][1] == v:
-            pairs[-1] = (pairs[-1][0] + 1, v)
-        else:
-            pairs.append((1, v))
-    return pairs
-
-
-def _fmt_rle(vec):
-    return ", ".join(f"({n},{v:+d})" if v else f"({n},0)" for n, v in _rle(vec))
-
-
-# Some characterization tests parametrize over a single packed "config"
-# tuple instead of individually named arguments (see e.g. config = (shape,
-# inWidth, outWidth, finn_dtype) in test_fpgadataflow_dwc.py) -- the LLM
-# would otherwise have to reverse-engineer the tuple order from the test
-# file, so decode known ones into named fields here.
-_CONFIG_TUPLE_FIELDS = {
-    "StreamingDataWidthConverter": ("shape", "inWidth", "outWidth", "dataType"),
-}
-
-
-def _split_top_level(s):
-    """Split the inside of a tuple/list repr on top-level commas, respecting
-    nested brackets, e.g. "[1, 24], 8, INT2" -> ["[1, 24]", "8", "INT2"]."""
-    parts, depth, cur = [], 0, ""
-    for ch in s:
-        if ch in "([":
-            depth += 1
-        elif ch in ")]":
-            depth -= 1
-        if ch == "," and depth == 0:
-            parts.append(cur.strip())
-            cur = ""
-        else:
-            cur += ch
-    if cur.strip():
-        parts.append(cur.strip())
-    return parts
-
-
-def _fmt_node_params(node, params):
-    fields = _CONFIG_TUPLE_FIELDS.get(node)
-    bits = []
-    for k, v in params.items():
-        if k == "config" and fields:
-            inner = v.strip()
-            if inner.startswith("(") and inner.endswith(")"):
-                inner = inner[1:-1]
-            bits.extend(f"{name}={val}" for name, val in zip(fields, _split_top_level(inner)))
-        else:
-            bits.append(f"{k}={v}")
-    return " ".join(bits)
-
-
-def _format_feedback(node, records, max_cases=None):
-    lines = []
-    all_cases = tav_eval.expand_records(records)
-    cases = all_cases if max_cases is None else all_cases[:max_cases]
-    for c in cases:
-        tag = tav_eval._case_tag(c)
-        params = _fmt_node_params(node, c.get("params", {}))
-        port = c.get("port")
-        if port:
-            rle_s = _fmt_rle(c["delta_vector"])
-            lines.append(
-                f"  [{tag}] {port} {params} | peak={c['peak_volume_delta']} "
-                f"len_delta={c['len_delta']} delta=[{rle_s}]"
-            )
-        else:
-            tail = (c.get("longrepr") or "").splitlines()
-            lines.append(f"  [{tag}] {params} | {tail[-1] if tail else ''}")
-    if max_cases is not None:
-        more = len(all_cases) - max_cases
-        if more > 0:
-            lines.append(f"  ... +{more} more case(s)")
-    return "\n".join(lines)
-
-
-# Matches a `PROPOSE_TEST_CASE: <param>=<literal>` line in an analyzer
-# reply (see ANALYSIS_TASK). Only the first match is ever honored.
-_PROPOSE_TEST_CASE_RE = re.compile(r"^\s*PROPOSE_TEST_CASE:\s*([A-Za-z_]\w*)\s*=\s*(.+?)\s*$", re.MULTILINE)
-
-
-def _apply_proposed_test_case(node, src_override, test_override, analysis):
-    """Look for a `PROPOSE_TEST_CASE: <param>=<literal>` line in the
-    analyzer's reply and, if present, apply the first one found by adding
-    that one value to the node's characterization test via
-    tav_eval.add_parametrize_value -- the analyzer never edits the test file
-    itself (it has no file-writing tools); this is the harness doing it on
-    its behalf, capped at one new value per analyzer call.
-
-    Returns (pending_case, note):
-    - pending_case is a dict describing the addition (for check_output to
-      validate against the next real pytest run -- see
-      _check_pending_test_case) if one was applied, else None.
-    - note is a human-readable explanation to fold into the feedback when
-      the proposal was rejected up front (protected param, duplicate,
-      oversized value, etc. -- see add_parametrize_value), else None. A
-      proposal that gets applied here but later turns out to break pytest
-      is instead reported by _check_pending_test_case next iteration."""
-    matches = _PROPOSE_TEST_CASE_RE.findall(analysis)
-    if not matches:
-        return None, None
-    if len(matches) > 1:
-        print(f"[orchestrator] analyzer proposed {len(matches)} new test cases; "
-              "only the first is honored this iteration.")
-    param_name, value_literal = matches[0]
-
-    entry = tav_eval.resolve_node(node, src_override, test_override)
-    test_file, _, func_name = entry["test"].partition("::")
-    if not os.path.isabs(test_file):
-        test_file = os.path.join(tav_eval.FINN_ROOT, test_file)
-
-    try:
-        tav_eval.add_parametrize_value(test_file, func_name, param_name, value_literal)
-    except SystemExit as e:
-        note = (
-            f"[orchestrator] Rejected proposed test case {param_name}={value_literal}: {e}. "
-            "Propose a different value (or none) next time."
-        )
-        print(note)
-        return None, note
-
-    value_repr = repr(ast.literal_eval(value_literal))
-    print(f"[orchestrator] added new test case: {param_name}={value_literal} (added to {entry['test']})")
-    pending_case = {
-        "test_file": test_file,
-        "func_name": func_name,
-        "test_nodeid": entry["test"],
-        "param_name": param_name,
-        "value_literal": value_literal,
-        "value_repr": value_repr,
-    }
-    return pending_case, None
-
-
-def _check_pending_test_case(pending_case, records):
-    """Validate a test case added on the *previous* call's analyzer turn now
-    that a real pytest run (the one that just produced ``records``) has
-    actually exercised it -- this is the rollback half of the safety net:
-    a value that's syntactically a valid literal can still make pytest fail
-    at collection (e.g. a shape pytest's own setup can't handle) or crash a
-    specific case at execution time (an ERROR record, not a TAV mismatch).
-    Either way it gets rolled back via tav_eval.remove_parametrize_value --
-    precise enough to undo just this one addition, not any earlier-accepted
-    ones -- and is never proposed again automatically.
-
-    Returns (records, note):
-    - records is unchanged if the case is fine, or has any record(s) for the
-      rolled-back value filtered out otherwise (an empty ``records`` --
-      collection failed outright -- is returned as-is; the caller must
-      re-run evaluate_tree_model to get something to score/report on).
-    - note is None if the case is fine, else a human-readable explanation of
-      the rollback for the next prompt's feedback."""
-    if pending_case is None:
-        return records, None
-
-    pname, vrepr = pending_case["param_name"], pending_case["value_repr"]
-    collection_failed = not records
-    matches = [r for r in records if r.get("params", {}).get(pname) == vrepr]
-    errored = any(tav_eval._verdict_tag(r) == "ERROR" for r in matches)
-    # the plugin only writes a record for a test item that reached its "call"
-    # phase (see _tav_eval_plugin.py) -- a crash during pytest's own *setup*
-    # phase (e.g. a fixture choking on the new value) leaves no record for
-    # this value at all, silently, even though sibling records exist for
-    # everything else. Treat that as a failure too rather than missing it.
-    no_evidence = not matches and bool(records)
-
-    if not (collection_failed or errored or no_evidence):
-        return records, None  # the value survived a real run -- keep it
-
-    try:
-        tav_eval.remove_parametrize_value(
-            pending_case["test_file"], pending_case["func_name"], pname, pending_case["value_literal"]
-        )
-    except SystemExit as e:
-        # shouldn't normally happen (we just added it last iteration), but
-        # don't let a rollback failure crash the loop
-        print(f"[orchestrator] WARNING: could not roll back {pname}={vrepr}: {e}")
-        return records, None
-
-    if collection_failed:
-        reason = "broke pytest collection entirely (treated as an invalid/malformed value)"
-    elif errored:
-        reason = "crashed during execution (an error, not a TAV mismatch)"
-    else:
-        reason = "produced no result at all (likely crashed during pytest setup, before any comparison ran)"
-    note = (
-        f"[orchestrator] The test case you proposed last iteration, "
-        f"{pname}={pending_case['value_literal']}, {reason} and has been rolled back out of "
-        f"{pending_case['test_nodeid']}. Do not propose this exact value again."
-    )
-    print(note)
-    if collection_failed:
-        return records, note  # caller must re-evaluate; nothing to filter
-    return [r for r in records if r not in matches], note
-
-
-def check_output(
-    workspace,
-    node,
-    *,
-    src_override=None,
-    test_override=None,
-    include_extra_tests=False,
-    cache_dir=None,
-    model=None,
-    previous_feedback=None,
-    max_turns=30,
-    iteration=None,
-    prompts_log_fh=None,
-    pending_case=None,
-):
-    """Return (passed, feedback_for_next_prompt, records, score, pending_case).
-
-    Splices workspace/get_tree_model.py into the node's source and runs its
-    characterization pytest via tav_eval; this is the evaluator swapped into
-    Bespoke's generate -> evaluate -> reprompt loop.
-
-    `pending_case`, if given, describes a parametrize value the analyzer got
-    added to the test file on the *previous* call (see
-    _apply_proposed_test_case) -- this call's real pytest run is the first
-    one to actually exercise it, so it's checked here (see
-    _check_pending_test_case) and rolled back with feedback explaining why
-    if it broke pytest collection or crashed during execution; a value that
-    survives is never re-checked. The returned `pending_case` describes
-    whatever the analyzer proposes *this* call, for the next call to check
-    in turn.
-
-    If `model` is given, a second analyzer agent -- same model, its own
-    fresh context, no file-writing tools used -- reviews the candidate
-    source plus this iteration's (and the previous iteration's, if any)
-    feedback, and its analysis is appended to the feedback returned here for
-    the tree-generating agent's next prompt. The analyzer may also propose
-    widening the characterization test's coverage by one parametrize value
-    (see _apply_proposed_test_case); if accepted (or rejected, or rolled
-    back), that's noted in the feedback too."""
-    candidate = workspace / CANDIDATE_FILENAME
-    if not candidate.exists():
-        return False, f"{CANDIDATE_FILENAME} was not created in the workspace.", [], None, pending_case
-
-    def _evaluate():
-        return tav_eval.evaluate_tree_model(
-            node,
-            str(candidate),
-            src_override=src_override,
-            test_override=test_override,
-            include_extra_tests=include_extra_tests,
-            cache_dir=cache_dir,
-            quiet=True,
-            return_records=True,
-        )
-
-    try:
-        _, records = _evaluate()
-    except (SystemExit, Exception) as e:
-        # A malformed candidate (e.g. a bad patch leaving invalid Python
-        # behind) can raise from deep inside tav_eval/replace_function
-        # (SyntaxError, etc.) rather than the SystemExit it raises for
-        # expected CLI-style errors -- catch both so one bad iteration
-        # doesn't take down the whole run, and print the traceback (the
-        # tee in run_loop captures it into the log) for debugging.
-        print(f"tav_eval could not evaluate the candidate ({type(e).__name__}):\n{traceback.format_exc()}")
-        return (False, f"tav_eval could not evaluate the candidate ({type(e).__name__}): {e}",
-                [], None, pending_case)
-
-    rollback_note = None
-    if pending_case is not None:
-        records, rollback_note = _check_pending_test_case(pending_case, records)
-        pending_case = None  # resolved either way -- good or rolled back, don't recheck it
-        if rollback_note is not None and not records:
-            # collection failed outright -- the rollback just fixed the test
-            # file, but `records` is empty (nothing ran), so re-evaluate to
-            # get something real to score and report this iteration.
-            try:
-                _, records = _evaluate()
-            except (SystemExit, Exception) as e:
-                print(f"tav_eval could not re-evaluate after rollback ({type(e).__name__}):\n"
-                      f"{traceback.format_exc()}")
-                return (False, f"{rollback_note}\n\ntav_eval could not re-evaluate after rollback "
-                        f"({type(e).__name__}): {e}", [], None, None)
-
-    sc = tav_eval.score_records(records)
-    if sc["solved"]:
-        return True, "", records, sc, pending_case
-    feedback = (
-        f"score={round(sc['score'], 2)} (pass={sc['n_pass']} fail={sc['n_fail']} "
-        f"error={sc['n_error']} skip={sc['n_skip']})\n" + _format_feedback(node, records)
-    )
-    if rollback_note is not None:
-        feedback = f"{rollback_note}\n\n{feedback}"
-
-    if model is not None:
-        analysis_task = build_analysis_task(
-            node, candidate.read_text(), feedback, previous_feedback
-        )
-        if prompts_log_fh is not None:
-            _log_prompt(prompts_log_fh, iteration, "analyzer", analysis_task)
-        analysis = run_agent(analysis_task, model, workspace / "analysis", max_turns=max_turns)
-        feedback += f"\n\nAnalyzer feedback:\n{analysis}"
-
-        new_pending, note = _apply_proposed_test_case(node, src_override, test_override, analysis)
-        if new_pending is not None:
-            feedback += (
-                f"\n\n[orchestrator] Added new test case to the validator: "
-                f"{new_pending['param_name']}={new_pending['value_literal']} "
-                f"(added to {new_pending['test_nodeid']}). This will be exercised -- and checked "
-                "for validity -- starting next iteration."
-            )
-            pending_case = new_pending
-        elif note is not None:
-            feedback += f"\n\n{note}"
-
-    return False, feedback, records, sc, pending_case
-
-
-# ── main loop ────────────────────────────────────────────────────────────────
-def _baseline_path(node, src_override=None, test_override=None):
-    entry = tav_eval.resolve_node(node, src_override, test_override)
-    base = os.path.basename(entry["src"]).replace(".py", "_tree_model.py")
-    return os.path.join(_TAV_EVAL_DIR, "examples", base)
-
-
-def _default_log_path():
-    ts = datetime.datetime.now().strftime("%Y%m%d%H%M")
-    return os.path.join(OUTPUTS_DIR, f"tree-model-run-{ts}-output.log")
-
-
-def _prompts_log_path(log_path):
-    """Same run, sibling file: <name-without-.log>_prompts.log."""
-    return log_path.with_name(log_path.stem + "_prompts.log")
-
-
-PROMPT_LOG_SEP = "-" * 59
-
-
-def _log_prompt(fh, iteration, role, prompt):
-    """Record the exact prompt sent to an agent this iteration, so the run can
-    be audited without re-deriving prompts from the (possibly since-changed)
-    templates above."""
-    fh.write(f"{PROMPT_LOG_SEP}\n")
-    fh.write(f"iteration: {iteration}, {role} prompt: {prompt}\n")
-    fh.flush()
-
-
+# ── logging plumbing (kept from the original) ───────────────────────────────
 class _TeeStream:
-    """Mirrors writes to the original stream and to a timestamped log file,
-    so the log file captures everything printed during the loop -- our own
-    progress lines, run_agent's verbose tool-call/result trace, and tracebacks
-    -- without having to touch agent_stub's own print() calls."""
-
     def __init__(self, original, fh):
         self._original = original
         self._fh = fh
         self._buf = ""
+        self._lock = threading.Lock()
 
     def write(self, s):
-        self._original.write(s)
-        self._buf += s
-        while "\n" in self._buf:
-            line, self._buf = self._buf.split("\n", 1)
-            ts = datetime.datetime.now().strftime("%H:%M:%S")
-            self._fh.write(f"[{ts}] {line}\n")
-        self._fh.flush()
-        return len(s)
+        with self._lock:
+            self._original.write(s)
+            self._buf += s
+            while "\n" in self._buf:
+                line, self._buf = self._buf.split("\n", 1)
+                ts = datetime.datetime.now().strftime("%H:%M:%S")
+                self._fh.write(f"[{ts}] {line}\n")
+            self._fh.flush()
+            return len(s)
 
     def flush(self):
         self._original.flush()
@@ -792,12 +230,147 @@ class _TeeStream:
         return False
 
 
+def _default_log_path():
+    ts = datetime.datetime.now().strftime("%Y%m%d%H%M")
+    return os.path.join(OUTPUTS_DIR, f"tree-model-run-{ts}-output.log")
+
+
+# ── archive ────────────────────────────────────────────────────────────────
+class Archive:
+    """Thread-safe pool of every candidate tried, plus the best tree found for
+    each distinct subset of (case, port) pairs it gets exactly right -- the raw
+    material for recombination."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self.all = []  # (source, eval_result)
+        self.best_for_subset = {}  # frozenset((tag, port)) -> (n_matched, source)
+
+    def record(self, source, result):
+        with self._lock:
+            self.all.append((source, result))
+            matched = frozenset(
+                (c.tag, p.port)
+                for c in result.cases
+                for p in getattr(c, "ports", [])
+                if p.matched
+            )
+            if matched:
+                cur = self.best_for_subset.get(matched)
+                if cur is None or len(source) < len(cur[1]):
+                    self.best_for_subset[matched] = (len(matched), source)
+
+    def partials(self, k):
+        """Up to k diverse partial solutions (largest distinct matched-subsets)."""
+        with self._lock:
+            items = sorted(self.best_for_subset.items(), key=lambda kv: -len(kv[0]))
+            return [src for _subset, (_n, src) in items[:k]]
+
+
+def _record_callback(archive):
+    def cb(source, result):
+        archive.record(source, result)
+    return cb
+
+
+# ── one agent worker ────────────────────────────────────────────────────────
+def _make_budgeted_reader(budget):
+    """Wrap bash/run with a shared per-worker call budget. After ``budget``
+    source-reading calls, further bash/run return a nudge to iterate via
+    eval_tree_model instead -- this is the structural cure for the agent burning
+    its whole turn budget paging through RTL source instead of testing trees.
+    apply_patch and eval_tree_model are never budgeted."""
+    state = {"n": 0}
+
+    def bash_h(args, ws):
+        state["n"] += 1
+        if budget and state["n"] > budget:
+            return (f"[source-reading budget of {budget} calls is spent for this attempt. "
+                    "Stop reading source now and ITERATE on your tree with eval_tree_model -- "
+                    "the target vectors in the feedback are the ground truth, not the RTL.]")
+        return run_bash(args.get("command", ""), ws)
+
+    def run_h(args, ws):
+        state["n"] += 1
+        if budget and state["n"] > budget:
+            return (f"[source-reading budget of {budget} calls is spent. Iterate with "
+                    "eval_tree_model now instead of running more analysis scripts.]")
+        return run_program(args.get("path", ""), ws, args.get("args"))
+
+    return bash_h, run_h
+
+
+def _run_worker(worker_id, task, model_obj, workspace, max_turns, oracle, archive,
+                seed_messages, bash_budget=25):
+    """Run a single agent with the eval tool bound. Returns its message history
+    (for memory) and its last candidate source (if any)."""
+    ws = workspace / f"pop{worker_id}"
+    ws.mkdir(parents=True, exist_ok=True)
+    handler = make_eval_handler(oracle, on_result=_record_callback(archive))
+    bash_h, run_h = _make_budgeted_reader(bash_budget)
+    tool_handlers = {"eval_tree_model": handler, "bash": bash_h, "run": run_h}
+    extra_tools = [EVAL_TOOL_SCHEMA]
+
+    if seed_messages:
+        messages = [dict(m) for m in seed_messages] + [{"role": "user", "content": task}]
+    else:
+        messages = [
+            {"role": "system", "content": TAV_SYSTEM_PROMPT},
+            {"role": "user", "content": task},
+        ]
+    try:
+        _result, msgs = run_agent_with_history(
+            messages, model_obj, ws, max_turns=max_turns,
+            extra_tools=extra_tools, tool_handlers=tool_handlers,
+        )
+    except Exception:
+        print(f"[worker {worker_id}] crashed:\n{traceback.format_exc()}")
+        return messages, (ws / CANDIDATE_FILENAME).read_text() if (ws / CANDIDATE_FILENAME).exists() else None
+    cand = (ws / CANDIDATE_FILENAME).read_text() if (ws / CANDIDATE_FILENAME).exists() else None
+    return msgs, cand
+
+
+def _temperature_portfolio(base_model, n):
+    """Spread temperatures across the population for exploration diversity.
+
+    Reasoning models (gpt-5.x with reasoning_effort, or Responses-API models)
+    reject a non-default temperature, so we leave them untouched -- their
+    population diversity comes from independent stochastic samples instead.
+    """
+    if n == 1:
+        return [base_model]
+    if getattr(base_model, "reasoning_effort", None) or base_model.use_responses:
+        return [base_model] * n
+    lo, hi = 0.4, 1.1
+    return [replace(base_model, temperature=round(lo + (hi - lo) * i / (n - 1), 2))
+            for i in range(n)]
+
+
+# ── main loop ────────────────────────────────────────────────────────────────
+def _baseline_path(node, src_override=None, test_override=None):
+    entry = tav_eval.resolve_node(node, src_override, test_override)
+    base = os.path.basename(entry["src"]).replace(".py", "_tree_model.py")
+    return os.path.join(_TAV_EVAL_DIR, "examples", base)
+
+
 def run_loop(
     node,
     model=DEFAULT_MODEL,
     workspace=Path("workspace"),
-    max_iterations=3,
-    max_turns=30,
+    max_iterations=20,
+    max_turns=60,
+    parallel=4,
+    bash_budget=25,
+    oracle_mode="local",
+    curriculum=False,
+    memory=False,
+    analyzer=False,
+    recombine=0,
+    docker_confirm=True,
+    reasoning_effort=None,
+    feedback_cap=120,
+    feedback_budget=40000,
+    feedback_detail_cases=10,
     baseline=None,
     src_override=None,
     test_override=None,
@@ -810,124 +383,232 @@ def run_loop(
     log_path = Path(log_path) if log_path is not None else Path(_default_log_path())
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_fh = log_path.open("w", buffering=1)
-    prompts_fh = _prompts_log_path(log_path).open("w", buffering=1)
     orig_stdout, orig_stderr = sys.stdout, sys.stderr
     sys.stdout = _TeeStream(orig_stdout, log_fh)
     sys.stderr = _TeeStream(orig_stderr, log_fh)
     try:
+        base_model = get_model(model)
+        if reasoning_effort is not None:
+            base_model = replace(base_model, reasoning_effort=reasoning_effort or None)
+
         entry = tav_eval.resolve_node(node, src_override, test_override)
         src_path = entry["src"]
-
         baseline = baseline or _baseline_path(node, src_override, test_override)
         if not os.path.isfile(baseline):
             raise SystemExit(f"baseline candidate not found: {baseline}")
+        baseline_src = Path(baseline).read_text()
+
+        hls_ref, rtl_ref = _node_refs(node)
 
         run_id = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         safe_node = re.sub(r"[^A-Za-z0-9_.-]", "_", node)
         out_dir = Path(out_dir or os.path.join(
-            tav_eval._host_build_dir(), "tav_bespoke", f"{safe_node}-{run_id}"
-        ))
+            tav_eval._host_build_dir(), "tav_bespoke", f"{safe_node}-{run_id}"))
         cand_dir = out_dir / "candidates"
         cand_dir.mkdir(parents=True, exist_ok=True)
-
         workspace.mkdir(parents=True, exist_ok=True)
-        candidate_path = workspace / CANDIDATE_FILENAME
 
-        baseline_src = Path(baseline).read_text()
-        history = []
+        print(f"node={node} model={base_model.name} oracle={oracle_mode} parallel={parallel} "
+              f"curriculum={curriculum} memory={memory} max_iterations={max_iterations}")
+        print(f"out_dir={out_dir}")
 
-        print(f"node={node} model={model} max_iterations={max_iterations} out_dir={out_dir}")
-
-        # Baseline pass: run the node's existing tree model through the
-        # validator before any LLM involvement, send that result to the
-        # analyzer, and seed iteration 1's prompt with both -- so the first
-        # tree-builder prompt already carries real feedback (and the
-        # analyzer's read on it) instead of flying blind.
-        print(f"\n{'=' * 60}\nbaseline (node's existing tree model)\n{'=' * 60}")
-        candidate_path.write_text(baseline_src)
-        passed0, feedback0, records0, sc0, pending_case = check_output(
-            workspace, node,
-            src_override=src_override, test_override=test_override,
-            include_extra_tests=include_extra_tests, cache_dir=cache_dir,
-            model=model, previous_feedback=None, max_turns=max_turns,
-            iteration=0, prompts_log_fh=prompts_fh, pending_case=None,
+        oracle = Oracle(
+            node, mode=oracle_mode, src_override=src_override, test_override=test_override,
+            cache_dir=cache_dir, include_extra_tests=include_extra_tests,
+            target_display_cap=feedback_cap,
+            feedback_char_budget=feedback_budget,
+            max_detail_cases=feedback_detail_cases,
         )
-        if sc0 is not None:
-            print(f"\nbaseline: score={round(sc0['score'], 2)} (pass={sc0['n_pass']} fail={sc0['n_fail']} "
-                  f"error={sc0['n_error']})")
-            history.append({"iteration": 0, **sc0})
-            # seed with the baseline's real score (not inf) -- it can legitimately
-            # win against a worse LLM iteration; a passing baseline short-circuits
-            # below and never reaches this comparison anyway.
-            best = {"iteration": 0, "source": baseline_src, "score": sc0["score"]}
-        else:
-            history.append({"iteration": 0, "error": feedback0})
-            # tav_eval couldn't even evaluate the baseline -- no real score to
-            # seed with, so any successful later iteration should still win.
-            best = {"iteration": 0, "source": baseline_src, "score": float("inf")}
 
-        if passed0:
-            print("\nThe node's existing tree model already matches the rtlsim reference; nothing to do.")
-            best = {"iteration": 0, "source": baseline_src, "score": 0.0}
-        else:
-            print(f"\nbaseline feedback:\n{feedback0}")
-
-            previous, feedback = baseline_src, feedback0
-            for i in range(1, max_iterations + 1):
-                print(f"\n{'=' * 60}\niteration {i}\n{'=' * 60}")
-                task = build_task(node, src_path, baseline_src, previous=previous, feedback=feedback)
-                _log_prompt(prompts_fh, i, "tree-builder", task)
-                run_agent(task, model, workspace, max_turns=max_turns)
-
-                passed, feedback, records, sc, pending_case = check_output(
-                    workspace, node,
-                    src_override=src_override, test_override=test_override,
-                    include_extra_tests=include_extra_tests, cache_dir=cache_dir,
-                    model=model, previous_feedback=feedback, max_turns=max_turns,
-                    iteration=i, prompts_log_fh=prompts_fh, pending_case=pending_case,
+        # ── baseline docker run: populate reference vectors + node metadata ──
+        print(f"\n{'=' * 60}\nbaseline docker run (capturing reference TAVs)\n{'=' * 60}")
+        workspace_baseline = workspace / "baseline"
+        workspace_baseline.mkdir(parents=True, exist_ok=True)
+        (workspace_baseline / CANDIDATE_FILENAME).write_text(baseline_src)
+        d0 = oracle.evaluate_docker(str(workspace_baseline / CANDIDATE_FILENAME))
+        oracle.load_cases(d0["records"])
+        if not oracle.cases:
+            n_rec = len(d0["records"])
+            n_empty_ref = sum(
+                1 for r in d0["records"]
+                if not any(p.get("rtlsim_vector") for p in r.get("ports", []))
+            )
+            if n_rec and n_empty_ref == n_rec:
+                raise SystemExit(
+                    f"baseline ran {n_rec} case(s) but EVERY one has an empty rtlsim "
+                    "reference vector -- i.e. an rtlsim cache MISS (and no simulator to "
+                    "generate it). The cached references are test-specific: e.g. the "
+                    "committed cache is for the downsampler test, so run\n"
+                    "  --test tests/fpgadataflow/test_fpgadataflow_downsampler.py::"
+                    "test_fpgadataflow_analytical_characterization_downsampler\n"
+                    "or populate the cache for this node's test first (see tav_eval README)."
                 )
-                previous = candidate_path.read_text() if candidate_path.exists() else None
+            raise SystemExit(
+                "no reference cases captured from the baseline docker run -- "
+                "check the rtlsim cache (see tav_eval README) and that the plugin loaded."
+            )
+        print(f"captured {len(oracle.cases)} case(s); baseline docker score={round(d0['score'], 2)} "
+              f"solved={d0['solved']}")
 
-                if previous is not None:
-                    (cand_dir / f"iter_{i:03d}.py").write_text(previous)
-                if sc is not None:
-                    print(f"\niter {i}: score={round(sc['score'], 2)} (pass={sc['n_pass']} fail={sc['n_fail']} "
-                          f"error={sc['n_error']})")
-                    history.append({"iteration": i, **sc})
-                    if sc["score"] < best["score"] and previous is not None:
-                        best = {"iteration": i, "source": previous, "score": sc["score"]}
+        # ── prove the local oracle is faithful before trusting it ──
+        if oracle_mode != "docker":
+            ok, msg = oracle.selftest(baseline_src)
+            print(f"[oracle self-test] {msg}")
+            if not ok:
+                if docker_confirm:
+                    print("[oracle self-test] WARNING: local oracle diverges from FINN; "
+                          "docker confirmation will still gate 'solved', but local feedback may "
+                          "be unreliable. Consider --oracle docker for this node.")
                 else:
-                    history.append({"iteration": i, "error": feedback})
+                    raise SystemExit(
+                        "local oracle self-test failed and --no-docker-confirm is set; refusing "
+                        "to run with unverified feedback. Use --oracle docker.")
 
-                if passed:
-                    print(f"\nAll cases matched the rtlsim reference on iteration {i}.")
-                    break
-                print(f"\nfeedback:\n{feedback}")
+        if d0["solved"]:
+            print("\nBaseline already matches rtlsim exactly; nothing to do.")
+            best_path = out_dir / "best_get_tree_model.py"
+            best_path.write_text(baseline_src)
+            _finalize(out_dir, node, [{"iteration": 0, "solved": True}], 0, 0.0,
+                      src_path, entry, apply_best, best_path)
+            return best_path
+
+        # ── curriculum ordering ──
+        ordered = oracle.cases_by_volume()
+        if curriculum:
+            active = [ordered[0].tag]
+        else:
+            active = [c.tag for c in oracle.cases]
+        oracle.set_active_cases(active)
+
+        archive = Archive()
+        # seed the archive/best with the baseline (re-scored locally on the active set)
+        base_eval = oracle.evaluate_local(baseline_src) if oracle_mode != "docker" else oracle._eval_from_records(d0["records"])
+        archive.record(baseline_src, base_eval)
+        best = {"iteration": 0, "source": baseline_src, "score": base_eval.score}
+        best_feedback = oracle.format_feedback(base_eval)
+        best_messages = None  # memory lineage
+        history = [{"iteration": 0, "score": round(base_eval.score, 2), "n_active": len(active)}]
+
+        print(f"\nbaseline local score (active set)={round(base_eval.score, 2)}")
+        print(best_feedback)
+
+        for i in range(1, max_iterations + 1):
+            n_active = len(oracle._active())
+            print(f"\n{'=' * 60}\niteration {i}  (active cases: {n_active}/{len(oracle.cases)}, "
+                  f"best score {round(best['score'], 2)})\n{'=' * 60}")
+
+            curriculum_note = (
+                f"  [curriculum: solve these first; more will be added as you succeed]"
+                if curriculum and n_active < len(oracle.cases) else ""
+            )
+            extra = RETRY_BLOCK.format(
+                score=round(best["score"], 2), best=best["source"].strip(), feedback=best_feedback
+            )
+            if recombine:
+                partials = archive.partials(recombine)
+                if len(partials) >= 2:
+                    blocks = "\n".join(f"--- partial {j+1} ---\n```python\n{p.strip()}\n```"
+                                       for j, p in enumerate(partials))
+                    extra += RECOMBINE_BLOCK.format(partials=blocks)
+
+            task = TASK_TEMPLATE.format(
+                node=node, hls_ref=hls_ref, rtl_ref=rtl_ref, inputs_dir=INPUTS_DIR,
+                n_active=n_active, curriculum_note=curriculum_note,
+                baseline=baseline_src.strip(), extra=extra,
+            )
+
+            models = _temperature_portfolio(base_model, parallel)
+            seeds = [best_messages if (memory and w == 0) else None for w in range(parallel)]
+
+            if parallel == 1:
+                worker_results = [_run_worker(0, task, models[0], workspace, max_turns,
+                                              oracle, archive, seeds[0], bash_budget=bash_budget)]
             else:
-                print(f"\nStopped after {max_iterations} iterations.")
+                with ThreadPoolExecutor(max_workers=parallel) as ex:
+                    futs = [
+                        ex.submit(_run_worker, w, task, models[w], workspace, max_turns,
+                                  oracle, archive, seeds[w], bash_budget=bash_budget)
+                        for w in range(parallel)
+                    ]
+                    worker_results = [f.result() for f in futs]
+
+            # pick the global best over everything in the archive (re-scored on the
+            # current active set so the comparison is apples-to-apples)
+            # Pick the global best from the archive using each candidate's stored
+            # eval result (the one the agent actually saw -- escalation-aware, so
+            # helper-method candidates carry their faithful docker score rather
+            # than a local AttributeError). Re-deriving via evaluate_local here
+            # would re-error on those and they could never win. (Stored results
+            # are comparable because the active set is fixed within a run; with
+            # --curriculum a widened set is handled by re-confirming at solve.)
+            iter_best = None
+            for source, r in archive.all:
+                if iter_best is None or r.score < iter_best[0]:
+                    iter_best = (r.score, source, r)
+            iter_score, iter_source, iter_eval = iter_best
+
+            (cand_dir / f"iter_{i:03d}.py").write_text(iter_source)
+            if iter_score < best["score"]:
+                best = {"iteration": i, "source": iter_source, "score": iter_score}
+            best_feedback = oracle.format_feedback(iter_eval)
+            # carry forward the message history of worker 0 as the memory lineage
+            if memory:
+                best_messages = worker_results[0][0]
+            history.append({"iteration": i, "score": round(iter_score, 2), "n_active": n_active})
+            print(f"\niter {i}: best-in-archive score={round(iter_score, 2)} solved_active={iter_eval.solved}")
+            print(best_feedback)
+
+            # ── optional analyzer pass: structural advice for next round ──
+            if analyzer and not iter_eval.solved:
+                a_task = ANALYZER_TEMPLATE.format(
+                    node=node, inputs_dir=INPUTS_DIR, hls_ref=hls_ref, rtl_ref=rtl_ref,
+                    candidate=iter_source.strip(), feedback=best_feedback,
+                )
+                try:
+                    a_msgs = [{"role": "system", "content": TAV_SYSTEM_PROMPT},
+                              {"role": "user", "content": a_task}]
+                    advice, _ = run_agent_with_history(
+                        a_msgs, base_model, workspace / "analyzer", max_turns=max_turns,
+                    )
+                    best_feedback += f"\n\nAnalyzer advice:\n{advice}"
+                except Exception:
+                    print(f"[analyzer] crashed:\n{traceback.format_exc()}")
+
+            # ── solved on the active set? confirm + maybe widen curriculum ──
+            if iter_eval.solved:
+                if curriculum and n_active < len(oracle.cases):
+                    active = [c.tag for c in ordered[:n_active + 1]]
+                    oracle.set_active_cases(active)
+                    print(f"[curriculum] active set widened to {len(active)} case(s).")
+                    continue
+
+                # full set solved locally -> confirm in docker (source of truth)
+                if docker_confirm and oracle_mode != "docker":
+                    print("[confirm] candidate solves all cases locally; confirming in docker...")
+                    (workspace / CANDIDATE_FILENAME).write_text(best["source"])
+                    dconf = oracle.evaluate_docker(str(workspace / CANDIDATE_FILENAME))
+                    if dconf["solved"]:
+                        print(f"\nDOCKER CONFIRMED solved on iteration {i}.")
+                        history.append({"iteration": i, "docker_confirmed": True})
+                        break
+                    # local said solved, docker disagrees -> oracle drift; feed it back
+                    dfb = oracle.format_feedback(oracle._eval_from_records(dconf["records"]))
+                    print(f"[confirm] docker DISAGREES (local oracle drifted). docker score="
+                          f"{round(dconf['score'], 2)}. Feeding the real delta back.")
+                    best_feedback = (
+                        "NOTE: your tree matched the local oracle but the REAL docker validator "
+                        "still shows deltas below. Trust this docker feedback:\n" + dfb
+                    )
+                else:
+                    print(f"\nSolved on iteration {i} (oracle={oracle_mode}).")
+                    break
+        else:
+            print(f"\nStopped after {max_iterations} iterations.")
 
         best_path = out_dir / "best_get_tree_model.py"
         best_path.write_text(best["source"])
-        (out_dir / "history.json").write_text(json.dumps({"node": node, "best": best["iteration"],
-                                                            "best_score": best["score"],
-                                                            "history": history}, indent=1))
-
-        if not os.path.isabs(src_path):
-            src_path = os.path.join(tav_eval.FINN_ROOT, src_path)
-        tav_eval.restore_original(src_path)
-
-        test_file = entry["test"].partition("::")[0]
-        if not os.path.isabs(test_file):
-            test_file = os.path.join(tav_eval.FINN_ROOT, test_file)
-        if tav_eval.restore_original(test_file):
-            print(f"restored {test_file} (reverted any analyzer-proposed test cases)")
-
-        if apply_best:
-            tav_eval.replace_function(src_path, str(best_path))
-            print(f"applied best candidate (iteration {best['iteration']}) to {src_path}")
-
-        print(f"\nbest candidate: {best_path}")
-        print(f"history:        {out_dir / 'history.json'}")
+        _finalize(out_dir, node, history, best["iteration"], best["score"],
+                  src_path, entry, apply_best, best_path)
         return best_path
     except Exception:
         print(traceback.format_exc())
@@ -935,28 +616,69 @@ def run_loop(
     finally:
         sys.stdout, sys.stderr = orig_stdout, orig_stderr
         log_fh.close()
-        prompts_fh.close()
+
+
+def _finalize(out_dir, node, history, best_iter, best_score, src_path, entry, apply_best, best_path):
+    (out_dir / "history.json").write_text(json.dumps(
+        {"node": node, "best": best_iter, "best_score": best_score, "history": history}, indent=1))
+    if not os.path.isabs(src_path):
+        src_path = os.path.join(tav_eval.FINN_ROOT, src_path)
+    tav_eval.restore_original(src_path)
+    test_file = entry["test"].partition("::")[0]
+    if not os.path.isabs(test_file):
+        test_file = os.path.join(tav_eval.FINN_ROOT, test_file)
+    tav_eval.restore_original(test_file)
+    if apply_best:
+        tav_eval.replace_function(src_path, str(best_path))
+        print(f"applied best candidate (iteration {best_iter}) to {src_path}")
+    print(f"\nbest candidate: {best_path}")
+    print(f"history:        {out_dir / 'history.json'}")
 
 
 def main() -> None:
     load_dotenv()
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("node", help="FINN node name, e.g. ConvolutionInputGenerator (tav_eval.py --list)")
-    ap.add_argument("--model", default=DEFAULT_MODEL)
+    ap.add_argument("--model", default=DEFAULT_MODEL, help=f"default: {DEFAULT_MODEL}")
     ap.add_argument("--workspace", default="workspace")
-    ap.add_argument("--max-iterations", type=int, default=100)
-    ap.add_argument("--max-turns", type=int, default=30, help="agent tool-call turns per iteration")
+    ap.add_argument("--max-iterations", type=int, default=20)
+    ap.add_argument("--max-turns", type=int, default=60, help="agent tool-call turns per worker per iteration")
+    ap.add_argument("--parallel", type=int, default=4,
+                    help="population size: N agents per iteration at spread temperatures")
+    ap.add_argument("--bash-budget", type=int, default=25, metavar="N",
+                    help="max bash/run (source-reading) calls per worker per iteration before it "
+                         "is told to iterate via eval_tree_model instead; 0 = unlimited (default 25)")
+    ap.add_argument("--oracle", choices=["local", "docker", "both"], default="local",
+                    help="self-eval backend (local = fast, docker-confirmed; default: local)")
+    ap.add_argument("--curriculum", action="store_true",
+                    help="start on the smallest test case, widen one case at a time")
+    ap.add_argument("--memory", action="store_true",
+                    help="carry the best lineage's conversation across iterations")
+    ap.add_argument("--analyzer", action="store_true",
+                    help="run a second agent each round for structural advice")
+    ap.add_argument("--recombine", type=int, default=0, metavar="K",
+                    help="feed back up to K archived partial solutions to recombine")
+    ap.add_argument("--no-docker-confirm", dest="docker_confirm", action="store_false",
+                    help="declare solved on the local oracle without a docker confirmation (faster, unverified)")
+    ap.add_argument("--reasoning-effort", default=None, choices=["low", "medium", "high"],
+                    help="override the model's reasoning effort")
+    ap.add_argument("--feedback-cap", type=int, default=120, metavar="PAIRS",
+                    help="cap (in RLE run pairs) for every vector shown in detail "
+                         "(TARGET/YOURS/DELTA); the RLE front-loads the divergence onset (default 120)")
+    ap.add_argument("--feedback-budget", type=int, default=40000, metavar="CHARS",
+                    help="char budget for the detailed section of one feedback message; "
+                         "bounds prompt size for nodes with many/long cases (default 40000)")
+    ap.add_argument("--feedback-detail-cases", type=int, default=10, metavar="N",
+                    help="max number of failing cases shown in full detail per feedback "
+                         "(smallest-vector-first); the rest are summarized (default 10)")
     ap.add_argument("--baseline", help="seed get_tree_model.py (default: tav_eval's example for this node)")
     ap.add_argument("--src", help="override the node source file path")
     ap.add_argument("--test", help="override the pytest nodeid to run")
     ap.add_argument("--extra-tests", action="store_true", help="also run registry extra_tests")
     ap.add_argument("--cache-dir", help="rtlsim reference cache dir (default <repo>/cached_models)")
     ap.add_argument("--out", help="output directory (default under $FINN_HOST_BUILD_DIR/tav_bespoke)")
-    ap.add_argument("--apply-best", action="store_true",
-                     help="splice the best candidate into the node source at the end")
-    ap.add_argument("--log", default=None,
-                     help="log file to tail while the loop runs (default: "
-                          f"{OUTPUTS_DIR}/tree-model-run-<timestamp>-output.log)")
+    ap.add_argument("--apply-best", action="store_true", help="splice the best candidate into the node source at the end")
+    ap.add_argument("--log", default=None, help="log file (default under outputs/)")
     args = ap.parse_args()
 
     run_loop(
@@ -965,14 +687,26 @@ def main() -> None:
         workspace=Path(args.workspace).resolve(),
         max_iterations=args.max_iterations,
         max_turns=args.max_turns,
+        parallel=args.parallel,
+        bash_budget=args.bash_budget,
+        oracle_mode=args.oracle,
+        curriculum=args.curriculum,
+        memory=args.memory,
+        analyzer=args.analyzer,
+        recombine=args.recombine,
+        docker_confirm=args.docker_confirm,
+        reasoning_effort=args.reasoning_effort,
+        feedback_cap=args.feedback_cap,
+        feedback_budget=args.feedback_budget,
+        feedback_detail_cases=args.feedback_detail_cases,
         baseline=args.baseline,
         src_override=args.src,
         test_override=args.test,
         include_extra_tests=args.extra_tests,
-        log_path=args.log,
         cache_dir=args.cache_dir,
         apply_best=args.apply_best,
         out_dir=args.out,
+        log_path=args.log,
     )
 
 
