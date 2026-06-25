@@ -8,6 +8,11 @@ analytical token access vector (TAV) against the rtlsim reference. The
 per-case delta feedback drives the next prompt. Stops when every case matches
 the reference exactly, or after --max-iterations.
 
+check_output() also runs a second "analyzer" agent (same model, its own
+fresh context per iteration) that reviews the candidate and feedback and
+proposes structural fixes in plain text; its reply is appended to the
+feedback the tree-generating agent sees next.
+
 The TASK prompt below is a starting point -- tune it for whatever guidance
 gets the model to converge faster; the evaluation side (check_output) doesn't
 need to change when you do.
@@ -219,11 +224,74 @@ RETRY_SUFFIX = textwrap.dedent("""
     everywhere is the goal). Each port's full delta vector is run-length
     encoded as a lossless list of (run_length, value) pairs, e.g. (480,-1)
     means the next 480 cycles are each off by -1; (1,0),(20,-1) means one
-    matching cycle then 20 cycles off by -1:
+    matching cycle then 20 cycles off by -1. You are aiming for each port's
+    encoding to collapse to a single pair, (vector_length,0), meaning no
+    deltas anywhere:
     {feedback}
 
     Write an improved `{filename}` that reduces these deltas.
 """)
+
+# ── second agent: analysis only, no tree-writing ────────────────────────────
+# Reviews the candidate plus this and the previous iteration's feedback in
+# its own fresh context and proposes concrete structural fixes; its reply is
+# appended to the feedback the tree-generating agent sees next (see
+# check_output below), it never edits the candidate itself.
+ANALYSIS_TASK = textwrap.dedent("""\
+    You are an FPGA expert in Vitis HLS and SystemVerilog, reviewing a
+    candidate characteristic tree model for node {node}, used by
+    Characteristic_Node (src/finn/util/basic.py) to produce a token access
+    vector (TAV) of the node's input/output channel read/write activity,
+    compared against an rtl-simulated ground truth. HLS reference:
+    {hls_ref}. RTL reference: {rtl_ref}. The FINN repository is checked out
+    at {finn_root} -- you may read any file in it with the bash tool to
+    check these references.
+
+    You are NOT generating or editing the tree yourself -- a separate agent
+    does that. Your only job is to analyze the candidate below against its
+    evaluation feedback and write concrete, actionable suggestions for how
+    the tree's structure should change (e.g. a missing state, a wrong
+    repeat count, a misjudged read/write overlap, a phase that should be
+    fused or split) to close the remaining gaps. Reply with your analysis
+    as plain text -- do not use apply_patch or write any files.
+
+    Candidate `{filename}` under test:
+    ```python
+    {candidate}
+    ```
+
+    Evaluation feedback (delta = analytical - rtlsim per cycle). Each
+    port's full delta vector is run-length encoded as a lossless list of
+    (run_length, value) pairs, e.g. (480,-1) means the next 480 cycles are
+    each off by -1; (1,0),(20,-1) means one matching cycle then 20 cycles
+    off by -1. You are aiming for each port's encoding to collapse to a
+    single pair, (vector_length,0), meaning no deltas anywhere:
+    {feedback}
+    {previous_block}""")
+
+PREVIOUS_FEEDBACK_BLOCK = textwrap.dedent("""
+    For comparison, here is the previous iteration's evaluation feedback
+    (one step back only -- not the full history):
+    {previous_feedback}
+""")
+
+
+def build_analysis_task(node, candidate_source, feedback, previous_feedback=None):
+    hls_ref, rtl_ref = _node_refs(node, None)
+    previous_block = (
+        PREVIOUS_FEEDBACK_BLOCK.format(previous_feedback=previous_feedback)
+        if previous_feedback else ""
+    )
+    return ANALYSIS_TASK.format(
+        node=node,
+        hls_ref=hls_ref,
+        rtl_ref=rtl_ref,
+        finn_root=tav_eval.FINN_ROOT,
+        filename=CANDIDATE_FILENAME,
+        candidate=candidate_source.strip(),
+        feedback=feedback,
+        previous_block=previous_block,
+    )
 
 
 def build_task(node, src_path, baseline, previous=None, feedback=None):
@@ -336,12 +404,21 @@ def check_output(
     test_override=None,
     include_extra_tests=False,
     cache_dir=None,
+    model=None,
+    previous_feedback=None,
+    max_turns=30,
 ):
     """Return (passed, feedback_for_next_prompt, records, score).
 
     Splices workspace/get_tree_model.py into the node's source and runs its
     characterization pytest via tav_eval; this is the evaluator swapped into
-    Bespoke's generate -> evaluate -> reprompt loop."""
+    Bespoke's generate -> evaluate -> reprompt loop.
+
+    If `model` is given, a second analyzer agent -- same model, its own
+    fresh context, no file-writing tools used -- reviews the candidate
+    source plus this iteration's (and the previous iteration's, if any)
+    feedback, and its analysis is appended to the feedback returned here for
+    the tree-generating agent's next prompt."""
     candidate = workspace / CANDIDATE_FILENAME
     if not candidate.exists():
         return False, f"{CANDIDATE_FILENAME} was not created in the workspace.", [], None
@@ -374,6 +451,14 @@ def check_output(
         f"score={round(sc['score'], 2)} (pass={sc['n_pass']} fail={sc['n_fail']} "
         f"error={sc['n_error']} skip={sc['n_skip']})\n" + _format_feedback(node, records)
     )
+
+    if model is not None:
+        analysis_task = build_analysis_task(
+            node, candidate.read_text(), feedback, previous_feedback
+        )
+        analysis = run_agent(analysis_task, model, workspace / "analysis", max_turns=max_turns)
+        feedback += f"\n\nAnalyzer feedback:\n{analysis}"
+
     return False, feedback, records, sc
 
 
@@ -472,6 +557,7 @@ def run_loop(
                 workspace, node,
                 src_override=src_override, test_override=test_override,
                 include_extra_tests=include_extra_tests, cache_dir=cache_dir,
+                model=model, previous_feedback=feedback, max_turns=max_turns,
             )
             previous = candidate_path.read_text() if candidate_path.exists() else None
 
