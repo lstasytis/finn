@@ -219,27 +219,39 @@ def restore_original(src_path):
 # ---------------------------------------------------------------------------
 PROTECTED_PARAMETRIZE_NAMES = {"mode", "impl_style"}
 
+# crude, dimension-agnostic ceiling on a proposed value's rtlsim cost (see
+# _estimate_value_volume) -- keeps a single bad proposal from triggering a
+# rtlsim run of unbounded length. Communicated to the analyzer agent in its
+# prompt; enforced here too as defense-in-depth.
+MAX_PROPOSED_TEST_CASE_VOLUME = 4096
 
-def add_parametrize_value(test_path, func_name, param_name, new_value_literal):
-    """Append one new value to the existing
-    ``@pytest.mark.parametrize(param_name, [...])`` decorator on ``func_name``
-    in ``test_path``, leaving everything else in the file untouched. Keeps a
-    one-time ``.tav_orig`` backup -- shared with replace_function, so a plain
-    ``restore_original(test_path)`` undoes this too.
 
-    ``new_value_literal`` is a string of Python source for a single value,
-    e.g. ``"[12, 8]"`` or ``"3"``; it is parsed with ``ast.literal_eval``, so
-    only literals (no names/calls) are accepted. Raises SystemExit on any
-    invalid request (protected parameter, no such parametrize, malformed or
-    duplicate value) rather than silently doing nothing, so callers can
-    decide how to report the rejection."""
-    if param_name in PROTECTED_PARAMETRIZE_NAMES:
-        raise SystemExit(
-            f"refusing to edit protected parametrize '{param_name}' "
-            f"(protected: {', '.join(sorted(PROTECTED_PARAMETRIZE_NAMES))})"
-        )
+def _estimate_value_volume(value):
+    """A crude, dimension-agnostic proxy for how many rtlsim cycles a
+    parametrize value will cost: the product of the magnitudes of any
+    int(s) it contains (e.g. idim=[20, 20] -> 400, simd=8 -> 8). Returns
+    None for values with no numeric content to estimate from (e.g. a
+    string), in which case the volume cap is not applied."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return abs(value)
+    if isinstance(value, (list, tuple)):
+        nums = [abs(v) for v in value if isinstance(v, int) and not isinstance(v, bool)]
+        if not nums:
+            return None
+        volume = 1
+        for n in nums:
+            volume *= max(n, 1)
+        return volume
+    return None
 
-    src = open(test_path).read()
+
+def _locate_parametrize(src, test_path, func_name, param_name):
+    """Find the @pytest.mark.parametrize(param_name, [...]) decorator's
+    value-list node on func_name in src (already-read text of test_path).
+    Raises SystemExit if func_name, the decorator, or a literal-list values
+    arg isn't found -- shared lookup for add/remove_parametrize_value."""
     tree = ast.parse(src)
     func_node = next(
         (n for n in ast.walk(tree)
@@ -267,6 +279,33 @@ def add_parametrize_value(test_path, func_name, param_name, new_value_literal):
         raise SystemExit(
             f"parametrize({param_name!r}, ...) values are not a literal list; cannot edit safely"
         )
+    return values
+
+
+def add_parametrize_value(test_path, func_name, param_name, new_value_literal):
+    """Append one new value to the existing
+    ``@pytest.mark.parametrize(param_name, [...])`` decorator on ``func_name``
+    in ``test_path``, leaving everything else in the file untouched. Keeps a
+    one-time ``.tav_orig`` backup -- shared with replace_function, so a plain
+    ``restore_original(test_path)`` undoes this too. For undoing just this one
+    addition (e.g. it turns out to break or crash pytest) without discarding
+    other accepted additions, use ``remove_parametrize_value`` instead.
+
+    ``new_value_literal`` is a string of Python source for a single value,
+    e.g. ``"[12, 8]"`` or ``"3"``; it is parsed with ``ast.literal_eval``, so
+    only literals (no names/calls) are accepted. Raises SystemExit on any
+    invalid request (protected parameter, no such parametrize, malformed,
+    duplicate, or oversized value -- see MAX_PROPOSED_TEST_CASE_VOLUME)
+    rather than silently doing nothing, so callers can decide how to report
+    the rejection."""
+    if param_name in PROTECTED_PARAMETRIZE_NAMES:
+        raise SystemExit(
+            f"refusing to edit protected parametrize '{param_name}' "
+            f"(protected: {', '.join(sorted(PROTECTED_PARAMETRIZE_NAMES))})"
+        )
+
+    src = open(test_path).read()
+    values = _locate_parametrize(src, test_path, func_name, param_name)
 
     try:
         new_value = ast.literal_eval(new_value_literal)
@@ -276,6 +315,15 @@ def add_parametrize_value(test_path, func_name, param_name, new_value_literal):
     existing = [ast.literal_eval(e) for e in values.elts]
     if new_value in existing:
         raise SystemExit(f"{param_name}={new_value!r} is already a parametrize value in {test_path}")
+
+    volume = _estimate_value_volume(new_value)
+    if volume is not None and volume > MAX_PROPOSED_TEST_CASE_VOLUME:
+        raise SystemExit(
+            f"{param_name}={new_value!r} has an estimated rtlsim volume of ~{volume} "
+            f"(proxy: product of its magnitudes), over the cap of "
+            f"{MAX_PROPOSED_TEST_CASE_VOLUME} (meant to keep any single rtlsim run to "
+            "at most a few thousand cycles) -- propose a smaller value"
+        )
 
     lines = src.splitlines(keepends=True)
     end_line, end_col = values.end_lineno, values.end_col_offset
@@ -291,6 +339,58 @@ def add_parametrize_value(test_path, func_name, param_name, new_value_literal):
     with open(test_path, "w") as f:
         f.write(new_src)
     return backup
+
+
+def remove_parametrize_value(test_path, func_name, param_name, value_literal):
+    """Inverse of add_parametrize_value: remove exactly one value previously
+    added to an ``@pytest.mark.parametrize(param_name, [...])`` list on
+    ``func_name`` in ``test_path``, via precise AST-span text surgery --
+    leaves everything else in the file (including any earlier-accepted
+    additions to other parameters, and the ``.tav_orig`` backup of the true
+    pristine file) untouched.
+
+    This is how the harness rolls back a single proposed test case that
+    turned out to break pytest collection or crash during execution, without
+    discarding every other accepted addition along with it -- a plain
+    ``restore_original`` would undo all of them at once. Raises SystemExit if
+    the value isn't currently present, or it's the last remaining value for
+    that parameter."""
+    src = open(test_path).read()
+    values = _locate_parametrize(src, test_path, func_name, param_name)
+
+    target = ast.literal_eval(value_literal)
+    elt = next((e for e in values.elts if ast.literal_eval(e) == target), None)
+    if elt is None:
+        raise SystemExit(f"{param_name}={target!r} is not a current parametrize value in {test_path}")
+    if len(values.elts) == 1:
+        raise SystemExit(
+            f"refusing to remove the only remaining value of parametrize({param_name!r}, ...)"
+        )
+
+    idx = values.elts.index(elt)
+    lines = src.splitlines(keepends=True)
+
+    if idx == len(values.elts) - 1:
+        prev = values.elts[idx - 1]
+        start_line, start_col = prev.end_lineno - 1, prev.end_col_offset
+        end_line, end_col = elt.end_lineno - 1, elt.end_col_offset
+    else:
+        nxt = values.elts[idx + 1]
+        start_line, start_col = elt.lineno - 1, elt.col_offset
+        end_line, end_col = nxt.lineno - 1, nxt.col_offset
+
+    if start_line == end_line:
+        line = lines[start_line]
+        lines[start_line] = line[:start_col] + line[end_col:]
+    else:
+        head = lines[start_line][:start_col]
+        tail = lines[end_line][end_col:]
+        lines[start_line : end_line + 1] = [head + tail]
+
+    new_src = "".join(lines)
+    ast.parse(new_src)  # validate before writing
+    with open(test_path, "w") as f:
+        f.write(new_src)
 
 
 # ---------------------------------------------------------------------------
@@ -594,14 +694,17 @@ def score_records(records):
         denom = max(case.get("len_rtlsim", 0), 1)
         total_abs_delta = sum(abs(x) for x in case.get("delta_vector", []))
         score += (total_abs_delta + abs(case.get("len_delta", 0))) / denom * 100
+    n_total = n_pass + n_fail + n_skip + n_error
     return {
         "score": score,
         "n_pass": n_pass,
         "n_fail": n_fail,
         "n_skip": n_skip,
         "n_error": n_error,
-        "n_total": n_pass + n_fail + n_skip + n_error,
-        "solved": n_fail == 0 and n_error == 0 and score == 0,
+        "n_total": n_total,
+        # n_total > 0 guard: zero records (e.g. a pytest collection failure)
+        # must never read as solved -- there's nothing to confirm.
+        "solved": n_total > 0 and n_fail == 0 and n_error == 0 and score == 0,
     }
 
 

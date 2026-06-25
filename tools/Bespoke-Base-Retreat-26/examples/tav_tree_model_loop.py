@@ -26,6 +26,7 @@ Run:
 from __future__ import annotations
 
 import argparse
+import ast
 import datetime
 import json
 import os
@@ -339,6 +340,15 @@ ANALYSIS_TASK = textwrap.dedent("""\
     most replies should have none at all. Only propose one when you have a
     specific, stated hypothesis the current cases can't distinguish.
 
+    Keep proposed values small: each is a real rtlsim run, and must stay
+    within roughly a few thousand cycles. As a rule of thumb, the product
+    of the magnitudes in the value (e.g. idim=[H, W] is about H*W; simd=N
+    is about N) should stay well under a few thousand -- e.g. idim=[20, 20]
+    (~400) is fine, idim=[200, 200] (~40000) is not. An oversized proposal
+    is rejected outright. If a proposal you made is reported back to you as
+    rejected or rolled back, do not repeat the same value -- propose a
+    smaller one or drop the idea.
+
     Candidate `{filename}` under test:
     ```python
     {candidate}
@@ -493,12 +503,20 @@ def _apply_proposed_test_case(node, src_override, test_override, analysis):
     that one value to the node's characterization test via
     tav_eval.add_parametrize_value -- the analyzer never edits the test file
     itself (it has no file-writing tools); this is the harness doing it on
-    its behalf, capped at one new value per analyzer call. Returns a
-    description string if a value was added, else None (no proposal, or a
-    rejected one, is not an error)."""
+    its behalf, capped at one new value per analyzer call.
+
+    Returns (pending_case, note):
+    - pending_case is a dict describing the addition (for check_output to
+      validate against the next real pytest run -- see
+      _check_pending_test_case) if one was applied, else None.
+    - note is a human-readable explanation to fold into the feedback when
+      the proposal was rejected up front (protected param, duplicate,
+      oversized value, etc. -- see add_parametrize_value), else None. A
+      proposal that gets applied here but later turns out to break pytest
+      is instead reported by _check_pending_test_case next iteration."""
     matches = _PROPOSE_TEST_CASE_RE.findall(analysis)
     if not matches:
-        return None
+        return None, None
     if len(matches) > 1:
         print(f"[orchestrator] analyzer proposed {len(matches)} new test cases; "
               "only the first is honored this iteration.")
@@ -512,11 +530,86 @@ def _apply_proposed_test_case(node, src_override, test_override, analysis):
     try:
         tav_eval.add_parametrize_value(test_file, func_name, param_name, value_literal)
     except SystemExit as e:
-        print(f"[orchestrator] rejected proposed test case {param_name}={value_literal}: {e}")
-        return None
-    desc = f"{param_name}={value_literal} (added to {entry['test']})"
-    print(f"[orchestrator] added new test case: {desc}")
-    return desc
+        note = (
+            f"[orchestrator] Rejected proposed test case {param_name}={value_literal}: {e}. "
+            "Propose a different value (or none) next time."
+        )
+        print(note)
+        return None, note
+
+    value_repr = repr(ast.literal_eval(value_literal))
+    print(f"[orchestrator] added new test case: {param_name}={value_literal} (added to {entry['test']})")
+    pending_case = {
+        "test_file": test_file,
+        "func_name": func_name,
+        "test_nodeid": entry["test"],
+        "param_name": param_name,
+        "value_literal": value_literal,
+        "value_repr": value_repr,
+    }
+    return pending_case, None
+
+
+def _check_pending_test_case(pending_case, records):
+    """Validate a test case added on the *previous* call's analyzer turn now
+    that a real pytest run (the one that just produced ``records``) has
+    actually exercised it -- this is the rollback half of the safety net:
+    a value that's syntactically a valid literal can still make pytest fail
+    at collection (e.g. a shape pytest's own setup can't handle) or crash a
+    specific case at execution time (an ERROR record, not a TAV mismatch).
+    Either way it gets rolled back via tav_eval.remove_parametrize_value --
+    precise enough to undo just this one addition, not any earlier-accepted
+    ones -- and is never proposed again automatically.
+
+    Returns (records, note):
+    - records is unchanged if the case is fine, or has any record(s) for the
+      rolled-back value filtered out otherwise (an empty ``records`` --
+      collection failed outright -- is returned as-is; the caller must
+      re-run evaluate_tree_model to get something to score/report on).
+    - note is None if the case is fine, else a human-readable explanation of
+      the rollback for the next prompt's feedback."""
+    if pending_case is None:
+        return records, None
+
+    pname, vrepr = pending_case["param_name"], pending_case["value_repr"]
+    collection_failed = not records
+    matches = [r for r in records if r.get("params", {}).get(pname) == vrepr]
+    errored = any(tav_eval._verdict_tag(r) == "ERROR" for r in matches)
+    # the plugin only writes a record for a test item that reached its "call"
+    # phase (see _tav_eval_plugin.py) -- a crash during pytest's own *setup*
+    # phase (e.g. a fixture choking on the new value) leaves no record for
+    # this value at all, silently, even though sibling records exist for
+    # everything else. Treat that as a failure too rather than missing it.
+    no_evidence = not matches and bool(records)
+
+    if not (collection_failed or errored or no_evidence):
+        return records, None  # the value survived a real run -- keep it
+
+    try:
+        tav_eval.remove_parametrize_value(
+            pending_case["test_file"], pending_case["func_name"], pname, pending_case["value_literal"]
+        )
+    except SystemExit as e:
+        # shouldn't normally happen (we just added it last iteration), but
+        # don't let a rollback failure crash the loop
+        print(f"[orchestrator] WARNING: could not roll back {pname}={vrepr}: {e}")
+        return records, None
+
+    if collection_failed:
+        reason = "broke pytest collection entirely (treated as an invalid/malformed value)"
+    elif errored:
+        reason = "crashed during execution (an error, not a TAV mismatch)"
+    else:
+        reason = "produced no result at all (likely crashed during pytest setup, before any comparison ran)"
+    note = (
+        f"[orchestrator] The test case you proposed last iteration, "
+        f"{pname}={pending_case['value_literal']}, {reason} and has been rolled back out of "
+        f"{pending_case['test_nodeid']}. Do not propose this exact value again."
+    )
+    print(note)
+    if collection_failed:
+        return records, note  # caller must re-evaluate; nothing to filter
+    return [r for r in records if r not in matches], note
 
 
 def check_output(
@@ -532,12 +625,23 @@ def check_output(
     max_turns=30,
     iteration=None,
     prompts_log_fh=None,
+    pending_case=None,
 ):
-    """Return (passed, feedback_for_next_prompt, records, score).
+    """Return (passed, feedback_for_next_prompt, records, score, pending_case).
 
     Splices workspace/get_tree_model.py into the node's source and runs its
     characterization pytest via tav_eval; this is the evaluator swapped into
     Bespoke's generate -> evaluate -> reprompt loop.
+
+    `pending_case`, if given, describes a parametrize value the analyzer got
+    added to the test file on the *previous* call (see
+    _apply_proposed_test_case) -- this call's real pytest run is the first
+    one to actually exercise it, so it's checked here (see
+    _check_pending_test_case) and rolled back with feedback explaining why
+    if it broke pytest collection or crashed during execution; a value that
+    survives is never re-checked. The returned `pending_case` describes
+    whatever the analyzer proposes *this* call, for the next call to check
+    in turn.
 
     If `model` is given, a second analyzer agent -- same model, its own
     fresh context, no file-writing tools used -- reviews the candidate
@@ -545,14 +649,14 @@ def check_output(
     feedback, and its analysis is appended to the feedback returned here for
     the tree-generating agent's next prompt. The analyzer may also propose
     widening the characterization test's coverage by one parametrize value
-    (see _apply_proposed_test_case); if accepted, that's noted in the
-    feedback too."""
+    (see _apply_proposed_test_case); if accepted (or rejected, or rolled
+    back), that's noted in the feedback too."""
     candidate = workspace / CANDIDATE_FILENAME
     if not candidate.exists():
-        return False, f"{CANDIDATE_FILENAME} was not created in the workspace.", [], None
+        return False, f"{CANDIDATE_FILENAME} was not created in the workspace.", [], None, pending_case
 
-    try:
-        _, records = tav_eval.evaluate_tree_model(
+    def _evaluate():
+        return tav_eval.evaluate_tree_model(
             node,
             str(candidate),
             src_override=src_override,
@@ -562,6 +666,9 @@ def check_output(
             quiet=True,
             return_records=True,
         )
+
+    try:
+        _, records = _evaluate()
     except (SystemExit, Exception) as e:
         # A malformed candidate (e.g. a bad patch leaving invalid Python
         # behind) can raise from deep inside tav_eval/replace_function
@@ -570,15 +677,34 @@ def check_output(
         # doesn't take down the whole run, and print the traceback (the
         # tee in run_loop captures it into the log) for debugging.
         print(f"tav_eval could not evaluate the candidate ({type(e).__name__}):\n{traceback.format_exc()}")
-        return False, f"tav_eval could not evaluate the candidate ({type(e).__name__}): {e}", [], None
+        return (False, f"tav_eval could not evaluate the candidate ({type(e).__name__}): {e}",
+                [], None, pending_case)
+
+    rollback_note = None
+    if pending_case is not None:
+        records, rollback_note = _check_pending_test_case(pending_case, records)
+        pending_case = None  # resolved either way -- good or rolled back, don't recheck it
+        if rollback_note is not None and not records:
+            # collection failed outright -- the rollback just fixed the test
+            # file, but `records` is empty (nothing ran), so re-evaluate to
+            # get something real to score and report this iteration.
+            try:
+                _, records = _evaluate()
+            except (SystemExit, Exception) as e:
+                print(f"tav_eval could not re-evaluate after rollback ({type(e).__name__}):\n"
+                      f"{traceback.format_exc()}")
+                return (False, f"{rollback_note}\n\ntav_eval could not re-evaluate after rollback "
+                        f"({type(e).__name__}): {e}", [], None, None)
 
     sc = tav_eval.score_records(records)
     if sc["solved"]:
-        return True, "", records, sc
+        return True, "", records, sc, pending_case
     feedback = (
         f"score={round(sc['score'], 2)} (pass={sc['n_pass']} fail={sc['n_fail']} "
         f"error={sc['n_error']} skip={sc['n_skip']})\n" + _format_feedback(node, records)
     )
+    if rollback_note is not None:
+        feedback = f"{rollback_note}\n\n{feedback}"
 
     if model is not None:
         analysis_task = build_analysis_task(
@@ -589,14 +715,19 @@ def check_output(
         analysis = run_agent(analysis_task, model, workspace / "analysis", max_turns=max_turns)
         feedback += f"\n\nAnalyzer feedback:\n{analysis}"
 
-        new_case = _apply_proposed_test_case(node, src_override, test_override, analysis)
-        if new_case:
+        new_pending, note = _apply_proposed_test_case(node, src_override, test_override, analysis)
+        if new_pending is not None:
             feedback += (
-                f"\n\n[orchestrator] Added new test case to the validator: {new_case}. "
-                "This will be exercised starting next iteration."
+                f"\n\n[orchestrator] Added new test case to the validator: "
+                f"{new_pending['param_name']}={new_pending['value_literal']} "
+                f"(added to {new_pending['test_nodeid']}). This will be exercised -- and checked "
+                "for validity -- starting next iteration."
             )
+            pending_case = new_pending
+        elif note is not None:
+            feedback += f"\n\n{note}"
 
-    return False, feedback, records, sc
+    return False, feedback, records, sc, pending_case
 
 
 # ── main loop ────────────────────────────────────────────────────────────────
@@ -710,12 +841,12 @@ def run_loop(
         # analyzer's read on it) instead of flying blind.
         print(f"\n{'=' * 60}\nbaseline (node's existing tree model)\n{'=' * 60}")
         candidate_path.write_text(baseline_src)
-        passed0, feedback0, records0, sc0 = check_output(
+        passed0, feedback0, records0, sc0, pending_case = check_output(
             workspace, node,
             src_override=src_override, test_override=test_override,
             include_extra_tests=include_extra_tests, cache_dir=cache_dir,
             model=model, previous_feedback=None, max_turns=max_turns,
-            iteration=0, prompts_log_fh=prompts_fh,
+            iteration=0, prompts_log_fh=prompts_fh, pending_case=None,
         )
         if sc0 is not None:
             print(f"\nbaseline: score={round(sc0['score'], 2)} (pass={sc0['n_pass']} fail={sc0['n_fail']} "
@@ -744,12 +875,12 @@ def run_loop(
                 _log_prompt(prompts_fh, i, "tree-builder", task)
                 run_agent(task, model, workspace, max_turns=max_turns)
 
-                passed, feedback, records, sc = check_output(
+                passed, feedback, records, sc, pending_case = check_output(
                     workspace, node,
                     src_override=src_override, test_override=test_override,
                     include_extra_tests=include_extra_tests, cache_dir=cache_dir,
                     model=model, previous_feedback=feedback, max_turns=max_turns,
-                    iteration=i, prompts_log_fh=prompts_fh,
+                    iteration=i, prompts_log_fh=prompts_fh, pending_case=pending_case,
                 )
                 previous = candidate_path.read_text() if candidate_path.exists() else None
 
