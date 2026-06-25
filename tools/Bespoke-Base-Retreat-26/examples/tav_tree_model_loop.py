@@ -189,15 +189,15 @@ TASK_HEADER = textwrap.dedent("""\
 
     DO NOT ATTEMPT TO SIMULATE THE NODES YOURSELF. Your task is to build the tree models,
     not guess at the RTL/HLS behavior, that you get from the validation using a pytest.
-    The FINN repository is checked out at {finn_root} -- you may read any
-    file in it with the bash tool; only writes are confined to your
-    workspace. Cleaned copies of the hls/rtl reference sources above and
-    {src_path} (license/copyright headers stripped, nothing else changed)
-    are available under {inputs_dir}, mirroring the same relative paths,
-    e.g. {inputs_dir}/deps/finn-hlslib/streamtools.h -- prefer reading
-    those over the live repo copies to skip the boilerplate; for anything
-    else (e.g. other nodes' trees in src/finn/custom_op) read directly
-    from {finn_root}.
+    All source code you need for this task -- the hls/rtl reference sources
+    above and {src_path} itself (license/copyright headers stripped,
+    nothing else changed) -- must be read from {inputs_dir}, mirroring the
+    same relative paths, e.g. {inputs_dir}/deps/finn-hlslib/streamtools.h.
+    Do not read those same files from the live FINN repository checked out
+    at {finn_root}; only go to {finn_root} for things with no cleaned copy
+    under {inputs_dir} (e.g. other nodes' trees in src/finn/custom_op, or
+    an unlisted node's backend source). Only writes are confined to your
+    workspace.
 
     Write your tree model as a file named `{filename}` in the workspace,
     containing exactly one top-level function:
@@ -264,13 +264,15 @@ ANALYSIS_TASK = textwrap.dedent("""\
     Characteristic_Node (src/finn/util/basic.py) to produce a token access
     vector (TAV) of the node's input/output channel read/write activity,
     compared against an rtl-simulated ground truth. HLS reference:
-    {hls_ref}. RTL reference: {rtl_ref}. The FINN repository is checked out
-    at {finn_root} -- you may only read the node's behavior and the Characteristic_Node traversal functions as well as the pytet of the node in the repo and the inputs folder with the bash tool to
-    check these references. Cleaned copies of the hls/rtl reference
-    sources (license/copyright headers stripped, nothing else changed)
-    are available under {inputs_dir}, mirroring the same relative paths,
-    e.g. {inputs_dir}/deps/finn-hlslib/streamtools.h -- prefer those over
-    the live repo copies to skip the boilerplate.
+    {hls_ref}. RTL reference: {rtl_ref}. All source code you need for
+    these references -- the hls/rtl reference sources (license/copyright
+    headers stripped, nothing else changed) -- must be read from
+    {inputs_dir}, mirroring the same relative paths, e.g.
+    {inputs_dir}/deps/finn-hlslib/streamtools.h. Do not read those same
+    files from the live FINN repository checked out at {finn_root}; only
+    use the bash tool against {finn_root} for things with no cleaned copy
+    under {inputs_dir}, such as the node's pytest file or
+    Characteristic_Node's own implementation in src/finn/util/basic.py.
 
     You are NOT generating or editing the tree yourself -- a separate agent
     does that. Your only job is to analyze the candidate below against its
