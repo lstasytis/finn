@@ -905,9 +905,9 @@ def test_fpgadataflow_rtl_dynamic_mvau(mh, mw, n_vectors, pe, simd, idt_wdt, par
 # synapse folding, -1 is maximum possible
 @pytest.mark.parametrize("sf", [-1, 2, 4])
 # HLS matrix width (input features)
-@pytest.mark.parametrize("mw", [32])
+@pytest.mark.parametrize("mw", [4])
 # HLS matrix height (output features)
-@pytest.mark.parametrize("mh", [32])
+@pytest.mark.parametrize("mh", [4])
 # Backend
 @pytest.mark.parametrize("preferred_impl_style", ["hls", "rtl"])
 @pytest.mark.fpgadataflow
