@@ -49,6 +49,10 @@ if _TAV_EVAL_DIR not in sys.path:
     sys.path.insert(0, _TAV_EVAL_DIR)
 import tav_eval  # noqa: E402
 
+_PACKAGE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUTPUTS_DIR = os.path.join(_PACKAGE_DIR, "outputs")
+INPUTS_DIR = os.path.join(_PACKAGE_DIR, "inputs")
+
 CANDIDATE_FILENAME = "get_tree_model.py"
 
 # ── per-node HLS/RTL reference pointers ─────────────────────────────────────
@@ -175,8 +179,14 @@ TASK_HEADER = textwrap.dedent("""\
 
 
     The FINN repository is checked out at {finn_root} -- you may read any
-    file in it (including the hls/rtl sources above and {src_path} itself)
-    with the bash tool; only writes are confined to your workspace.
+    file in it with the bash tool; only writes are confined to your
+    workspace. Cleaned copies of the hls/rtl reference sources above and
+    {src_path} (license/copyright headers stripped, nothing else changed)
+    are available under {inputs_dir}, mirroring the same relative paths,
+    e.g. {inputs_dir}/deps/finn-hlslib/streamtools.h -- prefer reading
+    those over the live repo copies to skip the boilerplate; for anything
+    else (e.g. other nodes' trees in src/finn/custom_op) read directly
+    from {finn_root}.
 
     Write your tree model as a file named `{filename}` in the workspace,
     containing exactly one top-level function:
@@ -245,7 +255,11 @@ ANALYSIS_TASK = textwrap.dedent("""\
     compared against an rtl-simulated ground truth. HLS reference:
     {hls_ref}. RTL reference: {rtl_ref}. The FINN repository is checked out
     at {finn_root} -- you may read any file in it with the bash tool to
-    check these references.
+    check these references. Cleaned copies of the hls/rtl reference
+    sources (license/copyright headers stripped, nothing else changed)
+    are available under {inputs_dir}, mirroring the same relative paths,
+    e.g. {inputs_dir}/deps/finn-hlslib/streamtools.h -- prefer those over
+    the live repo copies to skip the boilerplate.
 
     You are NOT generating or editing the tree yourself -- a separate agent
     does that. Your only job is to analyze the candidate below against its
@@ -287,6 +301,7 @@ def build_analysis_task(node, candidate_source, feedback, previous_feedback=None
         hls_ref=hls_ref,
         rtl_ref=rtl_ref,
         finn_root=tav_eval.FINN_ROOT,
+        inputs_dir=INPUTS_DIR,
         filename=CANDIDATE_FILENAME,
         candidate=candidate_source.strip(),
         feedback=feedback,
@@ -302,6 +317,7 @@ def build_task(node, src_path, baseline, previous=None, feedback=None):
         hls_ref=hls_ref,
         rtl_ref=rtl_ref,
         finn_root=tav_eval.FINN_ROOT,
+        inputs_dir=INPUTS_DIR,
         filename=CANDIDATE_FILENAME,
         baseline=baseline.strip(),
     )
@@ -469,7 +485,9 @@ def _baseline_path(node, src_override=None, test_override=None):
     return os.path.join(_TAV_EVAL_DIR, "examples", base)
 
 
-DEFAULT_LOG_PATH = "llm_tree_modeling.log"
+def _default_log_path():
+    ts = datetime.datetime.now().strftime("%Y%m%d%H%M")
+    return os.path.join(OUTPUTS_DIR, f"tree-model-run-{ts}-output.log")
 
 
 class _TeeStream:
@@ -514,9 +532,9 @@ def run_loop(
     cache_dir=None,
     apply_best=False,
     out_dir=None,
-    log_path=DEFAULT_LOG_PATH,
+    log_path=None,
 ):
-    log_path = Path(log_path)
+    log_path = Path(log_path) if log_path is not None else Path(_default_log_path())
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_fh = log_path.open("w", buffering=1)
     orig_stdout, orig_stderr = sys.stdout, sys.stderr
@@ -619,8 +637,9 @@ def main() -> None:
     ap.add_argument("--out", help="output directory (default under $FINN_HOST_BUILD_DIR/tav_bespoke)")
     ap.add_argument("--apply-best", action="store_true",
                      help="splice the best candidate into the node source at the end")
-    ap.add_argument("--log", default=DEFAULT_LOG_PATH,
-                     help=f"log file to tail while the loop runs (default: {DEFAULT_LOG_PATH})")
+    ap.add_argument("--log", default=None,
+                     help="log file to tail while the loop runs (default: "
+                          f"{OUTPUTS_DIR}/tree-model-run-<timestamp>-output.log)")
     args = ap.parse_args()
 
     run_loop(

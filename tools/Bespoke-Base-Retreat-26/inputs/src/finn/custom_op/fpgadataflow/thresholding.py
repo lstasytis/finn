@@ -1,0 +1,342 @@
+import numpy as np
+import warnings
+from qonnx.core.datatype import DataType
+from qonnx.custom_op.general.multithreshold import multithreshold
+from qonnx.util.basic import (
+    interleave_matrix_outer_dim_from_partitions,
+    roundup_to_integer_multiple,
+)
+
+from finn.custom_op.fpgadataflow.hwcustomop import HWCustomOp
+from finn.util.basic import Characteristic_Node
+
+
+class Thresholding(HWCustomOp):
+    """Abstraction layer for HW implementation of Thresholding."""
+
+    def __init__(self, onnx_node, **kwargs):
+        super().__init__(onnx_node, **kwargs)
+
+    def get_nodeattr_types(self):
+        my_attrs = {
+            # whether weights (thresholds) will be
+            # writable through an AXI-lite interface during runtime
+            # 1 for enabled, 0 for disabled.
+            "runtime_writeable_weights": ("i", False, 0, {0, 1}),
+            # parallelization; channels thresholded per cycle
+            "PE": ("i", True, 0),
+            # number of channels (each may have different thresholds)
+            "NumChannels": ("i", True, 0),
+            # number of steps in thresholding function. Used only in decoupled mode
+            "numSteps": ("i", True, 1),
+            # FINN DataTypes for inputs, outputs
+            "inputDataType": ("s", True, ""),
+            "weightDataType": ("s", True, ""),
+            "outputDataType": ("s", True, ""),
+            # number of input vectors, examples:
+            # [1] is a single vector (like a FC layer with batch=1)
+            # [4] is four vectors (like a FC layer with batch=4)
+            # [1, 4, 4] is four * four vectors (like a conv layer with batch=1)
+            "numInputVectors": ("ints", False, [1]),
+            # initialization value for the thresholding accumulator
+            "ActVal": ("i", False, 0),
+        }
+        my_attrs.update(super().get_nodeattr_types())
+        return my_attrs
+
+    def infer_node_datatype(self, model):
+        node = self.onnx_node
+        idt = model.get_tensor_datatype(node.input[0])
+        if idt != self.get_input_datatype(0):
+            warn_str = "inputDataType changing for %s: %s -> %s " % (
+                node.name,
+                str(self.get_input_datatype(0).name),
+                str(idt.name),
+            )
+            warnings.warn(warn_str)
+        self.set_nodeattr("inputDataType", idt.name)
+        # set output datatype from property
+        odt = self.get_output_datatype()
+        model.set_tensor_datatype(node.output[0], odt)
+
+    def verify_node(self):
+        info_messages = []
+        # verify that "backend" is set to "fpgadataflow"
+        backend_value = self.get_nodeattr("backend")
+        if backend_value == "fpgadataflow":
+            info_messages.append("Attribute backend is set correctly")
+        else:
+            info_messages.append('Attribute backend should be set to "fpgadataflow"')
+
+        # verify that all necessary attributes exist
+        # TODO collect automatically from get_nodeattr_types
+        try:
+            self.get_nodeattr("code_gen_dir_cppsim")
+            self.get_nodeattr("executable_path")
+            self.get_nodeattr("NumChannels")
+            self.get_nodeattr("PE")
+            self.get_nodeattr("inputDataType")
+            self.get_nodeattr("outputDataType")
+            info_messages.append("All necessary attributes exist")
+        except Exception:
+            info_messages.append("""The required Threshold_Batch attributes do not exist.""")
+
+        return info_messages
+
+    def get_input_datatype(self, ind=0):
+        """Returns FINN DataType of input."""
+        if ind == 0:
+            dt = DataType[self.get_nodeattr("inputDataType")]
+        elif ind == 1:
+            dt = DataType[self.get_nodeattr("weightDataType")]
+        else:
+            raise Exception("Index out of range")
+        return dt
+
+    def get_output_datatype(self, ind=0):
+        """Returns FINN DataType of output."""
+        return DataType[self.get_nodeattr("outputDataType")]
+
+    def minimize_weight_bit_width(self, model):
+        """Minimize threshold datatype bitwidth based on actual threshold values.
+        This function should not round or clip the threshold values,
+        that is done in RoundAndClipThresholds."""
+
+        thresholds = model.get_initializer(self.onnx_node.input[1])
+        if self.get_nodeattr("runtime_writeable_weights") or self.get_nodeattr("mlo_max_iter"):
+            return DataType[self.get_nodeattr("weightDataType")]
+        threshold_tensor = self.get_hw_compatible_threshold_tensor(thresholds)
+        # TODO: extend this for fixed point
+        if self.get_input_datatype(0).is_integer() and self.get_input_datatype(1).is_integer():
+            # minimize threshold width only if input and thresholds are integer
+            # Use double precision for intermediate calculations to prevent overflow
+            min_threshold = np.float64(thresholds.min())
+            max_threshold = np.float64(thresholds.max())
+            # Check if input datatype is signed
+            input_is_signed = self.get_input_datatype(0).signed()
+            # Special case: all thresholds are zero
+            # get_smallest_possible(-1) returns BIPOLAR which can't represent 0
+            if min_threshold == max_threshold == 0:
+                if input_is_signed:
+                    tdt = DataType["INT2"]
+                else:
+                    tdt = DataType["UINT1"]
+            elif min_threshold < 0:
+                if abs(min_threshold) > max_threshold:
+                    tdt = DataType.get_smallest_possible(min_threshold)
+                else:
+                    tdt = DataType.get_smallest_possible(-max_threshold - 1)
+            else:
+                # If input is signed, use signed threshold datatype even if thresholds are positive
+                if input_is_signed:
+                    tdt = DataType.get_smallest_possible(-max_threshold - 1)
+                else:
+                    tdt = DataType.get_smallest_possible(max_threshold)
+        else:
+            # special case: if input is float, we keep thresholds as is
+            tdt = self.get_input_datatype(1)
+        assert np.vectorize(tdt.allowed)(
+            threshold_tensor
+        ).all(), "Thresholds can't be expressed with type %s" % str(tdt)
+        self.set_nodeattr("weightDataType", tdt.name)
+        # Update QONNX DataType of tensor for consistency
+        model.set_tensor_datatype(self.onnx_node.input[1], tdt)
+        return DataType[self.get_nodeattr("weightDataType")]
+
+    def get_instream_width(self, ind=0):
+        if ind == 0:
+            i_bits = self.get_input_datatype(0).bitwidth()
+            width = i_bits * self.get_nodeattr("PE")
+        elif ind == 1:
+            # try to access mem_mode attribute, doesn't exist for RTL Thresholding
+            try:
+                mem_mode = self.get_nodeattr("mem_mode")
+            except AttributeError:
+                mem_mode = 0
+            if mem_mode == "internal_decoupled":
+                pe = self.get_nodeattr("PE")
+                wp = self.get_input_datatype(1).bitwidth()
+                n_thres_steps = self.get_nodeattr("numSteps")
+                width = pe * wp * n_thres_steps
+            else:
+                width = 0
+        else:
+            raise Exception("Index out of range")
+        return width
+
+    def get_outstream_width(self, ind=0):
+        o_bits = self.get_output_datatype().bitwidth()
+        return o_bits * self.get_nodeattr("PE")
+
+    def get_folded_input_shape(self, ind=0):
+        pe = self.get_nodeattr("PE")
+        fold = self.calc_tmem()
+        vecs = list(self.get_nodeattr("numInputVectors"))
+        folded_input_shape = tuple(vecs + [fold, pe])
+        return folded_input_shape
+
+    def get_folded_output_shape(self, ind=0):
+        # same shape as input
+        return self.get_folded_input_shape()
+
+    def get_normal_input_shape(self, ind=0):
+        ich = self.get_nodeattr("NumChannels")
+        vecs = list(self.get_nodeattr("numInputVectors"))
+        normal_input_shape = tuple(vecs + [ich])
+        return normal_input_shape
+
+    def get_normal_output_shape(self, ind=0):
+        # same shape as input
+        return self.get_normal_input_shape()
+
+    def get_exp_cycles(self):
+        # Channels/PE * batch size * fmdim * fmdim
+        return np.prod(self.get_folded_output_shape()[:-1])
+
+    def get_hw_compatible_threshold_tensor(self, orig_thres_matrix):
+        """Convert the original numpy weight matrix orig_weight_matrix into
+        a form suitable for passing to the hlslib call:
+        * ensure MH % PE == 0
+        * for unsigned inputs, ensure thresholds are positive
+        * interleave rows between PEs
+        * reshape into (PE, TMEM, n_thres_steps) and return
+        """
+        mh = self.get_nodeattr("NumChannels")
+        pe = self.get_nodeattr("PE")
+        tmem = mh // pe
+        assert mh % pe == 0, "Requirement NumChannels divisable by PE is violated."
+        assert (
+            orig_thres_matrix.ndim == 2
+        ), """Threshold matrix dimension is
+        not as expected (2)."""
+        n_thres_steps = orig_thres_matrix.shape[1]
+        assert n_thres_steps == self.get_nodeattr("numSteps"), "Mismatch in threshold steps"
+        if not self.get_input_datatype(0).signed():
+            # ensure all thresholds are nonnegative
+            assert (orig_thres_matrix >= 0).all()
+        ret = orig_thres_matrix
+        # ensure channels = mh , duplicating if necessary
+        if ret.shape[0] == 1:
+            ret = np.tile(ret, (mh, 1))
+        assert ret.shape[0] == mh, "Channels of threshold matrix are not as expected (mh)"
+        # distribute rows between PEs
+        ret = interleave_matrix_outer_dim_from_partitions(ret, pe)
+        assert (
+            ret.shape[0] == pe
+        ), """First dimension after distribution of the
+        rows between PEs is not as expected (pe)"""
+        assert (
+            ret.shape[1] == tmem
+        ), """Second dimension after distribution of the
+        rows between PEs is not as expected (tmem)"""
+        assert (
+            ret.shape[2] == n_thres_steps
+        ), """Third dimension after distribution of the
+        rows between PEs is not as expected (n_thres_steps)"""
+        return ret.reshape(1, pe, tmem, n_thres_steps)
+
+    def execute_node(self, context, graph):
+        node = self.onnx_node
+        inp_values = context[node.input[0]]
+        th_val = context[node.input[1]]
+        out_bias = self.get_nodeattr("ActVal")
+        # MT expects inputs to be in the shape (N,C,H,W) or (N, C)
+        # if 4D then input values in context are (N,H,W,C) and need to
+        # be transposed.
+        # if 2D then inputs can be passed directly to MT function
+        is_4d = len(inp_values.shape) == 4
+        if is_4d:
+            inp_values = np.transpose(inp_values, (0, 3, 1, 2))
+        y = multithreshold(inp_values, th_val, out_bias=out_bias)
+        if is_4d:
+            y = y.transpose(0, 2, 3, 1)
+        act = DataType[self.get_nodeattr("outputDataType")]
+        if act == DataType["BIPOLAR"]:
+            # binary to bipolar
+            y = 2 * y - 1
+        context[node.output[0]] = y.astype(np.float32)
+
+    def calc_tmem(self):
+        """Calculates and returns TMEM."""
+        num_channels = self.get_nodeattr("NumChannels")
+        pe = self.get_nodeattr("PE")
+        return num_channels // pe
+
+    def get_tree_model(self):
+        """Return tree model for analytical FIFO sizing."""
+        reps = list(self.get_nodeattr("numInputVectors"))[0]
+
+        NumChannels = self.get_nodeattr("NumChannels")
+        PE = self.get_nodeattr("PE")
+        ImgDim = np.prod(list(self.get_nodeattr("numInputVectors"))) // reps
+
+        act = DataType[self.get_nodeattr("outputDataType")]
+        IMPL_STYLE = "rtl" if "_rtl" in (self.__class__.__name__) else "hls"
+        assert IMPL_STYLE in ["rtl", "hls"], "Implementation style must be 'rtl' or 'hls'"
+
+        NF = NumChannels // PE
+        total_iterations = ImgDim * NF
+
+        if IMPL_STYLE == "hls":
+            output_delay = 0  # 4 if 2023.1 vivado
+        else:
+            if act == DataType["BIPOLAR"]:
+                output_delay = 0  # 4 if 2023.1 vivado
+            else:
+                output_delay = 0
+
+        if total_iterations > output_delay:
+            read = Characteristic_Node("read", [(output_delay, [1, 0])], True)
+
+            read_write = Characteristic_Node(
+                "Compute", [(total_iterations - output_delay, [1, 1])], True
+            )
+
+            write = Characteristic_Node("write", [(output_delay, [0, 1])], True)
+
+            threshold_top = Characteristic_Node(
+                "Thresholding Top", [(1, read), (1, read_write), (1, write)], False
+            )
+
+        else:
+            read = Characteristic_Node("Rush-in", [(total_iterations, [1, 0])], True)
+            idle = Characteristic_Node("Idle", [(output_delay - total_iterations, [0, 0])], True)
+
+            write = Characteristic_Node("Compute", [(total_iterations, [0, 1])], True)
+
+            threshold_top = Characteristic_Node(
+                "Thresholding Top", [(1, read), (1, idle), (1, write)], False
+            )
+
+        return threshold_top  # top level phase of this node
+
+    def get_verilog_top_module_intf_names(self):
+        """Return dict of names of input and output interfaces for MLO support."""
+        intf_names = {}
+        intf_names["clk"] = ["ap_clk"]
+        intf_names["rst"] = ["ap_rst_n"]
+        intf_names["s_axis"] = []
+        intf_names["s_axis"].append(("in0_V", self.get_instream_width_padded(0)))
+        intf_names["m_axis"] = []
+        intf_names["m_axis"].append(("out0_V", self.get_outstream_width_padded(0)))
+        intf_names["aximm"] = []
+        intf_names["axilite"] = []
+        intf_names["ap_none"] = []
+        mlo_max_iter = self.get_nodeattr("mlo_max_iter")
+        if mlo_max_iter:
+            stream_width = DataType.get_smallest_possible(mlo_max_iter).bitwidth()
+            stream_width_padded = roundup_to_integer_multiple(stream_width, 8)
+            intf_names["s_axis"].append(("in1_V", stream_width_padded))
+        else:
+            # try to access mem_mode attribute, doesn't exist for RTL Thresholding
+            try:
+                mem_mode = self.get_nodeattr("mem_mode")
+            except AttributeError:
+                mem_mode = 0
+
+            if mem_mode == "internal_decoupled":
+                # only expose axilite interface if attribute is set
+                runtime_writable = self.get_nodeattr("runtime_writeable_weights") == 1
+                if runtime_writable:
+                    intf_names["axilite"] = ["s_axilite"]
+        return intf_names

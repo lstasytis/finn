@@ -1,0 +1,264 @@
+import math
+import numpy as np
+import warnings
+from qonnx.core.datatype import DataType
+
+from finn.custom_op.fpgadataflow.hwcustomop import HWCustomOp
+from finn.util.basic import Characteristic_Node
+
+# does not do anything at the ONNX node-by-node level, and input-output
+# tensor shapes are the same. performs data width conversion at the rtlsim level
+
+
+class StreamingDataWidthConverter(HWCustomOp):
+    """Abstraction layer for HW implementation of StreamingDataWidthConverter"""
+
+    def get_nodeattr_types(self):
+        my_attrs = {
+            # shape of input/output tensors
+            "shape": ("ints", True, []),
+            # bit width of input and output streams
+            "inWidth": ("i", True, 0),
+            "outWidth": ("i", True, 0),
+            # FINN DataTypes for inputs/outputs
+            "dataType": ("s", True, ""),
+        }
+        my_attrs.update(super().get_nodeattr_types())
+        return my_attrs
+
+    def get_input_datatype(self, ind=0):
+        """Returns FINN DataType of input."""
+        return DataType[self.get_nodeattr("dataType")]
+
+    def get_output_datatype(self, ind=0):
+        """Returns FINN DataType of output."""
+        return DataType[self.get_nodeattr("dataType")]
+
+    def get_normal_input_shape(self, ind=0):
+        ishape = self.get_nodeattr("shape")
+        return ishape
+
+    def get_normal_output_shape(self, ind=0):
+        oshape = self.get_nodeattr("shape")
+        return oshape
+
+    def get_iowidth_lcm(self):
+        iwidth = self.get_nodeattr("inWidth")
+        owidth = self.get_nodeattr("outWidth")
+        return int(np.lcm(iwidth, owidth))
+
+    def needs_lcm(self):
+        iwidth = self.get_nodeattr("inWidth")
+        owidth = self.get_nodeattr("outWidth")
+        maxwidth = max(iwidth, owidth)
+        minwidth = min(iwidth, owidth)
+        return maxwidth % minwidth != 0
+
+    def check_divisible_iowidths(self):
+        pass
+
+    def get_folded_input_shape(self, ind=0):
+        self.check_divisible_iowidths()
+        iwidth = self.get_nodeattr("inWidth")
+        ishape = self.get_normal_input_shape()
+        dummy_t = np.random.randn(*ishape)
+        ibits = self.get_input_datatype().bitwidth()
+        assert (
+            iwidth % ibits == 0
+        ), """DWC input width must be divisible by
+        input element bitwidth"""
+        ielems = int(iwidth // ibits)
+        ichannels = ishape[-1]
+        new_shape = []
+        for i in ishape[:-1]:
+            new_shape.append(i)
+        new_shape.append(int(ichannels // ielems))
+        new_shape.append(ielems)
+        dummy_t = dummy_t.reshape(new_shape)
+        return dummy_t.shape
+
+    def get_folded_output_shape(self, ind=0):
+        self.check_divisible_iowidths()
+        owidth = self.get_nodeattr("outWidth")
+        oshape = self.get_normal_output_shape()
+        dummy_t = np.random.randn(*oshape)
+        obits = self.get_output_datatype().bitwidth()
+        assert (
+            owidth % obits == 0
+        ), """DWC output width must be divisible by
+        input element bitwidth"""
+        oelems = int(owidth // obits)
+        ochannels = oshape[-1]
+        new_shape = []
+        for i in oshape[:-1]:
+            new_shape.append(i)
+        new_shape.append(int(ochannels // oelems))
+        new_shape.append(oelems)
+        dummy_t = dummy_t.reshape(new_shape)
+
+        return dummy_t.shape
+
+    def get_number_input_values(self):
+        folded_ishape = self.get_folded_input_shape()
+        return np.prod(folded_ishape[:-1])
+
+    def get_number_output_values(self):
+        folded_oshape = self.get_folded_output_shape()
+        return np.prod(folded_oshape[:-1])
+
+    def get_instream_width(self, ind=0):
+        in_width = self.get_nodeattr("inWidth")
+        return in_width
+
+    def get_outstream_width(self, ind=0):
+        out_width = self.get_nodeattr("outWidth")
+        return out_width
+
+    def infer_node_datatype(self, model):
+        node = self.onnx_node
+        idt = model.get_tensor_datatype(node.input[0])
+        if idt != self.get_input_datatype():
+            warn_str = "inputDataType changing for %s: %s -> %s " % (
+                node.name,
+                str(self.get_input_datatype()),
+                str(idt),
+            )
+            warnings.warn(warn_str)
+        self.set_nodeattr("dataType", idt.name)
+        # data type stays the same
+        model.set_tensor_datatype(node.output[0], idt)
+
+    def verify_node(self):
+        info_messages = []
+        # verify that "backend" is set to "fpgadataflow"
+        backend_value = self.get_nodeattr("backend")
+        if backend_value == "fpgadataflow":
+            info_messages.append("Attribute backend is set correctly")
+        else:
+            info_messages.append('Attribute backend should be set to "fpgadataflow"')
+
+        # verify the number of inputs
+        if len(self.onnx_node.input) == 1:
+            info_messages.append("The number of inputs is correct")
+        else:
+            info_messages.append("""StreamingDWC needs 1 data input""")
+
+        return info_messages
+
+    def execute_node(self, context, graph):
+        node = self.onnx_node
+        exp_shape = self.get_normal_input_shape()
+        inp = context[node.input[0]]
+        assert str(inp.dtype) == "float32", "Input datatype is not float32"
+        assert inp.shape == tuple(exp_shape), "Input shape does not match expected shape."
+
+        output = inp
+        output = np.asarray([output], dtype=np.float32).reshape(*exp_shape)
+        context[node.output[0]] = output
+
+    def get_exp_cycles(self):
+        return np.prod(self.get_folded_input_shape()) + np.prod(self.get_folded_output_shape())
+
+    def lut_estimation(self):
+        """Calculates resource estimations for LUTs"""
+        inw = self.get_instream_width()
+        outw = self.get_outstream_width()
+
+        minw = min(inw, outw)
+        maxw = max(inw, outw)
+
+        # sometimes widths aren't directly divisible
+        # this requires going up from input width to least common multiple
+        # then down to output width
+        intw = abs(maxw * minw) // math.gcd(maxw, minw)
+
+        # we assume a shift-based implementation
+        # even if we don't use LUTs explicitly, we make some unavailable
+        # to other logic because they're tied into the DWC control sets
+
+        cnt_luts = 0
+        cset_luts = 0
+
+        if inw != intw:
+            cnt_luts += abs(math.ceil(math.log(inw / intw, 2)))
+            cset_luts += intw
+        if intw != outw:
+            cnt_luts += abs(math.ceil(math.log(intw / outw, 2)))
+            cset_luts += outw
+
+        return int(cnt_luts + cset_luts)
+
+    def get_tree_model(self):
+        inWidth = self.get_nodeattr("inWidth")
+        outWidth = self.get_nodeattr("outWidth")
+
+        wind_up = 0
+
+        idle = Characteristic_Node("idle", [(1, [0, 0])], True)
+
+        if inWidth > outWidth:
+            numReps = self.get_number_input_values()
+            # down-conversion
+            if inWidth % outWidth != 0:
+                return None  # no support for gcd partial conversion yet
+
+            writes_per_read = inWidth // outWidth
+            # read 1, write many, repeats for in-word count
+
+            read_input = Characteristic_Node("read 1 word", [(1, [1, 1])], True)
+
+            write_output = Characteristic_Node("write words", [(writes_per_read - 1, [0, 1])], True)
+
+            down_convert_word = Characteristic_Node(
+                "down convert all words in a single transaction",
+                [(1, read_input), (1, write_output)],
+                False,
+            )
+
+            dwc_top = Characteristic_Node(
+                "compute a set of DWCs with down conversion",
+                [(wind_up, idle), (numReps, down_convert_word)],
+                False,
+            )
+
+        elif inWidth < outWidth:
+            numReps = self.get_number_output_values()
+            # up-conversion
+
+            if outWidth % inWidth != 0:
+                return None  # no support for gcd partial conversion yet
+
+            reads_per_write = outWidth // inWidth
+            # read 1, write many, repeats for in-word count
+
+            read_input = Characteristic_Node(
+                "read first N-1 words", [(reads_per_write - 1, [1, 0])], True
+            )
+
+            write_output = Characteristic_Node(
+                "read Nth word and write output word", [(1, [1, 1])], True
+            )
+
+            up_convert_word = Characteristic_Node(
+                "down convert all words in a single transaction",
+                [(1, read_input), (1, write_output)],
+                False,
+            )
+
+            dwc_top = Characteristic_Node(
+                "compute a set of DWCs with up conversion",
+                [(wind_up, idle), (numReps, up_convert_word)],
+                False,
+            )
+
+        else:
+            # pass-through
+            numReps = self.get_number_input_values()
+
+            pass_through = Characteristic_Node("pass-through", [(1, [1, 1])], True)
+
+            dwc_top = Characteristic_Node(
+                "DWC pass-through, no conversion", [(wind_up, idle), (numReps, pass_through)], False
+            )
+
+        return dwc_top

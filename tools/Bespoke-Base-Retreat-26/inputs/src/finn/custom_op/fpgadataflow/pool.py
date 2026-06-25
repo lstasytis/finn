@@ -1,0 +1,233 @@
+import numpy as np
+from qonnx.core.datatype import DataType
+
+from finn.custom_op.fpgadataflow.hwcustomop import HWCustomOp
+from finn.util.basic import Characteristic_Node
+
+
+class Pool(HWCustomOp):
+    """Abstraction layer for HW implementation of Pool.
+    Requires ConvolutionInputGenerator(depthwise == 1) to format its input
+
+    Input shape (BatchSize,OutImgDim,OutImgDim,TotalKernelSize*Channels)
+    Output shape (BatchSize,OutImgDim,OutImgDim,Channels)
+
+    Notes:
+
+    * The input shape was chosen to be compatible with im2col (only true when there
+      is not folding).
+    * The actual data layout produced by the hlslib kernels is different
+      for depthwise ops.
+
+        * depthwise SWG: (1, OFMDim, OFMDim, IFMChannels/PE, K, K, PE)
+
+    Channels can be folded using PE (SIMD from the input perspective)
+    """
+
+    def get_nodeattr_types(self):
+        my_attrs = {
+            "Channels": ("i", True, 0),
+            "PE": ("i", True, 1),
+            "KernelSize": ("ints", True, []),
+            # Function:
+            #  - MaxPool
+            #  - QuantAvgPool
+            # TODO add support for AvgPool and AccPool
+            "Function": ("s", True, "", {"MaxPool", "QuantAvgPool"}),
+            "OutImgDims": ("ints", True, []),
+            # FINN DataTypes for inputs/outputs
+            "InputDataType": ("s", True, ""),
+            "OutputDataType": ("s", True, ""),
+            "AccumBits": ("i", False, 0),
+            "Size": ("i", False, 1),
+            "BatchSize": ("i", False, 1),
+        }
+
+        my_attrs.update(super().get_nodeattr_types())
+        return my_attrs
+
+    def get_input_datatype(self, ind=0):
+        """Returns FINN DataType of input."""
+        return DataType[self.get_nodeattr("InputDataType")]
+
+    def get_output_datatype(self, ind=0):
+        """Returns FINN DataType of output."""
+        fxn = self.get_nodeattr("Function")
+        odt = DataType[self.get_nodeattr("OutputDataType")]
+
+        if fxn == "MaxPool":
+            # Same as input
+            idt = DataType[self.get_nodeattr("InputDataType")]
+            assert odt == idt, "In datatype must be equal to out datatype for Maxpool"
+        elif fxn == "QuantAvgPool":
+            idt = DataType[self.get_nodeattr("InputDataType")]
+            assert (
+                idt.signed() == odt.signed()
+            ), """QuantAvgPool: Can't mix signed
+            and unsigned datatypes"""
+        else:
+            raise Exception("Pool_Batch doesn't currently support " + fxn)
+
+        return odt
+
+    def get_normal_input_shape(self, ind=0):
+        ifm_ch = self.get_nodeattr("Channels")
+        odims = self.get_nodeattr("OutImgDims")
+        batch_size = self.get_nodeattr("BatchSize")
+        k = self.get_nodeattr("KernelSize")
+        k_prod = int(np.prod(k))
+        ishape = (batch_size, *odims, k_prod * ifm_ch)
+        return ishape
+
+    def get_folded_input_shape(self, ind=0):
+        normal_ishape = list(self.get_normal_input_shape())
+        ifm_ch = self.get_nodeattr("Channels")
+        pe = self.get_nodeattr("PE")
+        assert ifm_ch % pe == 0, "PE must divide input channels"
+        fold = int(normal_ishape[-1] / pe)
+        folded_ishape = normal_ishape[:-1] + [fold, pe]
+        return tuple(folded_ishape)
+
+    def get_normal_output_shape(self, ind=0):
+        ofm_ch = self.get_nodeattr("Channels")
+        odims = self.get_nodeattr("OutImgDims")
+        batch_size = self.get_nodeattr("BatchSize")
+        oshape = (batch_size, *odims, ofm_ch)
+        return oshape
+
+    def get_folded_output_shape(self, ind=0):
+        normal_oshape = list(self.get_normal_output_shape())
+        ifm_ch = self.get_nodeattr("Channels")
+        pe = self.get_nodeattr("PE")
+        assert ifm_ch % pe == 0, "PE must divide input channels"
+        fold = int(ifm_ch / pe)
+        folded_oshape = normal_oshape[:-1] + [fold, pe]
+        return tuple(folded_oshape)
+
+    def get_exp_cycles(self):
+        # (Channels * kernel * kernel) / PE * odim * odim * batch_size
+        ifm_ch = self.get_nodeattr("Channels")
+        pe = self.get_nodeattr("PE")
+        k = self.get_nodeattr("KernelSize")
+        k_prod = int(np.prod(k))
+        odims = self.get_nodeattr("OutImgDims")
+        batch_size = self.get_nodeattr("BatchSize")
+        exp_cycles = ((ifm_ch * k_prod) / pe) * np.prod(odims) * batch_size
+        return int(exp_cycles)
+
+    def get_instream_width(self, ind=0):
+        dt_bits = self.get_input_datatype().bitwidth()
+        pe = self.get_nodeattr("PE")
+        in_width = int(dt_bits * pe)
+        return in_width
+
+    def get_outstream_width(self, ind=0):
+        dt_bits = self.get_output_datatype().bitwidth()
+        pe = self.get_nodeattr("PE")
+        out_width = int(dt_bits * pe)
+        return out_width
+
+    def infer_node_datatype(self, model):
+        node = self.onnx_node
+        # data type stays the same
+        dtype = self.get_output_datatype()
+        model.set_tensor_datatype(node.output[0], dtype)
+
+    def verify_node(self):
+        info_messages = []
+        # verify that "backend" is set to "fpgadataflow"
+        backend_value = self.get_nodeattr("backend")
+        if backend_value == "fpgadataflow":
+            info_messages.append("Attribute backend is set correctly")
+        else:
+            info_messages.append('Attribute backend should be set to "fpgadataflow"')
+
+        # verify the number of inputs
+        if len(self.onnx_node.input) == 1:
+            info_messages.append("The number of inputs is correct")
+        else:
+            info_messages.append("""Pool_Batch needs 1 data input""")
+
+        # check supported function
+        fnx = self.get_nodeattr("Function")
+        if fnx in ["MaxPool", "QuantAvgPool"]:
+            info_messages.append("Attribute Function contains a supported pool function")
+        else:
+            info_messages.append("Attribute Function contains an unsupported pool function")
+        return info_messages
+
+    def execute_node(self, context, graph):
+        # simulate behavior with Python functionality
+        node = self.onnx_node
+        fnx = self.get_nodeattr("Function")
+        k = self.get_nodeattr("KernelSize")
+        ch = self.get_nodeattr("Channels")
+        k2 = k[0] * k[1]
+
+        inp_values = context[node.input[0]]
+        ishape = inp_values.shape
+        # reshape array to apply max or avg function only on kernel
+        tmp_shape = tuple(list(ishape)[:-1] + [k2, ch])
+        tmp_values = inp_values.reshape(tmp_shape)
+        if fnx == "MaxPool":
+            result = np.max(tmp_values, axis=3)
+        elif fnx == "QuantAvgPool":
+            # determine bits to shift
+            ibits = self.get_input_datatype().bitwidth()
+            obits = self.get_output_datatype().bitwidth()
+            max_value = 2**ibits - 1
+            max_value = max_value * k2
+            max_bit_width = int(max_value).bit_length()
+            shift_bits = max_bit_width - obits
+            shift_bits = shift_bits if shift_bits >= 0 else 0
+            result = np.sum(tmp_values, axis=3)
+            result = np.right_shift(result.astype(int), shift_bits)
+        oshape = context[node.output[0]].shape
+        context[node.output[0]] = np.asarray(result, dtype=np.float32).reshape(oshape)
+
+    def get_tree_model(self):
+        # extract node attr
+
+        PE = self.get_nodeattr("PE")
+        Channels = self.get_nodeattr("Channels")
+        KernelSize = self.get_nodeattr("KernelSize")
+        OutImgDims = self.get_nodeattr("OutImgDims")
+        BatchSize = self.get_nodeattr("BatchSize")
+
+        # Derived parameters
+        NF = Channels // PE  # neuron folding
+        func = self.get_nodeattr("Function")
+        if func == "MaxPool":
+            SF = KernelSize[1] ** 2  # spatial folding per pooling window
+            if KernelSize[0] == 1 or KernelSize[1] == 1:
+                if KernelSize[0] == 1:
+                    SF = KernelSize[1] ** 2
+                else:
+                    SF = KernelSize[0] ** 2
+                SF = np.prod(KernelSize)
+            reps = BatchSize * np.prod(OutImgDims)  # number of pooling windows to process
+        else:
+            SF = np.prod(KernelSize)  # spatial folding per pooling window
+            reps = BatchSize * np.prod(OutImgDims)  # number of pooling windows to process
+
+        # One input read per SF iteration
+        read_pooling_input = Characteristic_Node("Read Pool Input", [(1, [1, 0])], True)
+
+        readwrite_pooling_input = Characteristic_Node("Read Write Pool Input", [(1, [1, 1])], True)
+
+        # SF - 1 reads + 1 read that overlaps with write
+        compute_pool_window = Characteristic_Node(
+            "Compute Pool Window",
+            [(SF - 1, read_pooling_input), (1, readwrite_pooling_input)],  # overlap with output
+            False,
+        )
+
+        # For each NF tile per pooling window
+        compute_all_tiles = Characteristic_Node(
+            "Compute All Tiles", [(NF, compute_pool_window)], False
+        )
+
+        # For each image region (spatial + batch)
+        pool_top = Characteristic_Node("Top Pool Loop", [(reps, compute_all_tiles)], False)
+
+        return pool_top
