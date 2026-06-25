@@ -78,11 +78,32 @@ def _jsonable(v):
         return None
 
 
+# Zero-argument query methods a get_tree_model may call on the node beyond
+# get_nodeattr (e.g. DWC's get_number_input_values). Their results depend only on
+# the node's attributes -- not on the candidate tree -- so capturing them once per
+# case from the real node lets the host MockSelf replay them faithfully. Methods
+# that don't exist or raise on a given node are simply skipped.
+_CAPTURE_METHODS = (
+    "get_number_input_values",
+    "get_number_output_values",
+    "get_exp_cycles",
+    "get_folded_input_shape",
+    "get_folded_output_shape",
+    "get_normal_input_shape",
+    "get_normal_output_shape",
+    "get_instream_width",
+    "get_outstream_width",
+    "get_instream_width_padded",
+    "get_outstream_width_padded",
+)
+
+
 def _capture_node_meta(inst):
-    """Record the specialized node's class name, onnx name/op_type and full
-    attribute set. Capturing every declared attr (not just the ones the current
-    baseline reads) keeps the local oracle robust to candidates that reach for a
-    different attr than the baseline did."""
+    """Record the specialized node's class name, onnx name/op_type, full
+    attribute set, and the results of a curated set of zero-arg query methods.
+    Capturing every declared attr (not just the ones the current baseline reads)
+    plus the common helper-method results keeps the local oracle robust to
+    candidates that reach for a different attr/method than the baseline did."""
     try:
         attrs = {}
         try:
@@ -94,12 +115,21 @@ def _capture_node_meta(inst):
                 attrs[name] = _jsonable(inst.get_nodeattr(name))
             except Exception:
                 continue
+        methods = {}
+        for mname in _CAPTURE_METHODS:
+            try:
+                fn = getattr(inst, mname, None)
+                if callable(fn):
+                    methods[mname] = _jsonable(fn())
+            except Exception:
+                continue
         _node_meta.update(
             {
                 "class_name": type(inst).__name__,
                 "onnx_node_name": getattr(inst.onnx_node, "name", ""),
                 "op_type": getattr(inst.onnx_node, "op_type", ""),
                 "node_attrs": attrs,
+                "node_methods": methods,
             }
         )
     except Exception:

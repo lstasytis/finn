@@ -27,10 +27,13 @@ layer needs but the comparison does not):
 
 The only thing the host cannot know without a real run is the node's
 compile-time attributes (``self.get_nodeattr(...)``), its class name (carries
-the ``_rtl``/``_hls`` suffix the candidate branches on) and its
-``onnx_node.name`` (used by the micro-buffer correction). Those are captured
-from one real docker run by ``_tav_eval_plugin`` and replayed here through
-``MockSelf`` -- which closes the only fidelity gap.
+the ``_rtl``/``_hls`` suffix the candidate branches on), its ``onnx_node.name``
+(used by the micro-buffer correction), and the results of a few zero-arg query
+methods a candidate may call beyond get_nodeattr (e.g. DWC's
+``get_number_input_values`` / ``get_number_output_values``). All of these are
+captured from one real docker run by ``_tav_eval_plugin`` (their results are
+constant across candidates, as they depend only on node attrs) and replayed here
+through ``MockSelf`` -- which closes the only fidelity gap.
 
 If a captured analytical vector is shipped alongside the metadata,
 ``selftest_against_capture`` can confirm this reimplementation matches FINN on
@@ -115,8 +118,9 @@ class Characteristic_Node:
 # MockSelf -- the minimal `self` the candidate's get_tree_model needs.
 # ---------------------------------------------------------------------------
 class _MockSelfBase:
-    def __init__(self, attrs: dict, onnx_node_name: str, op_type: str):
+    def __init__(self, attrs: dict, onnx_node_name: str, op_type: str, methods: dict | None = None):
         self._attrs = dict(attrs)
+        self._methods = dict(methods or {})
         self.onnx_node = SimpleNamespace(name=onnx_node_name, op_type=op_type)
 
     def get_nodeattr(self, name, *args, **kwargs):
@@ -128,13 +132,32 @@ class _MockSelfBase:
             "plugin captures the full attribute set, or use --oracle docker)."
         )
 
+    def __getattr__(self, name):
+        # Only reached when normal lookup fails (so get_nodeattr/onnx_node etc.
+        # are unaffected). Replay a zero-arg query method the plugin captured from
+        # the real node (e.g. DWC's get_number_input_values); the captured value
+        # is constant across candidates because it depends only on node attrs.
+        # ``__dict__`` access avoids recursing through __getattr__ before __init__.
+        methods = self.__dict__.get("_methods", {})
+        if name in methods:
+            value = methods[name]
+            return lambda *args, **kwargs: value
+        raise AttributeError(
+            f"{type(self).__name__!r} object has no attribute {name!r} -- it was not "
+            "captured from the docker run, so the host oracle cannot supply it. Either "
+            "derive the value from self.get_nodeattr(...), or run with --oracle both "
+            "(auto-escalates such candidates to docker) / --oracle docker."
+        )
 
-def make_mock_self(class_name: str, attrs: dict, onnx_node_name: str, op_type: str):
+
+def make_mock_self(class_name: str, attrs: dict, onnx_node_name: str, op_type: str,
+                   methods: dict | None = None):
     """Build a `self` whose ``__class__.__name__`` is exactly ``class_name``
     (so candidate ``"_rtl" in self.__class__.__name__`` branching matches the
-    real specialized node), backed by the captured attribute dict."""
+    real specialized node), backed by the captured attribute dict and the
+    captured zero-arg query-method results."""
     cls = type(class_name, (_MockSelfBase,), {})
-    return cls(attrs, onnx_node_name, op_type)
+    return cls(attrs, onnx_node_name, op_type, methods)
 
 
 # ---------------------------------------------------------------------------
@@ -244,6 +267,7 @@ def derive_for_case(source: str, case: dict) -> tuple[list[int], list[int]]:
         case["node_attrs"],
         case.get("onnx_node_name", case["class_name"]),
         case.get("op_type", ""),
+        case.get("node_methods", {}),
     )
     return derive_tavs(fn, mock)
 

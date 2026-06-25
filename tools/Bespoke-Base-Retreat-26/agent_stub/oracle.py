@@ -79,6 +79,7 @@ class Case:
     ref_out: list
     analytical_in: list = field(default_factory=list)
     analytical_out: list = field(default_factory=list)
+    node_methods: dict = field(default_factory=dict)
     volume: int = 0  # rough size, for curriculum ordering (smallest first)
 
     @property
@@ -91,6 +92,7 @@ class Case:
             "onnx_node_name": self.onnx_node_name,
             "op_type": self.op_type,
             "node_attrs": self.node_attrs,
+            "node_methods": self.node_methods,
             "analytical_in": self.analytical_in,
             "analytical_out": self.analytical_out,
         }
@@ -128,6 +130,7 @@ def cases_from_records(records) -> list[Case]:
                 onnx_node_name=meta.get("onnx_node_name", ""),
                 op_type=meta.get("op_type", ""),
                 node_attrs=meta.get("node_attrs", {}),
+                node_methods=meta.get("node_methods", {}),
                 ref_in=list(ref_in),
                 ref_out=list(ref_out),
                 analytical_in=list(pin.get("analytical_vector", [])),
