@@ -499,13 +499,13 @@ def run_loop(
         best_messages = None  # memory lineage
         history = [{"iteration": 0, "score": round(base_eval.score, 2), "n_active": len(active)}]
 
-        # baseline delta ratio (rtlsim vs tree model) -> shared progress table.
-        base_max, base_avg = progress.delta_ratios(base_eval)
-        progress.record_iteration(node, 0, base_max, base_avg, table_path=progress_table)
+        # baseline delta vs tree model (worst abs delta + avg normalized %) -> table.
+        base_maxabs, base_avgnorm = progress.delta_ratios(base_eval)
+        progress.record_iteration(node, 0, base_maxabs, base_avgnorm, table_path=progress_table)
         last_iter = 0
 
         print(f"\nbaseline local score (active set)={round(base_eval.score, 2)}")
-        print(f"baseline delta ratio vs rtlsim: max={base_max:.2f}% avg={base_avg:.2f}%")
+        print(f"baseline delta vs rtlsim: max_abs={base_maxabs:g} avg_norm={base_avgnorm:.2f}%")
         print(best_feedback)
 
         for i in range(1, max_iterations + 1):
@@ -574,13 +574,13 @@ def run_loop(
             if memory:
                 best_messages = worker_results[0][0]
             last_iter = i
-            iter_max, iter_avg = progress.delta_ratios(iter_eval)
-            progress.record_iteration(node, i, iter_max, iter_avg, table_path=progress_table)
+            iter_maxabs, iter_avgnorm = progress.delta_ratios(iter_eval)
+            progress.record_iteration(node, i, iter_maxabs, iter_avgnorm, table_path=progress_table)
             history.append({"iteration": i, "score": round(iter_score, 2), "n_active": n_active,
-                            "max_delta_ratio_pct": round(iter_max, 4),
-                            "avg_delta_ratio_pct": round(iter_avg, 4)})
+                            "max_abs_delta": round(iter_maxabs, 4),
+                            "avg_normalized_delta_pct": round(iter_avgnorm, 4)})
             print(f"\niter {i}: best-in-archive score={round(iter_score, 2)} solved_active={iter_eval.solved} "
-                  f"delta vs rtlsim: max={iter_max:.2f}% avg={iter_avg:.2f}%")
+                  f"delta vs rtlsim: max_abs={iter_maxabs:g} avg_norm={iter_avgnorm:.2f}%")
             print(best_feedback)
 
             # ── optional analyzer pass: structural advice for next round ──
@@ -633,9 +633,9 @@ def run_loop(
 
         best_path = out_dir / "best_get_tree_model.py"
         best_path.write_text(best["source"])
-        final_max, final_avg = progress.delta_ratios(best["eval"])
-        _report_run_summary(node, t_start, last_iter, base_max, base_avg, final_max, final_avg,
-                            best["iteration"])
+        final_maxabs, final_avgnorm = progress.delta_ratios(best["eval"])
+        _report_run_summary(node, t_start, last_iter, base_maxabs, base_avgnorm,
+                            final_maxabs, final_avgnorm, best["iteration"])
         _finalize(out_dir, node, history, best["iteration"], best["score"],
                   src_path, entry, apply_best, best_path)
         return best_path
@@ -647,16 +647,19 @@ def run_loop(
         log_fh.close()
 
 
-def _report_run_summary(node, t_start, iterations, base_max, base_avg, final_max, final_avg, best_iter):
+def _report_run_summary(node, t_start, iterations, base_maxabs, base_avgnorm,
+                        final_maxabs, final_avgnorm, best_iter):
     """Print the end-of-run summary for one node: wall-clock minutes, iteration
-    count, and the final delta ratio (tree model vs rtlsim) against the baseline."""
+    count, and the final delta (worst absolute delta + average normalized delta
+    %, tree model vs rtlsim) against the baseline."""
     minutes = (time.monotonic() - t_start) / 60.0
     print(f"\n{'=' * 60}\nRUN SUMMARY: {node}\n{'=' * 60}")
     print(f"  duration:   {minutes:.2f} min")
     print(f"  iterations: {iterations}  (best from iteration {best_iter})")
-    print(f"  delta ratio vs rtlsim (|rtlsim-model|/rtlsim):")
-    print(f"    baseline: max={base_max:.2f}%  avg={base_avg:.2f}%")
-    print(f"    final:    max={final_max:.2f}%  avg={final_avg:.2f}%")
+    print(f"  delta vs rtlsim  (max_abs = worst |rtlsim-model|; "
+          f"avg_norm = mean |rtlsim-model|/rtlsim):")
+    print(f"    baseline: max_abs={base_maxabs:g}  avg_norm={base_avgnorm:.2f}%")
+    print(f"    final:    max_abs={final_maxabs:g}  avg_norm={final_avgnorm:.2f}%")
     print(f"  shared progress table: {progress.DEFAULT_TABLE}")
 
 

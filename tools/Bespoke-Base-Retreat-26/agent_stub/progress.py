@@ -6,18 +6,22 @@ report into ONE shared table so a single file shows live progress for every
 node. Writes are guarded by an advisory file lock (``fcntl.flock``) so the
 concurrent processes never corrupt the file.
 
-Delta ratio
------------
+Delta metrics
+-------------
 For a model-produced token access vector ``got`` and the rtlsim reference
-``ref``, the per-index delta ratio is ``|ref[i] - got[i]| / ref[i]``. We
-aggregate the **max** and the **mean** of those ratios across every port of
-every case in an evaluation and report them as percentages. Indices where
-``ref[i] == 0`` are skipped (division by zero); a length mismatch counts each
-extra/missing element as a full miss (ratio 1.0) so a wrong-length vector is
-never scored as perfect.
+``ref``, the per-index absolute delta is ``|ref[i] - got[i]|`` and the per-index
+normalized delta is ``|ref[i] - got[i]| / ref[i]``. Across every port of every
+case in an evaluation we report two numbers:
+
+  * ``max_abs_delta`` -- the single worst absolute delta (a raw token-count
+    difference, not a percentage).
+  * ``average_normalized_delta %`` -- the mean of the normalized deltas, as a
+    percentage. Indices where ``ref[i] == 0`` are skipped for normalization; a
+    length mismatch counts each extra/missing element as a full miss (1.0) so a
+    wrong-length vector is never scored as perfect.
 
 The table rows are
-    node_name   iteration   max_delta_ratio %   average_delta_ratio %
+    node_name   iteration   max_abs_delta   average_normalized_delta %
 appended once per iteration of any node. A JSONL sidecar is the source of truth;
 the aligned ``.txt`` table is re-rendered from it on every update.
 """
@@ -38,37 +42,45 @@ _OUTPUTS_DIR = Path(__file__).resolve().parent.parent / "outputs"
 DEFAULT_TABLE = _OUTPUTS_DIR / "progress_table.txt"
 DEFAULT_DATA = _OUTPUTS_DIR / "progress.jsonl"
 
-_HEADER = ("node_name", "iteration", "max_delta_ratio %", "average_delta_ratio %")
+_HEADER = ("node_name", "iteration", "max_abs_delta", "average_normalized_delta %")
 
 
 # ---------------------------------------------------------------------------
-# delta ratio
+# delta metrics
 # ---------------------------------------------------------------------------
 def delta_ratios(result) -> tuple[float, float]:
-    """(max, mean) per-index delta ratio over all ports/cases of an
-    ``EvalResult``, expressed as percentages.
+    """(worst absolute delta, average normalized delta %) over all ports/cases.
 
-    ``ratio_i = |ref_i - got_i| / ref_i`` for every index where ``ref_i != 0``;
-    a case that errored (no usable vector) and every extra/missing element of a
-    length-mismatched vector count as a full miss (1.0) so neither is ever
-    scored as a perfect match."""
-    ratios: list[float] = []
+    The first value is the single largest ``|ref_i - got_i|`` across every port
+    of every case -- a raw token-count difference, NOT a percentage. The second
+    is the mean of ``|ref_i - got_i| / ref_i`` (indices where ``ref_i == 0`` are
+    skipped) as a percentage. A case that errored, and every extra/missing
+    element of a length-mismatched vector, counts as a full normalized miss
+    (1.0); a length mismatch also contributes the unmatched tail value to the
+    absolute delta, so a wrong-length vector is never scored as perfect."""
+    abs_deltas: list[float] = []
+    norm: list[float] = []
     for c in getattr(result, "cases", []):
         if getattr(c, "error", None) is not None:
-            ratios.append(1.0)
+            norm.append(1.0)
             continue
         for p in getattr(c, "ports", []):
             ref, got = p.ref, p.got
             n = min(len(ref), len(got))
             for i in range(n):
-                r = ref[i]
-                if r == 0:
-                    continue
-                ratios.append(abs(r - got[i]) / abs(r))
-            ratios.extend([1.0] * abs(len(got) - len(ref)))
-    if not ratios:
-        return 0.0, 0.0
-    return max(ratios) * 100.0, (sum(ratios) / len(ratios)) * 100.0
+                d = abs(ref[i] - got[i])
+                abs_deltas.append(d)
+                if ref[i] != 0:
+                    norm.append(d / abs(ref[i]))
+            # length mismatch: each extra/missing element is a full normalized
+            # miss, and its (cumulative) value is an absolute delta vs nothing.
+            longer = got if len(got) > len(ref) else ref
+            for i in range(n, len(longer)):
+                abs_deltas.append(abs(longer[i]))
+                norm.append(1.0)
+    max_abs = max(abs_deltas) if abs_deltas else 0.0
+    avg_norm = (sum(norm) / len(norm)) * 100.0 if norm else 0.0
+    return float(max_abs), avg_norm
 
 
 # ---------------------------------------------------------------------------
@@ -96,8 +108,8 @@ def _render(table_path: Path, rows: list[dict]) -> None:
         (
             str(r.get("node", "")),
             str(r.get("iteration", "")),
-            f"{float(r.get('max_delta_ratio', 0.0)):.2f}",
-            f"{float(r.get('avg_delta_ratio', 0.0)):.2f}",
+            f"{float(r.get('max_abs_delta', 0.0)):g}",
+            f"{float(r.get('avg_normalized_delta_pct', 0.0)):.2f}",
         )
         for r in rows
     ]
@@ -119,16 +131,16 @@ def _render(table_path: Path, rows: list[dict]) -> None:
 def record_iteration(
     node: str,
     iteration: int,
-    max_ratio: float,
-    avg_ratio: float,
+    max_abs_delta: float,
+    avg_normalized_delta_pct: float,
     *,
     table_path=None,
     data_path=None,
     extra: dict | None = None,
 ) -> dict:
-    """Append one ``(node, iteration, max%, avg%)`` row to the shared progress
-    table, locking across processes so concurrent node loops can't corrupt it.
-    Returns the row dict that was recorded."""
+    """Append one ``(node, iteration, max_abs_delta, avg_normalized_delta %)``
+    row to the shared progress table, locking across processes so concurrent
+    node loops can't corrupt it. Returns the row dict that was recorded."""
     table_path = Path(table_path or DEFAULT_TABLE)
     data_path = Path(data_path or DEFAULT_DATA)
     table_path.parent.mkdir(parents=True, exist_ok=True)
@@ -136,8 +148,8 @@ def record_iteration(
     row = {
         "node": node,
         "iteration": int(iteration),
-        "max_delta_ratio": round(float(max_ratio), 4),
-        "avg_delta_ratio": round(float(avg_ratio), 4),
+        "max_abs_delta": round(float(max_abs_delta), 4),
+        "avg_normalized_delta_pct": round(float(avg_normalized_delta_pct), 4),
         "ts": time.time(),
     }
     if extra:

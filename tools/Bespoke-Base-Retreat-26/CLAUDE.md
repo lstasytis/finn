@@ -52,8 +52,9 @@ agent_stub/oracle.py        Oracle: scores a candidate (local/docker/both),
                             builds cases from plugin records, renders
                             TARGET/YOURS/DELTA feedback, serializes docker evals.
 agent_stub/tools/eval_tree.py  eval_tree_model tool: the agent's in-turn self-eval.
-agent_stub/progress.py      delta-ratio (|rtlsim-model|/rtlsim) reporting + the
-                            shared, flock-guarded progress table written to
+agent_stub/progress.py      delta metrics (worst absolute delta |rtlsim-model|
+                            and average normalized delta |rtlsim-model|/rtlsim %)
+                            + the shared, flock-guarded progress table written to
                             outputs/progress_table.txt after every iteration of
                             every node (multiple node loops share one table).
 agent_stub/agent.py         + TAV_SYSTEM_PROMPT (domain expert); run_agent now
@@ -240,11 +241,13 @@ python examples/tav_tree_model_loop.py "MVAU, FMPadding" --model gpt-5.1-codex -
 ```
 
 Each node prints an end-of-run summary (wall-clock minutes, iteration count, and
-the baseline-vs-final delta ratio `|rtlsim-model|/rtlsim`) and appends a row per
-iteration to the shared `outputs/progress_table.txt`:
+the baseline-vs-final delta) and appends a row per iteration to the shared
+`outputs/progress_table.txt`. `max_abs_delta` is the worst absolute delta
+`|rtlsim-model|` (a raw token count); `average_normalized_delta %` is the mean of
+`|rtlsim-model|/rtlsim` as a percentage:
 
 ```
-node_name  iteration  max_delta_ratio %  average_delta_ratio %
+node_name  iteration  max_abs_delta  average_normalized_delta %
 ```
 
 Requirements: Linux (Landlock); a running/Buildable `finn_dev_<user>` docker
