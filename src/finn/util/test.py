@@ -388,7 +388,7 @@ def tree_model_test(
     target_clk_ns,
     max_allowed_volume_delta,
     max_allowed_length_delta,
-    CACHING=False,
+    CACHING=True,
     DEBUGGING=False,
 ):
     # caching means to run RTLSIM only once and store the model

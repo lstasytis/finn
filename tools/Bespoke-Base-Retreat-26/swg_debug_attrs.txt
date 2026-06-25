@@ -1,0 +1,6 @@
+IFMDim=(32, 32) IFMChannels=8 SIMD=8 K=(1, 1) Stride=(2, 2) Dilation=(1, 1) parallel_window=0 depthwise=0 impl_style=unknown
+IFMDim=(32, 32) IFMChannels=8 SIMD=8 K=(1, 1) Stride=(2, 2) Dilation=(1, 1) parallel_window=0 depthwise=0 impl_style=unknown
+IFMDim=(32, 1) IFMChannels=8 SIMD=8 K=(1, 1) Stride=(2, 1) Dilation=(1, 1) parallel_window=0 depthwise=0 impl_style=unknown
+IFMDim=(32, 1) IFMChannels=8 SIMD=8 K=(1, 1) Stride=(2, 1) Dilation=(1, 1) parallel_window=0 depthwise=0 impl_style=unknown
+IFMDim=(1, 32) IFMChannels=8 SIMD=8 K=(1, 1) Stride=(1, 2) Dilation=(1, 1) parallel_window=0 depthwise=0 impl_style=unknown
+IFMDim=(1, 32) IFMChannels=8 SIMD=8 K=(1, 1) Stride=(1, 2) Dilation=(1, 1) parallel_window=0 depthwise=0 impl_style=unknown
