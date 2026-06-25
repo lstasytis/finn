@@ -320,6 +320,25 @@ ANALYSIS_TASK = textwrap.dedent("""\
     pytest's shared helpers, useful for understanding what is actually
     being compared against rtlsim.
 
+    If the existing parametrize values on the characterization test (read
+    its source under tests/fpgadataflow/ to see them -- e.g. idim, pad,
+    num_ch, simd, idt, depending on the node) are not enough to tell apart
+    two competing theories about the node's behavior, you may propose
+    adding ONE new value to ONE of those parameters by ending your reply
+    with a line of exactly this form:
+        PROPOSE_TEST_CASE: <param_name>=<python_literal>
+    e.g. `PROPOSE_TEST_CASE: idim=[12, 8]` or `PROPOSE_TEST_CASE: simd=4`.
+    The literal must be the same kind of value as the parameter's existing
+    ones (e.g. a list for idim, an int for simd) and must not already be
+    one of them. You may NOT propose this for `mode` or `impl_style` --
+    those select which simulation/backend runs, not a property of the node,
+    and any such proposal is rejected. You have no tool to edit the test
+    file yourself; a line in this exact format is parsed by the harness
+    running this conversation and, if valid, applied on your behalf before
+    the next iteration -- at most one proposal is honored per reply, and
+    most replies should have none at all. Only propose one when you have a
+    specific, stated hypothesis the current cases can't distinguish.
+
     Candidate `{filename}` under test:
     ```python
     {candidate}
@@ -463,6 +482,43 @@ def _format_feedback(node, records, max_cases=None):
     return "\n".join(lines)
 
 
+# Matches a `PROPOSE_TEST_CASE: <param>=<literal>` line in an analyzer
+# reply (see ANALYSIS_TASK). Only the first match is ever honored.
+_PROPOSE_TEST_CASE_RE = re.compile(r"^\s*PROPOSE_TEST_CASE:\s*([A-Za-z_]\w*)\s*=\s*(.+?)\s*$", re.MULTILINE)
+
+
+def _apply_proposed_test_case(node, src_override, test_override, analysis):
+    """Look for a `PROPOSE_TEST_CASE: <param>=<literal>` line in the
+    analyzer's reply and, if present, apply the first one found by adding
+    that one value to the node's characterization test via
+    tav_eval.add_parametrize_value -- the analyzer never edits the test file
+    itself (it has no file-writing tools); this is the harness doing it on
+    its behalf, capped at one new value per analyzer call. Returns a
+    description string if a value was added, else None (no proposal, or a
+    rejected one, is not an error)."""
+    matches = _PROPOSE_TEST_CASE_RE.findall(analysis)
+    if not matches:
+        return None
+    if len(matches) > 1:
+        print(f"[orchestrator] analyzer proposed {len(matches)} new test cases; "
+              "only the first is honored this iteration.")
+    param_name, value_literal = matches[0]
+
+    entry = tav_eval.resolve_node(node, src_override, test_override)
+    test_file, _, func_name = entry["test"].partition("::")
+    if not os.path.isabs(test_file):
+        test_file = os.path.join(tav_eval.FINN_ROOT, test_file)
+
+    try:
+        tav_eval.add_parametrize_value(test_file, func_name, param_name, value_literal)
+    except SystemExit as e:
+        print(f"[orchestrator] rejected proposed test case {param_name}={value_literal}: {e}")
+        return None
+    desc = f"{param_name}={value_literal} (added to {entry['test']})"
+    print(f"[orchestrator] added new test case: {desc}")
+    return desc
+
+
 def check_output(
     workspace,
     node,
@@ -487,7 +543,10 @@ def check_output(
     fresh context, no file-writing tools used -- reviews the candidate
     source plus this iteration's (and the previous iteration's, if any)
     feedback, and its analysis is appended to the feedback returned here for
-    the tree-generating agent's next prompt."""
+    the tree-generating agent's next prompt. The analyzer may also propose
+    widening the characterization test's coverage by one parametrize value
+    (see _apply_proposed_test_case); if accepted, that's noted in the
+    feedback too."""
     candidate = workspace / CANDIDATE_FILENAME
     if not candidate.exists():
         return False, f"{CANDIDATE_FILENAME} was not created in the workspace.", [], None
@@ -529,6 +588,13 @@ def check_output(
             _log_prompt(prompts_log_fh, iteration, "analyzer", analysis_task)
         analysis = run_agent(analysis_task, model, workspace / "analysis", max_turns=max_turns)
         feedback += f"\n\nAnalyzer feedback:\n{analysis}"
+
+        new_case = _apply_proposed_test_case(node, src_override, test_override, analysis)
+        if new_case:
+            feedback += (
+                f"\n\n[orchestrator] Added new test case to the validator: {new_case}. "
+                "This will be exercised starting next iteration."
+            )
 
     return False, feedback, records, sc
 
@@ -633,7 +699,6 @@ def run_loop(
         candidate_path = workspace / CANDIDATE_FILENAME
 
         baseline_src = Path(baseline).read_text()
-        best = {"iteration": 0, "source": baseline_src, "score": float("inf")}
         history = []
 
         print(f"node={node} model={model} max_iterations={max_iterations} out_dir={out_dir}")
@@ -656,8 +721,15 @@ def run_loop(
             print(f"\nbaseline: score={round(sc0['score'], 2)} (pass={sc0['n_pass']} fail={sc0['n_fail']} "
                   f"error={sc0['n_error']})")
             history.append({"iteration": 0, **sc0})
+            # seed with the baseline's real score (not inf) -- it can legitimately
+            # win against a worse LLM iteration; a passing baseline short-circuits
+            # below and never reaches this comparison anyway.
+            best = {"iteration": 0, "source": baseline_src, "score": sc0["score"]}
         else:
             history.append({"iteration": 0, "error": feedback0})
+            # tav_eval couldn't even evaluate the baseline -- no real score to
+            # seed with, so any successful later iteration should still win.
+            best = {"iteration": 0, "source": baseline_src, "score": float("inf")}
 
         if passed0:
             print("\nThe node's existing tree model already matches the rtlsim reference; nothing to do.")
@@ -708,6 +780,13 @@ def run_loop(
         if not os.path.isabs(src_path):
             src_path = os.path.join(tav_eval.FINN_ROOT, src_path)
         tav_eval.restore_original(src_path)
+
+        test_file = entry["test"].partition("::")[0]
+        if not os.path.isabs(test_file):
+            test_file = os.path.join(tav_eval.FINN_ROOT, test_file)
+        if tav_eval.restore_original(test_file):
+            print(f"restored {test_file} (reverted any analyzer-proposed test cases)")
+
         if apply_best:
             tav_eval.replace_function(src_path, str(best_path))
             print(f"applied best candidate (iteration {best['iteration']}) to {src_path}")

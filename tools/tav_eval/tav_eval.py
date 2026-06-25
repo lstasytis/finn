@@ -209,6 +209,91 @@ def restore_original(src_path):
 
 
 # ---------------------------------------------------------------------------
+# test-file parametrize editing -- lets the analyzer agent (never the
+# tree-building agent, and never directly -- it has no file-writing tools)
+# propose widening an existing characterization test's coverage by adding one
+# new value to one of its existing @pytest.mark.parametrize(...) lists, when
+# it has a specific hypothesis the current cases can't distinguish. "mode"
+# and "impl_style" are off-limits: they select which simulation/backend runs,
+# not a behavioral parameter of the node itself.
+# ---------------------------------------------------------------------------
+PROTECTED_PARAMETRIZE_NAMES = {"mode", "impl_style"}
+
+
+def add_parametrize_value(test_path, func_name, param_name, new_value_literal):
+    """Append one new value to the existing
+    ``@pytest.mark.parametrize(param_name, [...])`` decorator on ``func_name``
+    in ``test_path``, leaving everything else in the file untouched. Keeps a
+    one-time ``.tav_orig`` backup -- shared with replace_function, so a plain
+    ``restore_original(test_path)`` undoes this too.
+
+    ``new_value_literal`` is a string of Python source for a single value,
+    e.g. ``"[12, 8]"`` or ``"3"``; it is parsed with ``ast.literal_eval``, so
+    only literals (no names/calls) are accepted. Raises SystemExit on any
+    invalid request (protected parameter, no such parametrize, malformed or
+    duplicate value) rather than silently doing nothing, so callers can
+    decide how to report the rejection."""
+    if param_name in PROTECTED_PARAMETRIZE_NAMES:
+        raise SystemExit(
+            f"refusing to edit protected parametrize '{param_name}' "
+            f"(protected: {', '.join(sorted(PROTECTED_PARAMETRIZE_NAMES))})"
+        )
+
+    src = open(test_path).read()
+    tree = ast.parse(src)
+    func_node = next(
+        (n for n in ast.walk(tree)
+         if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == func_name),
+        None,
+    )
+    if func_node is None:
+        raise SystemExit(f"No function '{func_name}' found in {test_path}")
+
+    dec = next(
+        (d for d in func_node.decorator_list
+         if isinstance(d, ast.Call) and isinstance(d.func, ast.Attribute)
+         and d.func.attr == "parametrize" and d.args
+         and isinstance(d.args[0], ast.Constant) and d.args[0].value == param_name),
+        None,
+    )
+    if dec is None:
+        raise SystemExit(
+            f"No @pytest.mark.parametrize({param_name!r}, ...) found on "
+            f"{func_name} in {test_path}"
+        )
+
+    values = dec.args[1]
+    if not isinstance(values, ast.List):
+        raise SystemExit(
+            f"parametrize({param_name!r}, ...) values are not a literal list; cannot edit safely"
+        )
+
+    try:
+        new_value = ast.literal_eval(new_value_literal)
+    except (ValueError, SyntaxError) as e:
+        raise SystemExit(f"'{new_value_literal}' is not a valid literal: {e}")
+
+    existing = [ast.literal_eval(e) for e in values.elts]
+    if new_value in existing:
+        raise SystemExit(f"{param_name}={new_value!r} is already a parametrize value in {test_path}")
+
+    lines = src.splitlines(keepends=True)
+    end_line, end_col = values.end_lineno, values.end_col_offset
+    line = lines[end_line - 1]
+    # insert right before the list literal's closing ']'
+    lines[end_line - 1] = line[: end_col - 1] + f", {new_value_literal.strip()}" + line[end_col - 1 :]
+    new_src = "".join(lines)
+    ast.parse(new_src)  # validate before writing
+
+    backup = test_path + ".tav_orig"
+    if not os.path.exists(backup):
+        shutil.copy2(test_path, backup)
+    with open(test_path, "w") as f:
+        f.write(new_src)
+    return backup
+
+
+# ---------------------------------------------------------------------------
 # docker / container management
 # ---------------------------------------------------------------------------
 def _container_name():
