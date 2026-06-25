@@ -66,6 +66,7 @@ INPUTS_DIR = os.path.join(_PACKAGE_DIR, "inputs")
 CANDIDATE_FILENAME = "get_tree_model.py"
 BEST_FILENAME = "best_get_tree_model.py"
 ANALYZER_FEEDBACK_FILENAME = "analyzer_feedback.log"
+RUN_SUMMARY_FILENAME = "run_summary.log"
 
 # ── per-node HLS/RTL reference pointers ─────────────────────────────────────
 # Filled into the task prompt below so the agent knows where to go read the
@@ -777,6 +778,25 @@ def _persist_best_for_node(node, source, feedback, iteration, score):
     )
 
 
+def _write_run_summary_for_node(node, elapsed_minutes, iterations_run, best_record):
+    """Append a one-line report to outputs/<node>/run_summary.log once a
+    node's whole run_loop() (baseline + every iteration) has finished,
+    however it finished -- early pass or max_iterations exhaustion."""
+    if best_record is not None and "n_pass" in best_record:
+        score_str = f"{best_record['n_pass']}/{best_record['n_total']} tests passed"
+    else:
+        score_str = "N/A (no iteration produced a valid evaluation)"
+    node_dir = _node_outputs_dir(node)
+    node_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    line = (
+        f"[{timestamp}] time={elapsed_minutes:.2f}min iterations={iterations_run} "
+        f"score={score_str}\n"
+    )
+    with (node_dir / RUN_SUMMARY_FILENAME).open("a") as fh:
+        fh.write(line)
+
+
 def run_loop(
     node,
     model=DEFAULT_MODEL,
@@ -799,6 +819,7 @@ def run_loop(
     orig_stdout, orig_stderr = sys.stdout, sys.stderr
     sys.stdout = _TeeStream(orig_stdout, log_fh)
     sys.stderr = _TeeStream(orig_stderr, log_fh)
+    run_start = datetime.datetime.now()
     try:
         entry = tav_eval.resolve_node(node, src_override, test_override)
         src_path = entry["src"]
@@ -821,6 +842,7 @@ def run_loop(
 
         baseline_src = Path(baseline).read_text()
         history = []
+        iterations_run = 0
 
         print(f"node={node} model={model} max_iterations={max_iterations} out_dir={out_dir}")
 
@@ -863,6 +885,7 @@ def run_loop(
 
             previous, builder_feedback, analyzer_prev_feedback = baseline_src, builder_feedback0, eval_feedback0
             for i in range(1, max_iterations + 1):
+                iterations_run = i
                 print(f"\n{'=' * 60}\niteration {i}\n{'=' * 60}")
                 task = build_task(
                     node, src_path, baseline_src, test_ref=test_ref,
@@ -902,6 +925,10 @@ def run_loop(
             else:
                 print(f"\nStopped after {max_iterations} iterations.")
 
+        elapsed_minutes = (datetime.datetime.now() - run_start).total_seconds() / 60.0
+        best_record = history[best["iteration"]] if best["iteration"] < len(history) else None
+        _write_run_summary_for_node(node, elapsed_minutes, iterations_run, best_record)
+
         best_path = out_dir / BEST_FILENAME
         best_path.write_text(best["source"])
         (out_dir / "history.json").write_text(json.dumps({"node": node, "best": best["iteration"],
@@ -925,6 +952,8 @@ def run_loop(
         print(f"\nbest candidate: {best_path}")
         print(f"history:        {out_dir / 'history.json'}")
         print(f"durable copy for {node}: {_node_outputs_dir(node)}")
+        print(f"run summary:    {_node_outputs_dir(node) / RUN_SUMMARY_FILENAME} "
+              f"(time={elapsed_minutes:.2f}min iterations={iterations_run})")
         return best_path
     except Exception:
         print(traceback.format_exc())
