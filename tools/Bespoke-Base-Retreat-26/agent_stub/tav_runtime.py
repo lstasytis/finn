@@ -49,6 +49,11 @@ try:  # candidates may reference ``np``; provide it if the host has it.
 except Exception:  # pragma: no cover - host without numpy
     np = None
 
+try:  # candidates may reference qonnx's ``DataType`` (e.g. Thresholding/MVAU).
+    from qonnx.core.datatype import DataType  # noqa: F401
+except Exception:  # pragma: no cover - host without qonnx
+    DataType = None
+
 
 # ---------------------------------------------------------------------------
 # Characteristic_Node -- copied verbatim from finn.util.basic (pure Python).
@@ -143,6 +148,7 @@ def load_get_tree_model(source: str) -> Callable:
         "Characteristic_Node": Characteristic_Node,
         "math": math,
         "np": np,
+        "DataType": DataType,
     }
     code = compile(source, "<candidate_get_tree_model>", "exec")
     exec(code, ns)  # noqa: S102 - sandboxed/optimizer-controlled source

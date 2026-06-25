@@ -12,6 +12,10 @@ dependencies = [
     # the MVAU baseline's np.prod(numInputVectors)) reference numpy; the local
     # oracle execs them on the host, so numpy must be importable there.
     "numpy>=1.21",
+    # same reason as numpy: several baselines/candidates (e.g. Thresholding's
+    # DataType[self.get_nodeattr("outputDataType")]) reference qonnx's DataType,
+    # which the local oracle binds into the exec namespace.
+    "qonnx>=0.2",
 ]
 
 [build-system]
