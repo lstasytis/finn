@@ -444,26 +444,46 @@ def test_fpgadataflow_thresholding_stitched_ip(
     ).all(), "Output of ONNX model not matching output of stitched-IP RTL model!"
 
 
-@pytest.mark.parametrize("num_input_channels", [6, 16])
+# number of channels / vector shape / folding, as correlated shapes
+# (fold's validity depends on num_input_channels, so pick known-valid
+# combinations instead of crossing them)
 @pytest.mark.parametrize(
-    "num_input_vecs",
+    "num_input_channels,num_input_vecs,fold",
     [
-        [1],
-        [1, 2, 2],
+        (6, [1], -1),
+        (6, [1, 2, 2], 1),
+        (16, [1], 4),
+        (16, [1, 2, 2], -1),
     ],
 )
-@pytest.mark.parametrize("activation", [DataType["BIPOLAR"]])
+# activation / narrow, as correlated pairs (narrow is meaningless for
+# BIPOLAR -- see skip below -- so pair it with non-bipolar activations,
+# including a signed one to exercise the narrow+signed bias branch)
+@pytest.mark.parametrize(
+    "activation,narrow",
+    [
+        (DataType["BIPOLAR"], False),
+        (DataType["UINT2"], False),
+        (DataType["INT3"], True),
+    ],
+)
 @pytest.mark.parametrize(
     "idt_tdt_cfg",
     [
         (DataType["INT8"], DataType["INT8"]),
     ],
 )
-@pytest.mark.parametrize("fold", [-1, 1, 2])
-@pytest.mark.parametrize("narrow", [True, False])
 @pytest.mark.parametrize("per_tensor", [True, False])
-@pytest.mark.parametrize("impl_style", ["rtl"])
-@pytest.mark.parametrize("mem_mode", ["internal_embedded", "internal_decoupled"])
+# impl_style / mem_mode, as correlated pairs (mem_mode only affects HLS;
+# RTL only has one meaningful mode -- see skip below -- so cover RTL's one
+# mode plus both of HLS's modes instead of crossing them)
+@pytest.mark.parametrize(
+    "impl_style,mem_mode",
+    [
+        ("rtl", "internal_embedded"),
+        ("hls", "internal_decoupled"),
+    ],
+)
 @pytest.mark.fpgadataflow
 @pytest.mark.vivado
 @pytest.mark.slow

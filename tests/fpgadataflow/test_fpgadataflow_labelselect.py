@@ -138,14 +138,25 @@ def test_fpgadataflow_labelselect(idt, labels, fold, k, exec_mode, impl_style):
     assert soft_verify_topk(x, y, k), exec_mode + " failed"
 
 
-# which port to test
-@pytest.mark.parametrize("idt", [DataType["UINT8"]])
-# labels
-@pytest.mark.parametrize("labels", [10, 100])
-# folding
-@pytest.mark.parametrize("fold", [1, 10])
-# number of top labels to select
-@pytest.mark.parametrize("k", [1, 5])
+# input datatype
+@pytest.mark.parametrize("idt", [DataType["UINT8"], DataType["INT8"]])
+# labels / folding, as correlated pairs (fold must evenly divide labels
+# via floor division, so pick known-valid pairs instead of crossing them)
+@pytest.mark.parametrize(
+    "labels,fold",
+    [
+        (10, 1),
+        (10, 10),
+        (10, 2),
+        (100, 1),
+        (100, 10),
+        (100, 25),
+        (256, 16),
+        (256, 64),
+    ],
+)
+# number of top labels to select (-1 means select all labels)
+@pytest.mark.parametrize("k", [1, 5, -1])
 # impl style
 @pytest.mark.parametrize("impl_style", ["hls"])
 @pytest.mark.fpgadataflow

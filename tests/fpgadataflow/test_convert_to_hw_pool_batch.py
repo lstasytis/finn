@@ -245,34 +245,39 @@ def test_convert_to_hw_pool(idt, odt, pool_config, ifm_ch, pe, op_type, exec_mod
         assert np.isclose(exp_cycles, cycles_rtlsim, atol=10)
 
 
-# input datatype
-@pytest.mark.parametrize("idt", [DataType["UINT4"]])
-# output datatype
-@pytest.mark.parametrize("odt", [DataType["UINT4"]])
-# pool configuration:                   ( k,stride, pad, ifm_dim )
-# @pytest.mark.parametrize("pool_config", [(7, 7, 0, 7), (3, 2, 1, 5)])
-# @pytest.mark.parametrize("pool_config", [(7, 7, 0, 128), (3, 2, 1, 5)])
-@pytest.mark.parametrize("pool_config", [(2, 1, 0, 512)])
-# input channels
-@pytest.mark.parametrize("ifm_ch", [32])
-# number of out channel computed in parallel
-@pytest.mark.parametrize("pe", [32])
-# pool type
-# @pytest.mark.parametrize("op_type", ["QuantAvgPool2d", "MaxPool", "MaxPool1D"])
-@pytest.mark.parametrize("op_type", ["MaxPool1D"])
+# pool type / datatypes / pool configuration, as correlated tuples:
+# (op_type, idt, odt, k, stride, pad, ifm_dim). MaxPool requires idt==odt,
+# QuantAvgPool2d requires idt.signed()==odt.signed() and pad==0, and a
+# signed idt requires pad==0 -- all satisfied by construction below, so no
+# combination needs to be skipped.
+@pytest.mark.parametrize(
+    "op_type,idt,odt,k,stride,pad,ifm_dim",
+    [
+        ("MaxPool", DataType["UINT4"], DataType["UINT4"], 3, 2, 1, 7),
+        ("MaxPool1D", DataType["UINT4"], DataType["UINT4"], 4, 4, 0, 8),
+        ("MaxPool", DataType["INT8"], DataType["INT8"], 2, 2, 0, 8),
+        ("QuantAvgPool2d", DataType["UINT4"], DataType["UINT4"], 4, 4, 0, 8),
+        ("QuantAvgPool2d", DataType["INT8"], DataType["INT4"], 2, 1, 0, 8),
+        ("MaxPool1D", DataType["INT4"], DataType["INT4"], 3, 3, 0, 6),
+    ],
+)
+# input channels / number of channels computed in parallel, as correlated
+# pairs (ifm_ch must be divisible by pe)
+@pytest.mark.parametrize(
+    "ifm_ch,pe",
+    [
+        (8, 1),
+        (8, 2),
+        (8, 4),
+        (8, 8),
+        (16, 16),
+    ],
+)
 @pytest.mark.fpgadataflow
 @pytest.mark.slow
 @pytest.mark.vivado
 @pytest.mark.node_tree_modeling
-def test_analytical_characterization_pool(idt, odt, pool_config, ifm_ch, pe, op_type):
-    k, stride, pad, ifm_dim = pool_config
-
-    if ifm_ch % pe != 0:
-        pytest.skip("ifm_ch%pe != 0. Skipping")
-
-    if pad != 0 and idt.signed():
-        pytest.skip("No support for pal_val != 0. Skipping")
-
+def test_analytical_characterization_pool(idt, odt, k, stride, pad, ifm_dim, ifm_ch, pe, op_type):
     np.random.seed(0)
 
     part = "xc7z020clg400-1"

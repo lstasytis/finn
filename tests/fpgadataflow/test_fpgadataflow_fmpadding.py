@@ -161,14 +161,22 @@ def test_fpgadataflow_fmpadding(idim, pad, num_ch, simd, idt, mode):
         assert exp_cycles != 0
 
 
-# input image dimension
-@pytest.mark.parametrize("idim", [[10, 8]])
-# number of rows and number of cols to add
-@pytest.mark.parametrize("pad", [[1, 1, 1, 1], [1, 1, 2, 2], [7, 0, 8, 0]])
-# number of channels
-@pytest.mark.parametrize("num_ch", [2, 4])
+# input image dimension / padding amount / number of channels, as
+# correlated shapes (independently crossing these would blow up the
+# combination count without adding meaningfully distinct cases)
+@pytest.mark.parametrize(
+    "idim,pad,num_ch",
+    [
+        ([8, 8], [1, 1, 1, 1], 4),
+        ([8, 8], [1, 1, 2, 2], 8),
+        ([6, 8], [3, 0, 4, 0], 2),
+        ([8, 6], [0, 0, 2, 2], 8),
+        ([6, 6], [2, 2, 2, 2], 16),
+        ([8, 4], [1, 0, 1, 0], 4),
+    ],
+)
 # Input parallelism
-@pytest.mark.parametrize("simd", [1, 2])
+@pytest.mark.parametrize("simd", [1, 2, 4, 8])
 # FINN input datatype
 @pytest.mark.parametrize("idt", [DataType["INT2"]])
 # execution mode

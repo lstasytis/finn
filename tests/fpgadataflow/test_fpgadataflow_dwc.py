@@ -183,6 +183,25 @@ def test_fpgadataflow_dwc_stitched_rtlsim(config, impl_style):
         ([1, 4], 4, 2, DataType["INT2"]),
         ([1, 2, 8], 4, 4, DataType["INT2"]),
         ([1, 2, 8], 8, 16, DataType["INT2"]),
+        ([1, 16], 16, 4, DataType["INT2"]),
+        ([1, 16], 4, 16, DataType["INT2"]),
+        ([1, 32], 32, 4, DataType["INT2"]),
+        ([1, 32], 4, 32, DataType["INT2"]),
+        # non-integer in/out width ratios -- RTL doesn't support these, so
+        # these exercise the automatic fallback to HLS even when
+        # impl_style="rtl" is requested (see node_details below)
+        ([1, 12], 6, 4, DataType["INT2"]),
+        ([1, 12], 4, 6, DataType["INT2"]),
+        ([1, 30], 10, 6, DataType["INT2"]),
+        ([1, 8], 16, 8, DataType["INT4"]),
+        ([1, 8], 8, 16, DataType["INT4"]),
+        ([1, 4], 16, 8, DataType["UINT8"]),
+        ([1, 4], 8, 16, DataType["UINT8"]),
+        ([1, 2, 8], 16, 8, DataType["INT2"]),
+        ([1, 3, 8], 8, 16, DataType["INT2"]),
+        ([2, 8], 8, 8, DataType["BIPOLAR"]),
+        ([1, 6], 12, 4, DataType["INT2"]),
+        ([1, 24], 4, 12, DataType["INT2"]),
     ],
 )
 @pytest.mark.parametrize("impl_style", ["hls", "rtl"])
@@ -199,7 +218,12 @@ def test_fpgadataflow_analytical_characterization_dwc(config, impl_style):
     # model = model.transform(InferShapes())
     # model = model.transform(SetExecMode(mode))
 
-    node_details = ("DWC", config, impl_style)
+    # a requested impl_style="rtl" silently falls back to HLS for width
+    # ratios the RTL variant can't support -- reflect the backend that was
+    # actually instantiated, not just what was requested
+    actual_optype = model.graph.node[0].op_type
+    actual_impl_style = "rtl" if actual_optype == "StreamingDataWidthConverter_rtl" else "hls"
+    node_details = ("DWC", config, actual_impl_style)
     # part = "xc7z020clg400-1"
 
     target_clk_ns = 4

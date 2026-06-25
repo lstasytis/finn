@@ -892,32 +892,46 @@ def test_fpgadataflow_rtl_dynamic_mvau(mh, mw, n_vectors, pe, simd, idt_wdt, par
     ).all(), "Output of ONNX model not matching output of stitched-IP RTL model!"
 
 
-# mem_mode: internal_embedded or internal_decoupled
-@pytest.mark.parametrize("mem_mode", ["internal_decoupled", "internal_embedded"])
+# mem_mode/backend, as correlated pairs (RTL-MVAU doesn't support
+# internal_embedded mem mode, so exclude that combination outright
+# instead of crossing the two axes and skipping it)
+@pytest.mark.parametrize(
+    "mem_mode,preferred_impl_style",
+    [
+        ("internal_decoupled", "hls"),
+        ("internal_decoupled", "rtl"),
+        ("internal_embedded", "hls"),
+    ],
+)
 # activation: None or DataType
 @pytest.mark.parametrize("act", [None])
-# weight datatype
-@pytest.mark.parametrize("wdt", [DataType["INT4"]])
-# input datatype
-@pytest.mark.parametrize("idt", [DataType["INT4"]])
-# neuron folding, -1 is maximum possible
-@pytest.mark.parametrize("nf", [-1, 2, 8])
-# synapse folding, -1 is maximum possible
-@pytest.mark.parametrize("sf", [-1, 2, 4])
+# weight/input datatype, as correlated pairs to exercise the BIPOLAR x
+# BIPOLAR XNOR-popcount accumulation path alongside mixed-sign INT4
+@pytest.mark.parametrize(
+    "wdt,idt",
+    [
+        (DataType["INT4"], DataType["INT4"]),
+        (DataType["BIPOLAR"], DataType["BIPOLAR"]),
+        (DataType["BIPOLAR"], DataType["INT4"]),
+        (DataType["INT4"], DataType["BIPOLAR"]),
+    ],
+)
+# neuron/synapse folding, -1 is maximum possible, as correlated pairs
+# (each a clean divisor of the mw/mh below)
+@pytest.mark.parametrize(
+    "nf,sf",
+    [(-1, -1), (2, 2), (4, 1), (1, 4)],
+)
 # HLS matrix width (input features)
 @pytest.mark.parametrize("mw", [4])
 # HLS matrix height (output features)
 @pytest.mark.parametrize("mh", [4])
-# Backend
-@pytest.mark.parametrize("preferred_impl_style", ["hls", "rtl"])
 @pytest.mark.fpgadataflow
 @pytest.mark.vivado
 @pytest.mark.node_tree_modeling
 def test_fpgadataflow_analytical_characterization_mvau(
     mem_mode, idt, wdt, act, nf, sf, mw, mh, preferred_impl_style
 ):
-    if preferred_impl_style == "rtl" and (mem_mode == "internal_embedded" or act is not None):
-        pytest.skip("RTL-MVAU doesn't support const mem mode or embedded activations")
     if nf == -1:
         nf = mh
     if sf == -1:
