@@ -763,8 +763,17 @@ def _persist_best_for_node(node, source, feedback, iteration, score):
     node_dir = _node_outputs_dir(node)
     node_dir.mkdir(parents=True, exist_ok=True)
     (node_dir / BEST_FILENAME).write_text(source)
+    if not feedback:
+        # check_output() returns empty feedback only when this candidate
+        # solved every case outright -- there was nothing left to analyze,
+        # not a missing/failed analyzer call. Say so explicitly rather than
+        # leaving the log looking broken.
+        feedback = (
+            f"(no analyzer feedback for iteration {iteration} -- this candidate "
+            "passed every case, so it was never sent to the analyzer.)"
+        )
     (node_dir / ANALYZER_FEEDBACK_FILENAME).write_text(
-        f"iteration {iteration} (score={round(score, 4)}):\n{feedback or ''}\n"
+        f"iteration {iteration} (score={round(score, 4)}):\n{feedback}\n"
     )
 
 
