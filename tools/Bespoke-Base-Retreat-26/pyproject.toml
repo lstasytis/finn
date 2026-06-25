@@ -8,6 +8,10 @@ dependencies = [
     "pydantic>=2.0",
     "landlock>=1.0.0.dev5",
     "python-dotenv>=1.0",
+    # candidate get_tree_model bodies (and the baselines they start from, e.g.
+    # the MVAU baseline's np.prod(numInputVectors)) reference numpy; the local
+    # oracle execs them on the host, so numpy must be importable there.
+    "numpy>=1.21",
 ]
 
 [build-system]
