@@ -1,0 +1,516 @@
+import base64
+import gzip
+import json
+import numpy as np
+import os
+import re
+import subprocess
+import sys
+import tempfile
+from qonnx.core.modelwrapper import ModelWrapper
+from qonnx.custom_op.registry import getCustomOp
+from qonnx.util.basic import gen_finn_dt_tensor, roundup_to_integer_multiple
+from typing import Dict, Optional, Tuple
+
+from finn.util.data_packing import finnpy_to_packed_bytearray
+
+# test boards used for bnn pynq tests
+test_board_map = ["Pynq-Z1", "KV260_SOM", "ZCU104", "U250"]
+
+# mapping from PYNQ board names to FPGA part names
+pynq_part_map = dict()
+pynq_part_map["Ultra96"] = "xczu3eg-sbva484-1-e"
+pynq_part_map["Ultra96-V2"] = "xczu3eg-sbva484-1-i"
+pynq_part_map["Pynq-Z1"] = "xc7z020clg400-1"
+pynq_part_map["Pynq-Z2"] = "xc7z020clg400-1"
+pynq_part_map["ZCU102"] = "xczu9eg-ffvb1156-2-e"
+pynq_part_map["ZCU104"] = "xczu7ev-ffvc1156-2-e"
+pynq_part_map["ZCU111"] = "xczu28dr-ffvg1517-2-e"
+pynq_part_map["RFSoC2x2"] = "xczu28dr-ffvg1517-2-e"
+pynq_part_map["RFSoC4x2"] = "xczu48dr-ffvg1517-2-e"
+pynq_part_map["KV260_SOM"] = "xck26-sfvc784-2LV-c"
+pynq_part_map["AUP-ZU3_8GB"] = "xczu3eg-sfvc784-2-e"
+
+
+# native AXI HP port width (in bits) for PYNQ boards
+pynq_native_port_width = dict()
+pynq_native_port_width["Pynq-Z1"] = 64
+pynq_native_port_width["Pynq-Z2"] = 64
+pynq_native_port_width["Ultra96"] = 128
+pynq_native_port_width["Ultra96-V2"] = 128
+pynq_native_port_width["ZCU102"] = 128
+pynq_native_port_width["ZCU104"] = 128
+pynq_native_port_width["ZCU111"] = 128
+pynq_native_port_width["RFSoC2x2"] = 128
+pynq_native_port_width["RFSoC4x2"] = 128
+pynq_native_port_width["KV260_SOM"] = 128
+pynq_native_port_width["AUP-ZU3_8GB"] = 128
+
+# Vitis device and platform mappings
+vitis_part_map = dict()
+vitis_part_map["U50"] = "xcu50-fsvh2104-2L-e"
+vitis_part_map["U200"] = "xcu200-fsgd2104-2-e"
+vitis_part_map["U250"] = "xcu250-figd2104-2L-e"
+vitis_part_map["U280"] = "xcu280-fsvh2892-2L-e"
+vitis_part_map["U55C"] = "xcu55c-fsvh2892-2L-e"
+
+vitis_default_platform = dict()
+vitis_default_platform["U50"] = "xilinx_u50_gen3x16_xdma_5_202210_1"
+vitis_default_platform["U200"] = "xilinx_u200_gen3x16_xdma_2_202110_1"
+vitis_default_platform["U250"] = "xilinx_u250_gen3x16_xdma_2_1_202010_1"
+vitis_default_platform["U280"] = "xilinx_u280_gen3x16_xdma_1_202211_1"
+vitis_default_platform["U55C"] = "xilinx_u55c_gen3x16_xdma_3_202210_1"
+
+# Slash device mappings
+slash_part_map = dict()
+slash_part_map["V80"] = "xcv80-lsva4737-2MHP-e-s"
+
+# Create a joint part map, encompassing other boards too
+part_map = {**pynq_part_map, **vitis_part_map, **slash_part_map}
+part_map["VEK280"] = "xcve2802-vsvh1760-2MP-e-S"
+part_map["VCK190"] = "xcvc1902-vsva2197-2MP-e-S"
+
+
+def get_rtlsim_trace_depth():
+    """Return the trace depth for rtlsim. Controllable
+    via the RTLSIM_TRACE_DEPTH environment variable. If the env.var. is
+    undefined, the default value of 1 is returned. A trace depth of 1
+    will only show top-level signals and yield smaller .vcd files.
+
+    The following depth values are of interest for whole-network stitched IP
+    rtlsim:
+    - level 1 shows top-level input/output streams
+    - level 2 shows per-layer input/output streams
+    - level 3 shows per full-layer I/O including FIFO count signals
+    """
+
+    try:
+        return int(os.environ["RTLSIM_TRACE_DEPTH"])
+    except KeyError:
+        return 1
+
+
+def get_finn_root():
+    "Return the root directory that FINN is cloned into."
+
+    try:
+        return os.environ["FINN_ROOT"]
+    except KeyError:
+        raise Exception(
+            """Environment variable FINN_ROOT must be set
+        correctly. Please ensure you have launched the Docker contaier correctly.
+        """
+        )
+
+
+def get_vivado_root():
+    "Return the root directory that Vivado is installed into."
+
+    try:
+        return os.environ["XILINX_VIVADO"]
+    except KeyError:
+        raise Exception(
+            """Environment variable XILINX_VIVADO must be set
+        correctly. Please ensure you have launched the Docker contaier correctly.
+        """
+        )
+
+
+def get_vivado_version() -> Optional[Tuple[int, int]]:
+    """Extract Vivado version as (year, minor) tuple from XILINX_VIVADO."""
+    path = os.environ.get("XILINX_VIVADO", "")
+    match = re.search(r"\b(20\d{2})\.(1|2)\b", path)
+    return (int(match.group(1)), int(match.group(2))) if match else None
+
+
+def get_liveness_threshold_cycles():
+    """Return the number of no-output cycles rtlsim will wait before assuming
+    the simulation is not finishing and throwing an exception."""
+
+    return int(os.getenv("LIVENESS_THRESHOLD", 1000000))
+
+
+def make_build_dir(prefix=""):
+    """Creates a folder with given prefix to be used as a build dir.
+    Use this function instead of tempfile.mkdtemp to ensure any generated files
+    will survive on the host after the FINN Docker container exits."""
+    try:
+        tmpdir = tempfile.mkdtemp(prefix=prefix)
+        newdir = tmpdir.replace("/tmp", os.environ["FINN_BUILD_DIR"])
+        os.makedirs(newdir)
+        return newdir
+    except KeyError:
+        raise Exception(
+            """Environment variable FINN_BUILD_DIR must be set
+        correctly. Please ensure you have launched the Docker contaier correctly.
+        """
+        )
+
+
+class CppBuilder:
+    """Builds the g++ compiler command to produces the executable of the c++ code
+    in code_gen_dir which is passed to the function build() of this class."""
+
+    def __init__(self):
+        self.include_paths = []
+        self.cpp_files = []
+        self.executable_path = ""
+        self.code_gen_dir = ""
+        self.compile_components = []
+        self.compile_script = ""
+
+    def append_includes(self, library_path):
+        """Adds given library path to include_paths list."""
+        self.include_paths.append(library_path)
+
+    def append_sources(self, cpp_file):
+        """Adds given c++ file to cpp_files list."""
+        self.cpp_files.append(cpp_file)
+
+    def set_executable_path(self, path):
+        """Sets member variable "executable_path" to given path."""
+        self.executable_path = path
+
+    def build(self, code_gen_dir):
+        """Builds the g++ compiler command according to entries in include_paths
+        and cpp_files lists. Saves it in bash script in given folder and
+        executes it."""
+        # raise error if includes are empty
+        self.code_gen_dir = code_gen_dir
+        self.compile_components.append("g++ -o " + str(self.executable_path))
+        for cpp_file in self.cpp_files:
+            self.compile_components.append(cpp_file)
+        for lib in self.include_paths:
+            self.compile_components.append(lib)
+        bash_compile = ""
+        for component in self.compile_components:
+            bash_compile += str(component) + " "
+        self.compile_script = str(self.code_gen_dir) + "/compile.sh"
+        with open(self.compile_script, "w") as f:
+            f.write("#!/bin/bash \n")
+            f.write(bash_compile + "\n")
+        bash_command = ["bash", self.compile_script]
+        process_compile = subprocess.Popen(bash_command, stdout=subprocess.PIPE)
+        process_compile.communicate()
+
+
+def launch_process_helper(args, proc_env=None, cwd=None):
+    """Helper function to launch a process in a way that facilitates logging
+    stdout/stderr with Python loggers.
+    Returns (cmd_out, cmd_err)."""
+    if proc_env is None:
+        proc_env = os.environ.copy()
+    with subprocess.Popen(
+        args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=proc_env, cwd=cwd
+    ) as proc:
+        (cmd_out, cmd_err) = proc.communicate()
+    if cmd_out is not None:
+        cmd_out = cmd_out.decode("utf-8")
+        sys.stdout.write(cmd_out)
+    if cmd_err is not None:
+        cmd_err = cmd_err.decode("utf-8")
+        sys.stderr.write(cmd_err)
+    return (cmd_out, cmd_err)
+
+
+def which(program):
+    "Python equivalent of the shell cmd 'which'."
+
+    # source:
+    # https://stackoverflow.com/questions/377017/test-if-executable-exists-in-python
+    def is_exe(fpath):
+        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
+    fpath, fname = os.path.split(program)
+    if fpath:
+        if is_exe(program):
+            return program
+    else:
+        for path in os.environ["PATH"].split(os.pathsep):
+            exe_file = os.path.join(path, program)
+            if is_exe(exe_file):
+                return exe_file
+
+    return None
+
+
+mem_primitives_versal = {
+    "URAM_72x4096": (72, 4096),
+    "URAM_36x8192": (36, 8192),
+    "URAM_18x16384": (18, 16384),
+    "URAM_9x32768": (9, 32768),
+    "BRAM18_36x512": (36, 512),
+    "BRAM18_18x1024": (18, 1024),
+    "BRAM18_9x2048": (9, 2048),
+    "LUTRAM": (1, 64),
+}
+
+
+def get_memutil_alternatives(
+    req_mem_spec, mem_primitives=mem_primitives_versal, sort_min_waste=True
+):
+    """Computes how many instances of a memory primitive are necessary to
+    implement a desired memory size, where req_mem_spec is the desired
+    size and the primitive_spec is the primitve size. The sizes are expressed
+    as tuples of (mem_width, mem_depth). Returns a list of tuples of the form
+    (primitive_name, (primitive_count, efficiency, waste)) where efficiency in
+    range [0,1] indicates how much of the total capacity is utilized, and waste
+    indicates how many bits of storage are wasted. If sort_min_waste is True,
+    the list is sorted by increasing waste.
+    """
+    ret = [
+        (primitive_name, memutil(req_mem_spec, primitive_spec))
+        for (primitive_name, primitive_spec) in mem_primitives.items()
+    ]
+    if sort_min_waste:
+        ret = sorted(ret, key=lambda x: x[1][2])
+    return ret
+
+
+def memutil(req_mem_spec, primitive_spec):
+    """Computes how many instances of a memory primitive are necessary to
+    implemented a desired memory size, where req_mem_spec is the desired
+    size and the primitive_spec is the primitve size. The sizes are expressed
+    as tuples of (mem_width, mem_depth). Returns (primitive_count, efficiency, waste)
+    where efficiency in range [0,1] indicates how much of the total capacity is
+    utilized, and waste indicates how many bits of storage are wasted."""
+
+    req_width, req_depth = req_mem_spec
+    prim_width, prim_depth = primitive_spec
+
+    match_width = roundup_to_integer_multiple(req_width, prim_width)
+    match_depth = roundup_to_integer_multiple(req_depth, prim_depth)
+    count_width = match_width // prim_width
+    count_depth = match_depth // prim_depth
+    count = count_depth * count_width
+    eff = (req_width * req_depth) / (count * prim_width * prim_depth)
+    waste = (count * prim_width * prim_depth) - (req_width * req_depth)
+    return (count, eff, waste)
+
+
+def is_versal(fpgapart):
+    """Returns whether board is part of the Versal family"""
+    return fpgapart[0:4] in ["xcvc", "xcve", "xcvp", "xcvm", "xqvc", "xqvm"] or fpgapart[0:5] in [
+        "xqrvc",
+        "xcv80",
+    ]
+
+
+def get_dsp_block(fpgapart):
+    if is_versal(fpgapart):
+        return "DSP58"
+    elif fpgapart[2] == "7":
+        return "DSP48E1"
+    else:
+        return "DSP48E2"
+
+
+def stretch(a, new_length):
+    n = len(a)
+    x_old = np.arange(n)
+    x_new = np.linspace(0, n - 1, new_length)
+    stretched = np.interp(x_new, x_old, a).round().astype(a.dtype)
+    return stretched
+
+
+class Characteristic_Node:
+    def __init__(self, name, sub_phases, leaf):
+        self.name = name
+        self.sub_phases = sub_phases
+        self.cycles_eval = None
+        self.cycles_inputs = None
+        self.cycles_outputs = None
+        self.leaf = leaf
+        self.debug = False
+
+    def sum(self, op):
+        if self.leaf:
+            if op == 2:
+                return sum([x[0] for x in self.sub_phases])
+            else:
+                return sum([x[0] * x[1][op] for x in self.sub_phases])
+        else:
+            return sum([x[0] * x[1].sum(op) for x in self.sub_phases])
+
+    def traverse_phase_tree(self, op, counter, cycles, ch_fnc):
+        """
+        The tree traversal function to get the token access vector.
+        We call it multiple times to get input, output and cycle count vectors.
+
+
+        op: 0 input, 1 output, 2 cycle count
+        counter: current count of op
+        cycles: current cycle count
+        ch_fnc: list of counter values at each cycle (the token access vector)
+        """
+
+        if (
+            self.leaf
+        ):  # immediate write out of the counter state to the array due to being a leaf node
+            for phase in self.sub_phases:
+                for _ in range(phase[0]):
+                    if op == 2:
+                        counter += 1
+                    else:
+                        counter += phase[1][op]
+                    cycles += 1
+                    ch_fnc.append(counter)
+            return counter, cycles, ch_fnc
+        else:  # recursive call to the next sub-node
+            for phase in self.sub_phases:
+                for _ in range(phase[0]):
+                    counter, cycles, ch_fnc = phase[1].traverse_phase_tree(
+                        op, counter, cycles, ch_fnc
+                    )
+            return counter, cycles, ch_fnc
+
+    def get_total_cycles(self, op):
+        """
+        Returns the total length of a characterized node period with the final
+        timesample being either the final input our output transaction.
+        op ["in", "out"]
+        """
+        counter = 0
+        cycles = 0
+        ch_fnc = []
+        counter, cycles, ch_fnc = self.traverse_phase_tree(op, counter, cycles, ch_fnc)
+        last_update = 0
+        last_val = ch_fnc[op]
+        for i in range(1, len(ch_fnc[1:]) + 1):
+            if ch_fnc[i] > last_val:
+                last_update = i
+                last_val = ch_fnc[i]
+
+        return cycles, last_update, ch_fnc
+
+
+def compress_numpy_to_string(arr):
+    metadata = {
+        "dtype": str(arr.dtype),  # Store dtype as string
+        "shape": arr.shape,  # Store shape as a tuple
+    }
+    metadata_str = json.dumps(metadata)  # Convert metadata to JSON string
+    metadata_bytes = metadata_str.encode("utf-8")  # Convert metadata to bytes
+
+    compressed_data = gzip.compress(arr.tobytes())  # Compress array data
+    combined_data = (
+        metadata_bytes + b"||" + compressed_data
+    )  # Concatenate metadata & compressed data
+    s = base64.b64encode(combined_data).decode("utf-8")
+    return s  # Encode to string
+
+
+def decompress_string_to_numpy(s):
+    combined_data = base64.b64decode(s.encode("utf-8"))  # Decode from base64
+    metadata_bytes, compressed_data = combined_data.split(b"||", 1)  # Split metadata & data
+
+    metadata = json.loads(metadata_bytes.decode("utf-8"))  # Decode metadata
+    dtype = np.dtype(metadata["dtype"])  # Convert dtype back
+    shape = tuple(metadata["shape"])  # Convert shape back
+
+    decompressed_data = gzip.decompress(compressed_data)  # Decompress data
+    return np.frombuffer(decompressed_data, dtype=dtype).reshape(shape)  # Reshape into array
+
+
+def compute_total_model_fifo_size(model):
+    size = 0
+    total_depth = 0
+    for node in model.graph.node:
+        if node.op_type in ["StreamingFIFO", "StreamingFIFO_hls", "StreamingFIFO_rtl"]:
+            depth = getCustomOp(node).get_nodeattr("depth")
+            width = getCustomOp(node).get_instream_width()
+            size += width * depth
+            total_depth += depth
+    return size, total_depth
+
+
+def get_driver_shapes(model: ModelWrapper) -> Dict:
+    idt = []
+    idma_names = []
+    ishape_normal = []
+    ishape_folded = []
+    ishape_packed = []
+    for idma_ind, graph_in in enumerate(model.graph.input):
+        i_tensor_name = graph_in.name
+        # get inp tensor properties
+        i_tensor_dt = model.get_tensor_datatype(i_tensor_name)
+        i_tensor_shape_normal = tuple(model.get_tensor_shape(i_tensor_name))
+        # go down into dataflow partition to get folded shape info etc
+        # TODO consider setting these as attributes during dataflow partitioning
+        i_consumer = model.find_consumer(i_tensor_name)
+        assert (
+            i_consumer.op_type == "StreamingDataflowPartition"
+        ), """
+            Ensure CreateDataflowPartition called before driver creation."""
+        first_df_model = ModelWrapper(getCustomOp(i_consumer).get_nodeattr("model"))
+        assert (
+            first_df_model.graph.node[0].op_type == "IODMA_hls"
+        ), "First partition must hold input IODMA"
+        successors = model.find_direct_successors(i_consumer)
+        successor_input_num = list(successors[0].input).index(i_consumer.output[0])
+        successor_sdp = getCustomOp(successors[0])
+        successor_df_model = ModelWrapper(successor_sdp.get_nodeattr("model"))
+        first_node = successor_df_model.find_consumer(
+            successor_df_model.graph.input[successor_input_num].name
+        )
+        i_tensor_shape_folded = tuple(getCustomOp(first_node).get_folded_input_shape())
+        # generate dummy folded i/o tensors and their packed versions
+        i_tensor_dummy_folded = gen_finn_dt_tensor(i_tensor_dt, i_tensor_shape_folded)
+        i_tensor_dummy_packed = finnpy_to_packed_bytearray(i_tensor_dummy_folded, i_tensor_dt)
+        i_tensor_shape_packed = i_tensor_dummy_packed.shape
+        # append all input tensor info to relevant lists
+        idt.append("DataType['%s']" % i_tensor_dt.name)
+        ishape_normal.append(i_tensor_shape_normal)
+        ishape_folded.append(i_tensor_shape_folded)
+        ishape_packed.append(i_tensor_shape_packed)
+        idma_names.append(getCustomOp(i_consumer).get_nodeattr("instance_name"))
+
+    odt = []
+    odma_names = []
+    oshape_normal = []
+    oshape_folded = []
+    oshape_packed = []
+    for odma_ind, graph_out in enumerate(model.graph.output):
+        o_tensor_name = graph_out.name
+        # get inp tensor properties
+        o_tensor_dt = model.get_tensor_datatype(o_tensor_name)
+        o_tensor_shape_normal = tuple(model.get_tensor_shape(o_tensor_name))
+        # go down into IODMA partition to get folded shape info etc
+        # TODO consider setting these as attributes during dataflow partitioning
+        o_producer = model.find_producer(o_tensor_name)
+        assert (
+            o_producer.op_type == "StreamingDataflowPartition"
+        ), """
+            Ensure CreateDataflowPartition called before driver creation."""
+        df_model = ModelWrapper(getCustomOp(o_producer).get_nodeattr("model"))
+        assert df_model.graph.node[-1].op_type == "IODMA_hls", "Partition must hold output IODMA"
+        predecessors = model.find_direct_predecessors(o_producer)
+        predecessor_output_num = list(predecessors[0].output).index(o_producer.input[0])
+        predecessor_sdp = getCustomOp(predecessors[0])
+        predecessor_df_model = ModelWrapper(predecessor_sdp.get_nodeattr("model"))
+        last_node = predecessor_df_model.find_producer(
+            predecessor_df_model.graph.output[predecessor_output_num].name
+        )
+        o_tensor_shape_folded = tuple(getCustomOp(last_node).get_folded_output_shape())
+        o_tensor_dummy_folded = gen_finn_dt_tensor(o_tensor_dt, o_tensor_shape_folded)
+        o_tensor_dummy_packed = finnpy_to_packed_bytearray(o_tensor_dummy_folded, o_tensor_dt)
+        o_tensor_shape_packed = o_tensor_dummy_packed.shape
+        # append all output tensor info to relevant lists
+        odt.append("DataType['%s']" % o_tensor_dt.name)
+        oshape_normal.append(o_tensor_shape_normal)
+        oshape_folded.append(o_tensor_shape_folded)
+        oshape_packed.append(o_tensor_shape_packed)
+        odma_names.append(getCustomOp(o_producer).get_nodeattr("instance_name"))
+
+    return {
+        "idt": idt,
+        "idma_names": idma_names,
+        "ishape_normal": ishape_normal,
+        "ishape_folded": ishape_folded,
+        "ishape_packed": ishape_packed,
+        "odt": odt,
+        "odma_names": odma_names,
+        "oshape_normal": oshape_normal,
+        "oshape_folded": oshape_folded,
+        "oshape_packed": oshape_packed,
+    }

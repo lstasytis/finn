@@ -145,6 +145,17 @@ TASK_HEADER = textwrap.dedent("""\
     is input/output channel activity (reads/writes), not full datapath
     behavior.
 
+    Three more files, not specific to {node}, are also cleaned and
+    available under {inputs_dir}: hwcustomop.py
+    ({inputs_dir}/src/finn/custom_op/fpgadataflow/hwcustomop.py) is the
+    base class every node inherits, showing how FINN stores and exposes
+    compile-time parameters via get_nodeattr; basic.py
+    ({inputs_dir}/src/finn/util/basic.py) contains Characteristic_Node and
+    the tree-traversal function that turns a tree into a TAV; test.py
+    ({inputs_dir}/src/finn/util/test.py) contains the characterization
+    pytest's shared helpers, useful for understanding what is actually
+    being compared against rtlsim.
+
     Approach: extract the node's compile-time parameters via
     self.get_nodeattr(...) -- these determine which states exist and their
     repeat counts, and should be encoded into the tree's edges. Look at other
@@ -271,8 +282,8 @@ ANALYSIS_TASK = textwrap.dedent("""\
     {inputs_dir}/deps/finn-hlslib/streamtools.h. Do not read those same
     files from the live FINN repository checked out at {finn_root}; only
     use the bash tool against {finn_root} for things with no cleaned copy
-    under {inputs_dir}, such as the node's pytest file or
-    Characteristic_Node's own implementation in src/finn/util/basic.py.
+    under {inputs_dir}, such as the node's specific pytest file under
+    tests/fpgadataflow/.
 
     You are NOT generating or editing the tree yourself -- a separate agent
     does that. Your only job is to analyze the candidate below against its
@@ -297,6 +308,17 @@ ANALYSIS_TASK = textwrap.dedent("""\
     cycle-accurate model of the node, but the only thing it needs to capture
     is input/output channel activity (reads/writes), not full datapath
     behavior.
+
+    Three more files, not specific to {node}, are also cleaned and
+    available under {inputs_dir}: hwcustomop.py
+    ({inputs_dir}/src/finn/custom_op/fpgadataflow/hwcustomop.py) is the
+    base class every node inherits, showing how FINN stores and exposes
+    compile-time parameters via get_nodeattr; basic.py
+    ({inputs_dir}/src/finn/util/basic.py) contains Characteristic_Node and
+    the tree-traversal function that turns a tree into a TAV; test.py
+    ({inputs_dir}/src/finn/util/test.py) contains the characterization
+    pytest's shared helpers, useful for understanding what is actually
+    being compared against rtlsim.
 
     Candidate `{filename}` under test:
     ```python
