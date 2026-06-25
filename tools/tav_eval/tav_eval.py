@@ -446,23 +446,59 @@ def load_records(records_dir):
     return records
 
 
+def expand_records(records):
+    """Flatten each test's ``ports`` list into independent per-port cases.
+
+    A test that gets the input side exactly right but not the output (or
+    vice versa) should be scored and reported on each side separately,
+    rather than lumped into one pass/fail per test. Skipped tests and
+    records with no captured ports (e.g. a crash before any comparison ran)
+    pass through unchanged with ``port=None``."""
+    cases = []
+    for r in records:
+        ports = r.get("ports")
+        if r.get("outcome") == "skipped" or not ports:
+            cases.append(dict(r, port=None))
+            continue
+        for p in ports:
+            case = {k: v for k, v in r.items() if k != "ports"}
+            case.update(p)
+            case["outcome"] = "passed" if p.get("verdict") else "failed"
+            cases.append(case)
+    return cases
+
+
+def _case_tag(case):
+    outcome = case.get("outcome")
+    if outcome == "passed":
+        return "PASS"
+    if outcome == "skipped":
+        return "SKIP"
+    if outcome == "failed":
+        return "FAIL" if case.get("port") else "ERROR"
+    return outcome.upper() if outcome else "UNKNOWN"
+
+
 def score_records(records):
     """Reduce a set of records to an optimization fitness (lower is better).
 
-    score = sum over non-skipped cases of (peak_volume_delta + |len_delta|) for
-    both ports; ERROR cases (no comparison happened) get a large penalty so the
-    optimizer avoids broken candidates. score == 0 with no fails/errors means
-    the analytical TAVs match the rtlsim references exactly."""
+    Each test's input/output ports are scored as independent cases (see
+    ``expand_records``) so a test with a long vector doesn't dominate one
+    with a short vector: a case's score is its total absolute delta plus
+    any length mismatch, normalized by its own reference length and
+    expressed as a percentage, then totaled across all cases. ERROR cases
+    (no comparison happened) get a large penalty so the optimizer avoids
+    broken candidates. score == 0 with no fails/errors means every case
+    matches its rtlsim reference exactly."""
     ERROR_PENALTY = 1_000_000
     score = 0.0
     n_pass = n_fail = n_skip = n_error = 0
-    for r in records:
-        outcome = r.get("outcome")
+    for case in expand_records(records):
+        outcome = case.get("outcome")
         if outcome == "skipped":
             n_skip += 1
             continue
-        ports = r.get("ports")
-        if not ports:
+        if not case.get("port"):
             n_error += 1
             score += ERROR_PENALTY
             continue
@@ -470,15 +506,16 @@ def score_records(records):
             n_pass += 1
         else:
             n_fail += 1
-        for p in ports:
-            score += abs(p.get("peak_volume_delta", 0)) + abs(p.get("len_delta", 0))
+        denom = max(case.get("len_rtlsim", 0), 1)
+        total_abs_delta = sum(abs(x) for x in case.get("delta_vector", []))
+        score += (total_abs_delta + abs(case.get("len_delta", 0))) / denom * 100
     return {
         "score": score,
         "n_pass": n_pass,
         "n_fail": n_fail,
         "n_skip": n_skip,
         "n_error": n_error,
-        "n_total": len(records),
+        "n_total": n_pass + n_fail + n_skip + n_error,
         "solved": n_fail == 0 and n_error == 0 and score == 0,
     }
 

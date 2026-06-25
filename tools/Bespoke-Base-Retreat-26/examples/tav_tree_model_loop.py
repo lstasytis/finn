@@ -149,6 +149,12 @@ TASK_HEADER = textwrap.dedent("""\
     states so cycle count matches), then exact equality (fusing reads/writes
     and partial states correctly, cycle by cycle).
 
+    Feedback reports each test case's input and output ports as separate
+    pass/fail cases -- you don't need both sides right at once. It's
+    usually easier to get one port (often input) passing across all cases
+    first, then build on that working tree to additionally get the other
+    port correct, rather than trying to fix both simultaneously.
+
     You should not attempt to simulate the node internally with for loops,
     you are trying to determine the unique states that make up the node being modelled.
     The tree is used to generate the TAV by traversing each node recursively and upon
@@ -300,24 +306,23 @@ def _fmt_node_params(node, params):
 
 def _format_feedback(node, records, max_cases=None):
     lines = []
-    cases = records if max_cases is None else records[:max_cases]
-    for r in cases:
-        tag = tav_eval._verdict_tag(r)
-        params = _fmt_node_params(node, r.get("params", {}))
-        if r.get("ports"):
-            bits = []
-            for p in r["ports"]:
-                rle_s = _fmt_rle(p["delta_vector"])
-                bits.append(
-                    f"{p['port']} peak={p['peak_volume_delta']} len_delta={p['len_delta']} "
-                    f"delta=[{rle_s}]"
-                )
-            lines.append(f"  [{tag}] {params} | " + " | ".join(bits))
+    all_cases = tav_eval.expand_records(records)
+    cases = all_cases if max_cases is None else all_cases[:max_cases]
+    for c in cases:
+        tag = tav_eval._case_tag(c)
+        params = _fmt_node_params(node, c.get("params", {}))
+        port = c.get("port")
+        if port:
+            rle_s = _fmt_rle(c["delta_vector"])
+            lines.append(
+                f"  [{tag}] {port} {params} | peak={c['peak_volume_delta']} "
+                f"len_delta={c['len_delta']} delta=[{rle_s}]"
+            )
         else:
-            tail = (r.get("longrepr") or "").splitlines()
+            tail = (c.get("longrepr") or "").splitlines()
             lines.append(f"  [{tag}] {params} | {tail[-1] if tail else ''}")
     if max_cases is not None:
-        more = len(records) - max_cases
+        more = len(all_cases) - max_cases
         if more > 0:
             lines.append(f"  ... +{more} more case(s)")
     return "\n".join(lines)
@@ -366,7 +371,7 @@ def check_output(
     if sc["solved"]:
         return True, "", records, sc
     feedback = (
-        f"score={sc['score']} (pass={sc['n_pass']} fail={sc['n_fail']} "
+        f"score={round(sc['score'], 2)} (pass={sc['n_pass']} fail={sc['n_fail']} "
         f"error={sc['n_error']} skip={sc['n_skip']})\n" + _format_feedback(node, records)
     )
     return False, feedback, records, sc
@@ -473,7 +478,7 @@ def run_loop(
             if previous is not None:
                 (cand_dir / f"iter_{i:03d}.py").write_text(previous)
             if sc is not None:
-                print(f"\niter {i}: score={sc['score']} (pass={sc['n_pass']} fail={sc['n_fail']} "
+                print(f"\niter {i}: score={round(sc['score'], 2)} (pass={sc['n_pass']} fail={sc['n_fail']} "
                       f"error={sc['n_error']})")
                 history.append({"iteration": i, **sc})
                 if sc["score"] < best["score"] and previous is not None:
