@@ -64,6 +64,8 @@ OUTPUTS_DIR = os.path.join(_PACKAGE_DIR, "outputs")
 INPUTS_DIR = os.path.join(_PACKAGE_DIR, "inputs")
 
 CANDIDATE_FILENAME = "get_tree_model.py"
+BEST_FILENAME = "best_get_tree_model.py"
+ANALYZER_FEEDBACK_FILENAME = "analyzer_feedback.log"
 
 # ── per-node HLS/RTL reference pointers ─────────────────────────────────────
 # Filled into the task prompt below so the agent knows where to go read the
@@ -740,6 +742,32 @@ class _TeeStream:
         return False
 
 
+def _safe_node_name(node):
+    return re.sub(r"[^A-Za-z0-9_.-]", "_", node)
+
+
+def _node_outputs_dir(node):
+    """Durable, run-independent home for this node's best result -- unlike
+    out_dir, which is a fresh timestamped directory every run."""
+    return Path(OUTPUTS_DIR) / _safe_node_name(node)
+
+
+def _persist_best_for_node(node, source, feedback, iteration, score):
+    """Overwrite outputs/<node>/'s best candidate and the analyzer feedback
+    that earned it. Callers only invoke this at a genuine new-best update (a
+    validly-scored baseline or a strictly-improving iteration), so the most
+    recent write here is always the best one found across the whole run --
+    including a final, all-passing iteration, since this is called from the
+    same spot that updates the in-memory `best` dict, before the loop's `if
+    passed: break`."""
+    node_dir = _node_outputs_dir(node)
+    node_dir.mkdir(parents=True, exist_ok=True)
+    (node_dir / BEST_FILENAME).write_text(source)
+    (node_dir / ANALYZER_FEEDBACK_FILENAME).write_text(
+        f"iteration {iteration} (score={round(score, 4)}):\n{feedback or ''}\n"
+    )
+
+
 def run_loop(
     node,
     model=DEFAULT_MODEL,
@@ -772,7 +800,7 @@ def run_loop(
             raise SystemExit(f"baseline candidate not found: {baseline}")
 
         run_id = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        safe_node = re.sub(r"[^A-Za-z0-9_.-]", "_", node)
+        safe_node = _safe_node_name(node)
         out_dir = Path(out_dir or os.path.join(
             tav_eval._host_build_dir(), "tav_bespoke", f"{safe_node}-{run_id}"
         ))
@@ -809,6 +837,7 @@ def run_loop(
             # win against a worse LLM iteration; a passing baseline short-circuits
             # below and never reaches this comparison anyway.
             best = {"iteration": 0, "source": baseline_src, "score": sc0["score"]}
+            _persist_best_for_node(node, baseline_src, builder_feedback0, 0, sc0["score"])
         else:
             history.append({"iteration": 0, "error": eval_feedback0})
             # tav_eval couldn't even evaluate the baseline -- no real score to
@@ -851,6 +880,7 @@ def run_loop(
                     history.append({"iteration": i, **sc})
                     if sc["score"] < best["score"] and previous is not None:
                         best = {"iteration": i, "source": previous, "score": sc["score"]}
+                        _persist_best_for_node(node, previous, builder_feedback, i, sc["score"])
                 else:
                     history.append({"iteration": i, "error": eval_feedback})
 
@@ -863,7 +893,7 @@ def run_loop(
             else:
                 print(f"\nStopped after {max_iterations} iterations.")
 
-        best_path = out_dir / "best_get_tree_model.py"
+        best_path = out_dir / BEST_FILENAME
         best_path.write_text(best["source"])
         (out_dir / "history.json").write_text(json.dumps({"node": node, "best": best["iteration"],
                                                             "best_score": best["score"],
@@ -885,6 +915,7 @@ def run_loop(
 
         print(f"\nbest candidate: {best_path}")
         print(f"history:        {out_dir / 'history.json'}")
+        print(f"durable copy for {node}: {_node_outputs_dir(node)}")
         return best_path
     except Exception:
         print(traceback.format_exc())
