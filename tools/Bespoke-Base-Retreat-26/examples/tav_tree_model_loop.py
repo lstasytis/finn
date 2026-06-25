@@ -532,19 +532,24 @@ def run_loop(
                     ]
                     worker_results = [f.result() for f in futs]
 
-            # pick the global best over everything in the archive (re-scored on the
-            # current active set so the comparison is apples-to-apples)
-            # Pick the global best from the archive using each candidate's stored
-            # eval result (the one the agent actually saw -- escalation-aware, so
-            # helper-method candidates carry their faithful docker score rather
-            # than a local AttributeError). Re-deriving via evaluate_local here
-            # would re-error on those and they could never win. (Stored results
-            # are comparable because the active set is fixed within a run; with
-            # --curriculum a widened set is handled by re-confirming at solve.)
+            # Pick the global best over the archive, scored on the CURRENT active
+            # set so comparisons are apples-to-apples even as --curriculum widens
+            # it. Re-score each candidate locally on the active set; only fall
+            # back to its stored (docker-escalated) result for sibling-method
+            # candidates that can't be scored locally -- so helper-method
+            # candidates still carry a faithful score without breaking curriculum,
+            # where stored scores (taken on a smaller active set) would otherwise
+            # let a stale 1-case tree win forever.
             iter_best = None
             for source, r in archive.all:
-                if iter_best is None or r.score < iter_best[0]:
-                    iter_best = (r.score, source, r)
+                if oracle_mode == "docker":
+                    ev = r
+                else:
+                    ev = oracle.evaluate_local(source)
+                    if oracle._needs_docker_escalation(ev):
+                        ev = r  # sibling-method candidate: keep its faithful stored score
+                if iter_best is None or ev.score < iter_best[0]:
+                    iter_best = (ev.score, source, ev)
             iter_score, iter_source, iter_eval = iter_best
 
             (cand_dir / f"iter_{i:03d}.py").write_text(iter_source)
