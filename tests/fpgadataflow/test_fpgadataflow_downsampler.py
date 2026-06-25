@@ -164,20 +164,39 @@ def test_fpgadataflow_downsampler(is_1d, flip_1d, exec_mode):
         assert exp_cycles != 0
 
 
-@pytest.mark.parametrize("is_1d", [True, False])
-@pytest.mark.parametrize("flip_1d", [True, False])
+@pytest.mark.parametrize(
+    "is_1d,flip_1d",
+    [
+        (True, True),
+        (True, False),
+        (False, False),
+    ],
+)
+@pytest.mark.parametrize(
+    "in_dim,stride",
+    [
+        (8, 2),
+        (8, 4),
+        (6, 2),
+        (8, 8),
+        (4, 2),
+    ],
+)
+@pytest.mark.parametrize(
+    "dt_in,dt_w",
+    [
+        (DataType["UINT8"], DataType["INT2"]),
+        (DataType["INT4"], DataType["INT4"]),
+    ],
+)
 @pytest.mark.slow
 @pytest.mark.vivado
 @pytest.mark.fpgadataflow
 @pytest.mark.node_tree_modeling
-def test_fpgadataflow_analytical_characterization_downsampler(is_1d, flip_1d):
-    if flip_1d and not is_1d:
-        pytest.skip("flip_1d only applicable for is_1d")
-    in_dim = 32
+def test_fpgadataflow_analytical_characterization_downsampler(
+    is_1d, flip_1d, in_dim, stride, dt_in, dt_w
+):
     k = 1
-    stride = 2
-    dt_in = DataType["UINT8"]
-    dt_w = DataType["INT2"]
     model = build_model(is_1d, in_dim, k, stride, dt_in, dt_w, pad_half=0, flip_1d=flip_1d)
 
     model = model.transform(to_hw.InferConvInpGen())
@@ -200,7 +219,7 @@ def test_fpgadataflow_analytical_characterization_downsampler(is_1d, flip_1d):
             model.set_tensor_datatype("outp", dt_in)
             model = model.transform(InferShapes())
 
-    node_details = ("Downsampler", is_1d, flip_1d, in_dim, k, stride)
+    node_details = ("Downsampler", is_1d, flip_1d, in_dim, k, stride, dt_in, dt_w)
     part = "xc7z020clg400-1"
     target_clk_ns = 4
 

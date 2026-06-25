@@ -482,24 +482,33 @@ def test_fpgadataflow_vvau_rtl(kernel_size, in_feature_dim, in_chn, idt, wdt, pa
     ).all(), "Output of ONNX model not matching output of stitched-IP RTL model!"
 
 
-# input datatype
-@pytest.mark.parametrize("idt", [DataType["BIPOLAR"]])
-# weight datatype
-@pytest.mark.parametrize("wdt", [DataType["BIPOLAR"]])
-# activation: None or DataType
-@pytest.mark.parametrize("act", [DataType["BIPOLAR"], None])
-# PE
-@pytest.mark.parametrize("pe", [1, 3, 6])
-# SIMD
-@pytest.mark.parametrize("simd", [1, 9])
-# Input image shape
-@pytest.mark.parametrize("dim_h", [10])
-@pytest.mark.parametrize("dim_w", [10, 1])
-# Kernel shape
-@pytest.mark.parametrize("k_h", [3])
-@pytest.mark.parametrize("k_w", [3, 1])
-# Number of input and output channels
-@pytest.mark.parametrize("channels", [3])
+# datatypes / activation / folding, as correlated tuples: covers the
+# BIPOLAR x BIPOLAR XNOR-popcount path (with and without an embedded
+# activation) and a plain unsigned-int path, each with a channels/PE/SIMD
+# combination that is valid by construction (no skip needed)
+@pytest.mark.parametrize(
+    "idt,wdt,act,channels,pe,simd",
+    [
+        (DataType["BIPOLAR"], DataType["BIPOLAR"], DataType["BIPOLAR"], 3, 1, 1),
+        (DataType["BIPOLAR"], DataType["BIPOLAR"], DataType["BIPOLAR"], 3, 3, 3),
+        (DataType["BIPOLAR"], DataType["BIPOLAR"], None, 6, 1, 3),
+        (DataType["BIPOLAR"], DataType["BIPOLAR"], None, 6, 6, 1),
+        (DataType["UINT4"], DataType["UINT4"], None, 3, 3, 1),
+        (DataType["UINT4"], DataType["UINT4"], None, 6, 6, 3),
+    ],
+)
+# Input image shape vs. kernel shape, as correlated tuples (k_h fixed at 3;
+# dim_w==1 always paired with k_w==1, since a 1D image requires a 1D
+# kernel); the resulting k_h*k_w is always 9 or 3, which is divisible by
+# every simd value chosen above
+@pytest.mark.parametrize(
+    "dim_h,dim_w,k_h,k_w",
+    [
+        (8, 8, 3, 3),
+        (8, 8, 3, 1),
+        (8, 1, 3, 1),
+    ],
+)
 # memory mode
 @pytest.mark.parametrize("mem_mode", ["internal_decoupled", "internal_embedded"])
 @pytest.mark.fpgadataflow
@@ -509,15 +518,6 @@ def test_fpgadataflow_vvau_rtl(kernel_size, in_feature_dim, in_chn, idt, wdt, pa
 def test_fpgadataflow_analytical_characterization_vvau(
     idt, wdt, act, pe, simd, dim_h, dim_w, k_h, k_w, channels, mem_mode
 ):
-    if dim_w == 1 and k_w != 1:
-        pytest.skip("1D image requires 1D kernel, skipping.")
-
-    if channels % pe != 0:
-        pytest.skip("Requirement Channels divisable by PE is violated.")
-
-    if (k_h * k_w) % simd != 0:
-        pytest.skip("Requirement kernel (k_h * k_w) divisable by SIMD is violated.")
-
     # Generate weights in expected shape for ONNX and HLS node
     W = gen_finn_dt_tensor(wdt, (channels, 1, k_h, k_w))  # shape: [channels, 1, k, k]
 

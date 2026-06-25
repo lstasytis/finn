@@ -230,25 +230,34 @@ def test_fpgadataflow_slidingwindow(
 
 # input datatype
 @pytest.mark.parametrize("idt", [DataType["INT2"]])
-# kernel size
-# @pytest.mark.parametrize("k", [[2, 2], [3, 3], [1, 5]])
-@pytest.mark.parametrize("k", [[1, 1], [2, 2]])
-# input dimension
-# @pytest.mark.parametrize("ifm_dim", [[8, 8], [1, 21]])
-@pytest.mark.parametrize("ifm_dim", [[10, 6]])
-# input channels
-# @pytest.mark.parametrize("ifm_ch", [2, 4])
-@pytest.mark.parametrize("ifm_ch", [1, 10])
-# Stride
-# @pytest.mark.parametrize("stride", [[1, 1]])
-@pytest.mark.parametrize("stride", [[1, 1], [2, 2]])
-# Dilation
-# @pytest.mark.parametrize("dilation", [[1, 1]])
-@pytest.mark.parametrize("dilation", [[1, 1], [2, 2]])
-# input channel parallelism ("SIMD")
-@pytest.mark.parametrize("simd", [1, 10])
-# depthwise
-@pytest.mark.parametrize("dw", [0, 1])
+# kernel size / input dimension / stride / dilation, as correlated shapes
+# (a full cross product of these four axes alone would already be 100+
+# combinations -- pick a curated set of distinct, meaningful shapes instead,
+# including a 3x3 kernel, a dilated kernel, and a stride > kernel edge case
+# that only succeeds when parallel_window is enabled)
+@pytest.mark.parametrize(
+    "k,ifm_dim,stride,dilation",
+    [
+        ([1, 1], [8, 6], [1, 1], [1, 1]),
+        ([2, 2], [8, 6], [1, 1], [1, 1]),
+        ([2, 2], [8, 6], [2, 2], [1, 1]),
+        ([3, 3], [8, 8], [1, 1], [2, 2]),
+        ([2, 2], [8, 6], [3, 3], [1, 1]),
+        ([3, 3], [8, 8], [1, 1], [1, 1]),
+    ],
+)
+# input channels / SIMD / depthwise, as correlated folding configs (the
+# valid SIMD range depends on ifm_ch and on whether the node is depthwise,
+# so these are picked together rather than crossed)
+@pytest.mark.parametrize(
+    "ifm_ch,simd,dw",
+    [
+        (1, 1, 0),
+        (10, 1, 0),
+        (10, 10, 0),
+        (8, 4, 1),
+    ],
+)
 # parallel_window enable (MMV_out = M*K)
 @pytest.mark.parametrize("parallel_window", [0, 1])
 # in/out MMV ("M")
@@ -336,7 +345,7 @@ def test_fpgadataflow_analytical_characterization_slidingwindow(
         parallel_window,
         idt,
         ofm_dim,
-        "hls",
+        "rtl" if optype == "ConvolutionInputGenerator_rtl" else "hls",
     )
     part = "xc7z020clg400-1"
     target_clk_ns = 4
@@ -456,7 +465,7 @@ def test_fpgadataflow_analytical_characterization_slidingwindow_mobilenet(
         parallel_window,
         idt,
         ofm_dim,
-        "hls",
+        "rtl" if optype == "ConvolutionInputGenerator_rtl" else "hls",
     )
     part = "xc7z020clg400-1"
     target_clk_ns = 4
