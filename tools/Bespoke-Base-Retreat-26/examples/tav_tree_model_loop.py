@@ -177,7 +177,18 @@ TASK_HEADER = textwrap.dedent("""\
     tree nodes should be described similarly to how they are in the current tree models, starting with a root node and working 
     downwards to more fine-grain stages of the operator's execution.
 
+    To summarize, you should follow the following approach:
+    1. Use the original tree as a first guess and run the validator.
+    2. Analyze the result deltas and adjust the tree edges and states to minimize delta for individual tests.
+    3. Once you pass for an individual test, adjust the tree to pass another test, this is likely going to break
+    the original test.
+    4. Look at how you can merge two trees that cover two seperate test cases to pass both.
+    5. Once you have 2 cases passing, add a 3rd case, iterate in this order on producing more trees.
+    6. Do NOT internaly attempt to simulate a node's behavior, rely on the validator's provided delta,
+    as that contains the ground truth of how the source code translated to actual reads and writes.
 
+    DO NOT ATTEMPT TO SIMULATE THE NODES YOURSELF. Your task is to build the tree models,
+    not guess at the RTL/HLS behavior, that you get from the validation using a pytest.
     The FINN repository is checked out at {finn_root} -- you may read any
     file in it with the bash tool; only writes are confined to your
     workspace. Cleaned copies of the hls/rtl reference sources above and
@@ -254,7 +265,7 @@ ANALYSIS_TASK = textwrap.dedent("""\
     vector (TAV) of the node's input/output channel read/write activity,
     compared against an rtl-simulated ground truth. HLS reference:
     {hls_ref}. RTL reference: {rtl_ref}. The FINN repository is checked out
-    at {finn_root} -- you may read any file in it with the bash tool to
+    at {finn_root} -- you may only read the node's behavior and the Characteristic_Node traversal functions as well as the pytet of the node in the repo and the inputs folder with the bash tool to
     check these references. Cleaned copies of the hls/rtl reference
     sources (license/copyright headers stripped, nothing else changed)
     are available under {inputs_dir}, mirroring the same relative paths,
@@ -268,6 +279,22 @@ ANALYSIS_TASK = textwrap.dedent("""\
     repeat count, a misjudged read/write overlap, a phase that should be
     fused or split) to close the remaining gaps. Reply with your analysis
     as plain text -- do not use apply_patch or write any files.
+
+    Each candidate tree is executed to produce a token access vector (TAV),
+    compared against an rtl-simulated ground truth. Goal: make the tree
+    produce a TAV identical to rtlsim across all testcases.
+
+    DO NOT ATTEMPT TO SIMULATE THE NODES YOURSELF. Your task is to build the tree models,
+    not guess at the RTL/HLS behavior, that you get from the validation using a pytest.
+
+    TAVs come from Characteristic_Node (src/finn/util/basic.py). Each
+    Characteristic_Node holds a list of states (tree nodes) plus how many
+    times each state repeats (edge values). A leaf node is a tuple flagging
+    whether its state reads, writes, both, or neither -- each flag adds +1 to
+    the read/write vector at that clock cycle. The tree is effectively a
+    cycle-accurate model of the node, but the only thing it needs to capture
+    is input/output channel activity (reads/writes), not full datapath
+    behavior.
 
     Candidate `{filename}` under test:
     ```python
@@ -523,7 +550,7 @@ def run_loop(
     node,
     model=DEFAULT_MODEL,
     workspace=Path("workspace"),
-    max_iterations=100,
+    max_iterations=3,
     max_turns=30,
     baseline=None,
     src_override=None,
