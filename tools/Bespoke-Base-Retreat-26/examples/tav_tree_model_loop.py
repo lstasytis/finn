@@ -450,6 +450,8 @@ def check_output(
     model=None,
     previous_feedback=None,
     max_turns=30,
+    iteration=None,
+    prompts_log_fh=None,
 ):
     """Return (passed, feedback_for_next_prompt, records, score).
 
@@ -499,6 +501,8 @@ def check_output(
         analysis_task = build_analysis_task(
             node, candidate.read_text(), feedback, previous_feedback
         )
+        if prompts_log_fh is not None:
+            _log_prompt(prompts_log_fh, iteration, "analyzer", analysis_task)
         analysis = run_agent(analysis_task, model, workspace / "analysis", max_turns=max_turns)
         feedback += f"\n\nAnalyzer feedback:\n{analysis}"
 
@@ -515,6 +519,23 @@ def _baseline_path(node, src_override=None, test_override=None):
 def _default_log_path():
     ts = datetime.datetime.now().strftime("%Y%m%d%H%M")
     return os.path.join(OUTPUTS_DIR, f"tree-model-run-{ts}-output.log")
+
+
+def _prompts_log_path(log_path):
+    """Same run, sibling file: <name-without-.log>_prompts.log."""
+    return log_path.with_name(log_path.stem + "_prompts.log")
+
+
+PROMPT_LOG_SEP = "-" * 59
+
+
+def _log_prompt(fh, iteration, role, prompt):
+    """Record the exact prompt sent to an agent this iteration, so the run can
+    be audited without re-deriving prompts from the (possibly since-changed)
+    templates above."""
+    fh.write(f"{PROMPT_LOG_SEP}\n")
+    fh.write(f"iteration: {iteration}, {role} prompt: {prompt}\n")
+    fh.flush()
 
 
 class _TeeStream:
@@ -564,6 +585,7 @@ def run_loop(
     log_path = Path(log_path) if log_path is not None else Path(_default_log_path())
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_fh = log_path.open("w", buffering=1)
+    prompts_fh = _prompts_log_path(log_path).open("w", buffering=1)
     orig_stdout, orig_stderr = sys.stdout, sys.stderr
     sys.stdout = _TeeStream(orig_stdout, log_fh)
     sys.stderr = _TeeStream(orig_stderr, log_fh)
@@ -596,6 +618,7 @@ def run_loop(
         for i in range(1, max_iterations + 1):
             print(f"\n{'=' * 60}\niteration {i}\n{'=' * 60}")
             task = build_task(node, src_path, baseline_src, previous=previous, feedback=feedback)
+            _log_prompt(prompts_fh, i, "tree-builder", task)
             run_agent(task, model, workspace, max_turns=max_turns)
 
             passed, feedback, records, sc = check_output(
@@ -603,6 +626,7 @@ def run_loop(
                 src_override=src_override, test_override=test_override,
                 include_extra_tests=include_extra_tests, cache_dir=cache_dir,
                 model=model, previous_feedback=feedback, max_turns=max_turns,
+                iteration=i, prompts_log_fh=prompts_fh,
             )
             previous = candidate_path.read_text() if candidate_path.exists() else None
 
@@ -646,6 +670,7 @@ def run_loop(
     finally:
         sys.stdout, sys.stderr = orig_stdout, orig_stderr
         log_fh.close()
+        prompts_fh.close()
 
 
 def main() -> None:
