@@ -20,7 +20,10 @@ agent_stub/
   tools/          apply_patch / run / bash (sandboxed, workspace-only)
 inputs/           CLEANED mirror of FINN source the agent is allowed to read
                   (deps/finn-hlslib, finn-rtllib, src/...), headers stripped
-outputs/          run logs: tree-model-run-<ts>-output.log + _prompts.log
+outputs/          run logs: tree-model-run-<node>-<ts>.log (per node),
+                  progress_table.txt (shared delta-ratio table), and
+                  agents/<node>-iterNNN-popW.log (per-agent transcripts:
+                  prompts, tool calls, feedback, final reply)
 workspace/        agent's sandbox; get_tree_model.py is written here each iter
 ../tav_eval/      THE EVALUATOR (sibling dir, added to sys.path, not vendored)
   tav_eval.py     evaluate_tree_model / score_records / docker+pytest plumbing
@@ -49,6 +52,10 @@ agent_stub/oracle.py        Oracle: scores a candidate (local/docker/both),
                             builds cases from plugin records, renders
                             TARGET/YOURS/DELTA feedback, serializes docker evals.
 agent_stub/tools/eval_tree.py  eval_tree_model tool: the agent's in-turn self-eval.
+agent_stub/progress.py      delta-ratio (|rtlsim-model|/rtlsim) reporting + the
+                            shared, flock-guarded progress table written to
+                            outputs/progress_table.txt after every iteration of
+                            every node (multiple node loops share one table).
 agent_stub/agent.py         + TAV_SYSTEM_PROMPT (domain expert); run_agent now
                             takes system_prompt/extra_tools/tool_handlers and
                             passes temperature + reasoning_effort to the API.
@@ -73,8 +80,12 @@ reference is cached, so docker is the source of truth either way).
 
 ### CLI args
 ```
-node                      FINN node (positional)
+node                      FINN node(s) (positional); comma-separate to optimize
+                          several in parallel, e.g. `MVAU, FMPadding` (one OS
+                          process per node, shared progress table)
 --model M                 default gpt-5.1 (@ high reasoning effort); any models.py id
+--progress-table PATH     shared progress table (default outputs/progress_table.txt);
+                          flock-guarded so concurrent node loops append safely
 --parallel N              population: N agents/iteration at spread temperatures (default 4)
 --oracle {local,docker,both}  self-eval backend (default local, docker-confirmed)
 --curriculum              start on smallest case, widen one at a time
@@ -224,6 +235,16 @@ cp .env.example .env          # only for gpt-* models (OPENAI_API_KEY)
 python examples/tav_tree_model_loop.py ConvolutionInputGenerator
 python examples/tav_tree_model_loop.py FMPadding --model gpt-5.1 --max-iterations 10
 python examples/tav_tree_model_loop.py ConvolutionInputGenerator --apply-best
+# optimize several nodes in parallel (one process each, shared progress table):
+python examples/tav_tree_model_loop.py "MVAU, FMPadding" --model gpt-5.1-codex --max-iterations 10
+```
+
+Each node prints an end-of-run summary (wall-clock minutes, iteration count, and
+the baseline-vs-final delta ratio `|rtlsim-model|/rtlsim`) and appends a row per
+iteration to the shared `outputs/progress_table.txt`:
+
+```
+node_name  iteration  max_delta_ratio %  average_delta_ratio %
 ```
 
 Requirements: Linux (Landlock); a running/Buildable `finn_dev_<user>` docker

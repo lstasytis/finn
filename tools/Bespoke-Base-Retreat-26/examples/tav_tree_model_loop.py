@@ -47,6 +47,7 @@ import re
 import sys
 import textwrap
 import threading
+import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
@@ -54,6 +55,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from agent_stub import progress
 from agent_stub.agent import TAV_SYSTEM_PROMPT, run_agent_with_history
 from agent_stub.models import DEFAULT_MODEL, get_model
 from agent_stub.oracle import Oracle
@@ -71,6 +73,9 @@ import tav_eval  # noqa: E402
 
 _PACKAGE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUTPUTS_DIR = os.path.join(_PACKAGE_DIR, "outputs")
+# per-agent transcripts (one file per worker per iteration, plus the analyzer):
+# prompts, tool calls, tool feedback and the final reply for each agent run.
+AGENTS_DIR = os.path.join(OUTPUTS_DIR, "agents")
 INPUTS_DIR = os.path.join(_PACKAGE_DIR, "inputs")
 
 CANDIDATE_FILENAME = "get_tree_model.py"
@@ -301,7 +306,7 @@ def _make_budgeted_reader(budget):
 
 
 def _run_worker(worker_id, task, model_obj, workspace, max_turns, oracle, archive,
-                seed_messages, bash_budget=25):
+                seed_messages, bash_budget=25, transcript_path=None):
     """Run a single agent with the eval tool bound. Returns its message history
     (for memory) and its last candidate source (if any)."""
     ws = workspace / f"pop{worker_id}"
@@ -322,6 +327,7 @@ def _run_worker(worker_id, task, model_obj, workspace, max_turns, oracle, archiv
         _result, msgs = run_agent_with_history(
             messages, model_obj, ws, max_turns=max_turns,
             extra_tools=extra_tools, tool_handlers=tool_handlers,
+            transcript_path=transcript_path,
         )
     except Exception:
         print(f"[worker {worker_id}] crashed:\n{traceback.format_exc()}")
@@ -379,7 +385,9 @@ def run_loop(
     apply_best=False,
     out_dir=None,
     log_path=None,
+    progress_table=None,
 ):
+    t_start = time.monotonic()
     log_path = Path(log_path) if log_path is not None else Path(_default_log_path())
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_fh = log_path.open("w", buffering=1)
@@ -466,8 +474,10 @@ def run_loop(
 
         if d0["solved"]:
             print("\nBaseline already matches rtlsim exactly; nothing to do.")
+            progress.record_iteration(node, 0, 0.0, 0.0, table_path=progress_table)
             best_path = out_dir / "best_get_tree_model.py"
             best_path.write_text(baseline_src)
+            _report_run_summary(node, t_start, 0, 0.0, 0.0, 0.0, 0.0, 0)
             _finalize(out_dir, node, [{"iteration": 0, "solved": True}], 0, 0.0,
                       src_path, entry, apply_best, best_path)
             return best_path
@@ -484,12 +494,18 @@ def run_loop(
         # seed the archive/best with the baseline (re-scored locally on the active set)
         base_eval = oracle.evaluate_local(baseline_src) if oracle_mode != "docker" else oracle._eval_from_records(d0["records"])
         archive.record(baseline_src, base_eval)
-        best = {"iteration": 0, "source": baseline_src, "score": base_eval.score}
+        best = {"iteration": 0, "source": baseline_src, "score": base_eval.score, "eval": base_eval}
         best_feedback = oracle.format_feedback(base_eval)
         best_messages = None  # memory lineage
         history = [{"iteration": 0, "score": round(base_eval.score, 2), "n_active": len(active)}]
 
+        # baseline delta ratio (rtlsim vs tree model) -> shared progress table.
+        base_max, base_avg = progress.delta_ratios(base_eval)
+        progress.record_iteration(node, 0, base_max, base_avg, table_path=progress_table)
+        last_iter = 0
+
         print(f"\nbaseline local score (active set)={round(base_eval.score, 2)}")
+        print(f"baseline delta ratio vs rtlsim: max={base_max:.2f}% avg={base_avg:.2f}%")
         print(best_feedback)
 
         for i in range(1, max_iterations + 1):
@@ -519,15 +535,18 @@ def run_loop(
 
             models = _temperature_portfolio(base_model, parallel)
             seeds = [best_messages if (memory and w == 0) else None for w in range(parallel)]
+            tpath = lambda w: os.path.join(AGENTS_DIR, f"{safe_node}-iter{i:03d}-pop{w}.log")
 
             if parallel == 1:
                 worker_results = [_run_worker(0, task, models[0], workspace, max_turns,
-                                              oracle, archive, seeds[0], bash_budget=bash_budget)]
+                                              oracle, archive, seeds[0], bash_budget=bash_budget,
+                                              transcript_path=tpath(0))]
             else:
                 with ThreadPoolExecutor(max_workers=parallel) as ex:
                     futs = [
                         ex.submit(_run_worker, w, task, models[w], workspace, max_turns,
-                                  oracle, archive, seeds[w], bash_budget=bash_budget)
+                                  oracle, archive, seeds[w], bash_budget=bash_budget,
+                                  transcript_path=tpath(w))
                         for w in range(parallel)
                     ]
                     worker_results = [f.result() for f in futs]
@@ -549,13 +568,19 @@ def run_loop(
 
             (cand_dir / f"iter_{i:03d}.py").write_text(iter_source)
             if iter_score < best["score"]:
-                best = {"iteration": i, "source": iter_source, "score": iter_score}
+                best = {"iteration": i, "source": iter_source, "score": iter_score, "eval": iter_eval}
             best_feedback = oracle.format_feedback(iter_eval)
             # carry forward the message history of worker 0 as the memory lineage
             if memory:
                 best_messages = worker_results[0][0]
-            history.append({"iteration": i, "score": round(iter_score, 2), "n_active": n_active})
-            print(f"\niter {i}: best-in-archive score={round(iter_score, 2)} solved_active={iter_eval.solved}")
+            last_iter = i
+            iter_max, iter_avg = progress.delta_ratios(iter_eval)
+            progress.record_iteration(node, i, iter_max, iter_avg, table_path=progress_table)
+            history.append({"iteration": i, "score": round(iter_score, 2), "n_active": n_active,
+                            "max_delta_ratio_pct": round(iter_max, 4),
+                            "avg_delta_ratio_pct": round(iter_avg, 4)})
+            print(f"\niter {i}: best-in-archive score={round(iter_score, 2)} solved_active={iter_eval.solved} "
+                  f"delta vs rtlsim: max={iter_max:.2f}% avg={iter_avg:.2f}%")
             print(best_feedback)
 
             # ── optional analyzer pass: structural advice for next round ──
@@ -569,6 +594,7 @@ def run_loop(
                               {"role": "user", "content": a_task}]
                     advice, _ = run_agent_with_history(
                         a_msgs, base_model, workspace / "analyzer", max_turns=max_turns,
+                        transcript_path=os.path.join(AGENTS_DIR, f"{safe_node}-iter{i:03d}-analyzer.log"),
                     )
                     best_feedback += f"\n\nAnalyzer advice:\n{advice}"
                 except Exception:
@@ -607,6 +633,9 @@ def run_loop(
 
         best_path = out_dir / "best_get_tree_model.py"
         best_path.write_text(best["source"])
+        final_max, final_avg = progress.delta_ratios(best["eval"])
+        _report_run_summary(node, t_start, last_iter, base_max, base_avg, final_max, final_avg,
+                            best["iteration"])
         _finalize(out_dir, node, history, best["iteration"], best["score"],
                   src_path, entry, apply_best, best_path)
         return best_path
@@ -616,6 +645,19 @@ def run_loop(
     finally:
         sys.stdout, sys.stderr = orig_stdout, orig_stderr
         log_fh.close()
+
+
+def _report_run_summary(node, t_start, iterations, base_max, base_avg, final_max, final_avg, best_iter):
+    """Print the end-of-run summary for one node: wall-clock minutes, iteration
+    count, and the final delta ratio (tree model vs rtlsim) against the baseline."""
+    minutes = (time.monotonic() - t_start) / 60.0
+    print(f"\n{'=' * 60}\nRUN SUMMARY: {node}\n{'=' * 60}")
+    print(f"  duration:   {minutes:.2f} min")
+    print(f"  iterations: {iterations}  (best from iteration {best_iter})")
+    print(f"  delta ratio vs rtlsim (|rtlsim-model|/rtlsim):")
+    print(f"    baseline: max={base_max:.2f}%  avg={base_avg:.2f}%")
+    print(f"    final:    max={final_max:.2f}%  avg={final_avg:.2f}%")
+    print(f"  shared progress table: {progress.DEFAULT_TABLE}")
 
 
 def _finalize(out_dir, node, history, best_iter, best_score, src_path, entry, apply_best, best_path):
@@ -635,10 +677,27 @@ def _finalize(out_dir, node, history, best_iter, best_score, src_path, entry, ap
     print(f"history:        {out_dir / 'history.json'}")
 
 
+def _split_nodes(node_args) -> list[str]:
+    """Parse the positional node argument(s) into a list of node names. Multiple
+    nodes are separated by commas (whitespace around them is fine), so all of
+    ``MVAU,FMPadding`` / ``MVAU, FMPadding`` / ``"MVAU, FMPadding"`` work."""
+    raw = " ".join(node_args) if isinstance(node_args, (list, tuple)) else str(node_args)
+    return [n for n in re.split(r"[\s,]+", raw.strip()) if n]
+
+
+def _run_node_process(node, kwargs):
+    """Child-process entry point for one node's optimization loop (multi-node
+    mode). Re-loads .env so the worker has API keys, then runs the loop."""
+    load_dotenv()
+    run_loop(node, **kwargs)
+
+
 def main() -> None:
     load_dotenv()
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("node", help="FINN node name, e.g. ConvolutionInputGenerator (tav_eval.py --list)")
+    ap.add_argument("node", nargs="+",
+                    help="one or more FINN node names (tav_eval.py --list). Separate multiple "
+                         "with commas to optimize them in parallel, e.g. 'MVAU, FMPadding'.")
     ap.add_argument("--model", default=DEFAULT_MODEL, help=f"default: {DEFAULT_MODEL}")
     ap.add_argument("--workspace", default="workspace")
     ap.add_argument("--max-iterations", type=int, default=20)
@@ -679,12 +738,19 @@ def main() -> None:
     ap.add_argument("--out", help="output directory (default under $FINN_HOST_BUILD_DIR/tav_bespoke)")
     ap.add_argument("--apply-best", action="store_true", help="splice the best candidate into the node source at the end")
     ap.add_argument("--log", default=None, help="log file (default under outputs/)")
+    ap.add_argument("--progress-table", default=None,
+                    help=f"shared progress table path (default {progress.DEFAULT_TABLE}); all "
+                         "concurrently-optimized nodes append to the same file")
     args = ap.parse_args()
 
-    run_loop(
-        args.node,
+    nodes = _split_nodes(args.node)
+    if not nodes:
+        raise SystemExit("at least one node is required (see tav_eval.py --list)")
+
+    base_ws = Path(args.workspace).resolve()
+    # kwargs shared by every node loop (everything except per-node node/workspace/log).
+    common = dict(
         model=args.model,
-        workspace=Path(args.workspace).resolve(),
         max_iterations=args.max_iterations,
         max_turns=args.max_turns,
         parallel=args.parallel,
@@ -706,8 +772,45 @@ def main() -> None:
         cache_dir=args.cache_dir,
         apply_best=args.apply_best,
         out_dir=args.out,
-        log_path=args.log,
+        progress_table=args.progress_table,
     )
+
+    if len(nodes) == 1:
+        run_loop(nodes[0], workspace=base_ws, log_path=args.log, **common)
+        return
+
+    # ── multiple nodes: one OS process each, running in parallel ──
+    # Separate processes (not threads) because run_loop redirects the global
+    # sys.stdout/stderr for its log; each node needs its own isolated workspace,
+    # log file and stdout. The docker container runs all the per-node pytest
+    # evals concurrently (each node splices a different FINN source file). The
+    # shared progress table is flock-guarded, so all processes update it safely.
+    import multiprocessing as mp
+
+    ts = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    ctx = mp.get_context("spawn")
+    procs = []
+    print(f"optimizing {len(nodes)} nodes in parallel: {', '.join(nodes)}")
+    for n in nodes:
+        safe = re.sub(r"[^A-Za-z0-9_.-]", "_", n)
+        kw = dict(common)
+        kw["workspace"] = base_ws / safe
+        kw["log_path"] = os.path.join(OUTPUTS_DIR, f"tree-model-run-{safe}-{ts}.log")
+        p = ctx.Process(target=_run_node_process, args=(n, kw), name=f"opt-{n}")
+        p.start()
+        procs.append((n, p))
+        print(f"  [{n}] pid={p.pid} log={kw['log_path']}")
+
+    failed = []
+    for n, p in procs:
+        p.join()
+        if p.exitcode != 0:
+            failed.append((n, p.exitcode))
+    print(f"\nall {len(nodes)} node loops finished. shared progress table: "
+          f"{args.progress_table or progress.DEFAULT_TABLE}")
+    if failed:
+        print("FAILED nodes: " + ", ".join(f"{n} (exit {c})" for n, c in failed))
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

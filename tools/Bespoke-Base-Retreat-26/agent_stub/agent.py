@@ -7,6 +7,7 @@ same chat-completions + tool-calling API.
 
 from __future__ import annotations
 
+import datetime
 import json
 from pathlib import Path
 
@@ -158,6 +159,59 @@ def _trim_tool_history(messages: list[dict], keep_full: int = 2, stub_threshold:
             )
 
 
+def _now() -> str:
+    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+class _Transcript:
+    """Append-only, human-readable transcript of one agent's run: the prompts it
+    was given (system + per-iteration task), every tool call it made with its
+    arguments, every tool result (the eval feedback / TARGET-YOURS-DELTA etc.),
+    its assistant reasoning, and its final reply. Written incrementally (line
+    buffered) so a crashed/killed worker still leaves a partial record. A no-op
+    when ``path`` is falsy."""
+
+    def __init__(self, path, model_name):
+        self.fh = None
+        if not path:
+            return
+        p = Path(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        self.fh = open(p, "a", buffering=1)
+        self._w(f"{'=' * 72}\n[{_now()}] AGENT START  model={model_name}\n{'=' * 72}")
+
+    def _w(self, s):
+        if self.fh:
+            self.fh.write(s + "\n")
+
+    def message(self, m: dict):
+        if not self.fh:
+            return
+        role = m.get("role", "?")
+        content = m.get("content") or ""
+        if role == "system":
+            self._w(f"\n----- SYSTEM PROMPT -----\n{content}")
+        elif role == "user":
+            self._w(f"\n----- PROMPT [{_now()}] -----\n{content}")
+        elif role == "tool":
+            self._w(f"\n----- TOOL RESULT (feedback) [{_now()}] call={m.get('tool_call_id', '')} -----\n{content}")
+        elif role == "assistant":
+            if content:
+                self._w(f"\n----- ASSISTANT [{_now()}] -----\n{content}")
+            for tc in m.get("tool_calls") or []:
+                fn = tc.get("function", {})
+                self._w(f"\n----- TOOL CALL [{_now()}] {fn.get('name')} -----\n{fn.get('arguments', '')}")
+
+    def end(self, note: str):
+        self._w(f"\n----- AGENT END [{_now()}] {note} -----\n")
+
+    def close(self):
+        if self.fh:
+            self.fh.flush()
+            self.fh.close()
+            self.fh = None
+
+
 def _dispatch(name: str, args: dict, workspace: Path, tool_handlers: dict | None = None) -> str:
     try:
         if tool_handlers and name in tool_handlers:
@@ -201,6 +255,7 @@ def run_agent_with_history(
     verbose: bool = True,
     extra_tools: list | None = None,
     tool_handlers: dict | None = None,
+    transcript_path=None,
 ) -> tuple[str, list[dict]]:
     """Run the agent loop from an existing message history.
 
@@ -212,9 +267,16 @@ def run_agent_with_history(
     ``tool_handlers`` maps tool name -> ``fn(args, workspace) -> str`` and is
     consulted before the built-in tools, so callers can inject e.g.
     ``eval_tree_model`` without touching this module.
+
+    ``transcript_path``: if given, write a human-readable transcript of this
+    agent's prompts, tool calls, tool feedback and final reply to that file.
     """
     client, m = make_client(model)
     workspace.mkdir(parents=True, exist_ok=True)
+
+    tr = _Transcript(transcript_path, m.name)
+    for _m in messages:  # log the incoming context (system prompt + task / seed history)
+        tr.message(_m)
 
     chat_tools = TOOLS + list(extra_tools or [])
     resp_tools = _responses_tools(extra_tools)
@@ -253,10 +315,13 @@ def run_agent_with_history(
                     for c in calls
                 ]
             messages.append(assistant)
+            tr.message(assistant)
 
             if not calls:
                 if verbose and final_text:
                     print(f"\n=== final ===\n{final_text}")
+                tr.end("final reply, no tool call")
+                tr.close()
                 return final_text, messages
 
             for c in calls:
@@ -270,7 +335,9 @@ def run_agent_with_history(
                     result = _dispatch(c.name, args, workspace, tool_handlers)
                     if verbose:
                         print("\n".join("   " + l for l in result.splitlines()[:20]))
-                messages.append({"role": "tool", "tool_call_id": c.call_id, "content": result})
+                tool_msg = {"role": "tool", "tool_call_id": c.call_id, "content": result}
+                messages.append(tool_msg)
+                tr.message(tool_msg)
 
         else:
             resp = client.chat.completions.create(
@@ -295,10 +362,13 @@ def run_agent_with_history(
                     for tc in msg.tool_calls
                 ]
             messages.append(assistant)
+            tr.message(assistant)
 
             if not msg.tool_calls:
                 if verbose and msg.content:
                     print(f"\n=== final ===\n{msg.content}")
+                tr.end("final reply, no tool call")
+                tr.close()
                 return msg.content or "", messages
 
             for tc in msg.tool_calls:
@@ -313,8 +383,12 @@ def run_agent_with_history(
                     result = _dispatch(name, args, workspace, tool_handlers)
                     if verbose:
                         print("\n".join("   " + l for l in result.splitlines()[:20]))
-                messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
+                tool_msg = {"role": "tool", "tool_call_id": tc.id, "content": result}
+                messages.append(tool_msg)
+                tr.message(tool_msg)
 
+    tr.end("stopped: max turns reached")
+    tr.close()
     return "[stopped: max turns reached]", messages
 
 
