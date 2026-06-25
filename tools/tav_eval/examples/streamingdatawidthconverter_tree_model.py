@@ -19,12 +19,50 @@ def get_tree_model(self):
 
     idle = Characteristic_Node("idle", [(1, [0, 0])], True)
 
+    # ── non-divisible width ratio (gcd partial conversion) ──────────────────
+    # When neither width divides the other there is no clean read-1/write-many
+    # (or read-many/write-1) nesting, so model the conversion at gcd granularity:
+    # the data moves in units of g = gcd(inWidth, outWidth), one granule per
+    # cycle, reading a new input word every (inWidth/g) granules and writing a
+    # new output word every (outWidth/g) granules. This is an APPROXIMATION of
+    # the real timing, but it reproduces the exact total number of reads
+    # (= number of input words) and writes (= number of output words) over the
+    # total length needed for the conversion.
+    if inWidth != outWidth and inWidth % outWidth != 0 and outWidth % inWidth != 0:
+        numInWords = self.get_number_input_values()
+        # gcd without relying on a math/np import being present in the node module
+        a, b = inWidth, outWidth
+        while b:
+            a, b = b, a % b
+        g = a
+        in_u = inWidth // g
+        out_u = outWidth // g
+        period = in_u * out_u  # == lcm(in_u, out_u) since gcd(in_u, out_u) == 1
+        total_granules = numInWords * in_u
+        n_periods = total_granules // period
+        remainder = total_granules - n_periods * period
+
+        def _granule_leaf(n_cycles, name):
+            # one cycle per granule; RLE-compress consecutive identical [r, w]
+            sub = []
+            for k in range(n_cycles):
+                rw = [1 if k % in_u == 0 else 0, 1 if k % out_u == 0 else 0]
+                if sub and sub[-1][1] == rw:
+                    sub[-1] = (sub[-1][0] + 1, rw)
+                else:
+                    sub.append((1, rw))
+            return Characteristic_Node(name, sub, True)
+
+        phases = [(wind_up, idle)]
+        if n_periods > 0:
+            phases.append((n_periods, _granule_leaf(period, "gcd period")))
+        if remainder > 0:
+            phases.append((1, _granule_leaf(remainder, "gcd remainder")))
+        return Characteristic_Node("DWC gcd partial conversion (approx)", phases, False)
+
     if inWidth > outWidth:
         numReps = self.get_number_input_values()
-        # down-conversion
-        if inWidth % outWidth != 0:
-            return None  # no support for gcd partial conversion yet
-
+        # down-conversion (outWidth divides inWidth)
         writes_per_read = inWidth // outWidth
         # read 1, write many, repeats for in-word count
 
