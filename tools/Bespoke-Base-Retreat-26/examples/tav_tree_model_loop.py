@@ -638,39 +638,66 @@ def run_loop(
 
         print(f"node={node} model={model} max_iterations={max_iterations} out_dir={out_dir}")
 
-        previous, feedback = None, None
-        for i in range(1, max_iterations + 1):
-            print(f"\n{'=' * 60}\niteration {i}\n{'=' * 60}")
-            task = build_task(node, src_path, baseline_src, previous=previous, feedback=feedback)
-            _log_prompt(prompts_fh, i, "tree-builder", task)
-            run_agent(task, model, workspace, max_turns=max_turns)
-
-            passed, feedback, records, sc = check_output(
-                workspace, node,
-                src_override=src_override, test_override=test_override,
-                include_extra_tests=include_extra_tests, cache_dir=cache_dir,
-                model=model, previous_feedback=feedback, max_turns=max_turns,
-                iteration=i, prompts_log_fh=prompts_fh,
-            )
-            previous = candidate_path.read_text() if candidate_path.exists() else None
-
-            if previous is not None:
-                (cand_dir / f"iter_{i:03d}.py").write_text(previous)
-            if sc is not None:
-                print(f"\niter {i}: score={round(sc['score'], 2)} (pass={sc['n_pass']} fail={sc['n_fail']} "
-                      f"error={sc['n_error']})")
-                history.append({"iteration": i, **sc})
-                if sc["score"] < best["score"] and previous is not None:
-                    best = {"iteration": i, "source": previous, "score": sc["score"]}
-            else:
-                history.append({"iteration": i, "error": feedback})
-
-            if passed:
-                print(f"\nAll cases matched the rtlsim reference on iteration {i}.")
-                break
-            print(f"\nfeedback:\n{feedback}")
+        # Baseline pass: run the node's existing tree model through the
+        # validator before any LLM involvement, send that result to the
+        # analyzer, and seed iteration 1's prompt with both -- so the first
+        # tree-builder prompt already carries real feedback (and the
+        # analyzer's read on it) instead of flying blind.
+        print(f"\n{'=' * 60}\nbaseline (node's existing tree model)\n{'=' * 60}")
+        candidate_path.write_text(baseline_src)
+        passed0, feedback0, records0, sc0 = check_output(
+            workspace, node,
+            src_override=src_override, test_override=test_override,
+            include_extra_tests=include_extra_tests, cache_dir=cache_dir,
+            model=model, previous_feedback=None, max_turns=max_turns,
+            iteration=0, prompts_log_fh=prompts_fh,
+        )
+        if sc0 is not None:
+            print(f"\nbaseline: score={round(sc0['score'], 2)} (pass={sc0['n_pass']} fail={sc0['n_fail']} "
+                  f"error={sc0['n_error']})")
+            history.append({"iteration": 0, **sc0})
         else:
-            print(f"\nStopped after {max_iterations} iterations.")
+            history.append({"iteration": 0, "error": feedback0})
+
+        if passed0:
+            print("\nThe node's existing tree model already matches the rtlsim reference; nothing to do.")
+            best = {"iteration": 0, "source": baseline_src, "score": 0.0}
+        else:
+            print(f"\nbaseline feedback:\n{feedback0}")
+
+            previous, feedback = baseline_src, feedback0
+            for i in range(1, max_iterations + 1):
+                print(f"\n{'=' * 60}\niteration {i}\n{'=' * 60}")
+                task = build_task(node, src_path, baseline_src, previous=previous, feedback=feedback)
+                _log_prompt(prompts_fh, i, "tree-builder", task)
+                run_agent(task, model, workspace, max_turns=max_turns)
+
+                passed, feedback, records, sc = check_output(
+                    workspace, node,
+                    src_override=src_override, test_override=test_override,
+                    include_extra_tests=include_extra_tests, cache_dir=cache_dir,
+                    model=model, previous_feedback=feedback, max_turns=max_turns,
+                    iteration=i, prompts_log_fh=prompts_fh,
+                )
+                previous = candidate_path.read_text() if candidate_path.exists() else None
+
+                if previous is not None:
+                    (cand_dir / f"iter_{i:03d}.py").write_text(previous)
+                if sc is not None:
+                    print(f"\niter {i}: score={round(sc['score'], 2)} (pass={sc['n_pass']} fail={sc['n_fail']} "
+                          f"error={sc['n_error']})")
+                    history.append({"iteration": i, **sc})
+                    if sc["score"] < best["score"] and previous is not None:
+                        best = {"iteration": i, "source": previous, "score": sc["score"]}
+                else:
+                    history.append({"iteration": i, "error": feedback})
+
+                if passed:
+                    print(f"\nAll cases matched the rtlsim reference on iteration {i}.")
+                    break
+                print(f"\nfeedback:\n{feedback}")
+            else:
+                print(f"\nStopped after {max_iterations} iterations.")
 
         best_path = out_dir / "best_get_tree_model.py"
         best_path.write_text(best["source"])
