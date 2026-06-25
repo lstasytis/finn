@@ -446,13 +446,13 @@ class HWCustomOp(CustomOp):
 
             return txn_in
 
-        txn_in = apply_micro_buffer_correction(0, txn_in, period)
+        #txn_in = apply_micro_buffer_correction(0, txn_in, period)
 
         # second period
         cycles = len(txn_in)
 
         counter, cycles, txn_in = top_level_phase.traverse_phase_tree(0, counter, cycles, txn_in)
-        txn_in = apply_micro_buffer_correction(period, txn_in, period)
+        #txn_in = apply_micro_buffer_correction(period, txn_in, period)
 
         # final assignments
 
