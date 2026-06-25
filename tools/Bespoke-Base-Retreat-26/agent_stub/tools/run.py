@@ -25,8 +25,11 @@ RUN_TOOL_SCHEMA = {
         "name": "run",
         "description": (
             "Run a program file you created in the workspace (e.g. a Python "
-            "script). Give the path relative to the workspace and optional CLI "
-            "args. The program is sandboxed: it may only write inside the "
+            "script) -- for your own scratch use (quick checks, computing a "
+            "value, debugging a snippet). It does not evaluate your actual "
+            "deliverable; that happens automatically, on its own, between "
+            "iterations. Give the path relative to the workspace and optional "
+            "CLI args. The program is sandboxed: it may only write inside the "
             "workspace/output folder. Returns the exit code and combined "
             "stdout/stderr. Interpreter is chosen by extension (.py, .sh, .js)."
         ),

@@ -1,21 +1,30 @@
 """Iteration loop for FINN get_tree_model search, evaluated by tav_eval.
 
-Same generate -> run -> evaluate -> reprompt shape as iteration_loop.py: the
-agent writes `get_tree_model.py` into the workspace; check_output() here
-splices it into the target FINN node (via tools/tav_eval) and runs the node's
-analytical-characterization pytest in the FINN docker container, comparing the
-analytical token access vector (TAV) against the rtlsim reference. The
-per-case delta feedback drives the next prompt. Stops when every case matches
-the reference exactly, or after --max-iterations.
+Same generate -> run -> evaluate -> reprompt shape as iteration_loop.py, split
+across two agents with distinct roles:
 
-check_output() also runs a second "analyzer" agent (same model, its own
-fresh context per iteration) that reviews the candidate and feedback and
-proposes structural fixes in plain text; its reply is appended to the
-feedback the tree-generating agent sees next.
+- The tree-builder agent only ever writes get_tree_model.py. It never sees
+  raw pytest/TAV output -- its prompt carries only the analyzer's distilled
+  suggestions, its own previous attempt, and the node's reference source.
+- The analyzer agent (run by check_output() in its own fresh context each
+  iteration) is the only one exposed to the raw evaluation feedback. It
+  reads the candidate plus that feedback and the node's source, and writes
+  back concrete, actionable suggestions -- never editing the candidate
+  itself. Those suggestions are what check_output() hands the builder next.
+
+check_output() splices the candidate into the target FINN node (via
+tools/tav_eval) and runs the node's analytical-characterization pytest in the
+FINN docker container, comparing the analytical token access vector (TAV)
+against the rtlsim reference. Stops when every case matches the reference
+exactly, or after --max-iterations.
 
 The TASK prompt below is a starting point -- tune it for whatever guidance
 gets the model to converge faster; the evaluation side (check_output) doesn't
-need to change when you do.
+need to change when you do. Generic methodology shared by both agents (what a
+tree model is, how to approach building one, the no-simulating-RTL rule)
+lives in agent_stub.agent.SYSTEM_PROMPT, not here -- what's here is only the
+node-specific facts (where its source is, which pytest runs it) and the
+role-specific task for whichever agent is being prompted.
 
 Run:
     python examples/tav_tree_model_loop.py ConvolutionInputGenerator
@@ -126,25 +135,14 @@ def _node_refs(node, src_path):
 # This is the part meant to be tuned by hand; check_output() below does not
 # depend on its wording.
 TASK_HEADER = textwrap.dedent("""\
-    You are an FPGA expert in Vitis HLS and SystemVerilog, designing
-    characteristic tree models of ML operators described in this repo's
-    deps/finn-hlslib directory (HLS) and finn-rtllib directory at the repo
-    root (RTL, not under deps/). You are optimizing node
-    {node}. The existing tree is in {src_path}'s get_tree_model() function.
-    HLS reference: {hls_ref}. RTL reference: {rtl_ref}.
+    You are optimizing node {node}. The existing tree is in {src_path}'s
+    get_tree_model() function. HLS reference: {hls_ref}. RTL reference:
+    {rtl_ref}. Each iteration runs {test_ref} to score the candidate.
 
-    Each candidate tree is executed to produce a token access vector (TAV),
-    compared against an rtl-simulated ground truth. Goal: make the tree
-    produce a TAV identical to rtlsim across all testcases.
-
-    TAVs come from Characteristic_Node (src/finn/util/basic.py). Each
-    Characteristic_Node holds a list of states (tree nodes) plus how many
-    times each state repeats (edge values). A leaf node is a tuple flagging
-    whether its state reads, writes, both, or neither -- each flag adds +1 to
-    the read/write vector at that clock cycle. The tree is effectively a
-    cycle-accurate model of the node, but the only thing it needs to capture
-    is input/output channel activity (reads/writes), not full datapath
-    behavior.
+    You do not see that test's raw output directly -- a separate analyzer
+    agent reviews it each iteration and reports back only its conclusions.
+    What you get on a retry is the analyzer's suggestions, your own previous
+    attempt, and the node's source -- never the raw pass/fail data itself.
 
     Three more files, not specific to {node}, are also cleaned and
     available under {inputs_dir}: hwcustomop.py
@@ -157,50 +155,6 @@ TASK_HEADER = textwrap.dedent("""\
     pytest's shared helpers, useful for understanding what is actually
     being compared against rtlsim.
 
-    Approach: extract the node's compile-time parameters via
-    self.get_nodeattr(...) -- these determine which states exist and their
-    repeat counts, and should be encoded into the tree's edges. Look at other
-    nodes' trees in src/finn/custom_op for examples (RTL and HLS backends
-    typically need distinct trees, since their cycle behavior differs). The
-    most common mistake is misjudging when a read and a write overlap in the
-    same cycle.
-
-    Build incrementally: first get correct volume (total tokens read/written
-    matches rtlsim), then correct length (fuse/split phases or add idle
-    states so cycle count matches), then exact equality (fusing reads/writes
-    and partial states correctly, cycle by cycle).
-
-    Feedback reports each test case's input and output ports as separate
-    pass/fail cases -- you don't need both sides right at once. It's
-    usually easier to get one port (often input) passing across all cases
-    first, then build on that working tree to additionally get the other
-    port correct, rather than trying to fix both simultaneously.
-
-    You should not attempt to simulate the node internally with for loops,
-    you are trying to determine the unique states that make up the node being modelled.
-    The tree is used to generate the TAV by traversing each node recursively and upon
-    hitting a leaf, append 1 value to the TAV (effectively progressing the node's cycle counter by 1.
-    If the leaf contains a value 1, that means that either the input (if its the first value) or the output (if its the second),
-    value being appended (a counter of total tokens read or written) is incremented by one.
-
-    When the test is executed, we produce a TAV by traversing the tree and compare to a ground truth rtlsim result.
-    The vectors produced need to become identical. This is possible as the number of unique states is limited,
-    you should need to use more than 10-40 nodes to simulate any node. You should perform the tree construction systematically,
-    tree nodes should be described similarly to how they are in the current tree models, starting with a root node and working 
-    downwards to more fine-grain stages of the operator's execution.
-
-    To summarize, you should follow the following approach:
-    1. Use the original tree as a first guess and run the validator.
-    2. Analyze the result deltas and adjust the tree edges and states to minimize delta for individual tests.
-    3. Once you pass for an individual test, adjust the tree to pass another test, this is likely going to break
-    the original test.
-    4. Look at how you can merge two trees that cover two seperate test cases to pass both.
-    5. Once you have 2 cases passing, add a 3rd case, iterate in this order on producing more trees.
-    6. Do NOT internaly attempt to simulate a node's behavior, rely on the validator's provided delta,
-    as that contains the ground truth of how the source code translated to actual reads and writes.
-
-    DO NOT ATTEMPT TO SIMULATE THE NODES YOURSELF. Your task is to build the tree models,
-    not guess at the RTL/HLS behavior, that you get from the validation using a pytest.
     Only read files under {inputs_dir} -- never read, grep, or list anything
     under the live FINN repository checked out at {finn_root}, for any
     reason (not the node's pytest file, not other transformation/analysis
@@ -209,10 +163,8 @@ TASK_HEADER = textwrap.dedent("""\
     src/finn/custom_op/fpgadataflow, hwcustomop.py, and basic.py -- is
     already mirrored under {inputs_dir} at the same relative path (license/
     copyright headers stripped, nothing else changed), e.g.
-    {inputs_dir}/deps/finn-hlslib/streamtools.h. The evaluation feedback you
-    get each iteration already reports every test case's exact parameters
-    and values, so you never need the pytest source itself to know what's
-    being tested. Only writes are confined to your workspace.
+    {inputs_dir}/deps/finn-hlslib/streamtools.h. Only writes are confined to
+    your workspace.
 
     Write your tree model as a file named `{filename}` in the workspace,
     containing exactly one top-level function:
@@ -256,16 +208,10 @@ RETRY_SUFFIX = textwrap.dedent("""
     {previous}
     ```
 
-    Evaluation feedback (delta = analytical - rtlsim per cycle, zero
-    everywhere is the goal). Each port's full delta vector is run-length
-    encoded as a lossless list of (run_length, value) pairs, e.g. (480,-1)
-    means the next 480 cycles are each off by -1; (1,0),(20,-1) means one
-    matching cycle then 20 cycles off by -1. You are aiming for each port's
-    encoding to collapse to a single pair, (vector_length,0), meaning no
-    deltas anywhere:
+    Feedback on that attempt:
     {feedback}
 
-    Write an improved `{filename}` that reduces these deltas.
+    Write an improved `{filename}` that addresses this feedback.
 """)
 
 # ── second agent: analysis only, no tree-writing ────────────────────────────
@@ -274,48 +220,32 @@ RETRY_SUFFIX = textwrap.dedent("""
 # appended to the feedback the tree-generating agent sees next (see
 # check_output below), it never edits the candidate itself.
 ANALYSIS_TASK = textwrap.dedent("""\
-    You are an FPGA expert in Vitis HLS and SystemVerilog, reviewing a
-    candidate characteristic tree model for node {node}, used by
-    Characteristic_Node (src/finn/util/basic.py) to produce a token access
-    vector (TAV) of the node's input/output channel read/write activity,
-    compared against an rtl-simulated ground truth. HLS reference:
-    {hls_ref}. RTL reference: {rtl_ref}. All source code you need for
-    these references -- the hls/rtl reference sources (license/copyright
-    headers stripped, nothing else changed) -- is already mirrored under
-    {inputs_dir} at the same relative paths, e.g.
-    {inputs_dir}/deps/finn-hlslib/streamtools.h. Only read files under
-    {inputs_dir}. Never read, grep, or list anything under the live FINN
-    repository checked out at {finn_root} -- not the node's pytest file,
-    not any transformation/analysis source, nothing; you do not need it,
-    and the evaluation feedback below already reports everything about
-    how the test is run.
+    You are reviewing a candidate characteristic tree model for node {node}.
+    Its source is {src_path}. HLS reference: {hls_ref}. RTL reference:
+    {rtl_ref}. Each iteration runs {test_ref} to score the candidate; its
+    raw output (below) is given to you, and only to you.
 
-    You are NOT generating or editing the tree yourself -- a separate agent
-    does that. Your only job is to analyze the candidate below against its
-    evaluation feedback and write concrete, actionable suggestions for how
-    the tree's structure should change (e.g. a missing state, a wrong
-    repeat count, a misjudged read/write overlap, a phase that should be
-    fused or split) to close the remaining gaps. Reply with your analysis
-    as plain text -- do not use apply_patch or write any files.
+    You are NOT generating or editing the tree yourself -- a separate
+    tree-builder agent does that, and it is restricted to your conclusions
+    plus its own previous tree and the node's source: it never sees the raw
+    evaluation feedback below. Your job is to read the source, study the
+    candidate below against its evaluation feedback, and write concrete,
+    actionable suggestions for how the tree's structure should change (e.g.
+    a missing state, a wrong repeat count, a misjudged read/write overlap, a
+    phase that should be fused or split) to close the remaining gaps. Be
+    specific -- the tree-builder agent only ever sees what you say here, not
+    the data below. Reply with your analysis as plain text -- do not use
+    apply_patch or write any files.
 
-    Each candidate tree is executed to produce a token access vector (TAV),
-    compared against an rtl-simulated ground truth. Goal: make the tree
-    produce a TAV identical to rtlsim across all testcases.
+    Only read files under {inputs_dir} -- never read, grep, or list anything
+    under the live FINN repository checked out at {finn_root}. Every file
+    you need -- the hls/rtl reference sources above, {src_path} itself,
+    every other node's tree model under src/finn/custom_op/fpgadataflow,
+    hwcustomop.py, and basic.py -- is already mirrored under {inputs_dir} at
+    the same relative path, e.g. {inputs_dir}/deps/finn-hlslib/streamtools.h.
 
-    DO NOT ATTEMPT TO SIMULATE THE NODES YOURSELF. Your task is to build the tree models,
-    not guess at the RTL/HLS behavior, that you get from the validation using a pytest.
-
-    TAVs come from Characteristic_Node (src/finn/util/basic.py). Each
-    Characteristic_Node holds a list of states (tree nodes) plus how many
-    times each state repeats (edge values). A leaf node is a tuple flagging
-    whether its state reads, writes, both, or neither -- each flag adds +1 to
-    the read/write vector at that clock cycle. The tree is effectively a
-    cycle-accurate model of the node, but the only thing it needs to capture
-    is input/output channel activity (reads/writes), not full datapath
-    behavior.
-
-    Three more files, not specific to {node}, are also cleaned and
-    available under {inputs_dir}: hwcustomop.py
+    Three more files, not specific to {node}, are also available under
+    {inputs_dir}: hwcustomop.py
     ({inputs_dir}/src/finn/custom_op/fpgadataflow/hwcustomop.py) is the
     base class every node inherits, showing how FINN stores and exposes
     compile-time parameters via get_nodeattr; basic.py
@@ -374,16 +304,18 @@ PREVIOUS_FEEDBACK_BLOCK = textwrap.dedent("""
 """)
 
 
-def build_analysis_task(node, candidate_source, feedback, previous_feedback=None):
-    hls_ref, rtl_ref = _node_refs(node, None)
+def build_analysis_task(node, src_path, candidate_source, feedback, test_ref=None, previous_feedback=None):
+    hls_ref, rtl_ref = _node_refs(node, src_path)
     previous_block = (
         PREVIOUS_FEEDBACK_BLOCK.format(previous_feedback=previous_feedback)
         if previous_feedback else ""
     )
     return ANALYSIS_TASK.format(
         node=node,
+        src_path=src_path,
         hls_ref=hls_ref,
         rtl_ref=rtl_ref,
+        test_ref=test_ref or "(not specified)",
         finn_root=tav_eval.FINN_ROOT,
         inputs_dir=INPUTS_DIR,
         filename=CANDIDATE_FILENAME,
@@ -393,13 +325,14 @@ def build_analysis_task(node, candidate_source, feedback, previous_feedback=None
     )
 
 
-def build_task(node, src_path, baseline, previous=None, feedback=None):
+def build_task(node, src_path, baseline, test_ref=None, previous=None, feedback=None):
     hls_ref, rtl_ref = _node_refs(node, src_path)
     task = TASK_HEADER.format(
         node=node,
         src_path=src_path,
         hls_ref=hls_ref,
         rtl_ref=rtl_ref,
+        test_ref=test_ref or "(not specified)",
         finn_root=tav_eval.FINN_ROOT,
         inputs_dir=INPUTS_DIR,
         filename=CANDIDATE_FILENAME,
@@ -631,11 +564,20 @@ def check_output(
     prompts_log_fh=None,
     pending_case=None,
 ):
-    """Return (passed, feedback_for_next_prompt, records, score, pending_case).
+    """Return (passed, eval_feedback, builder_feedback, records, score, pending_case).
 
     Splices workspace/get_tree_model.py into the node's source and runs its
     characterization pytest via tav_eval; this is the evaluator swapped into
     Bespoke's generate -> evaluate -> reprompt loop.
+
+    The two feedback strings enforce the builder/analyzer split: `eval_feedback`
+    is the raw score plus per-case deltas (plus any orchestrator rollback/
+    test-case notes) -- meant for logs and as the *next* analyzer call's
+    `previous_feedback`, never for the tree-builder. `builder_feedback` is
+    what actually goes in the tree-builder's next prompt: the analyzer's
+    distilled reply when `model` is given (it defaults to `eval_feedback`
+    only when there's no analyzer call to produce something better, i.e.
+    `model is None` or an early error/solved exit).
 
     `pending_case`, if given, describes a parametrize value the analyzer got
     added to the test file on the *previous* call (see
@@ -649,15 +591,17 @@ def check_output(
 
     If `model` is given, a second analyzer agent -- same model, its own
     fresh context, no file-writing tools used -- reviews the candidate
-    source plus this iteration's (and the previous iteration's, if any)
-    feedback, and its analysis is appended to the feedback returned here for
-    the tree-generating agent's next prompt. The analyzer may also propose
+    source plus this iteration's (and the previous iteration's, if any) raw
+    evaluation feedback, and its analysis becomes `builder_feedback` for the
+    tree-generating agent's next prompt. The analyzer may also propose
     widening the characterization test's coverage by one parametrize value
     (see _apply_proposed_test_case); if accepted (or rejected, or rolled
-    back), that's noted in the feedback too."""
+    back), that's noted in `eval_feedback` (and, since it's part of the
+    analyzer's own reply, also reaches the builder via `builder_feedback`)."""
     candidate = workspace / CANDIDATE_FILENAME
     if not candidate.exists():
-        return False, f"{CANDIDATE_FILENAME} was not created in the workspace.", [], None, pending_case
+        msg = f"{CANDIDATE_FILENAME} was not created in the workspace."
+        return False, msg, msg, [], None, pending_case
 
     def _evaluate():
         return tav_eval.evaluate_tree_model(
@@ -681,8 +625,8 @@ def check_output(
         # doesn't take down the whole run, and print the traceback (the
         # tee in run_loop captures it into the log) for debugging.
         print(f"tav_eval could not evaluate the candidate ({type(e).__name__}):\n{traceback.format_exc()}")
-        return (False, f"tav_eval could not evaluate the candidate ({type(e).__name__}): {e}",
-                [], None, pending_case)
+        msg = f"tav_eval could not evaluate the candidate ({type(e).__name__}): {e}"
+        return False, msg, msg, [], None, pending_case
 
     rollback_note = None
     if pending_case is not None:
@@ -697,31 +641,35 @@ def check_output(
             except (SystemExit, Exception) as e:
                 print(f"tav_eval could not re-evaluate after rollback ({type(e).__name__}):\n"
                       f"{traceback.format_exc()}")
-                return (False, f"{rollback_note}\n\ntav_eval could not re-evaluate after rollback "
-                        f"({type(e).__name__}): {e}", [], None, None)
+                msg = (f"{rollback_note}\n\ntav_eval could not re-evaluate after rollback "
+                       f"({type(e).__name__}): {e}")
+                return False, msg, msg, [], None, None
 
     sc = tav_eval.score_records(records)
     if sc["solved"]:
-        return True, "", records, sc, pending_case
-    feedback = (
+        return True, "", "", records, sc, pending_case
+    eval_feedback = (
         f"score={round(sc['score'], 2)} (pass={sc['n_pass']} fail={sc['n_fail']} "
         f"error={sc['n_error']} skip={sc['n_skip']})\n" + _format_feedback(node, records)
     )
     if rollback_note is not None:
-        feedback = f"{rollback_note}\n\n{feedback}"
+        eval_feedback = f"{rollback_note}\n\n{eval_feedback}"
+    builder_feedback = eval_feedback  # fallback when there's no analyzer to distill it
 
     if model is not None:
+        entry = tav_eval.resolve_node(node, src_override, test_override)
         analysis_task = build_analysis_task(
-            node, candidate.read_text(), feedback, previous_feedback
+            node, entry["src"], candidate.read_text(), eval_feedback,
+            test_ref=entry["test"], previous_feedback=previous_feedback,
         )
         if prompts_log_fh is not None:
             _log_prompt(prompts_log_fh, iteration, "analyzer", analysis_task)
         analysis = run_agent(analysis_task, model, workspace / "analysis", max_turns=max_turns)
-        feedback += f"\n\nAnalyzer feedback:\n{analysis}"
+        builder_feedback = analysis
 
         new_pending, note = _apply_proposed_test_case(node, src_override, test_override, analysis)
         if new_pending is not None:
-            feedback += (
+            eval_feedback += (
                 f"\n\n[orchestrator] Added new test case to the validator: "
                 f"{new_pending['param_name']}={new_pending['value_literal']} "
                 f"(added to {new_pending['test_nodeid']}). This will be exercised -- and checked "
@@ -729,9 +677,9 @@ def check_output(
             )
             pending_case = new_pending
         elif note is not None:
-            feedback += f"\n\n{note}"
+            eval_feedback += f"\n\n{note}"
 
-    return False, feedback, records, sc, pending_case
+    return False, eval_feedback, builder_feedback, records, sc, pending_case
 
 
 # ── main loop ────────────────────────────────────────────────────────────────
@@ -817,6 +765,7 @@ def run_loop(
     try:
         entry = tav_eval.resolve_node(node, src_override, test_override)
         src_path = entry["src"]
+        test_ref = entry["test"]
 
         baseline = baseline or _baseline_path(node, src_override, test_override)
         if not os.path.isfile(baseline):
@@ -845,7 +794,7 @@ def run_loop(
         # analyzer's read on it) instead of flying blind.
         print(f"\n{'=' * 60}\nbaseline (node's existing tree model)\n{'=' * 60}")
         candidate_path.write_text(baseline_src)
-        passed0, feedback0, records0, sc0, pending_case = check_output(
+        passed0, eval_feedback0, builder_feedback0, records0, sc0, pending_case = check_output(
             workspace, node,
             src_override=src_override, test_override=test_override,
             include_extra_tests=include_extra_tests, cache_dir=cache_dir,
@@ -861,7 +810,7 @@ def run_loop(
             # below and never reaches this comparison anyway.
             best = {"iteration": 0, "source": baseline_src, "score": sc0["score"]}
         else:
-            history.append({"iteration": 0, "error": feedback0})
+            history.append({"iteration": 0, "error": eval_feedback0})
             # tav_eval couldn't even evaluate the baseline -- no real score to
             # seed with, so any successful later iteration should still win.
             best = {"iteration": 0, "source": baseline_src, "score": float("inf")}
@@ -870,22 +819,28 @@ def run_loop(
             print("\nThe node's existing tree model already matches the rtlsim reference; nothing to do.")
             best = {"iteration": 0, "source": baseline_src, "score": 0.0}
         else:
-            print(f"\nbaseline feedback:\n{feedback0}")
+            print(f"\nbaseline eval feedback:\n{eval_feedback0}")
+            if builder_feedback0 != eval_feedback0:
+                print(f"\nbaseline analyzer feedback (goes to the builder):\n{builder_feedback0}")
 
-            previous, feedback = baseline_src, feedback0
+            previous, builder_feedback, analyzer_prev_feedback = baseline_src, builder_feedback0, eval_feedback0
             for i in range(1, max_iterations + 1):
                 print(f"\n{'=' * 60}\niteration {i}\n{'=' * 60}")
-                task = build_task(node, src_path, baseline_src, previous=previous, feedback=feedback)
+                task = build_task(
+                    node, src_path, baseline_src, test_ref=test_ref,
+                    previous=previous, feedback=builder_feedback,
+                )
                 _log_prompt(prompts_fh, i, "tree-builder", task)
                 run_agent(task, model, workspace, max_turns=max_turns)
 
-                passed, feedback, records, sc, pending_case = check_output(
+                passed, eval_feedback, builder_feedback, records, sc, pending_case = check_output(
                     workspace, node,
                     src_override=src_override, test_override=test_override,
                     include_extra_tests=include_extra_tests, cache_dir=cache_dir,
-                    model=model, previous_feedback=feedback, max_turns=max_turns,
+                    model=model, previous_feedback=analyzer_prev_feedback, max_turns=max_turns,
                     iteration=i, prompts_log_fh=prompts_fh, pending_case=pending_case,
                 )
+                analyzer_prev_feedback = eval_feedback
                 previous = candidate_path.read_text() if candidate_path.exists() else None
 
                 if previous is not None:
@@ -897,12 +852,14 @@ def run_loop(
                     if sc["score"] < best["score"] and previous is not None:
                         best = {"iteration": i, "source": previous, "score": sc["score"]}
                 else:
-                    history.append({"iteration": i, "error": feedback})
+                    history.append({"iteration": i, "error": eval_feedback})
 
                 if passed:
                     print(f"\nAll cases matched the rtlsim reference on iteration {i}.")
                     break
-                print(f"\nfeedback:\n{feedback}")
+                print(f"\neval feedback:\n{eval_feedback}")
+                if builder_feedback != eval_feedback:
+                    print(f"\nanalyzer feedback (goes to the builder):\n{builder_feedback}")
             else:
                 print(f"\nStopped after {max_iterations} iterations.")
 
