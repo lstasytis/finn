@@ -113,6 +113,12 @@ def _port_record(port, analytical, rtlsim, verdict):
         "len_delta": int(a.size - b.size),
         "peak_volume_delta": int(np.max(np.abs(delta))) if delta.size else 0,
         "delta_vector": delta.tolist(),
+        # ground-truth volume at each point (rtlsim_TAV), kept alongside the
+        # delta so callers can compute a relative (percentage) error per
+        # point, not just the absolute one -- never shown to the LLM
+        # (only delta_vector is, via _format_feedback), so it doesn't grow
+        # what's sent in prompts.
+        "rtlsim_vector": b[:n].tolist(),
     }
 
 

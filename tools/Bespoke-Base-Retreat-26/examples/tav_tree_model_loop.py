@@ -778,7 +778,15 @@ def _persist_best_for_node(node, source, feedback, iteration, score):
     )
 
 
-def _write_run_summary_for_node(node, elapsed_minutes, iterations_run, best_record):
+def _format_volume_stats(volume):
+    """Render a volume_ratio_stats() dict as 'max=X% avg=Y%', or 'N/A' if no
+    case in that run had a comparable point (e.g. eval never even ran)."""
+    if volume is None or volume.get("max_pct") is None:
+        return "N/A"
+    return f"max={volume['max_pct']:.2f}% avg={volume['avg_pct']:.2f}%"
+
+
+def _write_run_summary_for_node(node, elapsed_minutes, iterations_run, best_record, baseline_volume, best_volume):
     """Append a one-line report to outputs/<node>/run_summary.log once a
     node's whole run_loop() (baseline + every iteration) has finished,
     however it finished -- early pass or max_iterations exhaustion."""
@@ -791,7 +799,10 @@ def _write_run_summary_for_node(node, elapsed_minutes, iterations_run, best_reco
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     line = (
         f"[{timestamp}] time={elapsed_minutes:.2f}min iterations={iterations_run} "
-        f"score={score_str}\n"
+        f"score={score_str} | "
+        f"tav_fidelity (per-point %delta vs rtlsim): "
+        f"initial[{_format_volume_stats(baseline_volume)}] "
+        f"best[{_format_volume_stats(best_volume)}]\n"
     )
     with (node_dir / RUN_SUMMARY_FILENAME).open("a") as fh:
         fh.write(line)
@@ -860,6 +871,11 @@ def run_loop(
             model=model, previous_feedback=None, max_turns=max_turns,
             iteration=0, prompts_log_fh=prompts_fh, pending_case=None,
         )
+        # The baseline's own analytical-vs-rtlsim fidelity, independent of whether
+        # it ends up "best" -- this is what later gets compared against whatever
+        # the agents land on, to see if they actually improved tracking of the
+        # rtlsim reference or just got lucky on pass/fail.
+        baseline_volume = tav_eval.volume_ratio_stats(records0)
         if sc0 is not None:
             print(f"\nbaseline: score={round(sc0['score'], 2)} (pass={sc0['n_pass']} fail={sc0['n_fail']} "
                   f"error={sc0['n_error']})")
@@ -867,17 +883,17 @@ def run_loop(
             # seed with the baseline's real score (not inf) -- it can legitimately
             # win against a worse LLM iteration; a passing baseline short-circuits
             # below and never reaches this comparison anyway.
-            best = {"iteration": 0, "source": baseline_src, "score": sc0["score"]}
+            best = {"iteration": 0, "source": baseline_src, "score": sc0["score"], "volume": baseline_volume}
             _persist_best_for_node(node, baseline_src, builder_feedback0, 0, sc0["score"])
         else:
             history.append({"iteration": 0, "error": eval_feedback0})
             # tav_eval couldn't even evaluate the baseline -- no real score to
             # seed with, so any successful later iteration should still win.
-            best = {"iteration": 0, "source": baseline_src, "score": float("inf")}
+            best = {"iteration": 0, "source": baseline_src, "score": float("inf"), "volume": baseline_volume}
 
         if passed0:
             print("\nThe node's existing tree model already matches the rtlsim reference; nothing to do.")
-            best = {"iteration": 0, "source": baseline_src, "score": 0.0}
+            best = {"iteration": 0, "source": baseline_src, "score": 0.0, "volume": baseline_volume}
         else:
             print(f"\nbaseline eval feedback:\n{eval_feedback0}")
             if builder_feedback0 != eval_feedback0:
@@ -911,7 +927,10 @@ def run_loop(
                           f"error={sc['n_error']})")
                     history.append({"iteration": i, **sc})
                     if sc["score"] < best["score"] and previous is not None:
-                        best = {"iteration": i, "source": previous, "score": sc["score"]}
+                        best = {
+                            "iteration": i, "source": previous, "score": sc["score"],
+                            "volume": tav_eval.volume_ratio_stats(records),
+                        }
                         _persist_best_for_node(node, previous, builder_feedback, i, sc["score"])
                 else:
                     history.append({"iteration": i, "error": eval_feedback})
@@ -927,7 +946,10 @@ def run_loop(
 
         elapsed_minutes = (datetime.datetime.now() - run_start).total_seconds() / 60.0
         best_record = history[best["iteration"]] if best["iteration"] < len(history) else None
-        _write_run_summary_for_node(node, elapsed_minutes, iterations_run, best_record)
+        best_volume = best.get("volume")
+        _write_run_summary_for_node(
+            node, elapsed_minutes, iterations_run, best_record, baseline_volume, best_volume
+        )
 
         best_path = out_dir / BEST_FILENAME
         best_path.write_text(best["source"])
@@ -954,6 +976,8 @@ def run_loop(
         print(f"durable copy for {node}: {_node_outputs_dir(node)}")
         print(f"run summary:    {_node_outputs_dir(node) / RUN_SUMMARY_FILENAME} "
               f"(time={elapsed_minutes:.2f}min iterations={iterations_run})")
+        print(f"tav fidelity (per-point %delta vs rtlsim): "
+              f"initial[{_format_volume_stats(baseline_volume)}] best[{_format_volume_stats(best_volume)}]")
         return best_path
     except Exception:
         print(traceback.format_exc())

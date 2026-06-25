@@ -708,6 +708,35 @@ def score_records(records):
     }
 
 
+def volume_ratio_stats(records):
+    """Point-by-point relative error of the analytical TAV against the
+    rtlsim reference TAV: for every point across every scored port/case in
+    `records`, abs(delta) / max(abs(rtlsim_volume), 1), as a percentage.
+    Every point from every case is pooled into one population (so a node
+    with several parametrized cases gets one max/avg pair describing the
+    whole run, not one per case). Cases without a captured `rtlsim_vector`
+    (e.g. older cached records, or skipped/errored cases with no port) are
+    excluded. Returns ``{"max_pct": None, "avg_pct": None, "n_points": 0}``
+    if no case had any comparable point."""
+    ratios = []
+    for case in expand_records(records):
+        if not case.get("port"):
+            continue
+        rtlsim_vector = case.get("rtlsim_vector")
+        delta_vector = case.get("delta_vector")
+        if not rtlsim_vector or not delta_vector:
+            continue
+        for d, v in zip(delta_vector, rtlsim_vector):
+            ratios.append(abs(d) / max(abs(v), 1) * 100)
+    if not ratios:
+        return {"max_pct": None, "avg_pct": None, "n_points": 0}
+    return {
+        "max_pct": max(ratios),
+        "avg_pct": sum(ratios) / len(ratios),
+        "n_points": len(ratios),
+    }
+
+
 def assemble_log(records_dir, pytest_log, out_log, header):
     records = load_records(records_dir)
 
