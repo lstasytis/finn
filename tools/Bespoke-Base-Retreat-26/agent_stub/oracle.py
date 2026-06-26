@@ -383,7 +383,7 @@ class Oracle:
         """One-line summary of a case -- cheap, shown for ALL cases so the agent
         always sees the full landscape regardless of how many cases there are."""
         if c.error is not None:
-            return f"  [{c.tag}] ERROR: {c.error[:140]}"
+            return f"  [{c.tag}] ERROR: {c.error[:400]}"
         if c.matched:
             return f"  [{c.tag}] exact"
         parts = []

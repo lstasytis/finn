@@ -127,9 +127,8 @@ class _MockSelfBase:
         if name in self._attrs:
             return self._attrs[name]
         raise KeyError(
-            f"node attribute {name!r} was not captured from the docker run; "
-            "the local oracle cannot supply it (re-run the baseline so the "
-            "plugin captures the full attribute set, or use --oracle docker)."
+            f"{name!r} is not an attribute of this node -- you likely invented or misspelled it. "
+            f"Valid get_nodeattr names for this node: {sorted(self._attrs)}"
         )
 
     def __getattr__(self, name):

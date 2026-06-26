@@ -601,6 +601,8 @@ def run_loop(
                         a_msgs, base_model, workspace / "analyzer", max_turns=max_turns,
                         transcript_path=os.path.join(AGENTS_DIR, f"{safe_node}-iter{i:03d}-analyzer.log"),
                     )
+                    print(f"\n{'=' * 60}\n[analyzer advice] (iteration {i})\n{'=' * 60}\n"
+                          f"{advice}\n{'=' * 60}")
                     best_feedback += f"\n\nAnalyzer advice:\n{advice}"
                 except Exception:
                     print(f"[analyzer] crashed:\n{traceback.format_exc()}")
