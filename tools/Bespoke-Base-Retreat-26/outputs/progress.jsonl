@@ -1,0 +1,9 @@
+{"node": "Pool", "iteration": 0, "max_abs_delta": 392.0, "avg_normalized_delta_pct": 5.7616, "ts": 1782445140.610366}
+{"node": "StreamingDataWidthConverter", "iteration": 0, "max_abs_delta": 32.0, "avg_normalized_delta_pct": 35.3387, "ts": 1782445141.5489392}
+{"node": "FMPadding", "iteration": 0, "max_abs_delta": 3.0, "avg_normalized_delta_pct": 0.9924, "ts": 1782445141.6369965}
+{"node": "LabelSelect", "iteration": 0, "max_abs_delta": 510.0, "avg_normalized_delta_pct": 53.4751, "ts": 1782445141.7179866}
+{"node": "VVAU", "iteration": 0, "max_abs_delta": 3457.0, "avg_normalized_delta_pct": 3.3292, "ts": 1782445141.7530372}
+{"node": "MVAU", "iteration": 0, "max_abs_delta": 130.0, "avg_normalized_delta_pct": 8.6435, "ts": 1782445142.9354088}
+{"node": "Thresholding", "iteration": 0, "max_abs_delta": 132.0, "avg_normalized_delta_pct": 15.4862, "ts": 1782445143.6884534}
+{"node": "StreamingDataWidthConverter", "iteration": 1, "max_abs_delta": 32.0, "avg_normalized_delta_pct": 33.5717, "ts": 1782447487.3834357}
+{"node": "Thresholding", "iteration": 1, "max_abs_delta": 132.0, "avg_normalized_delta_pct": 15.1708, "ts": 1782448798.7315307}

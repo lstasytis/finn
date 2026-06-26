@@ -1,0 +1,11 @@
+node_name                    iteration  max_abs_delta  average_normalized_delta %
+---------------------------  ---------  -------------  --------------------------
+FMPadding                    0          3              0.99                      
+LabelSelect                  0          510            53.48                     
+MVAU                         0          130            8.64                      
+Pool                         0          392            5.76                      
+StreamingDataWidthConverter  0          32             35.34                     
+StreamingDataWidthConverter  1          32             33.57                     
+Thresholding                 0          132            15.49                     
+Thresholding                 1          132            15.17                     
+VVAU                         0          3457           3.33                      
