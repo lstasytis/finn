@@ -1,0 +1,5 @@
+# The repo-wide root .gitignore ignores *.log everywhere. Run logs and per-agent
+# transcripts live in this directory and are sometimes worth committing (e.g. to
+# share a run for analysis), so re-include .log files for this subtree only.
+# `git add` still has to stage them explicitly -- this just makes them eligible.
+!*.log
