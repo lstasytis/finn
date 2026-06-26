@@ -1,11 +1,17 @@
-node_name                    iteration  max_abs_delta  average_normalized_delta %
----------------------------  ---------  -------------  --------------------------
-FMPadding                    0          3              0.99                      
-LabelSelect                  0          510            53.48                     
-MVAU                         0          130            8.64                      
-Pool                         0          392            5.76                      
-StreamingDataWidthConverter  0          32             35.34                     
-StreamingDataWidthConverter  1          32             33.57                     
-Thresholding                 0          132            15.49                     
-Thresholding                 1          132            15.17                     
-VVAU                         0          3457           3.33                      
+# Partial progress table from tree-model-run logs (run 20260626-053850).
+# max_abs_delta / average_normalized_delta are EXACT only for nodes whose
+# iteration finished (a delta was logged at iteration end). Nodes marked
+# '1 (running)' were still inside iteration 1 when the log was taken, so only
+# the best candidate SCORE was recorded (lower is better; 0 = solved); their
+# per-cycle delta metrics ('--') are produced only when the iteration completes.
+# baseline_score/delta are the starting point before any LLM iteration.
+
+node_name                    iteration    max_abs_delta  average_normalized_delta %  best_score  baseline_score  best_vs_baseline
+---------------------------  -----------  -------------  --------------------------  ----------  --------------  ----------------
+FMPadding                    1 (running)  --             --                          3216.14     5851.10         -45.0%          
+LabelSelect                  1 (running)  --             --                          9527.71     22156.14        -57.0%          
+MVAU                         1 (running)  --             --                          15899.05    16023.67        -0.8%           
+Pool                         1 (running)  --             --                          2716.65     5081.60         -46.5%          
+StreamingDataWidthConverter  1 (done)     32             33.57                       7092.72     7847.97         -9.6%           
+Thresholding                 1 (done)     132            15.17                       7578.54     7858.54         -3.6%           
+VVAU                         1 (running)  --             --                          15656.83    18238.71        -14.2%          
