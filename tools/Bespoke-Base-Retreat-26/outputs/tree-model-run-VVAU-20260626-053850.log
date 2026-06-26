@@ -1,0 +1,911 @@
+[05:38:50] node=VVAU model=gpt-5.2-codex oracle=local parallel=1 curriculum=False memory=True max_iterations=10
+[05:38:50] out_dir=/tmp/finn_dev_lstasytis/tav_bespoke/VVAU-20260626-053850
+[05:38:50] 
+[05:38:50] ============================================================
+[05:38:50] baseline docker run (capturing reference TAVs)
+[05:38:50] ============================================================
+[05:38:50] [tav_eval] patched get_tree_model in /home/lstasytis/backup/finn/src/finn/custom_op/fpgadataflow/vectorvectoractivation.py (backup: /home/lstasytis/backup/finn/src/finn/custom_op/fpgadataflow/vectorvectoractivation.py.tav_orig)
+[05:38:50] [tav_eval] waiting for container python environment ...
+[05:38:53] [tav_eval] synced 0 cached rtlsim reference(s) into build dir
+[05:39:01] [tav_eval] pytest exit code: 1
+[05:39:01] captured 36 case(s); baseline docker score=18238.71 solved=False
+[05:39:01] [oracle self-test] local oracle self-test passed on all cases with captured vectors
+[05:39:01] 
+[05:39:01] baseline local score (active set)=18238.71
+[05:39:01] baseline delta vs rtlsim: max_abs=3457 avg_norm=3.33%
+[05:39:01] backend=local score=18238.71 (exact=0 differ=36 error=0 of 36 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[05:39:01]   INPUT ports: 0/36 exact.  OUTPUT ports: 0/36 exact.
+[05:39:01] >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 36 input port(s) still differ (36 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[05:39:01] 
+[05:39:01] All 36 cases (worst first):
+[05:39:01]   [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=787 len_d=-14 | output Σ|d|=1138 len_d=-14
+[05:39:01]   [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=787 len_d=-14 | output Σ|d|=1138 len_d=-14
+[05:39:01]   [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=676 len_d=-10 | output Σ|d|=796 len_d=-10
+[05:39:01]   [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=676 len_d=-10 | output Σ|d|=796 len_d=-10
+[05:39:01]   [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=-12 | output Σ|d|=1002 len_d=-12
+[05:39:01]   [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=-12 | output Σ|d|=1002 len_d=-12
+[05:39:01]   [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=2084 len_d=-10 | output Σ|d|=817 len_d=-10
+[05:39:01]   [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=2084 len_d=-10 | output Σ|d|=817 len_d=-10
+[05:39:01]   [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=2084 len_d=-10 | output Σ|d|=817 len_d=-10
+[05:39:01]   [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=2084 len_d=-10 | output Σ|d|=817 len_d=-10
+[05:39:01]   [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=6876 len_d=-12 | output Σ|d|=1013 len_d=-12
+[05:39:01]   [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=6308 len_d=-10 | output Σ|d|=824 len_d=-10
+[05:39:01]   [mem_mode='internal_decoupled' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=236 len_d=-10 | output Σ|d|=89 len_d=-10
+[05:39:01]   [mem_mode='internal_embedded' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=236 len_d=-10 | output Σ|d|=89 len_d=-10
+[05:39:01]   [mem_mode='internal_decoupled' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=60 len_d=-14 | output Σ|d|=84 len_d=-14
+[05:39:01]   [mem_mode='internal_embedded' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=60 len_d=-14 | output Σ|d|=84 len_d=-14
+[05:39:01]   [mem_mode='internal_decoupled' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=60 len_d=-10 | output Σ|d|=68 len_d=-10
+[05:39:01]   [mem_mode='internal_embedded' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=60 len_d=-10 | output Σ|d|=68 len_d=-10
+[05:39:01]   [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=1151 len_d=-4 | output Σ|d|=1147 len_d=-4
+[05:39:01]   [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=1147 len_d=-2 | output Σ|d|=1145 len_d=-2
+[05:39:01]   [mem_mode='internal_embedded' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=143 len_d=-4 | output Σ|d|=139 len_d=-4
+[05:39:01]   [mem_mode='internal_decoupled' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=139 len_d=-2 | output Σ|d|=137 len_d=-2
+[05:39:01]   [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=3 pe=3 simd=1] FAIL | input Σ|d|=1727 len_d=-4 | output Σ|d|=578 len_d=-4
+[05:39:01]   [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=5183 len_d=-4 | output Σ|d|=1730 len_d=-4
+[05:39:01]   [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=5179 len_d=-2 | output Σ|d|=1730 len_d=-2
+[05:39:01]   [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=3455 len_d=-4 | output Σ|d|=1149 len_d=-4
+[05:39:01]   [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=3 pe=3 simd=1] FAIL | input Σ|d|=1723 len_d=-2 | output Σ|d|=578 len_d=-2
+[05:39:01]   [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=1727 len_d=-4 | output Σ|d|=573 len_d=-4
+[05:39:01]   [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=3451 len_d=-2 | output Σ|d|=1149 len_d=-2
+[05:39:01]   [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=1723 len_d=-2 | output Σ|d|=573 len_d=-2
+[05:39:01]   [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=3 pe=3 simd=1] FAIL | input Σ|d|=571 len_d=-2 | output Σ|d|=189 len_d=-2
+[05:39:01]   [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=3 pe=3 simd=1] FAIL | input Σ|d|=571 len_d=-2 | output Σ|d|=189 len_d=-2
+[05:39:01]   [mem_mode='internal_embedded' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=215 len_d=-4 | output Σ|d|=69 len_d=-4
+[05:39:01]   [mem_mode='internal_decoupled' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=211 len_d=-2 | output Σ|d|=69 len_d=-2
+[05:39:01]   [mem_mode='internal_decoupled' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=3 pe=3 simd=1] FAIL | input Σ|d|=67 len_d=-2 | output Σ|d|=21 len_d=-2
+[05:39:01]   [mem_mode='internal_embedded' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=3 pe=3 simd=1] FAIL | input Σ|d|=67 len_d=-2 | output Σ|d|=21 len_d=-2
+[05:39:01] 
+[05:39:01] Detail for the smallest cases whose input port still differs (per-cycle pattern is clearest here and usually transfers to bigger cases). Vectors are RLE'd (run_length,value), truncated after 120 runs:
+[05:39:01]   [mem_mode='internal_decoupled' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] (case score 569.2):
+[05:39:01]      input: yours len=16 target len=26 (len_delta=-10), Σ|delta|=60, peak=8
+[05:39:01]         TARGET (rtlsim): [(3,0), (1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (6,+8), (1,+9), (1,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (3,+16)]
+[05:39:01]         YOURS          : [(1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (1,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16)]
+[05:39:01]         DELTA (yours-target): [(1,+1), (1,+2), (9,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8)]
+[05:39:01]      output: differs (len_delta=-10, Σ|delta|=68) -- deprioritized, get input exact first
+[05:39:01]   [mem_mode='internal_embedded' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] (case score 569.2):
+[05:39:01]      input: yours len=16 target len=26 (len_delta=-10), Σ|delta|=60, peak=8
+[05:39:01]         TARGET (rtlsim): [(3,0), (1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (6,+8), (1,+9), (1,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (3,+16)]
+[05:39:01]         YOURS          : [(1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (1,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16)]
+[05:39:01]         DELTA (yours-target): [(1,+1), (1,+2), (9,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8)]
+[05:39:01]      output: differs (len_delta=-10, Σ|delta|=68) -- deprioritized, get input exact first
+[05:39:01]   [mem_mode='internal_decoupled' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] (case score 573.3):
+[05:39:01]      input: yours len=16 target len=30 (len_delta=-14), Σ|delta|=60, peak=8
+[05:39:01]         TARGET (rtlsim): [(3,0), (1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (8,+8), (1,+9), (1,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (5,+16)]
+[05:39:01]         YOURS          : [(1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (1,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16)]
+[05:39:01]         DELTA (yours-target): [(1,+1), (1,+2), (9,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8)]
+[05:39:01]      output: differs (len_delta=-14, Σ|delta|=84) -- deprioritized, get input exact first
+[05:39:01]   [mem_mode='internal_embedded' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] (case score 573.3):
+[05:39:01]      input: yours len=16 target len=30 (len_delta=-14), Σ|delta|=60, peak=8
+[05:39:01]         TARGET (rtlsim): [(3,0), (1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (8,+8), (1,+9), (1,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (5,+16)]
+[05:39:01]         YOURS          : [(1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (1,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16)]
+[05:39:01]         DELTA (yours-target): [(1,+1), (1,+2), (9,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8)]
+[05:39:01]      output: differs (len_delta=-14, Σ|delta|=84) -- deprioritized, get input exact first
+[05:39:01]   [mem_mode='internal_decoupled' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=3 pe=3 simd=1] (case score 184.0):
+[05:39:01]      input: yours len=48 target len=50 (len_delta=-2), Σ|delta|=67, peak=2
+[05:39:01]         TARGET (rtlsim): [(1,+1), (2,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (1,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16), (1,+17), (1,+18), (1,+19), (1,+20), (1,+21), (1,+22), (1,+23), (1,+24), (1,+25), (2,+26), (1,+27), (1,+28), (1,+29), (1,+30), (1,+31), (1,+32), (1,+33), (1,+34), (1,+35), (1,+36), (1,+37), (1,+38), (1,+39), (1,+40), (1,+41), (1,+42), (1,+43), (1,+44), (1,+45), (1,+46), (1,+47), (1,+48)]
+[05:39:01]         YOURS          : [(1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (1,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16), (1,+17), (1,+18), (1,+19), (1,+20), (1,+21), (1,+22), (1,+23), (1,+24), (1,+25), (1,+26), (1,+27), (1,+28), (1,+29), (1,+30), (1,+31), (1,+32), (1,+33), (1,+34), (1,+35), (1,+36), (1,+37), (1,+38), (1,+39), (1,+40), (1,+41), (1,+42), (1,+43), (1,+44), (1,+45), (1,+46), (1,+47), (1,+48)]
+[05:39:01]         DELTA (yours-target): [(2,0), (25,+1), (21,+2)]
+[05:39:01]      output: differs (len_delta=-2, Σ|delta|=21) -- deprioritized, get input exact first
+[05:39:01]   [mem_mode='internal_embedded' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=3 pe=3 simd=1] (case score 184.0):
+[05:39:01]      input: yours len=48 target len=50 (len_delta=-2), Σ|delta|=67, peak=2
+[05:39:01]         TARGET (rtlsim): [(1,+1), (2,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (1,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16), (1,+17), (1,+18), (1,+19), (1,+20), (1,+21), (1,+22), (1,+23), (1,+24), (1,+25), (2,+26), (1,+27), (1,+28), (1,+29), (1,+30), (1,+31), (1,+32), (1,+33), (1,+34), (1,+35), (1,+36), (1,+37), (1,+38), (1,+39), (1,+40), (1,+41), (1,+42), (1,+43), (1,+44), (1,+45), (1,+46), (1,+47), (1,+48)]
+[05:39:01]         YOURS          : [(1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (1,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16), (1,+17), (1,+18), (1,+19), (1,+20), (1,+21), (1,+22), (1,+23), (1,+24), (1,+25), (1,+26), (1,+27), (1,+28), (1,+29), (1,+30), (1,+31), (1,+32), (1,+33), (1,+34), (1,+35), (1,+36), (1,+37), (1,+38), (1,+39), (1,+40), (1,+41), (1,+42), (1,+43), (1,+44), (1,+45), (1,+46), (1,+47), (1,+48)]
+[05:39:01]         DELTA (yours-target): [(2,0), (25,+1), (21,+2)]
+[05:39:01]      output: differs (len_delta=-2, Σ|delta|=21) -- deprioritized, get input exact first
+[05:39:01]   [mem_mode='internal_decoupled' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] (case score 594.8):
+[05:39:01]      input: yours len=48 target len=58 (len_delta=-10), Σ|delta|=236, peak=8
+[05:39:01]         TARGET (rtlsim): [(3,0), (1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (1,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16), (1,+17), (1,+18), (1,+19), (1,+20), (1,+21), (1,+22), (1,+23), (6,+24), (1,+25), (1,+26), (1,+27), (1,+28), (1,+29), (1,+30), (1,+31), (1,+32), (1,+33), (1,+34), (1,+35), (1,+36), (1,+37), (1,+38), (1,+39), (1,+40), (1,+41), (1,+42), (1,+43), (1,+44), (1,+45), (1,+46), (1,+47), (3,+48)]
+[05:39:01]         YOURS          : [(1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (1,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16), (1,+17), (1,+18), (1,+19), (1,+20), (1,+21), (1,+22), (1,+23), (1,+24), (1,+25), (1,+26), (1,+27), (1,+28), (1,+29), (1,+30), (1,+31), (1,+32), (1,+33), (1,+34), (1,+35), (1,+36), (1,+37), (1,+38), (1,+39), (1,+40), (1,+41), (1,+42), (1,+43), (1,+44), (1,+45), (1,+46), (1,+47), (1,+48)]
+[05:39:01]         DELTA (yours-target): [(1,+1), (1,+2), (25,+3), (1,+4), (1,+5), (1,+6), (1,+7), (17,+8)]
+[05:39:01]      output: differs (len_delta=-10, Σ|delta|=89) -- deprioritized, get input exact first
+[05:39:01]   [mem_mode='internal_embedded' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] (case score 594.8):
+[05:39:01]      input: yours len=48 target len=58 (len_delta=-10), Σ|delta|=236, peak=8
+[05:39:01]         TARGET (rtlsim): [(3,0), (1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (1,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16), (1,+17), (1,+18), (1,+19), (1,+20), (1,+21), (1,+22), (1,+23), (6,+24), (1,+25), (1,+26), (1,+27), (1,+28), (1,+29), (1,+30), (1,+31), (1,+32), (1,+33), (1,+34), (1,+35), (1,+36), (1,+37), (1,+38), (1,+39), (1,+40), (1,+41), (1,+42), (1,+43), (1,+44), (1,+45), (1,+46), (1,+47), (3,+48)]
+[05:39:01]         YOURS          : [(1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (1,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16), (1,+17), (1,+18), (1,+19), (1,+20), (1,+21), (1,+22), (1,+23), (1,+24), (1,+25), (1,+26), (1,+27), (1,+28), (1,+29), (1,+30), (1,+31), (1,+32), (1,+33), (1,+34), (1,+35), (1,+36), (1,+37), (1,+38), (1,+39), (1,+40), (1,+41), (1,+42), (1,+43), (1,+44), (1,+45), (1,+46), (1,+47), (1,+48)]
+[05:39:01]         DELTA (yours-target): [(1,+1), (1,+2), (25,+3), (1,+4), (1,+5), (1,+6), (1,+7), (17,+8)]
+[05:39:01]      output: differs (len_delta=-10, Σ|delta|=89) -- deprioritized, get input exact first
+[05:39:01]   [mem_mode='internal_decoupled' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] (case score 285.7):
+[05:39:01]      input: yours len=96 target len=98 (len_delta=-2), Σ|delta|=139, peak=2
+[05:39:01]         TARGET (rtlsim): [(1,+1), (2,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (1,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16), (1,+17), (1,+18), (1,+19), (1,+20), (1,+21), (1,+22), (1,+23), (1,+24), (1,+25), (1,+26), (1,+27), (1,+28), (1,+29), (1,+30), (1,+31), (1,+32), (1,+33), (1,+34), (1,+35), (1,+36), (1,+37), (1,+38), (1,+39), (1,+40), (1,+41), (1,+42), (1,+43), (1,+44), (1,+45), (1,+46), (1,+47), (1,+48), (1,+49), (2,+50), (1,+51), (1,+52), (1,+53), (1,+54), (1,+55), (1,+56), (1,+57), (1,+58), (1,+59), (1,+60), (1,+61), (1,+62), (1,+63), (1,+64), (1,+65), (1,+66), (1,+67), (1,+68), (1,+69), (1,+70), (1,+71), (1,+72), (1,+73), (1,+74), (1,+75), (1,+76), (1,+77), (1,+78), (1,+79), (1,+80), (1,+81), (1,+82), (1,+83), (1,+84), (1,+85), (1,+86), (1,+87), (1,+88), (1,+89), (1,+90), (1,+91), (1,+92), (1,+93), (1,+94), (1,+95), (1,+96)]
+[05:39:01]         YOURS          : [(1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (1,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16), (1,+17), (1,+18), (1,+19), (1,+20), (1,+21), (1,+22), (1,+23), (1,+24), (1,+25), (1,+26), (1,+27), (1,+28), (1,+29), (1,+30), (1,+31), (1,+32), (1,+33), (1,+34), (1,+35), (1,+36), (1,+37), (1,+38), (1,+39), (1,+40), (1,+41), (1,+42), (1,+43), (1,+44), (1,+45), (1,+46), (1,+47), (1,+48), (1,+49), (1,+50), (1,+51), (1,+52), (1,+53), (1,+54), (1,+55), (1,+56), (1,+57), (1,+58), (1,+59), (1,+60), (1,+61), (1,+62), (1,+63), (1,+64), (1,+65), (1,+66), (1,+67), (1,+68), (1,+69), (1,+70), (1,+71), (1,+72), (1,+73), (1,+74), (1,+75), (1,+76), (1,+77), (1,+78), (1,+79), (1,+80), (1,+81), (1,+82), (1,+83), (1,+84), (1,+85), (1,+86), (1,+87), (1,+88), (1,+89), (1,+90), (1,+91), (1,+92), (1,+93), (1,+94), (1,+95), (1,+96)]
+[05:39:01]         DELTA (yours-target): [(2,0), (49,+1), (45,+2)]
+[05:39:01]      output: differs (len_delta=-2, Σ|delta|=137) -- deprioritized, get input exact first
+[05:39:01]   [mem_mode='internal_embedded' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] (case score 290.0):
+[05:39:01]      input: yours len=96 target len=100 (len_delta=-4), Σ|delta|=143, peak=2
+[05:39:01]         TARGET (rtlsim): [(1,0), (1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (1,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16), (1,+17), (1,+18), (1,+19), (1,+20), (1,+21), (1,+22), (1,+23), (1,+24), (1,+25), (1,+26), (1,+27), (1,+28), (1,+29), (1,+30), (1,+31), (1,+32), (1,+33), (1,+34), (1,+35), (1,+36), (1,+37), (1,+38), (1,+39), (1,+40), (1,+41), (1,+42), (1,+43), (1,+44), (1,+45), (1,+46), (1,+47), (2,+48), (1,+49), (1,+50), (1,+51), (1,+52), (1,+53), (1,+54), (1,+55), (1,+56), (1,+57), (1,+58), (1,+59), (1,+60), (1,+61), (1,+62), (1,+63), (1,+64), (1,+65), (1,+66), (1,+67), (1,+68), (1,+69), (1,+70), (1,+71), (1,+72), (1,+73), (1,+74), (1,+75), (1,+76), (1,+77), (1,+78), (1,+79), (1,+80), (1,+81), (1,+82), (1,+83), (1,+84), (1,+85), (1,+86), (1,+87), (1,+88), (1,+89), (1,+90), (1,+91), (1,+92), (1,+93), (1,+94), (1,+95), (2,+96), (1,+97)]
+[05:39:01]         YOURS          : [(1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (1,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16), (1,+17), (1,+18), (1,+19), (1,+20), (1,+21), (1,+22), (1,+23), (1,+24), (1,+25), (1,+26), (1,+27), (1,+28), (1,+29), (1,+30), (1,+31), (1,+32), (1,+33), (1,+34), (1,+35), (1,+36), (1,+37), (1,+38), (1,+39), (1,+40), (1,+41), (1,+42), (1,+43), (1,+44), (1,+45), (1,+46), (1,+47), (1,+48), (1,+49), (1,+50), (1,+51), (1,+52), (1,+53), (1,+54), (1,+55), (1,+56), (1,+57), (1,+58), (1,+59), (1,+60), (1,+61), (1,+62), (1,+63), (1,+64), (1,+65), (1,+66), (1,+67), (1,+68), (1,+69), (1,+70), (1,+71), (1,+72), (1,+73), (1,+74), (1,+75), (1,+76), (1,+77), (1,+78), (1,+79), (1,+80), (1,+81), (1,+82), (1,+83), (1,+84), (1,+85), (1,+86), (1,+87), (1,+88), (1,+89), (1,+90), (1,+91), (1,+92), (1,+93), (1,+94), (1,+95), (1,+96)]
+[05:39:01]         DELTA (yours-target): [(49,+1), (47,+2)]
+[05:39:01]      output: differs (len_delta=-4, Σ|delta|=139) -- deprioritized, get input exact first
+[05:39:01]   (+26 more case(s) with a failing input port summarized above -- fix these first, then re-evaluate.)
+[05:39:01] 
+[05:39:01] ============================================================
+[05:39:01] iteration 1  (active cases: 36/36, best score 18238.71)
+[05:39:01] ============================================================
+[05:39:05] 
+[05:39:05] -> eval_tree_model({"source": "def get_tree_model(self):\n    # key parameters\n    IMPL_STYLE = \"rtl\" if \"_rtl\" in (self.__class__.__n...)
+[05:39:05]    backend=local score=18238.71 (exact=0 differ=36 error=0 of 36 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[05:39:05]      INPUT ports: 0/36 exact.  OUTPUT ports: 0/36 exact.
+[05:39:05]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 36 input port(s) still differ (36 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[05:39:05]    
+[05:39:05]    All 36 cases (worst first):
+[05:39:05]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=787 len_d=-14 | output Σ|d|=1138 len_d=-14
+[05:39:05]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=787 len_d=-14 | output Σ|d|=1138 len_d=-14
+[05:39:05]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=676 len_d=-10 | output Σ|d|=796 len_d=-10
+[05:39:05]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=676 len_d=-10 | output Σ|d|=796 len_d=-10
+[05:39:05]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=-12 | output Σ|d|=1002 len_d=-12
+[05:39:05]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=-12 | output Σ|d|=1002 len_d=-12
+[05:39:05]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=2084 len_d=-10 | output Σ|d|=817 len_d=-10
+[05:39:05]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=2084 len_d=-10 | output Σ|d|=817 len_d=-10
+[05:39:05]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=2084 len_d=-10 | output Σ|d|=817 len_d=-10
+[05:39:05]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=2084 len_d=-10 | output Σ|d|=817 len_d=-10
+[05:39:05]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=6876 len_d=-12 | output Σ|d|=1013 len_d=-12
+[05:39:05]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=6308 len_d=-10 | output Σ|d|=824 len_d=-10
+[05:39:05]      [mem_mode='internal_decoupled' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=236 len_d=-10 | output Σ|d|=89 len_d=-10
+[05:39:05]      [mem_mode='internal_embedded' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=236 len_d=-10 | output Σ|d|=89 len_d=-10
+[05:39:05]      [mem_mode='internal_decoupled' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=60 len_d=-14 | output Σ|d|=84 len_d=-14
+[05:39:29] 
+[05:39:29] -> bash({"command": "ls -R inputs/src/finn/custom_op/fpgadataflow | head"})
+[05:39:29]    (exit 0)
+[05:39:29]    ls: cannot access 'inputs/src/finn/custom_op/fpgadataflow': No such file or directory
+[05:39:32] 
+[05:39:32] -> bash({"command": "ls -R inputs | head"})
+[05:39:32]    (exit 0)
+[05:39:32]    ls: cannot access 'inputs': No such file or directory
+[05:39:33] 
+[05:39:33] -> bash({"command": "ls /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs | head"})
+[05:39:33]    (exit 0)
+[05:39:33]    deps
+[05:39:33]    finn-rtllib
+[05:39:33]    src
+[05:39:34] 
+[05:39:34] -> bash({"command": "sed -n '1,200p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadat...)
+[05:39:34]    (exit 0)
+[05:39:34]    import math
+[05:39:34]    import numpy as np
+[05:39:34]    import onnx.numpy_helper as np_helper
+[05:39:34]    import os
+[05:39:34]    import textwrap
+[05:39:34]    import warnings
+[05:39:34]    from qonnx.core.datatype import DataType
+[05:39:34]    from qonnx.custom_op.general.multithreshold import multithreshold
+[05:39:34]    from qonnx.util.basic import (
+[05:39:34]        calculate_matvec_accumulator_range,
+[05:39:34]        interleave_matrix_outer_dim_from_partitions,
+[05:39:34]        roundup_to_integer_multiple,
+[05:39:34]    )
+[05:39:34]    
+[05:39:34]    from finn.custom_op.fpgadataflow.hwcustomop import HWCustomOp
+[05:39:34]    from finn.util.basic import Characteristic_Node
+[05:39:34]    from finn.util.data_packing import numpy_to_hls_code, pack_innermost_dim_as_hex_string
+[05:39:34]    
+[05:39:34]    
+[05:39:35] 
+[05:39:35] -> bash({"command": "sed -n '200,400p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgad...)
+[05:39:35]    (exit 0)
+[05:39:35]                    raise Exception("Index out of range")
+[05:39:35]            else:
+[05:39:35]                raise Exception("Undefined input ind for this layer type")
+[05:39:35]            return width
+[05:39:35]    
+[05:39:35]        def get_outstream_width(self, ind=0):
+[05:39:35]            o_bits = self.get_output_datatype().bitwidth()
+[05:39:35]            out_width = o_bits * self.get_nodeattr("PE")
+[05:39:35]            return out_width
+[05:39:35]    
+[05:39:35]        def get_folded_input_shape(self, ind=0):
+[05:39:35]            k_h, k_w = self.get_nodeattr("Kernel")
+[05:39:35]            dim_h, dim_w = self.get_nodeattr("Dim")
+[05:39:35]            ch = self.get_nodeattr("Channels")
+[05:39:35]            simd = self.get_nodeattr("SIMD")
+[05:39:35]            pe = self.get_nodeattr("PE")
+[05:39:35]            kernel_2 = k_h * k_w
+[05:39:35]            assert kernel_2 % simd == 0, "Requirement kernel (k_h * k_w) divisable by SIMD is violated."
+[05:39:35]            sf = kernel_2 // simd
+[05:39:36] 
+[05:39:36] -> bash({"command": "sed -n '400,800p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgad...)
+[05:39:36]    (exit 0)
+[05:39:36]            if acc_min >= 0:
+[05:39:36]                acc_bit_width = np.log2(acc_max + 1)
+[05:39:36]                acc_bit_width = math.ceil(acc_bit_width)
+[05:39:36]                adt = DataType[f"UINT{acc_bit_width}"]
+[05:39:36]            # if the acc_range is signed, then acc_min >= -2^{P-1} and acc_max <=
+[05:39:36]            # 2^{P - 1} - 1, which means 2^{P - 1} >= max(-acc_min, 1 + acc_max)
+[05:39:36]            else:
+[05:39:36]                _acc_max = max(-acc_min, 1 + acc_max)
+[05:39:36]                acc_bit_width = np.log2(_acc_max) + 1
+[05:39:36]                acc_bit_width = math.ceil(acc_bit_width)
+[05:39:36]                adt = DataType[f"INT{acc_bit_width}"]
+[05:39:36]    
+[05:39:36]            # Note: Thresholds may not fit in the accumulator datatype at this point.
+[05:39:36]            # They will be clipped to the accumulator range by RoundAndClipThresholds transformation.
+[05:39:36]    
+[05:39:36]            # if no activation, output and accumulator datatypes are the same
+[05:39:36]            if self.get_nodeattr("noActivation"):
+[05:39:36]                # if this is the last node in the graph, then ensure the datatype is
+[05:39:36]                # divisibly by 8 bits
+[05:40:02] 
+[05:40:02] -> bash({"command": "grep -n \"get_instream_width\" -n /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn...)
+[05:40:02]    (exit 0)
+[05:40:02]    174:    def get_instream_width(self, ind=0):
+[05:40:02]    598:                weight_width = self.get_instream_width(1)
+[05:40:02]    618:                weight_width = self.get_instream_width(1)
+[05:40:02]    743:            intf_names["s_axis"].append(("in1_V", self.get_instream_width_padded(1)))
+[05:40:05] 
+[05:40:05] -> bash({"command": "sed -n '130,240p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgad...)
+[05:40:05]    (exit 0)
+[05:40:05]                out_scale = 2 if odt_is_bipolar else 1
+[05:40:05]                out_bias = -1 if odt_is_bipolar else self.get_nodeattr("ActVal")
+[05:40:05]                # NHWC to NCHW for multithreshold node
+[05:40:05]                result = result.transpose((0, 3, 1, 2))
+[05:40:05]                result = multithreshold(result, vvau_thr, out_scale, out_bias)
+[05:40:05]                # NCHW to NHWC
+[05:40:05]                result = result.transpose((0, 2, 3, 1))
+[05:40:05]    
+[05:40:05]            context[node.output[0]] = result
+[05:40:05]    
+[05:40:05]        def infer_node_datatype(self, model):
+[05:40:05]            node = self.onnx_node
+[05:40:05]            idt = model.get_tensor_datatype(node.input[0])
+[05:40:05]            if idt != self.get_input_datatype(0):
+[05:40:05]                warn_str = "inputDataType changing for %s: %s -> %s " % (
+[05:40:05]                    node.name,
+[05:40:05]                    str(self.get_input_datatype(0)),
+[05:40:05]                    str(idt),
+[05:40:05]                )
+[05:40:21] 
+[05:40:21] -> bash({"command": "sed -n '1,240p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadat...)
+[05:40:21]    (exit 0)
+[05:40:21]    import math
+[05:40:21]    import numpy as np
+[05:40:21]    import os
+[05:40:21]    from qonnx.core.datatype import DataType
+[05:40:21]    
+[05:40:21]    from finn.custom_op.fpgadataflow.hlsbackend import HLSBackend
+[05:40:21]    from finn.custom_op.fpgadataflow.vectorvectoractivation import VVAU
+[05:40:21]    from finn.util.basic import is_versal
+[05:40:21]    from finn.util.data_packing import npy_to_rtlsim_input, rtlsim_output_to_npy
+[05:40:21]    
+[05:40:21]    
+[05:40:21]    class VVAU_hls(VVAU, HLSBackend):
+[05:40:21]        """Corresponds to finn-hlslib Vector_Vector_Activate_Batch function"""
+[05:40:21]    
+[05:40:21]        def __init__(self, onnx_node, **kwargs):
+[05:40:21]            super().__init__(onnx_node, **kwargs)
+[05:40:21]    
+[05:40:21]        def get_nodeattr_types(self):
+[05:40:21]            my_attrs = {}
+[05:40:22] 
+[05:40:22] -> bash({"command": "grep -n \"get_tree_model\" -n /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/cus...)
+[05:40:22]    (exit 0)
+[05:40:22]    859:    def get_tree_model(self):
+[05:40:24] 
+[05:40:24] -> bash({"command": "sed -n '850,980p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgad...)
+[05:40:24]    (exit 0)
+[05:40:24]                    cmd.append("assign_bd_address")
+[05:40:24]                cmd.append("save_bd_design")
+[05:40:24]            elif mem_mode == "internal_embedded" or mem_mode == "external":
+[05:40:24]                # base class impl sufficient for internal_embedded/external modes
+[05:40:24]                self.instantiate_ip(cmd)
+[05:40:24]            else:
+[05:40:24]                raise Exception("Unrecognized mem_mode for VectorVectorActivation")
+[05:40:24]            return cmd
+[05:40:24]    
+[05:40:24]        def get_tree_model(self):
+[05:40:24]            # key parameters
+[05:40:24]            IMPL_STYLE = "rtl" if "_rtl" in (self.__class__.__name__) else "hls"
+[05:40:24]            assert IMPL_STYLE in ["rtl", "hls"], "Implementation style must be 'rtl' or 'hls'"
+[05:40:24]    
+[05:40:24]            SIMD = self.get_nodeattr("SIMD")
+[05:40:24]            PE = self.get_nodeattr("PE")
+[05:40:24]            Channels = self.get_nodeattr("Channels")
+[05:40:24]            Kernel_2 = np.prod(self.get_nodeattr("Kernel"))
+[05:40:24]            NF = int(Channels / PE)
+[05:40:34] 
+[05:40:34] -> bash({"command": "sed -n '1,200p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlslib/vvau.hpp"...)
+[05:40:34]    (exit 0)
+[05:40:34]    /*******************************************************************************
+[05:40:34]     *
+[05:40:34]     *  Authors: Giulio Gambardella <giuliog@xilinx.com>
+[05:40:34]     *
+[05:40:34]     *  \file vvau.hpp
+[05:40:34]     *
+[05:40:34]     *  This file lists a templated funtion used to implement  
+[05:40:34]     *  Vector-Vector-Activation Unit (used for depthwise separable convolutions)
+[05:40:34]     *
+[05:40:34]     *******************************************************************************/
+[05:40:34]    
+[05:40:34]    #ifndef VVAU_HPP
+[05:40:34]    #define VVAU_HPP
+[05:40:34]    
+[05:40:34]    #include "hls_stream.h"
+[05:40:34]    
+[05:40:34]    #include "mac.hpp"
+[05:40:34]    #include "interpret.hpp"
+[05:40:34]    
+[05:40:35] 
+[05:40:35] -> bash({"command": "sed -n '200,400p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlslib/vvau.hp...)
+[05:40:35]    (exit 0)
+[05:40:35]    				for(unsigned mmv = 0; mmv < MMV; mmv++) {
+[05:40:35]    #pragma HLS UNROLL
+[05:40:35]    					accu[mmv][pe] = activation.init(nf, pe);
+[05:40:35]    				}
+[05:40:35]    			}
+[05:40:35]    		}
+[05:40:35]    
+[05:40:35]    		// Packed and unpacked weight representations
+[05:40:35]    		ap_uint<PE * SIMD * TW::width> const  W_packed = weights.read();
+[05:40:35]    		Weights_Tile<SIMD, TW, PE>  w;
+[05:40:35]    #pragma HLS ARRAY_PARTITION variable=w.m_weights complete dim=0
+[05:40:35]    		for(unsigned pe = 0; pe < PE; pe++) {
+[05:40:35]    #pragma HLS UNROLL
+[05:40:35]    			w.m_weights[pe] = W_packed((pe+1)*SIMD*TW::width-1, pe*SIMD*TW::width);
+[05:40:35]    		}
+[05:40:35]    
+[05:40:35]    		for(unsigned  pe = 0; pe < PE; pe++) {
+[05:40:35]    #pragma HLS UNROLL
+[05:40:35]    			auto const  wgt = TWeightI()(w[pe]);
+[05:40:38] 
+[05:40:38] -> bash({"command": "grep -n \"MMV\" -n /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpga...)
+[05:40:38]    (exit 0, no output)
+[05:40:40] 
+[05:40:40] -> bash({"command": "grep -n \"MMV\" /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadat...)
+[05:40:40]    (exit 0, no output)
+[05:40:41] 
+[05:40:41] -> bash({"command": "sed -n '820,940p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgad...)
+[05:40:41]    (exit 0)
+[05:40:41]                    "connect_bd_net [get_bd_pins %s/%s] [get_bd_pins %s/%s/%s]"
+[05:40:41]                    % (node_name, rst_name, node_name, node_name, rst_name)
+[05:40:41]                )
+[05:40:41]                cmd.append(
+[05:40:41]                    "connect_bd_net [get_bd_pins %s/%s] [get_bd_pins %s/%s/%s]"
+[05:40:41]                    % (node_name, clk_name, node_name, node_name, clk_name)
+[05:40:41]                )
+[05:40:41]                cmd.append(
+[05:40:41]                    "connect_bd_intf_net [get_bd_intf_pins %s/%s] "
+[05:40:41]                    "[get_bd_intf_pins %s/%s/%s]"
+[05:40:41]                    % (node_name, din_name, node_name, node_name, din_name)
+[05:40:41]                )
+[05:40:41]                cmd.append(
+[05:40:41]                    "connect_bd_intf_net [get_bd_intf_pins %s/%s] "
+[05:40:41]                    "[get_bd_intf_pins %s/%s/%s]"
+[05:40:41]                    % (node_name, dout_name, node_name, node_name, dout_name)
+[05:40:41]                )
+[05:40:41]                if runtime_writeable:
+[05:40:41]                    # expose axi lite interface for writeable weights
+[05:40:51] 
+[05:40:51] -> bash({"command": "grep -R \"class Characteristic_Node\" -n /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs |...)
+[05:40:51]    (exit 0)
+[05:40:51]    /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/util/basic.py:316:class Characteristic_Node:
+[05:40:52] 
+[05:40:52] -> bash({"command": "sed -n '316,420p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/util/basic.py"})
+[05:40:52]    (exit 0)
+[05:40:52]    class Characteristic_Node:
+[05:40:52]        def __init__(self, name, sub_phases, leaf):
+[05:40:52]            self.name = name
+[05:40:52]            self.sub_phases = sub_phases
+[05:40:52]            self.cycles_eval = None
+[05:40:52]            self.cycles_inputs = None
+[05:40:52]            self.cycles_outputs = None
+[05:40:52]            self.leaf = leaf
+[05:40:52]            self.debug = False
+[05:40:52]    
+[05:40:52]        def sum(self, op):
+[05:40:52]            if self.leaf:
+[05:40:52]                if op == 2:
+[05:40:52]                    return sum([x[0] for x in self.sub_phases])
+[05:40:52]                else:
+[05:40:52]                    return sum([x[0] * x[1][op] for x in self.sub_phases])
+[05:40:52]            else:
+[05:40:52]                return sum([x[0] * x[1].sum(op) for x in self.sub_phases])
+[05:40:52]    
+[05:41:12] 
+[05:41:12] -> bash({"command": "grep -n \"class VectorVectorActivation\" -n /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/input...)
+[05:41:12]    (exit 1, no output)
+[05:41:13] 
+[05:41:13] -> bash({"command": "grep -n \"VectorVectorActivation\" /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/fin...)
+[05:41:13]    (exit 0)
+[05:41:13]    21:    """Abstraction layer for HW implementation of VectorVectorActivation layers."""
+[05:41:13]    856:            raise Exception("Unrecognized mem_mode for VectorVectorActivation")
+[05:41:14] 
+[05:41:14] -> bash({"command": "sed -n '1,120p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadat...)
+[05:41:14]    (exit 0)
+[05:41:14]    import math
+[05:41:14]    import numpy as np
+[05:41:14]    import onnx.numpy_helper as np_helper
+[05:41:14]    import os
+[05:41:14]    import textwrap
+[05:41:14]    import warnings
+[05:41:14]    from qonnx.core.datatype import DataType
+[05:41:14]    from qonnx.custom_op.general.multithreshold import multithreshold
+[05:41:14]    from qonnx.util.basic import (
+[05:41:14]        calculate_matvec_accumulator_range,
+[05:41:14]        interleave_matrix_outer_dim_from_partitions,
+[05:41:14]        roundup_to_integer_multiple,
+[05:41:14]    )
+[05:41:14]    
+[05:41:14]    from finn.custom_op.fpgadataflow.hwcustomop import HWCustomOp
+[05:41:14]    from finn.util.basic import Characteristic_Node
+[05:41:14]    from finn.util.data_packing import numpy_to_hls_code, pack_innermost_dim_as_hex_string
+[05:41:14]    
+[05:41:14]    
+[05:41:18] 
+[05:41:18] -> bash({"command": "sed -n '840,940p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgad...)
+[05:41:18]    (exit 0)
+[05:41:18]                    cmd.append(
+[05:41:18]                        "create_bd_intf_pin -mode Slave "
+[05:41:18]                        "-vlnv xilinx.com:interface:aximm_rtl:1.0 /%s/%s" % (node_name, axilite_name)
+[05:41:18]                    )
+[05:41:18]                    cmd.append(
+[05:41:18]                        "connect_bd_intf_net [get_bd_intf_pins %s/%s] "
+[05:41:18]                        "[get_bd_intf_pins %s/%s/%s]"
+[05:41:18]                        % (node_name, axilite_name, node_name, strm_inst, axilite_name)
+[05:41:18]                    )
+[05:41:18]                    # TODO calculate and pass in segment size here
+[05:41:18]                    cmd.append("assign_bd_address")
+[05:41:18]                cmd.append("save_bd_design")
+[05:41:18]            elif mem_mode == "internal_embedded" or mem_mode == "external":
+[05:41:18]                # base class impl sufficient for internal_embedded/external modes
+[05:41:18]                self.instantiate_ip(cmd)
+[05:41:18]            else:
+[05:41:18]                raise Exception("Unrecognized mem_mode for VectorVectorActivation")
+[05:41:18]            return cmd
+[05:41:18]    
+[05:41:28] 
+[05:41:28] -> bash({"command": "grep -n \"Vector_Vector_Activate_Batch\" -n /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/input...)
+[05:41:28]    (exit 0)
+[05:41:28]    53:void Vector_Vector_Activate_Batch(hls::stream<TI> &in,
+[05:41:30] 
+[05:41:30] -> bash({"command": "sed -n '40,140p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlslib/vvau.hpp...)
+[05:41:30]    (exit 0)
+[05:41:30]     *
+[05:41:30]     * \param in          Input stream
+[05:41:30]     * \param out         Output stream
+[05:41:30]     * \param weights     Weights matrix (currently supports BinaryWeights or FixedPointWeights)
+[05:41:30]     * \param activation  Activation class
+[05:41:30]     * \param reps        Number of time the function has to be repeatedly executed (e.g. number of images)
+[05:41:30]     * \param r           Resource type for the hardware implementation of the MAC block
+[05:41:30]     */
+[05:41:30]    template<
+[05:41:30]      unsigned Channels, unsigned Kernel_2, unsigned SIMD, unsigned PE, unsigned MMV, 
+[05:41:30]      typename TSrcI = Identity, typename TDstI = Identity, typename TWeightI = Identity,
+[05:41:30]      typename TI, typename TO, typename TW, typename TA, typename R
+[05:41:30]    >
+[05:41:30]    void Vector_Vector_Activate_Batch(hls::stream<TI> &in,
+[05:41:30]    				  hls::stream<TO> &out,
+[05:41:30]    				  TW  const &weights,
+[05:41:30]    				  TA  const &activation,
+[05:41:30]    				  int const  reps,
+[05:41:30]    				  R const &r) {
+[05:41:55] 
+[05:41:55] -> bash({"command": "grep -n \"class VectorVectorActivation\" -n /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/input...)
+[05:41:55]    (exit 0, no output)
+[05:41:56] 
+[05:41:56] -> bash({"command": "grep -n \"VectorVectorActivation\" /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/fin...)
+[05:41:56]    [source-reading budget of 25 calls is spent for this attempt. Stop reading source now and ITERATE on your tree with eval_tree_model -- the target vectors in the feedback are the ground truth, not the RTL.]
+[05:46:38] 
+[05:46:38] -> eval_tree_model({"source": "def get_tree_model(self):\n    # key parameters\n    IMPL_STYLE = \"rtl\" if \"_rtl\" in (self.__class__.__n...)
+[05:46:38]    backend=local score=352361.43 (exact=0 differ=36 error=0 of 36 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[05:46:38]      vs your previous attempt: 18238.71 -> 352361.43 (WORSE)
+[05:46:38]      INPUT ports: 0/36 exact.  OUTPUT ports: 0/36 exact.
+[05:46:38]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 36 input port(s) still differ (36 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[05:46:38]    
+[05:46:38]    All 36 cases (worst first):
+[05:46:38]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=3451 len_d=-2 | output Σ|d|=883203 len_d=-2
+[05:46:38]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=3455 len_d=-4 | output Σ|d|=883203 len_d=-4
+[05:46:38]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=1147 len_d=-2 | output Σ|d|=294151 len_d=-2
+[05:46:38]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=1151 len_d=-4 | output Σ|d|=294149 len_d=-4
+[05:46:38]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=5179 len_d=-2 | output Σ|d|=663938 len_d=-2
+[05:46:38]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=5183 len_d=-4 | output Σ|d|=663938 len_d=-4
+[05:46:38]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=1723 len_d=-2 | output Σ|d|=220419 len_d=-2
+[05:46:38]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=1727 len_d=-4 | output Σ|d|=220419 len_d=-4
+[05:46:38]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=6876 len_d=-12 | output Σ|d|=72267 len_d=-12
+[05:46:38]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=6308 len_d=-10 | output Σ|d|=72456 len_d=-10
+[05:46:38]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=3 pe=3 simd=1] FAIL | input Σ|d|=1723 len_d=-2 | output Σ|d|=73858 len_d=-2
+[05:46:38]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=2084 len_d=-10 | output Σ|d|=23695 len_d=-10
+[05:46:38]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=2084 len_d=-10 | output Σ|d|=23695 len_d=-10
+[05:46:38]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=2084 len_d=-10 | output Σ|d|=23695 len_d=-10
+[05:52:47] 
+[05:52:47] -> eval_tree_model({"source": "def get_tree_model(self):\n    # key parameters\n    IMPL_STYLE = \"rtl\" if \"_rtl\" in (self.__class__.__n...)
+[05:52:47]    backend=local score=19193.3 (exact=0 differ=36 error=0 of 36 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[05:52:47]      vs your previous attempt: 352361.43 -> 19193.3 (IMPROVED)
+[05:52:47]      INPUT ports: 0/36 exact.  OUTPUT ports: 0/36 exact.
+[05:52:47]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 36 input port(s) still differ (36 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[05:52:47]    
+[05:52:47]    All 36 cases (worst first):
+[05:52:47]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=787 len_d=-14 | output Σ|d|=1138 len_d=-14
+[05:52:47]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=787 len_d=-14 | output Σ|d|=1138 len_d=-14
+[05:52:47]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=676 len_d=-10 | output Σ|d|=796 len_d=-10
+[05:52:47]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=676 len_d=-10 | output Σ|d|=796 len_d=-10
+[05:52:47]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=-12 | output Σ|d|=1002 len_d=-12
+[05:52:47]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=-12 | output Σ|d|=1002 len_d=-12
+[05:52:47]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=2084 len_d=-10 | output Σ|d|=817 len_d=-10
+[05:52:47]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=2084 len_d=-10 | output Σ|d|=817 len_d=-10
+[05:52:47]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=2084 len_d=-10 | output Σ|d|=817 len_d=-10
+[05:52:47]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=2084 len_d=-10 | output Σ|d|=817 len_d=-10
+[05:52:47]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=6876 len_d=-12 | output Σ|d|=1013 len_d=-12
+[05:52:47]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=6308 len_d=-10 | output Σ|d|=824 len_d=-10
+[05:52:47]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=2294 len_d=+4 | output Σ|d|=2300 len_d=+4
+[05:52:47]      [mem_mode='internal_decoupled' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=236 len_d=-10 | output Σ|d|=89 len_d=-10
+[05:57:04] 
+[05:57:04] -> eval_tree_model({"source": "def get_tree_model(self):\n    # key parameters\n    SIMD = self.get_nodeattr(\"SIMD\")\n    PE = self.get_n...)
+[05:57:04]    backend=local score=373026.75 (exact=0 differ=36 error=0 of 36 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[05:57:04]      vs your previous attempt: 19193.3 -> 373026.75 (WORSE)
+[05:57:04]      INPUT ports: 0/36 exact.  OUTPUT ports: 0/36 exact.
+[05:57:04]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 36 input port(s) still differ (36 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[05:57:04]    
+[05:57:04]    All 36 cases (worst first):
+[05:57:04]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=3451 len_d=+4 | output Σ|d|=297223 len_d=+4
+[05:57:04]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=10363 len_d=+4 | output Σ|d|=886274 len_d=+4
+[05:57:04]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=1155 len_d=+2 | output Σ|d|=295686 len_d=+2
+[05:57:04]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=3459 len_d=+2 | output Σ|d|=884738 len_d=+2
+[05:57:04]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=15547 len_d=+4 | output Σ|d|=665474 len_d=+4
+[05:57:04]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=5179 len_d=+4 | output Σ|d|=221954 len_d=+4
+[05:57:04]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=5187 len_d=+2 | output Σ|d|=664706 len_d=+2
+[05:57:04]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=1731 len_d=+2 | output Σ|d|=221186 len_d=+2
+[05:57:04]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=13758 len_d=+12 | output Σ|d|=73792 len_d=+12
+[05:57:04]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=1765 len_d=+14 | output Σ|d|=8832 len_d=+14
+[05:57:04]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=1765 len_d=+14 | output Σ|d|=8832 len_d=+14
+[05:57:04]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=4542 len_d=+12 | output Σ|d|=25024 len_d=+12
+[05:57:04]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=4542 len_d=+12 | output Σ|d|=25024 len_d=+12
+[05:57:04]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=10899 len_d=+10 | output Σ|d|=73728 len_d=+10
+[05:59:54] 
+[05:59:54] -> eval_tree_model({"source": "def get_tree_model(self):\n    # key parameters\n    SIMD = self.get_nodeattr(\"SIMD\")\n    PE = self.get_n...)
+[05:59:54]    backend=local score=360059.91 (exact=0 differ=36 error=0 of 36 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[05:59:54]      vs your previous attempt: 373026.75 -> 360059.91 (IMPROVED)
+[05:59:54]      INPUT ports: 0/36 exact.  OUTPUT ports: 0/36 exact.
+[05:59:54]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 36 input port(s) still differ (36 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[05:59:54]    
+[05:59:54]    All 36 cases (worst first):
+[05:59:54]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=765 len_d=+772 | output Σ|d|=297223 len_d=+772
+[05:59:54]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=2301 len_d=+2308 | output Σ|d|=886274 len_d=+2308
+[05:59:54]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=0 len_d=+770 | output Σ|d|=295686 len_d=+770
+[05:59:54]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=0 len_d=+2306 | output Σ|d|=884738 len_d=+2306
+[05:59:54]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=3453 len_d=+3460 | output Σ|d|=665474 len_d=+3460
+[05:59:54]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=1149 len_d=+1156 | output Σ|d|=221954 len_d=+1156
+[05:59:54]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=0 len_d=+3458 | output Σ|d|=664706 len_d=+3458
+[05:59:54]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=0 len_d=+1154 | output Σ|d|=221186 len_d=+1154
+[05:59:54]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=3 pe=3 simd=1] FAIL | input Σ|d|=1149 len_d=+1156 | output Σ|d|=74370 len_d=+1156
+[05:59:54]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=3 pe=3 simd=1] FAIL | input Σ|d|=0 len_d=+1154 | output Σ|d|=74114 len_d=+1154
+[05:59:54]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=3 pe=3 simd=1] FAIL | input Σ|d|=0 len_d=+386 | output Σ|d|=24578 len_d=+386
+[05:59:54]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=3 pe=3 simd=1] FAIL | input Σ|d|=0 len_d=+386 | output Σ|d|=24578 len_d=+386
+[05:59:54]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=0 len_d=+1162 | output Σ|d|=73728 len_d=+1162
+[05:59:54]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=0 len_d=+1164 | output Σ|d|=73792 len_d=+1164
+[06:01:21] 
+[06:01:21] -> eval_tree_model({"source": "def get_tree_model(self):\n    # key parameters\n    IMPL_STYLE = \"rtl\" if \"_rtl\" in (self.__class__.__n...)
+[06:01:21]    backend=local score=18238.71 (exact=0 differ=36 error=0 of 36 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:01:21]      vs your previous attempt: 360059.91 -> 18238.71 (IMPROVED)
+[06:01:21]      INPUT ports: 0/36 exact.  OUTPUT ports: 0/36 exact.
+[06:01:21]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 36 input port(s) still differ (36 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:01:21]    
+[06:01:21]    All 36 cases (worst first):
+[06:01:21]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=787 len_d=-14 | output Σ|d|=1138 len_d=-14
+[06:01:21]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=787 len_d=-14 | output Σ|d|=1138 len_d=-14
+[06:01:21]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=676 len_d=-10 | output Σ|d|=796 len_d=-10
+[06:01:21]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=676 len_d=-10 | output Σ|d|=796 len_d=-10
+[06:01:21]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=-12 | output Σ|d|=1002 len_d=-12
+[06:01:21]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=-12 | output Σ|d|=1002 len_d=-12
+[06:01:21]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=2084 len_d=-10 | output Σ|d|=817 len_d=-10
+[06:01:21]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=2084 len_d=-10 | output Σ|d|=817 len_d=-10
+[06:01:21]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=2084 len_d=-10 | output Σ|d|=817 len_d=-10
+[06:01:21]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=2084 len_d=-10 | output Σ|d|=817 len_d=-10
+[06:01:21]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=6876 len_d=-12 | output Σ|d|=1013 len_d=-12
+[06:01:21]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=6308 len_d=-10 | output Σ|d|=824 len_d=-10
+[06:01:21]      [mem_mode='internal_decoupled' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=236 len_d=-10 | output Σ|d|=89 len_d=-10
+[06:01:21]      [mem_mode='internal_embedded' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=236 len_d=-10 | output Σ|d|=89 len_d=-10
+[06:05:51] 
+[06:05:51] -> eval_tree_model({"source": "def get_tree_model(self):\n    # key parameters\n    SIMD = self.get_nodeattr(\"SIMD\")\n    PE = self.get_n...)
+[06:05:51]    backend=local score=16980.44 (exact=0 differ=36 error=0 of 36 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:05:51]      vs your previous attempt: 18238.71 -> 16980.44 (IMPROVED)
+[06:05:51]      INPUT ports: 0/36 exact.  OUTPUT ports: 0/36 exact.
+[06:05:51]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 36 input port(s) still differ (36 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:05:51]    
+[06:05:51]    All 36 cases (worst first):
+[06:05:51]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=851 len_d=+14 | output Σ|d|=659 len_d=+14
+[06:05:51]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=851 len_d=+14 | output Σ|d|=659 len_d=+14
+[06:05:51]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=612 len_d=+10 | output Σ|d|=548 len_d=+10
+[06:05:51]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=612 len_d=+10 | output Σ|d|=548 len_d=+10
+[06:05:51]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=+12 | output Σ|d|=625 len_d=+12
+[06:05:51]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=+12 | output Σ|d|=625 len_d=+12
+[06:05:51]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=6876 len_d=+12 | output Σ|d|=632 len_d=+12
+[06:05:51]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=1892 len_d=+10 | output Σ|d|=564 len_d=+10
+[06:05:51]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=1892 len_d=+10 | output Σ|d|=564 len_d=+10
+[06:05:51]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=1892 len_d=+10 | output Σ|d|=564 len_d=+10
+[06:05:51]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=1892 len_d=+10 | output Σ|d|=564 len_d=+10
+[06:05:51]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=2294 len_d=+4 | output Σ|d|=2300 len_d=+4
+[06:05:51]      [mem_mode='internal_embedded' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=278 len_d=+4 | output Σ|d|=284 len_d=+4
+[06:05:51]      [mem_mode='internal_decoupled' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=82 len_d=+14 | output Σ|d|=58 len_d=+14
+[06:11:17] 
+[06:11:17] -> eval_tree_model({"source": "def get_tree_model(self):\n    # parameters\n    SIMD = self.get_nodeattr(\"SIMD\")\n    PE = self.get_nodea...)
+[06:11:17]    backend=local score=363799.54 (exact=0 differ=36 error=0 of 36 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:11:17]      vs your previous attempt: 16980.44 -> 363799.54 (WORSE)
+[06:11:17]      INPUT ports: 0/36 exact.  OUTPUT ports: 0/36 exact.
+[06:11:17]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 36 input port(s) still differ (36 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:11:17]    
+[06:11:17]    All 36 cases (worst first):
+[06:11:17]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=2294 len_d=+4 | output Σ|d|=297223 len_d=+4
+[06:11:17]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=6902 len_d=+4 | output Σ|d|=886274 len_d=+4
+[06:11:17]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=763 len_d=+2 | output Σ|d|=295686 len_d=+2
+[06:11:17]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=2299 len_d=+2 | output Σ|d|=884738 len_d=+2
+[06:11:17]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=10358 len_d=+4 | output Σ|d|=665474 len_d=+4
+[06:11:17]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=3446 len_d=+4 | output Σ|d|=221954 len_d=+4
+[06:11:17]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=3451 len_d=+2 | output Σ|d|=664706 len_d=+2
+[06:11:17]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=1147 len_d=+2 | output Σ|d|=221186 len_d=+2
+[06:11:17]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=6876 len_d=+12 | output Σ|d|=73792 len_d=+12
+[06:11:17]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=+12 | output Σ|d|=25024 len_d=+12
+[06:11:17]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=+12 | output Σ|d|=25024 len_d=+12
+[06:11:17]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=5732 len_d=+10 | output Σ|d|=73728 len_d=+10
+[06:11:17]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=851 len_d=+14 | output Σ|d|=8832 len_d=+14
+[06:11:17]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=851 len_d=+14 | output Σ|d|=8832 len_d=+14
+[06:14:36] 
+[06:14:36] -> eval_tree_model({"source": "def get_tree_model(self):\n    SIMD = self.get_nodeattr(\"SIMD\")\n    PE = self.get_nodeattr(\"PE\")\n    C...)
+[06:14:36]    backend=local score=363799.54 (exact=0 differ=36 error=0 of 36 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:14:36]      vs your previous attempt: 363799.54 -> 363799.54 (unchanged)
+[06:14:36]      INPUT ports: 0/36 exact.  OUTPUT ports: 0/36 exact.
+[06:14:36]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 36 input port(s) still differ (36 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:14:36]    
+[06:14:36]    All 36 cases (worst first):
+[06:14:36]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=2294 len_d=+4 | output Σ|d|=297223 len_d=+4
+[06:14:36]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=6902 len_d=+4 | output Σ|d|=886274 len_d=+4
+[06:14:36]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=763 len_d=+2 | output Σ|d|=295686 len_d=+2
+[06:14:36]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=2299 len_d=+2 | output Σ|d|=884738 len_d=+2
+[06:14:36]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=10358 len_d=+4 | output Σ|d|=665474 len_d=+4
+[06:14:36]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=3446 len_d=+4 | output Σ|d|=221954 len_d=+4
+[06:14:36]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=3451 len_d=+2 | output Σ|d|=664706 len_d=+2
+[06:14:36]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=1147 len_d=+2 | output Σ|d|=221186 len_d=+2
+[06:14:36]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=6876 len_d=+12 | output Σ|d|=73792 len_d=+12
+[06:14:36]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=+12 | output Σ|d|=25024 len_d=+12
+[06:14:36]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=+12 | output Σ|d|=25024 len_d=+12
+[06:14:36]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=5732 len_d=+10 | output Σ|d|=73728 len_d=+10
+[06:14:36]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=851 len_d=+14 | output Σ|d|=8832 len_d=+14
+[06:14:36]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=851 len_d=+14 | output Σ|d|=8832 len_d=+14
+[06:18:28] 
+[06:18:28] -> eval_tree_model({"source": "def get_tree_model(self):\n    # key parameters\n    IMPL_STYLE = \"rtl\" if \"_rtl\" in (self.__class__.__n...)
+[06:18:28]    backend=local score=18238.71 (exact=0 differ=36 error=0 of 36 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:18:28]      vs your previous attempt: 363799.54 -> 18238.71 (IMPROVED)
+[06:18:28]      INPUT ports: 0/36 exact.  OUTPUT ports: 0/36 exact.
+[06:18:28]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 36 input port(s) still differ (36 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:18:28]    
+[06:18:28]    All 36 cases (worst first):
+[06:18:28]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=787 len_d=-14 | output Σ|d|=1138 len_d=-14
+[06:18:28]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=787 len_d=-14 | output Σ|d|=1138 len_d=-14
+[06:18:28]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=676 len_d=-10 | output Σ|d|=796 len_d=-10
+[06:18:28]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=676 len_d=-10 | output Σ|d|=796 len_d=-10
+[06:18:28]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=-12 | output Σ|d|=1002 len_d=-12
+[06:18:28]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=-12 | output Σ|d|=1002 len_d=-12
+[06:18:28]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=2084 len_d=-10 | output Σ|d|=817 len_d=-10
+[06:18:28]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=2084 len_d=-10 | output Σ|d|=817 len_d=-10
+[06:18:28]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=2084 len_d=-10 | output Σ|d|=817 len_d=-10
+[06:18:28]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=2084 len_d=-10 | output Σ|d|=817 len_d=-10
+[06:18:28]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=6876 len_d=-12 | output Σ|d|=1013 len_d=-12
+[06:18:28]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=6308 len_d=-10 | output Σ|d|=824 len_d=-10
+[06:18:28]      [mem_mode='internal_decoupled' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=236 len_d=-10 | output Σ|d|=89 len_d=-10
+[06:18:28]      [mem_mode='internal_embedded' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=236 len_d=-10 | output Σ|d|=89 len_d=-10
+[06:22:34] 
+[06:22:34] -> eval_tree_model({"source": "def get_tree_model(self):\n    # key parameters\n    IMPL_STYLE = \"rtl\" if \"_rtl\" in (self.__class__.__n...)
+[06:22:34]    backend=local score=15656.83 (exact=0 differ=36 error=0 of 36 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:22:34]      vs your previous attempt: 18238.71 -> 15656.83 (IMPROVED)
+[06:22:34]      INPUT ports: 0/36 exact.  OUTPUT ports: 0/36 exact.
+[06:22:34]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 36 input port(s) still differ (36 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:22:34]    
+[06:22:34]    All 36 cases (worst first):
+[06:22:34]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=851 len_d=+14 | output Σ|d|=659 len_d=+14
+[06:22:34]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=851 len_d=+14 | output Σ|d|=659 len_d=+14
+[06:22:34]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=612 len_d=+10 | output Σ|d|=548 len_d=+10
+[06:22:34]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=612 len_d=+10 | output Σ|d|=548 len_d=+10
+[06:22:34]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=+12 | output Σ|d|=625 len_d=+12
+[06:22:34]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=+12 | output Σ|d|=625 len_d=+12
+[06:22:34]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=6876 len_d=+12 | output Σ|d|=632 len_d=+12
+[06:22:34]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=1892 len_d=+10 | output Σ|d|=564 len_d=+10
+[06:22:34]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=1892 len_d=+10 | output Σ|d|=564 len_d=+10
+[06:22:34]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=1892 len_d=+10 | output Σ|d|=564 len_d=+10
+[06:22:34]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=1892 len_d=+10 | output Σ|d|=564 len_d=+10
+[06:22:34]      [mem_mode='internal_decoupled' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=82 len_d=+14 | output Σ|d|=58 len_d=+14
+[06:22:34]      [mem_mode='internal_embedded' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=82 len_d=+14 | output Σ|d|=58 len_d=+14
+[06:22:34]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=5732 len_d=+10 | output Σ|d|=569 len_d=+10
+[06:26:12] 
+[06:26:12] -> eval_tree_model({"source": "def get_tree_model(self):\n    # key parameters\n    SIMD = self.get_nodeattr(\"SIMD\")\n    PE = self.get_n...)
+[06:26:12]    backend=local score=363799.54 (exact=0 differ=36 error=0 of 36 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:26:12]      vs your previous attempt: 15656.83 -> 363799.54 (WORSE)
+[06:26:12]      INPUT ports: 0/36 exact.  OUTPUT ports: 0/36 exact.
+[06:26:12]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 36 input port(s) still differ (36 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:26:12]    
+[06:26:12]    All 36 cases (worst first):
+[06:26:12]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=2294 len_d=+4 | output Σ|d|=297223 len_d=+4
+[06:26:12]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=6902 len_d=+4 | output Σ|d|=886274 len_d=+4
+[06:26:12]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=763 len_d=+2 | output Σ|d|=295686 len_d=+2
+[06:26:12]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=2299 len_d=+2 | output Σ|d|=884738 len_d=+2
+[06:26:12]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=10358 len_d=+4 | output Σ|d|=665474 len_d=+4
+[06:26:12]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=3446 len_d=+4 | output Σ|d|=221954 len_d=+4
+[06:26:12]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=3451 len_d=+2 | output Σ|d|=664706 len_d=+2
+[06:26:12]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=1147 len_d=+2 | output Σ|d|=221186 len_d=+2
+[06:26:12]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=6876 len_d=+12 | output Σ|d|=73792 len_d=+12
+[06:26:12]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=+12 | output Σ|d|=25024 len_d=+12
+[06:26:12]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=+12 | output Σ|d|=25024 len_d=+12
+[06:26:12]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=5732 len_d=+10 | output Σ|d|=73728 len_d=+10
+[06:26:12]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=851 len_d=+14 | output Σ|d|=8832 len_d=+14
+[06:26:12]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=851 len_d=+14 | output Σ|d|=8832 len_d=+14
+[06:29:01] 
+[06:29:01] -> eval_tree_model({"source": "def get_tree_model(self):\n    # parameters\n    SIMD = self.get_nodeattr(\"SIMD\")\n    PE = self.get_nodea...)
+[06:29:01]    backend=local score=363799.54 (exact=0 differ=36 error=0 of 36 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:29:01]      vs your previous attempt: 363799.54 -> 363799.54 (unchanged)
+[06:29:01]      INPUT ports: 0/36 exact.  OUTPUT ports: 0/36 exact.
+[06:29:01]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 36 input port(s) still differ (36 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:29:01]    
+[06:29:01]    All 36 cases (worst first):
+[06:29:01]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=2294 len_d=+4 | output Σ|d|=297223 len_d=+4
+[06:29:01]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=6902 len_d=+4 | output Σ|d|=886274 len_d=+4
+[06:29:01]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=763 len_d=+2 | output Σ|d|=295686 len_d=+2
+[06:29:01]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=2299 len_d=+2 | output Σ|d|=884738 len_d=+2
+[06:29:01]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=10358 len_d=+4 | output Σ|d|=665474 len_d=+4
+[06:29:01]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=3446 len_d=+4 | output Σ|d|=221954 len_d=+4
+[06:29:01]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=3451 len_d=+2 | output Σ|d|=664706 len_d=+2
+[06:29:01]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=1147 len_d=+2 | output Σ|d|=221186 len_d=+2
+[06:29:01]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=6876 len_d=+12 | output Σ|d|=73792 len_d=+12
+[06:29:01]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=+12 | output Σ|d|=25024 len_d=+12
+[06:29:01]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=+12 | output Σ|d|=25024 len_d=+12
+[06:29:01]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=5732 len_d=+10 | output Σ|d|=73728 len_d=+10
+[06:29:01]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=851 len_d=+14 | output Σ|d|=8832 len_d=+14
+[06:29:01]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=851 len_d=+14 | output Σ|d|=8832 len_d=+14
+[06:32:10] 
+[06:32:10] -> bash({"command": "python - <<'PY'\nfrom dataclasses import dataclass\n\nclass Characteristic_Node:\n    def __init__(self, na...)
+[06:32:10]    [source-reading budget of 25 calls is spent for this attempt. Stop reading source now and ITERATE on your tree with eval_tree_model -- the target vectors in the feedback are the ground truth, not the RTL.]
+[06:35:25] 
+[06:35:25] -> eval_tree_model({"source": "def get_tree_model(self):\n    # key parameters\n    SIMD = self.get_nodeattr(\"SIMD\")\n    PE = self.get_n...)
+[06:35:25]    backend=local score=16980.44 (exact=0 differ=36 error=0 of 36 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:35:25]      vs your previous attempt: 363799.54 -> 16980.44 (IMPROVED)
+[06:35:25]      INPUT ports: 0/36 exact.  OUTPUT ports: 0/36 exact.
+[06:35:25]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 36 input port(s) still differ (36 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:35:25]    
+[06:35:25]    All 36 cases (worst first):
+[06:35:25]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=851 len_d=+14 | output Σ|d|=659 len_d=+14
+[06:35:25]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=851 len_d=+14 | output Σ|d|=659 len_d=+14
+[06:35:25]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=612 len_d=+10 | output Σ|d|=548 len_d=+10
+[06:35:25]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=612 len_d=+10 | output Σ|d|=548 len_d=+10
+[06:35:25]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=+12 | output Σ|d|=625 len_d=+12
+[06:35:25]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=+12 | output Σ|d|=625 len_d=+12
+[06:35:25]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=6876 len_d=+12 | output Σ|d|=632 len_d=+12
+[06:35:25]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=1892 len_d=+10 | output Σ|d|=564 len_d=+10
+[06:35:25]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=1892 len_d=+10 | output Σ|d|=564 len_d=+10
+[06:35:25]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=1892 len_d=+10 | output Σ|d|=564 len_d=+10
+[06:35:25]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=1892 len_d=+10 | output Σ|d|=564 len_d=+10
+[06:35:25]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=2294 len_d=+4 | output Σ|d|=2300 len_d=+4
+[06:35:25]      [mem_mode='internal_embedded' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=278 len_d=+4 | output Σ|d|=284 len_d=+4
+[06:35:25]      [mem_mode='internal_decoupled' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=82 len_d=+14 | output Σ|d|=58 len_d=+14
+[06:36:29] 
+[06:36:29] -> eval_tree_model({"source": "def get_tree_model(self):\n    # key parameters\n    SIMD = self.get_nodeattr(\"SIMD\")\n    PE = self.get_n...)
+[06:36:29]    backend=local score=16980.44 (exact=0 differ=36 error=0 of 36 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:36:29]      vs your previous attempt: 16980.44 -> 16980.44 (unchanged)
+[06:36:29]      INPUT ports: 0/36 exact.  OUTPUT ports: 0/36 exact.
+[06:36:29]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 36 input port(s) still differ (36 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:36:29]    
+[06:36:29]    All 36 cases (worst first):
+[06:36:29]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=851 len_d=+14 | output Σ|d|=659 len_d=+14
+[06:36:29]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=851 len_d=+14 | output Σ|d|=659 len_d=+14
+[06:36:29]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=612 len_d=+10 | output Σ|d|=548 len_d=+10
+[06:36:29]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=612 len_d=+10 | output Σ|d|=548 len_d=+10
+[06:36:29]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=+12 | output Σ|d|=625 len_d=+12
+[06:36:29]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=+12 | output Σ|d|=625 len_d=+12
+[06:36:29]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=6876 len_d=+12 | output Σ|d|=632 len_d=+12
+[06:36:29]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=1892 len_d=+10 | output Σ|d|=564 len_d=+10
+[06:36:29]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=1892 len_d=+10 | output Σ|d|=564 len_d=+10
+[06:36:29]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=1892 len_d=+10 | output Σ|d|=564 len_d=+10
+[06:36:29]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=1892 len_d=+10 | output Σ|d|=564 len_d=+10
+[06:36:29]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=2294 len_d=+4 | output Σ|d|=2300 len_d=+4
+[06:36:29]      [mem_mode='internal_embedded' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=278 len_d=+4 | output Σ|d|=284 len_d=+4
+[06:36:29]      [mem_mode='internal_decoupled' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=82 len_d=+14 | output Σ|d|=58 len_d=+14
+[06:37:35] 
+[06:37:35] -> bash({"command": "python - <<'PY'\nfrom dataclasses import dataclass\nimport numpy as np\n\nclass Characteristic_Node:\n    d...)
+[06:37:35]    [source-reading budget of 25 calls is spent for this attempt. Stop reading source now and ITERATE on your tree with eval_tree_model -- the target vectors in the feedback are the ground truth, not the RTL.]
+[06:41:54] 
+[06:41:54] -> eval_tree_model({"source": "def get_tree_model(self):\n    # key parameters\n    SIMD = self.get_nodeattr(\"SIMD\")\n    PE = self.get_n...)
+[06:41:54]    backend=local score=16980.44 (exact=0 differ=36 error=0 of 36 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:41:54]      vs your previous attempt: 16980.44 -> 16980.44 (unchanged)
+[06:41:54]      INPUT ports: 0/36 exact.  OUTPUT ports: 0/36 exact.
+[06:41:54]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 36 input port(s) still differ (36 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:41:54]    
+[06:41:54]    All 36 cases (worst first):
+[06:41:54]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=851 len_d=+14 | output Σ|d|=659 len_d=+14
+[06:41:54]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=851 len_d=+14 | output Σ|d|=659 len_d=+14
+[06:41:54]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=612 len_d=+10 | output Σ|d|=548 len_d=+10
+[06:41:54]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=612 len_d=+10 | output Σ|d|=548 len_d=+10
+[06:41:54]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=+12 | output Σ|d|=625 len_d=+12
+[06:41:54]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=+12 | output Σ|d|=625 len_d=+12
+[06:41:54]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=6876 len_d=+12 | output Σ|d|=632 len_d=+12
+[06:41:54]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=1892 len_d=+10 | output Σ|d|=564 len_d=+10
+[06:41:54]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=1892 len_d=+10 | output Σ|d|=564 len_d=+10
+[06:41:54]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=1892 len_d=+10 | output Σ|d|=564 len_d=+10
+[06:41:54]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=1892 len_d=+10 | output Σ|d|=564 len_d=+10
+[06:41:54]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=2294 len_d=+4 | output Σ|d|=2300 len_d=+4
+[06:41:54]      [mem_mode='internal_embedded' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=278 len_d=+4 | output Σ|d|=284 len_d=+4
+[06:41:54]      [mem_mode='internal_decoupled' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=82 len_d=+14 | output Σ|d|=58 len_d=+14
+[06:43:26] 
+[06:43:26] -> bash({"command": "python - <<'PY'\nimport numpy as np\n\nclass Characteristic_Node:\n    def __init__(self,name,sub_phases,le...)
+[06:43:26]    [source-reading budget of 25 calls is spent for this attempt. Stop reading source now and ITERATE on your tree with eval_tree_model -- the target vectors in the feedback are the ground truth, not the RTL.]
+[06:48:56] 
+[06:48:56] -> eval_tree_model({"source": "def get_tree_model(self):\n    # parameters\n    SIMD = self.get_nodeattr(\"SIMD\")\n    PE = self.get_nodea...)
+[06:48:56]    backend=local score=363799.54 (exact=0 differ=36 error=0 of 36 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:48:56]      vs your previous attempt: 16980.44 -> 363799.54 (WORSE)
+[06:48:56]      INPUT ports: 0/36 exact.  OUTPUT ports: 0/36 exact.
+[06:48:56]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 36 input port(s) still differ (36 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:48:56]    
+[06:48:56]    All 36 cases (worst first):
+[06:48:56]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=2294 len_d=+4 | output Σ|d|=297223 len_d=+4
+[06:48:56]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=6902 len_d=+4 | output Σ|d|=886274 len_d=+4
+[06:48:56]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=763 len_d=+2 | output Σ|d|=295686 len_d=+2
+[06:48:56]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=2299 len_d=+2 | output Σ|d|=884738 len_d=+2
+[06:48:56]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=10358 len_d=+4 | output Σ|d|=665474 len_d=+4
+[06:48:56]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=3446 len_d=+4 | output Σ|d|=221954 len_d=+4
+[06:48:56]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=3451 len_d=+2 | output Σ|d|=664706 len_d=+2
+[06:48:56]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=1147 len_d=+2 | output Σ|d|=221186 len_d=+2
+[06:48:56]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=6876 len_d=+12 | output Σ|d|=73792 len_d=+12
+[06:48:56]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=+12 | output Σ|d|=25024 len_d=+12
+[06:48:56]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=+12 | output Σ|d|=25024 len_d=+12
+[06:48:56]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=5732 len_d=+10 | output Σ|d|=73728 len_d=+10
+[06:48:56]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=851 len_d=+14 | output Σ|d|=8832 len_d=+14
+[06:48:56]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=851 len_d=+14 | output Σ|d|=8832 len_d=+14
+[06:51:57] 
+[06:51:57] -> eval_tree_model({"source": "def get_tree_model(self):\n    # key parameters\n    SIMD = self.get_nodeattr(\"SIMD\")\n    PE = self.get_n...)
+[06:51:57]    backend=local score=360059.91 (exact=0 differ=36 error=0 of 36 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:51:57]      vs your previous attempt: 363799.54 -> 360059.91 (IMPROVED)
+[06:51:57]      INPUT ports: 0/36 exact.  OUTPUT ports: 0/36 exact.
+[06:51:57]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 36 input port(s) still differ (36 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:51:57]    
+[06:51:57]    All 36 cases (worst first):
+[06:51:57]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=765 len_d=+772 | output Σ|d|=297223 len_d=+772
+[06:51:57]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=2301 len_d=+2308 | output Σ|d|=886274 len_d=+2308
+[06:51:57]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=0 len_d=+770 | output Σ|d|=295686 len_d=+770
+[06:51:57]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=0 len_d=+2306 | output Σ|d|=884738 len_d=+2306
+[06:51:57]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=3453 len_d=+3460 | output Σ|d|=665474 len_d=+3460
+[06:51:57]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=1149 len_d=+1156 | output Σ|d|=221954 len_d=+1156
+[06:51:57]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=0 len_d=+3458 | output Σ|d|=664706 len_d=+3458
+[06:51:57]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=0 len_d=+1154 | output Σ|d|=221186 len_d=+1154
+[06:51:57]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=3 pe=3 simd=1] FAIL | input Σ|d|=1149 len_d=+1156 | output Σ|d|=74370 len_d=+1156
+[06:51:57]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=3 pe=3 simd=1] FAIL | input Σ|d|=0 len_d=+1154 | output Σ|d|=74114 len_d=+1154
+[06:51:57]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=3 pe=3 simd=1] FAIL | input Σ|d|=0 len_d=+386 | output Σ|d|=24578 len_d=+386
+[06:51:57]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=3 pe=3 simd=1] FAIL | input Σ|d|=0 len_d=+386 | output Σ|d|=24578 len_d=+386
+[06:51:57]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=0 len_d=+1162 | output Σ|d|=73728 len_d=+1162
+[06:51:57]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=0 len_d=+1164 | output Σ|d|=73792 len_d=+1164
+[06:52:04] 
+[06:52:04] -> eval_tree_model({"source": "def get_tree_model(self):\n    # key parameters\n    IMPL_STYLE = \"rtl\" if \"_rtl\" in (self.__class__.__n...)
+[06:52:04]    backend=local score=18238.71 (exact=0 differ=36 error=0 of 36 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:52:04]      vs your previous attempt: 360059.91 -> 18238.71 (IMPROVED)
+[06:52:04]      INPUT ports: 0/36 exact.  OUTPUT ports: 0/36 exact.
+[06:52:04]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 36 input port(s) still differ (36 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:52:04]    
+[06:52:04]    All 36 cases (worst first):
+[06:52:04]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=787 len_d=-14 | output Σ|d|=1138 len_d=-14
+[06:52:04]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=787 len_d=-14 | output Σ|d|=1138 len_d=-14
+[06:52:04]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=676 len_d=-10 | output Σ|d|=796 len_d=-10
+[06:52:04]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=676 len_d=-10 | output Σ|d|=796 len_d=-10
+[06:52:04]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=-12 | output Σ|d|=1002 len_d=-12
+[06:52:04]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=-12 | output Σ|d|=1002 len_d=-12
+[06:52:04]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=2084 len_d=-10 | output Σ|d|=817 len_d=-10
+[06:52:04]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=2084 len_d=-10 | output Σ|d|=817 len_d=-10
+[06:52:04]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=2084 len_d=-10 | output Σ|d|=817 len_d=-10
+[06:52:04]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=2084 len_d=-10 | output Σ|d|=817 len_d=-10
+[06:52:04]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=6876 len_d=-12 | output Σ|d|=1013 len_d=-12
+[06:52:04]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=6308 len_d=-10 | output Σ|d|=824 len_d=-10
+[06:52:04]      [mem_mode='internal_decoupled' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=236 len_d=-10 | output Σ|d|=89 len_d=-10
+[06:52:04]      [mem_mode='internal_embedded' dim_h=8 dim_w=1 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=236 len_d=-10 | output Σ|d|=89 len_d=-10
+[06:53:59] 
+[06:53:59] -> eval_tree_model({"source": "def get_tree_model(self):\n    # parameters\n    SIMD = self.get_nodeattr(\"SIMD\")\n    PE = self.get_nodea...)
+[06:53:59]    backend=local score=363799.54 (exact=0 differ=36 error=0 of 36 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:53:59]      vs your previous attempt: 18238.71 -> 363799.54 (WORSE)
+[06:53:59]      INPUT ports: 0/36 exact.  OUTPUT ports: 0/36 exact.
+[06:53:59]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 36 input port(s) still differ (36 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:53:59]    
+[06:53:59]    All 36 cases (worst first):
+[06:53:59]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=2294 len_d=+4 | output Σ|d|=297223 len_d=+4
+[06:53:59]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=6902 len_d=+4 | output Σ|d|=886274 len_d=+4
+[06:53:59]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=763 len_d=+2 | output Σ|d|=295686 len_d=+2
+[06:53:59]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=1 simd=3] FAIL | input Σ|d|=2299 len_d=+2 | output Σ|d|=884738 len_d=+2
+[06:53:59]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=10358 len_d=+4 | output Σ|d|=665474 len_d=+4
+[06:53:59]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=3446 len_d=+4 | output Σ|d|=221954 len_d=+4
+[06:53:59]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=3451 len_d=+2 | output Σ|d|=664706 len_d=+2
+[06:53:59]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=1 simd=1] FAIL | input Σ|d|=1147 len_d=+2 | output Σ|d|=221186 len_d=+2
+[06:53:59]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=6876 len_d=+12 | output Σ|d|=73792 len_d=+12
+[06:53:59]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=+12 | output Σ|d|=25024 len_d=+12
+[06:53:59]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=BIPOLAR channels=3 pe=3 simd=3] FAIL | input Σ|d|=2268 len_d=+12 | output Σ|d|=25024 len_d=+12
+[06:53:59]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=3 idt=BIPOLAR wdt=BIPOLAR act=None channels=6 pe=6 simd=1] FAIL | input Σ|d|=5732 len_d=+10 | output Σ|d|=73728 len_d=+10
+[06:53:59]      [mem_mode='internal_decoupled' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=851 len_d=+14 | output Σ|d|=8832 len_d=+14
+[06:53:59]      [mem_mode='internal_embedded' dim_h=8 dim_w=8 k_h=3 k_w=1 idt=UINT4 wdt=UINT4 act=None channels=6 pe=6 simd=3] FAIL | input Σ|d|=851 len_d=+14 | output Σ|d|=8832 len_d=+14

@@ -1,0 +1,2195 @@
+[05:38:50] node=LabelSelect model=gpt-5.2-codex oracle=local parallel=1 curriculum=False memory=True max_iterations=10
+[05:38:50] out_dir=/tmp/finn_dev_lstasytis/tav_bespoke/LabelSelect-20260626-053850
+[05:38:50] 
+[05:38:50] ============================================================
+[05:38:50] baseline docker run (capturing reference TAVs)
+[05:38:50] ============================================================
+[05:38:50] [tav_eval] patched get_tree_model in /home/lstasytis/backup/finn/src/finn/custom_op/fpgadataflow/labelselect.py (backup: /home/lstasytis/backup/finn/src/finn/custom_op/fpgadataflow/labelselect.py.tav_orig)
+[05:38:50] [tav_eval] waiting for container python environment ...
+[05:38:53] [tav_eval] synced 0 cached rtlsim reference(s) into build dir
+[05:39:01] [tav_eval] pytest exit code: 1
+[05:39:01] captured 48 case(s); baseline docker score=22156.14 solved=False
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 10 10 1 4
+[05:39:01] exp cycles: 11
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 10 10 1 4
+[05:39:01] exp cycles: 11
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 10 10 1 4
+[05:39:01] exp cycles: 11
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 10 10 1 4
+[05:39:01] exp cycles: 11
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 1 10 10 4
+[05:39:01] exp cycles: 20
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 1 10 10 4
+[05:39:01] exp cycles: 20
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 1 10 10 4
+[05:39:01] exp cycles: 20
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 1 10 10 4
+[05:39:01] exp cycles: 20
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 5 10 2 4
+[05:39:01] exp cycles: 12
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 5 10 2 4
+[05:39:01] exp cycles: 12
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 5 10 2 4
+[05:39:01] exp cycles: 12
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 5 10 2 4
+[05:39:01] exp cycles: 12
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 100 100 1 7
+[05:39:01] exp cycles: 101
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 100 100 1 7
+[05:39:01] exp cycles: 101
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 100 100 1 7
+[05:39:01] exp cycles: 101
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 100 100 1 7
+[05:39:01] exp cycles: 101
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 10 100 10 7
+[05:39:01] exp cycles: 110
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 10 100 10 7
+[05:39:01] exp cycles: 110
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 10 100 10 7
+[05:39:01] exp cycles: 110
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 10 100 10 7
+[05:39:01] exp cycles: 110
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 4 100 25 7
+[05:39:01] exp cycles: 125
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 4 100 25 7
+[05:39:01] exp cycles: 125
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 4 100 25 7
+[05:39:01] exp cycles: 125
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 4 100 25 7
+[05:39:01] exp cycles: 125
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 16 256 16 9
+[05:39:01] exp cycles: 272
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 16 256 16 9
+[05:39:01] exp cycles: 272
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 16 256 16 9
+[05:39:01] exp cycles: 272
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 16 256 16 9
+[05:39:01] exp cycles: 272
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 4 256 64 9
+[05:39:01] exp cycles: 320
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 4 256 64 9
+[05:39:01] exp cycles: 320
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 4 256 64 9
+[05:39:01] exp cycles: 320
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 4 256 64 9
+[05:39:01] exp cycles: 320
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 10 1 1 4
+[05:39:01] exp cycles: 2
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 10 1 1 4
+[05:39:01] exp cycles: 2
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 10 1 1 4
+[05:39:01] exp cycles: 2
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 10 1 1 4
+[05:39:01] exp cycles: 2
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 1 1 10 4
+[05:39:01] exp cycles: 11
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 1 1 10 4
+[05:39:01] exp cycles: 11
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 1 1 10 4
+[05:39:01] exp cycles: 11
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 1 1 10 4
+[05:39:01] exp cycles: 11
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 5 1 2 4
+[05:39:01] exp cycles: 3
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 5 1 2 4
+[05:39:01] exp cycles: 3
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 5 1 2 4
+[05:39:01] exp cycles: 3
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 5 1 2 4
+[05:39:01] exp cycles: 3
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 100 1 1 7
+[05:39:01] exp cycles: 2
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 100 1 1 7
+[05:39:01] exp cycles: 2
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 100 1 1 7
+[05:39:01] exp cycles: 2
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 100 1 1 7
+[05:39:01] exp cycles: 2
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 10 1 10 7
+[05:39:01] exp cycles: 11
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 10 1 10 7
+[05:39:01] exp cycles: 11
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 10 1 10 7
+[05:39:01] exp cycles: 11
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 10 1 10 7
+[05:39:01] exp cycles: 11
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 4 1 25 7
+[05:39:01] exp cycles: 26
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 4 1 25 7
+[05:39:01] exp cycles: 26
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 4 1 25 7
+[05:39:01] exp cycles: 26
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 4 1 25 7
+[05:39:01] exp cycles: 26
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 16 1 16 9
+[05:39:01] exp cycles: 17
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 16 1 16 9
+[05:39:01] exp cycles: 17
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 16 1 16 9
+[05:39:01] exp cycles: 17
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 16 1 16 9
+[05:39:01] exp cycles: 17
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 4 1 64 9
+[05:39:01] exp cycles: 65
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 4 1 64 9
+[05:39:01] exp cycles: 65
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 4 1 64 9
+[05:39:01] exp cycles: 65
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 4 1 64 9
+[05:39:01] exp cycles: 65
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 10 5 1 4
+[05:39:01] exp cycles: 6
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 10 5 1 4
+[05:39:01] exp cycles: 6
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 10 5 1 4
+[05:39:01] exp cycles: 6
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 10 5 1 4
+[05:39:01] exp cycles: 6
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 1 5 10 4
+[05:39:01] exp cycles: 15
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 1 5 10 4
+[05:39:01] exp cycles: 15
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 1 5 10 4
+[05:39:01] exp cycles: 15
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 1 5 10 4
+[05:39:01] exp cycles: 15
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 5 5 2 4
+[05:39:01] exp cycles: 7
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 5 5 2 4
+[05:39:01] exp cycles: 7
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 5 5 2 4
+[05:39:01] exp cycles: 7
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 5 5 2 4
+[05:39:01] exp cycles: 7
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 100 5 1 7
+[05:39:01] exp cycles: 6
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 100 5 1 7
+[05:39:01] exp cycles: 6
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 100 5 1 7
+[05:39:01] exp cycles: 6
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 100 5 1 7
+[05:39:01] exp cycles: 6
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 10 5 10 7
+[05:39:01] exp cycles: 15
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 10 5 10 7
+[05:39:01] exp cycles: 15
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 10 5 10 7
+[05:39:01] exp cycles: 15
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 10 5 10 7
+[05:39:01] exp cycles: 15
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 4 5 25 7
+[05:39:01] exp cycles: 30
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 4 5 25 7
+[05:39:01] exp cycles: 30
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 4 5 25 7
+[05:39:01] exp cycles: 30
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 4 5 25 7
+[05:39:01] exp cycles: 30
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 16 5 16 9
+[05:39:01] exp cycles: 21
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 16 5 16 9
+[05:39:01] exp cycles: 21
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 16 5 16 9
+[05:39:01] exp cycles: 21
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 16 5 16 9
+[05:39:01] exp cycles: 21
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 4 5 64 9
+[05:39:01] exp cycles: 69
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 4 5 64 9
+[05:39:01] exp cycles: 69
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 4 5 64 9
+[05:39:01] exp cycles: 69
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 4 5 64 9
+[05:39:01] exp cycles: 69
+[05:39:01] [oracle self-test] local oracle self-test passed on all cases with captured vectors
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 10 10 1 4
+[05:39:01] exp cycles: 11
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 10 10 1 4
+[05:39:01] exp cycles: 11
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 10 10 1 4
+[05:39:01] exp cycles: 11
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 10 10 1 4
+[05:39:01] exp cycles: 11
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 1 10 10 4
+[05:39:01] exp cycles: 20
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 1 10 10 4
+[05:39:01] exp cycles: 20
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 1 10 10 4
+[05:39:01] exp cycles: 20
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 1 10 10 4
+[05:39:01] exp cycles: 20
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 5 10 2 4
+[05:39:01] exp cycles: 12
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 5 10 2 4
+[05:39:01] exp cycles: 12
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 5 10 2 4
+[05:39:01] exp cycles: 12
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 5 10 2 4
+[05:39:01] exp cycles: 12
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 100 100 1 7
+[05:39:01] exp cycles: 101
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 100 100 1 7
+[05:39:01] exp cycles: 101
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 100 100 1 7
+[05:39:01] exp cycles: 101
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 100 100 1 7
+[05:39:01] exp cycles: 101
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 10 100 10 7
+[05:39:01] exp cycles: 110
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 10 100 10 7
+[05:39:01] exp cycles: 110
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 10 100 10 7
+[05:39:01] exp cycles: 110
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 10 100 10 7
+[05:39:01] exp cycles: 110
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 4 100 25 7
+[05:39:01] exp cycles: 125
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 4 100 25 7
+[05:39:01] exp cycles: 125
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 4 100 25 7
+[05:39:01] exp cycles: 125
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 4 100 25 7
+[05:39:01] exp cycles: 125
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 16 256 16 9
+[05:39:01] exp cycles: 272
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 16 256 16 9
+[05:39:01] exp cycles: 272
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 16 256 16 9
+[05:39:01] exp cycles: 272
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 16 256 16 9
+[05:39:01] exp cycles: 272
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 4 256 64 9
+[05:39:01] exp cycles: 320
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 4 256 64 9
+[05:39:01] exp cycles: 320
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 4 256 64 9
+[05:39:01] exp cycles: 320
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 4 256 64 9
+[05:39:01] exp cycles: 320
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 10 1 1 4
+[05:39:01] exp cycles: 2
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 10 1 1 4
+[05:39:01] exp cycles: 2
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 10 1 1 4
+[05:39:01] exp cycles: 2
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 10 1 1 4
+[05:39:01] exp cycles: 2
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 1 1 10 4
+[05:39:01] exp cycles: 11
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 1 1 10 4
+[05:39:01] exp cycles: 11
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 1 1 10 4
+[05:39:01] exp cycles: 11
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 1 1 10 4
+[05:39:01] exp cycles: 11
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 5 1 2 4
+[05:39:01] exp cycles: 3
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 5 1 2 4
+[05:39:01] exp cycles: 3
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 5 1 2 4
+[05:39:01] exp cycles: 3
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 5 1 2 4
+[05:39:01] exp cycles: 3
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 100 1 1 7
+[05:39:01] exp cycles: 2
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 100 1 1 7
+[05:39:01] exp cycles: 2
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 100 1 1 7
+[05:39:01] exp cycles: 2
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 100 1 1 7
+[05:39:01] exp cycles: 2
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 10 1 10 7
+[05:39:01] exp cycles: 11
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 10 1 10 7
+[05:39:01] exp cycles: 11
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 10 1 10 7
+[05:39:01] exp cycles: 11
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 10 1 10 7
+[05:39:01] exp cycles: 11
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 4 1 25 7
+[05:39:01] exp cycles: 26
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 4 1 25 7
+[05:39:01] exp cycles: 26
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 4 1 25 7
+[05:39:01] exp cycles: 26
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 4 1 25 7
+[05:39:01] exp cycles: 26
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 16 1 16 9
+[05:39:01] exp cycles: 17
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 16 1 16 9
+[05:39:01] exp cycles: 17
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 16 1 16 9
+[05:39:01] exp cycles: 17
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 16 1 16 9
+[05:39:01] exp cycles: 17
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 4 1 64 9
+[05:39:01] exp cycles: 65
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 4 1 64 9
+[05:39:01] exp cycles: 65
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 4 1 64 9
+[05:39:01] exp cycles: 65
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 4 1 64 9
+[05:39:01] exp cycles: 65
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 10 5 1 4
+[05:39:01] exp cycles: 6
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 10 5 1 4
+[05:39:01] exp cycles: 6
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 10 5 1 4
+[05:39:01] exp cycles: 6
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 10 5 1 4
+[05:39:01] exp cycles: 6
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 1 5 10 4
+[05:39:01] exp cycles: 15
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 1 5 10 4
+[05:39:01] exp cycles: 15
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 1 5 10 4
+[05:39:01] exp cycles: 15
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 1 5 10 4
+[05:39:01] exp cycles: 15
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 5 5 2 4
+[05:39:01] exp cycles: 7
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 5 5 2 4
+[05:39:01] exp cycles: 7
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 5 5 2 4
+[05:39:01] exp cycles: 7
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 10 5 5 2 4
+[05:39:01] exp cycles: 7
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 100 5 1 7
+[05:39:01] exp cycles: 6
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 100 5 1 7
+[05:39:01] exp cycles: 6
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 100 5 1 7
+[05:39:01] exp cycles: 6
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 100 5 1 7
+[05:39:01] exp cycles: 6
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 10 5 10 7
+[05:39:01] exp cycles: 15
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 10 5 10 7
+[05:39:01] exp cycles: 15
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 10 5 10 7
+[05:39:01] exp cycles: 15
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 10 5 10 7
+[05:39:01] exp cycles: 15
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 4 5 25 7
+[05:39:01] exp cycles: 30
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 4 5 25 7
+[05:39:01] exp cycles: 30
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 4 5 25 7
+[05:39:01] exp cycles: 30
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 100 4 5 25 7
+[05:39:01] exp cycles: 30
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 16 5 16 9
+[05:39:01] exp cycles: 21
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 16 5 16 9
+[05:39:01] exp cycles: 21
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 16 5 16 9
+[05:39:01] exp cycles: 21
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 16 5 16 9
+[05:39:01] exp cycles: 21
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 4 5 64 9
+[05:39:01] exp cycles: 69
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 4 5 64 9
+[05:39:01] exp cycles: 69
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 4 5 64 9
+[05:39:01] exp cycles: 69
+[05:39:01] num_in_words,PE,K,NF,output_delay
+[05:39:01] 256 4 5 64 9
+[05:39:01] exp cycles: 69
+[05:39:01] 
+[05:39:01] baseline local score (active set)=22156.14
+[05:39:01] baseline delta vs rtlsim: max_abs=510 avg_norm=53.48%
+[05:39:01] backend=local score=22156.14 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[05:39:01]   INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[05:39:01] >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (44 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[05:39:01] 
+[05:39:01] All 48 cases (worst first):
+[05:39:01]   [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[05:39:01]   [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[05:39:01]   [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:39:01]   [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:39:01]   [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:39:01]   [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:39:01]   [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[05:39:01]   [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[05:39:01]   [impl_style='hls' k=-1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[05:39:01]   [impl_style='hls' k=-1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[05:39:01]   [impl_style='hls' k=5 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[05:39:01]   [impl_style='hls' k=5 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[05:39:01]   [impl_style='hls' k=5 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[05:39:01]   [impl_style='hls' k=5 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[05:39:01]   [impl_style='hls' k=-1 labels=10 fold=2 idt=UINT8] FAIL | input Σ|d|=32 len_d=-10 | output Σ|d|=115 len_d=-10
+[05:39:01]   [impl_style='hls' k=-1 labels=10 fold=2 idt=INT8] FAIL | input Σ|d|=32 len_d=-10 | output Σ|d|=115 len_d=-10
+[05:39:01]   [impl_style='hls' k=5 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=130 len_d=-4 | output Σ|d|=30 len_d=-4
+[05:39:01]   [impl_style='hls' k=5 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=130 len_d=-4 | output Σ|d|=30 len_d=-4
+[05:39:01]   [impl_style='hls' k=-1 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=768 len_d=-2 | output Σ|d|=1530 len_d=-2
+[05:39:01]   [impl_style='hls' k=-1 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=768 len_d=-2 | output Σ|d|=1530 len_d=-2
+[05:39:01]   [impl_style='hls' k=5 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=110 len_d=-10 | output Σ|d|=35 len_d=-10
+[05:39:01]   [impl_style='hls' k=5 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=110 len_d=-10 | output Σ|d|=35 len_d=-10
+[05:39:01]   [impl_style='hls' k=1 labels=256 fold=16 idt=UINT8] FAIL | input Σ|d|=144 len_d=+4 | output Σ|d|=1 len_d=+4
+[05:39:01]   [impl_style='hls' k=1 labels=256 fold=16 idt=INT8] FAIL | input Σ|d|=144 len_d=+4 | output Σ|d|=1 len_d=+4
+[05:39:01]   [impl_style='hls' k=5 labels=256 fold=16 idt=UINT8] FAIL | input Σ|d|=176 len_d=+0 | output Σ|d|=14 len_d=+0
+[05:39:01]   [impl_style='hls' k=5 labels=256 fold=16 idt=INT8] FAIL | input Σ|d|=176 len_d=+0 | output Σ|d|=14 len_d=+0
+[05:39:01]   [impl_style='hls' k=-1 labels=256 fold=16 idt=UINT8] FAIL | input Σ|d|=192 len_d=-2 | output Σ|d|=1530 len_d=-2
+[05:39:01]   [impl_style='hls' k=-1 labels=256 fold=16 idt=INT8] FAIL | input Σ|d|=192 len_d=-2 | output Σ|d|=1530 len_d=-2
+[05:39:01]   [impl_style='hls' k=5 labels=10 fold=2 idt=UINT8] FAIL | input Σ|d|=31 len_d=-10 | output Σ|d|=45 len_d=-10
+[05:39:01]   [impl_style='hls' k=5 labels=10 fold=2 idt=INT8] FAIL | input Σ|d|=31 len_d=-10 | output Σ|d|=45 len_d=-10
+[05:39:01]   [impl_style='hls' k=5 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=13 len_d=-34 | output Σ|d|=80 len_d=-34
+[05:39:01]   [impl_style='hls' k=5 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=13 len_d=-34 | output Σ|d|=80 len_d=-34
+[05:39:01]   [impl_style='hls' k=1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=70 len_d=-2 | output Σ|d|=2 len_d=-2
+[05:39:01]   [impl_style='hls' k=1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=70 len_d=-2 | output Σ|d|=2 len_d=-2
+[05:39:01]   [impl_style='hls' k=5 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=16 len_d=-386 | output Σ|d|=95 len_d=-386
+[05:39:01]   [impl_style='hls' k=5 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=16 len_d=-386 | output Σ|d|=95 len_d=-386
+[05:39:01]   [impl_style='hls' k=1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=125 len_d=+2 | output Σ|d|=2 len_d=+2
+[05:39:01]   [impl_style='hls' k=1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=125 len_d=+2 | output Σ|d|=2 len_d=+2
+[05:39:01]   [impl_style='hls' k=1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=12 len_d=-384 | output Σ|d|=11 len_d=-384
+[05:39:01]   [impl_style='hls' k=1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=12 len_d=-384 | output Σ|d|=11 len_d=-384
+[05:39:01]   [impl_style='hls' k=1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=9 len_d=-24 | output Σ|d|=5 len_d=-24
+[05:39:01]   [impl_style='hls' k=1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=9 len_d=-24 | output Σ|d|=5 len_d=-24
+[05:39:01]   [impl_style='hls' k=1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=50 len_d=+2 | output Σ|d|=2 len_d=+2
+[05:39:01]   [impl_style='hls' k=1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=50 len_d=+2 | output Σ|d|=2 len_d=+2
+[05:39:01]   [impl_style='hls' k=1 labels=10 fold=2 idt=UINT8] FAIL | input Σ|d|=16 len_d=-4 | output Σ|d|=3 len_d=-4
+[05:39:01]   [impl_style='hls' k=1 labels=10 fold=2 idt=INT8] FAIL | input Σ|d|=16 len_d=-4 | output Σ|d|=3 len_d=-4
+[05:39:01]   [impl_style='hls' k=1 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=192 len_d=+6 | output Σ|d|=4 len_d=+6
+[05:39:01]   [impl_style='hls' k=1 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=192 len_d=+6 | output Σ|d|=4 len_d=+6
+[05:39:01] 
+[05:39:01] Detail for the smallest cases whose input port still differs (per-cycle pattern is clearest here and usually transfers to bigger cases). Vectors are RLE'd (run_length,value), truncated after 120 runs:
+[05:39:01]   [impl_style='hls' k=1 labels=10 fold=2 idt=UINT8] (case score 150.0):
+[05:39:01]      input: yours len=14 target len=18 (len_delta=-4), Σ|delta|=16, peak=2
+[05:39:01]         TARGET (rtlsim): [(3,0), (1,+1), (8,+2), (1,+3), (5,+4)]
+[05:39:01]         YOURS          : [(1,+1), (6,+2), (1,+3), (6,+4)]
+[05:39:01]         DELTA (yours-target): [(1,+1), (2,+2), (1,+1), (3,0), (1,+1), (4,+2), (1,+1), (1,0)]
+[05:39:01]      output: differs (len_delta=-4, Σ|delta|=3) -- deprioritized, get input exact first
+[05:39:01]   [impl_style='hls' k=1 labels=10 fold=2 idt=INT8] (case score 150.0):
+[05:39:01]      input: yours len=14 target len=18 (len_delta=-4), Σ|delta|=16, peak=2
+[05:39:01]         TARGET (rtlsim): [(3,0), (1,+1), (8,+2), (1,+3), (5,+4)]
+[05:39:01]         YOURS          : [(1,+1), (6,+2), (1,+3), (6,+4)]
+[05:39:01]         DELTA (yours-target): [(1,+1), (2,+2), (1,+1), (3,0), (1,+1), (4,+2), (1,+1), (1,0)]
+[05:39:01]      output: differs (len_delta=-4, Σ|delta|=3) -- deprioritized, get input exact first
+[05:39:01]   [impl_style='hls' k=1 labels=10 fold=10 idt=UINT8] (case score 237.5):
+[05:39:01]      input: yours len=30 target len=32 (len_delta=-2), Σ|delta|=70, peak=4
+[05:39:01]         TARGET (rtlsim): [(3,0), (1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (7,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16), (1,+17), (1,+18), (1,+19), (4,+20)]
+[05:39:01]         YOURS          : [(1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (6,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16), (1,+17), (1,+18), (1,+19), (6,+20)]
+[05:39:01]         DELTA (yours-target): [(1,+1), (1,+2), (8,+3), (1,+2), (1,+1), (3,0), (1,+1), (1,+2), (1,+3), (7,+4), (1,+3), (1,+2), (1,+1), (2,0)]
+[05:39:01]      output: differs (len_delta=-2, Σ|delta|=2) -- deprioritized, get input exact first
+[05:39:01]   [impl_style='hls' k=1 labels=10 fold=10 idt=INT8] (case score 237.5):
+[05:39:01]      input: yours len=30 target len=32 (len_delta=-2), Σ|delta|=70, peak=4
+[05:39:01]         TARGET (rtlsim): [(3,0), (1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (7,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16), (1,+17), (1,+18), (1,+19), (4,+20)]
+[05:39:01]         YOURS          : [(1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (6,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16), (1,+17), (1,+18), (1,+19), (6,+20)]
+[05:39:01]         DELTA (yours-target): [(1,+1), (1,+2), (8,+3), (1,+2), (1,+1), (3,0), (1,+1), (1,+2), (1,+3), (7,+4), (1,+3), (1,+2), (1,+1), (2,0)]
+[05:39:01]      output: differs (len_delta=-2, Σ|delta|=2) -- deprioritized, get input exact first
+[05:39:01]   [impl_style='hls' k=5 labels=10 fold=2 idt=UINT8] (case score 300.0):
+[05:39:01]      input: yours len=22 target len=32 (len_delta=-10), Σ|delta|=31, peak=2
+[05:39:01]         TARGET (rtlsim): [(5,0), (1,+1), (16,+2), (1,+3), (9,+4)]
+[05:39:01]         YOURS          : [(1,+1), (10,+2), (1,+3), (10,+4)]
+[05:39:01]         DELTA (yours-target): [(1,+1), (4,+2), (1,+1), (5,0), (1,+1), (10,+2)]
+[05:39:01]      output: differs (len_delta=-10, Σ|delta|=45) -- deprioritized, get input exact first
+[05:39:01]   [impl_style='hls' k=5 labels=10 fold=2 idt=INT8] (case score 300.0):
+[05:39:01]      input: yours len=22 target len=32 (len_delta=-10), Σ|delta|=31, peak=2
+[05:39:01]         TARGET (rtlsim): [(5,0), (1,+1), (16,+2), (1,+3), (9,+4)]
+[05:39:01]         YOURS          : [(1,+1), (10,+2), (1,+3), (10,+4)]
+[05:39:01]         DELTA (yours-target): [(1,+1), (4,+2), (1,+1), (5,0), (1,+1), (10,+2)]
+[05:39:01]      output: differs (len_delta=-10, Σ|delta|=45) -- deprioritized, get input exact first
+[05:39:01]   [impl_style='hls' k=1 labels=100 fold=10 idt=UINT8] (case score 164.7):
+[05:39:01]      input: yours len=36 target len=34 (len_delta=+2), Σ|delta|=50, peak=3
+[05:39:01]         TARGET (rtlsim): [(3,0), (1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (8,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16), (1,+17), (1,+18), (1,+19), (5,+20)]
+[05:39:01]         YOURS          : [(1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (9,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16), (1,+17), (1,+18), (1,+19), (9,+20)]
+[05:39:01]         DELTA (yours-target): [(1,+1), (1,+2), (8,+3), (1,+2), (1,+1), (6,0), (1,+1), (9,+2), (1,+1), (5,0)]
+[05:39:01]      output: differs (len_delta=+2, Σ|delta|=2) -- deprioritized, get input exact first
+[05:39:01]   [impl_style='hls' k=1 labels=100 fold=10 idt=INT8] (case score 164.7):
+[05:39:01]      input: yours len=36 target len=34 (len_delta=+2), Σ|delta|=50, peak=3
+[05:39:01]         TARGET (rtlsim): [(3,0), (1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (8,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16), (1,+17), (1,+18), (1,+19), (5,+20)]
+[05:39:01]         YOURS          : [(1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (9,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16), (1,+17), (1,+18), (1,+19), (9,+20)]
+[05:39:01]         DELTA (yours-target): [(1,+1), (1,+2), (8,+3), (1,+2), (1,+1), (6,0), (1,+1), (9,+2), (1,+1), (5,0)]
+[05:39:01]      output: differs (len_delta=+2, Σ|delta|=2) -- deprioritized, get input exact first
+[05:39:01]   [impl_style='hls' k=1 labels=10 fold=1 idt=UINT8] (case score 172.2):
+[05:39:01]      input: yours len=12 target len=36 (len_delta=-24), Σ|delta|=9, peak=1
+[05:39:01]         TARGET (rtlsim): [(3,0), (33,+1)]
+[05:39:01]         YOURS          : [(6,+1), (6,+2)]
+[05:39:01]         DELTA (yours-target): [(3,+1), (3,0), (6,+1)]
+[05:39:01]      output: differs (len_delta=-24, Σ|delta|=5) -- deprioritized, get input exact first
+[05:39:01]   [impl_style='hls' k=1 labels=10 fold=1 idt=INT8] (case score 172.2):
+[05:39:01]      input: yours len=12 target len=36 (len_delta=-24), Σ|delta|=9, peak=1
+[05:39:01]         TARGET (rtlsim): [(3,0), (33,+1)]
+[05:39:01]         YOURS          : [(6,+1), (6,+2)]
+[05:39:01]         DELTA (yours-target): [(3,+1), (3,0), (6,+1)]
+[05:39:01]      output: differs (len_delta=-24, Σ|delta|=5) -- deprioritized, get input exact first
+[05:39:01]   (+38 more case(s) with a failing input port summarized above -- fix these first, then re-evaluate.)
+[05:39:01] 
+[05:39:01] ============================================================
+[05:39:01] iteration 1  (active cases: 48/48, best score 22156.14)
+[05:39:01] ============================================================
+[05:39:05] 
+[05:39:05] -> eval_tree_model({"source": "\"\"\"Baseline candidate get_tree_model for the LabelSelect node.\n\nThis is the current in-tree get_tree_mo...)
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 10 10 1 4
+[05:39:05] exp cycles: 11
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 10 10 1 4
+[05:39:05] exp cycles: 11
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 10 10 1 4
+[05:39:05] exp cycles: 11
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 10 10 1 4
+[05:39:05] exp cycles: 11
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 1 10 10 4
+[05:39:05] exp cycles: 20
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 1 10 10 4
+[05:39:05] exp cycles: 20
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 1 10 10 4
+[05:39:05] exp cycles: 20
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 1 10 10 4
+[05:39:05] exp cycles: 20
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 5 10 2 4
+[05:39:05] exp cycles: 12
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 5 10 2 4
+[05:39:05] exp cycles: 12
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 5 10 2 4
+[05:39:05] exp cycles: 12
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 5 10 2 4
+[05:39:05] exp cycles: 12
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 100 100 1 7
+[05:39:05] exp cycles: 101
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 100 100 1 7
+[05:39:05] exp cycles: 101
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 100 100 1 7
+[05:39:05] exp cycles: 101
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 100 100 1 7
+[05:39:05] exp cycles: 101
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 10 100 10 7
+[05:39:05] exp cycles: 110
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 10 100 10 7
+[05:39:05] exp cycles: 110
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 10 100 10 7
+[05:39:05] exp cycles: 110
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 10 100 10 7
+[05:39:05] exp cycles: 110
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 4 100 25 7
+[05:39:05] exp cycles: 125
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 4 100 25 7
+[05:39:05] exp cycles: 125
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 4 100 25 7
+[05:39:05] exp cycles: 125
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 4 100 25 7
+[05:39:05] exp cycles: 125
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 256 16 256 16 9
+[05:39:05] exp cycles: 272
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 256 16 256 16 9
+[05:39:05] exp cycles: 272
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 256 16 256 16 9
+[05:39:05] exp cycles: 272
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 256 16 256 16 9
+[05:39:05] exp cycles: 272
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 256 4 256 64 9
+[05:39:05] exp cycles: 320
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 256 4 256 64 9
+[05:39:05] exp cycles: 320
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 256 4 256 64 9
+[05:39:05] exp cycles: 320
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 256 4 256 64 9
+[05:39:05] exp cycles: 320
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 10 1 1 4
+[05:39:05] exp cycles: 2
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 10 1 1 4
+[05:39:05] exp cycles: 2
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 10 1 1 4
+[05:39:05] exp cycles: 2
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 10 1 1 4
+[05:39:05] exp cycles: 2
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 1 1 10 4
+[05:39:05] exp cycles: 11
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 1 1 10 4
+[05:39:05] exp cycles: 11
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 1 1 10 4
+[05:39:05] exp cycles: 11
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 1 1 10 4
+[05:39:05] exp cycles: 11
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 5 1 2 4
+[05:39:05] exp cycles: 3
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 5 1 2 4
+[05:39:05] exp cycles: 3
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 5 1 2 4
+[05:39:05] exp cycles: 3
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 5 1 2 4
+[05:39:05] exp cycles: 3
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 100 1 1 7
+[05:39:05] exp cycles: 2
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 100 1 1 7
+[05:39:05] exp cycles: 2
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 100 1 1 7
+[05:39:05] exp cycles: 2
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 100 1 1 7
+[05:39:05] exp cycles: 2
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 10 1 10 7
+[05:39:05] exp cycles: 11
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 10 1 10 7
+[05:39:05] exp cycles: 11
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 10 1 10 7
+[05:39:05] exp cycles: 11
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 10 1 10 7
+[05:39:05] exp cycles: 11
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 4 1 25 7
+[05:39:05] exp cycles: 26
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 4 1 25 7
+[05:39:05] exp cycles: 26
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 4 1 25 7
+[05:39:05] exp cycles: 26
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 4 1 25 7
+[05:39:05] exp cycles: 26
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 256 16 1 16 9
+[05:39:05] exp cycles: 17
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 256 16 1 16 9
+[05:39:05] exp cycles: 17
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 256 16 1 16 9
+[05:39:05] exp cycles: 17
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 256 16 1 16 9
+[05:39:05] exp cycles: 17
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 256 4 1 64 9
+[05:39:05] exp cycles: 65
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 256 4 1 64 9
+[05:39:05] exp cycles: 65
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 256 4 1 64 9
+[05:39:05] exp cycles: 65
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 256 4 1 64 9
+[05:39:05] exp cycles: 65
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 10 5 1 4
+[05:39:05] exp cycles: 6
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 10 5 1 4
+[05:39:05] exp cycles: 6
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 10 5 1 4
+[05:39:05] exp cycles: 6
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 10 5 1 4
+[05:39:05] exp cycles: 6
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 1 5 10 4
+[05:39:05] exp cycles: 15
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 1 5 10 4
+[05:39:05] exp cycles: 15
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 1 5 10 4
+[05:39:05] exp cycles: 15
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 1 5 10 4
+[05:39:05] exp cycles: 15
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 5 5 2 4
+[05:39:05] exp cycles: 7
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 5 5 2 4
+[05:39:05] exp cycles: 7
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 5 5 2 4
+[05:39:05] exp cycles: 7
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 10 5 5 2 4
+[05:39:05] exp cycles: 7
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 100 5 1 7
+[05:39:05] exp cycles: 6
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 100 5 1 7
+[05:39:05] exp cycles: 6
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 100 5 1 7
+[05:39:05] exp cycles: 6
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 100 5 1 7
+[05:39:05] exp cycles: 6
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 10 5 10 7
+[05:39:05] exp cycles: 15
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 10 5 10 7
+[05:39:05] exp cycles: 15
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 10 5 10 7
+[05:39:05] exp cycles: 15
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 10 5 10 7
+[05:39:05] exp cycles: 15
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 4 5 25 7
+[05:39:05] exp cycles: 30
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 4 5 25 7
+[05:39:05] exp cycles: 30
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 4 5 25 7
+[05:39:05] exp cycles: 30
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 100 4 5 25 7
+[05:39:05] exp cycles: 30
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 256 16 5 16 9
+[05:39:05] exp cycles: 21
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 256 16 5 16 9
+[05:39:05] exp cycles: 21
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 256 16 5 16 9
+[05:39:05] exp cycles: 21
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 256 16 5 16 9
+[05:39:05] exp cycles: 21
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 256 4 5 64 9
+[05:39:05] exp cycles: 69
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 256 4 5 64 9
+[05:39:05] exp cycles: 69
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 256 4 5 64 9
+[05:39:05] exp cycles: 69
+[05:39:05] num_in_words,PE,K,NF,output_delay
+[05:39:05] 256 4 5 64 9
+[05:39:05] exp cycles: 69
+[05:39:05]    backend=local score=22156.14 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[05:39:05]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[05:39:05]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (44 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[05:39:05]    
+[05:39:05]    All 48 cases (worst first):
+[05:39:05]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[05:39:05]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[05:39:05]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:39:05]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:39:05]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:39:05]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:39:05]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[05:39:05]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[05:39:05]      [impl_style='hls' k=-1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[05:39:05]      [impl_style='hls' k=-1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[05:39:05]      [impl_style='hls' k=5 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[05:39:05]      [impl_style='hls' k=5 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[05:39:05]      [impl_style='hls' k=5 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[05:39:05]      [impl_style='hls' k=5 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[05:39:05]      [impl_style='hls' k=-1 labels=10 fold=2 idt=UINT8] FAIL | input Σ|d|=32 len_d=-10 | output Σ|d|=115 len_d=-10
+[05:39:07] 
+[05:39:07] -> bash({"command": "ls -R /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs | sed -n '1,200p'"})
+[05:39:07]    (exit 0)
+[05:39:07]    /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs:
+[05:39:07]    deps
+[05:39:07]    finn-rtllib
+[05:39:07]    src
+[05:39:07]    
+[05:39:07]    /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps:
+[05:39:07]    finn-hlslib
+[05:39:07]    
+[05:39:07]    /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlslib:
+[05:39:07]    activations.hpp
+[05:39:07]    maxpool.h
+[05:39:07]    mvau.hpp
+[05:39:07]    pool.hpp
+[05:39:07]    streamtools.h
+[05:39:07]    vvau.hpp
+[05:39:07]    
+[05:39:07]    /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/finn-rtllib:
+[05:39:07]    dwc
+[05:39:07]    fmpadding
+[05:39:08] 
+[05:39:08] -> bash({"command": "sed -n '1,200p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadat...)
+[05:39:08]    (exit 0)
+[05:39:08]    import numpy as np
+[05:39:08]    
+[05:39:08]    from finn.custom_op.fpgadataflow.hlsbackend import HLSBackend
+[05:39:08]    from finn.custom_op.fpgadataflow.labelselect import LabelSelect
+[05:39:08]    
+[05:39:08]    
+[05:39:08]    class LabelSelect_hls(LabelSelect, HLSBackend):
+[05:39:08]        """Class that corresponds to finn-hlslib LabelSelect_Batch function."""
+[05:39:08]    
+[05:39:08]        def __init__(self, onnx_node, **kwargs):
+[05:39:08]            super().__init__(onnx_node, **kwargs)
+[05:39:08]    
+[05:39:08]        def get_nodeattr_types(self):
+[05:39:08]            my_attrs = {}
+[05:39:08]            my_attrs.update(LabelSelect.get_nodeattr_types(self))
+[05:39:08]            my_attrs.update(HLSBackend.get_nodeattr_types(self))
+[05:39:08]            return my_attrs
+[05:39:08]    
+[05:39:08]        def verify_node(self):
+[05:39:09] 
+[05:39:09] -> bash({"command": "sed -n '1,200p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlslib/maxpool.h...)
+[05:39:09]    (exit 0)
+[05:39:09]    #ifndef MAXPOOL_H
+[05:39:09]    #define MAXPOOL_H
+[05:39:09]     
+[05:39:09]    #include "interpret.hpp"
+[05:39:09]    #include "utils.hpp"
+[05:39:09]    
+[05:39:09]    /**
+[05:39:09]     * \brief   ReLU for fixed-point or integer; can accept a bias at input, which it removes
+[05:39:09]     *
+[05:39:09]     * \tparam ImgDim       Width and Heigth of the Input Feature Map (assumed square)
+[05:39:09]     * \tparam NumChannels  Number of Input Feature Maps
+[05:39:09]     * \tparam ActType      DataType of the input activation (as used in the comparison)
+[05:39:09]     * \tparam PECount      PE parallelism to apply ReLU
+[05:39:09]     * \tparam offset       Offset to be subtracted before applying ReLU
+[05:39:09]     * 
+[05:39:09]     * \param in            Input stream
+[05:39:09]     * \param out           Output stream
+[05:39:09]     * \param numReps       Number of time the function has to be repeatedly executed (e.g. number of images)
+[05:39:09]     *
+[05:39:37] 
+[05:39:37] -> bash({"command": "sed -n '1,200p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadat...)
+[05:39:37]    (exit 0)
+[05:39:37]    import numpy as np
+[05:39:37]    import onnxruntime as rt
+[05:39:37]    from onnx import TensorProto, helper
+[05:39:37]    from qonnx.core.datatype import DataType
+[05:39:37]    from qonnx.util.basic import qonnx_make_model, roundup_to_integer_multiple
+[05:39:37]    
+[05:39:37]    from finn.custom_op.fpgadataflow.hwcustomop import HWCustomOp
+[05:39:37]    from finn.util.basic import Characteristic_Node
+[05:39:37]    
+[05:39:37]    
+[05:39:37]    class LabelSelect(HWCustomOp):
+[05:39:37]        """Abstraction layer for HW implementation of LabelSelect"""
+[05:39:37]    
+[05:39:37]        def __init__(self, onnx_node, **kwargs):
+[05:39:37]            super().__init__(onnx_node, **kwargs)
+[05:39:37]            odt_name = self.get_nodeattr("outputDataType")
+[05:39:37]            if odt_name == "":
+[05:39:37]                # If not provided compute min size
+[05:39:37]                labels = self.get_nodeattr("Labels")
+[05:39:43] 
+[05:39:43] -> bash({"command": "grep -R \"LabelSelect\" -n /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs | head"})
+[05:39:43]    (exit 0)
+[05:39:43]    /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlslib/maxpool.h:112: * \brief   LabelSelect_Batch - returns labels of top-NumTop in stream
+[05:39:43]    /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlslib/maxpool.h:133:void LabelSelect_Batch(hls::stream<ap_uint<PECount * In_T::width> > & in,
+[05:39:43]    /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadataflow/labelselect.py:11:class LabelSelect(HWCustomOp):
+[05:39:43]    /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadataflow/labelselect.py:12:    """Abstraction layer for HW implementation of LabelSelect"""
+[05:39:43]    /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadataflow/hls/labelselect_hls.py:4:from finn.custom_op.fpgadataflow.labelselect import LabelSelect
+[05:39:43]    /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadataflow/hls/labelselect_hls.py:7:class LabelSelect_hls(LabelSelect, HLSBackend):
+[05:39:43]    /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadataflow/hls/labelselect_hls.py:8:    """Class that corresponds to finn-hlslib LabelSelect_Batch function."""
+[05:39:43]    /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadataflow/hls/labelselect_hls.py:15:        my_attrs.update(LabelSelect.get_nodeattr_types(self))
+[05:39:43]    /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadataflow/hls/labelselect_hls.py:39:            info_messages.append("""The required LabelSelect_Batch attributes do not exist.""")
+[05:39:43]    /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadataflow/hls/labelselect_hls.py:43:            info_messages.append("""LabelSelect_Batch requires 1D data input.""")
+[05:39:44] 
+[05:39:44] -> bash({"command": "sed -n '1,220p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlslib/maxpool.h...)
+[05:39:44]    (exit 0)
+[05:39:44]    #ifndef MAXPOOL_H
+[05:39:44]    #define MAXPOOL_H
+[05:39:44]     
+[05:39:44]    #include "interpret.hpp"
+[05:39:44]    #include "utils.hpp"
+[05:39:44]    
+[05:39:44]    /**
+[05:39:44]     * \brief   ReLU for fixed-point or integer; can accept a bias at input, which it removes
+[05:39:44]     *
+[05:39:44]     * \tparam ImgDim       Width and Heigth of the Input Feature Map (assumed square)
+[05:39:44]     * \tparam NumChannels  Number of Input Feature Maps
+[05:39:44]     * \tparam ActType      DataType of the input activation (as used in the comparison)
+[05:39:44]     * \tparam PECount      PE parallelism to apply ReLU
+[05:39:44]     * \tparam offset       Offset to be subtracted before applying ReLU
+[05:39:44]     * 
+[05:39:44]     * \param in            Input stream
+[05:39:44]     * \param out           Output stream
+[05:39:44]     * \param numReps       Number of time the function has to be repeatedly executed (e.g. number of images)
+[05:39:44]     *
+[05:39:52] 
+[05:39:52] -> bash({"command": "sed -n '1,200p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadat...)
+[05:39:52]    (exit 0)
+[05:39:52]    import numpy as np
+[05:39:52]    import onnxruntime as rt
+[05:39:52]    from onnx import TensorProto, helper
+[05:39:52]    from qonnx.core.datatype import DataType
+[05:39:52]    from qonnx.util.basic import qonnx_make_model, roundup_to_integer_multiple
+[05:39:52]    
+[05:39:52]    from finn.custom_op.fpgadataflow.hwcustomop import HWCustomOp
+[05:39:52]    from finn.util.basic import Characteristic_Node
+[05:39:52]    
+[05:39:52]    
+[05:39:52]    class LabelSelect(HWCustomOp):
+[05:39:52]        """Abstraction layer for HW implementation of LabelSelect"""
+[05:39:52]    
+[05:39:52]        def __init__(self, onnx_node, **kwargs):
+[05:39:52]            super().__init__(onnx_node, **kwargs)
+[05:39:52]            odt_name = self.get_nodeattr("outputDataType")
+[05:39:52]            if odt_name == "":
+[05:39:52]                # If not provided compute min size
+[05:39:52]                labels = self.get_nodeattr("Labels")
+[05:40:12] 
+[05:40:12] -> bash({"command": "grep -R \"fold=\" -n /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs | head -n 20"})
+[05:40:12]    (exit 0)
+[05:40:12]    /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlslib/maxpool.h:36:      for(unsigned int fold=0; fold<NumChannels/PECount; fold++){
+[05:40:12]    /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlslib/maxpool.h:87:      for(unsigned int fold=0; fold<NumChannels/PECount; fold++){
+[05:40:14] 
+[05:40:14] -> bash({"command": "sed -n '1,140p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlslib/maxpool.h...)
+[05:40:14]    (exit 0)
+[05:40:14]    #ifndef MAXPOOL_H
+[05:40:14]    #define MAXPOOL_H
+[05:40:14]     
+[05:40:14]    #include "interpret.hpp"
+[05:40:14]    #include "utils.hpp"
+[05:40:14]    
+[05:40:14]    /**
+[05:40:14]     * \brief   ReLU for fixed-point or integer; can accept a bias at input, which it removes
+[05:40:14]     *
+[05:40:14]     * \tparam ImgDim       Width and Heigth of the Input Feature Map (assumed square)
+[05:40:14]     * \tparam NumChannels  Number of Input Feature Maps
+[05:40:14]     * \tparam ActType      DataType of the input activation (as used in the comparison)
+[05:40:14]     * \tparam PECount      PE parallelism to apply ReLU
+[05:40:14]     * \tparam offset       Offset to be subtracted before applying ReLU
+[05:40:14]     * 
+[05:40:14]     * \param in            Input stream
+[05:40:14]     * \param out           Output stream
+[05:40:14]     * \param numReps       Number of time the function has to be repeatedly executed (e.g. number of images)
+[05:40:14]     *
+[05:40:15] 
+[05:40:15] -> bash({"command": "sed -n '140,320p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlslib/maxpool...)
+[05:40:15]    (exit 0)
+[05:40:15]      // Array of encountered top values
+[05:40:15]      //  - maintains topval[i] <= topval[i+1]
+[05:40:15]      //  - keeps in alignment with toplabels
+[05:40:15]      In_T topval[NumTop];
+[05:40:15]    #pragma HLS ARRAY_PARTITION variable=topval complete dim=1
+[05:40:15]      Out_T toplabels[NumTop];
+[05:40:15]    #pragma HLS ARRAY_PARTITION variable=toplabels complete dim=1
+[05:40:15]    
+[05:40:15]      for(unsigned int reps=0; reps<numReps; reps++){
+[05:40:15]        unsigned int idx = 0;
+[05:40:15]        for(unsigned int topx=0; topx<NumTop; topx++){
+[05:40:15]    #pragma HLS UNROLL
+[05:40:15]          topval   [topx] = In_T_MIN_VAL;
+[05:40:15]          toplabels[topx] = 0;
+[05:40:15]        }
+[05:40:15]        for(unsigned int block=0; block<(NumClasses/PECount); block++){
+[05:40:15]    #pragma HLS pipeline style=flp II=1
+[05:40:15]          ap_uint<PECount * In_T::width> const  inval = in.read();
+[05:40:15]          for(unsigned int elem=0; elem<PECount; elem++){
+[05:40:26] 
+[05:40:26] -> bash({"command": "sed -n '1,200p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadat...)
+[05:40:26]    (exit 0)
+[05:40:26]    import numpy as np
+[05:40:26]    import onnxruntime as rt
+[05:40:26]    from onnx import TensorProto, helper
+[05:40:26]    from qonnx.core.datatype import DataType
+[05:40:26]    from qonnx.util.basic import qonnx_make_model, roundup_to_integer_multiple
+[05:40:26]    
+[05:40:26]    from finn.custom_op.fpgadataflow.hwcustomop import HWCustomOp
+[05:40:26]    from finn.util.basic import Characteristic_Node
+[05:40:26]    
+[05:40:26]    
+[05:40:26]    class LabelSelect(HWCustomOp):
+[05:40:26]        """Abstraction layer for HW implementation of LabelSelect"""
+[05:40:26]    
+[05:40:26]        def __init__(self, onnx_node, **kwargs):
+[05:40:26]            super().__init__(onnx_node, **kwargs)
+[05:40:26]            odt_name = self.get_nodeattr("outputDataType")
+[05:40:26]            if odt_name == "":
+[05:40:26]                # If not provided compute min size
+[05:40:26]                labels = self.get_nodeattr("Labels")
+[05:40:29] 
+[05:40:29] -> bash({"command": "sed -n '1,200p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadat...)
+[05:40:29]    (exit 0)
+[05:40:29]    import numpy as np
+[05:40:29]    
+[05:40:29]    from finn.custom_op.fpgadataflow.hlsbackend import HLSBackend
+[05:40:29]    from finn.custom_op.fpgadataflow.labelselect import LabelSelect
+[05:40:29]    
+[05:40:29]    
+[05:40:29]    class LabelSelect_hls(LabelSelect, HLSBackend):
+[05:40:29]        """Class that corresponds to finn-hlslib LabelSelect_Batch function."""
+[05:40:29]    
+[05:40:29]        def __init__(self, onnx_node, **kwargs):
+[05:40:29]            super().__init__(onnx_node, **kwargs)
+[05:40:29]    
+[05:40:29]        def get_nodeattr_types(self):
+[05:40:29]            my_attrs = {}
+[05:40:29]            my_attrs.update(LabelSelect.get_nodeattr_types(self))
+[05:40:29]            my_attrs.update(HLSBackend.get_nodeattr_types(self))
+[05:40:29]            return my_attrs
+[05:40:29]    
+[05:40:29]        def verify_node(self):
+[05:40:32] 
+[05:40:32] -> bash({"command": "grep -n \"LabelSelect\" -n /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlsli...)
+[05:40:32]    (exit 0)
+[05:40:32]    112: * \brief   LabelSelect_Batch - returns labels of top-NumTop in stream
+[05:40:32]    133:void LabelSelect_Batch(hls::stream<ap_uint<PECount * In_T::width> > & in,
+[05:40:33] 
+[05:40:33] -> bash({"command": "sed -n '110,220p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlslib/maxpool...)
+[05:40:33]    (exit 0)
+[05:40:33]    
+[05:40:33]    /**
+[05:40:33]     * \brief   LabelSelect_Batch - returns labels of top-NumTop in stream
+[05:40:33]     *
+[05:40:33]     * \tparam NumClasses   Number of classes of the dataset
+[05:40:33]     * \tparam PECount      Number of inputs to be processed in parallel
+[05:40:33]     * \tparam NumTop       Number of top classes to be selected in output
+[05:40:33]     * \tparam In_T         Datatype of the input
+[05:40:33]     * \tparam Out_T        Datatype of the output
+[05:40:33]     * 
+[05:40:33]     * \param in            Input stream
+[05:40:33]     * \param out           Output stream
+[05:40:33]     * \param numReps       Number of times the function has to be repeatedly executed (e.g. number of images)
+[05:40:33]     *
+[05:40:33]     */
+[05:40:33]    
+[05:40:33]    template<
+[05:40:33]        // tensor size parameters
+[05:40:33]        unsigned int NumClasses,
+[05:40:38] 
+[05:40:38] -> bash({"command": "sed -n '1,220p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadat...)
+[05:40:38]    (exit 0)
+[05:40:38]    import numpy as np
+[05:40:38]    import onnxruntime as rt
+[05:40:38]    from onnx import TensorProto, helper
+[05:40:38]    from qonnx.core.datatype import DataType
+[05:40:38]    from qonnx.util.basic import qonnx_make_model, roundup_to_integer_multiple
+[05:40:38]    
+[05:40:38]    from finn.custom_op.fpgadataflow.hwcustomop import HWCustomOp
+[05:40:38]    from finn.util.basic import Characteristic_Node
+[05:40:38]    
+[05:40:38]    
+[05:40:38]    class LabelSelect(HWCustomOp):
+[05:40:38]        """Abstraction layer for HW implementation of LabelSelect"""
+[05:40:38]    
+[05:40:38]        def __init__(self, onnx_node, **kwargs):
+[05:40:38]            super().__init__(onnx_node, **kwargs)
+[05:40:38]            odt_name = self.get_nodeattr("outputDataType")
+[05:40:38]            if odt_name == "":
+[05:40:38]                # If not provided compute min size
+[05:40:38]                labels = self.get_nodeattr("Labels")
+[05:40:53] 
+[05:40:53] -> bash({"command": "sed -n '1,200p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadat...)
+[05:40:53]    (exit 0)
+[05:40:53]    import numpy as np
+[05:40:53]    
+[05:40:53]    from finn.custom_op.fpgadataflow.hlsbackend import HLSBackend
+[05:40:53]    from finn.custom_op.fpgadataflow.labelselect import LabelSelect
+[05:40:53]    
+[05:40:53]    
+[05:40:53]    class LabelSelect_hls(LabelSelect, HLSBackend):
+[05:40:53]        """Class that corresponds to finn-hlslib LabelSelect_Batch function."""
+[05:40:53]    
+[05:40:53]        def __init__(self, onnx_node, **kwargs):
+[05:40:53]            super().__init__(onnx_node, **kwargs)
+[05:40:53]    
+[05:40:53]        def get_nodeattr_types(self):
+[05:40:53]            my_attrs = {}
+[05:40:53]            my_attrs.update(LabelSelect.get_nodeattr_types(self))
+[05:40:53]            my_attrs.update(HLSBackend.get_nodeattr_types(self))
+[05:40:53]            return my_attrs
+[05:40:53]    
+[05:40:53]        def verify_node(self):
+[05:40:55] 
+[05:40:55] -> bash({"command": "sed -n '120,220p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlslib/maxpool...)
+[05:40:55]    (exit 0)
+[05:40:55]     * \param in            Input stream
+[05:40:55]     * \param out           Output stream
+[05:40:55]     * \param numReps       Number of times the function has to be repeatedly executed (e.g. number of images)
+[05:40:55]     *
+[05:40:55]     */
+[05:40:55]    
+[05:40:55]    template<
+[05:40:55]        // tensor size parameters
+[05:40:55]        unsigned int NumClasses,
+[05:40:55]        unsigned int PECount,
+[05:40:55]        unsigned int NumTop,
+[05:40:55]        typename In_T,
+[05:40:55]        typename Out_T>
+[05:40:55]    void LabelSelect_Batch(hls::stream<ap_uint<PECount * In_T::width> > & in,
+[05:40:55]            hls::stream<Out_T> & out, const unsigned int numReps) {
+[05:40:55]    
+[05:40:55]      // Check that classes, aka. labels / indeces, can be encoded as non-negative outputs
+[05:40:55]      static_assert(clog2(NumClasses) <= Out_T::width - Out_T::sign_flag, "");
+[05:40:55]      static In_T const  In_T_MIN_VAL = (In_T(-1)<0)? 1<<(In_T::width-1) : 0;
+[05:41:01] 
+[05:41:01] -> bash({"command": "sed -n '1,220p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadat...)
+[05:41:01]    (exit 0)
+[05:41:01]    import numpy as np
+[05:41:01]    import onnxruntime as rt
+[05:41:01]    from onnx import TensorProto, helper
+[05:41:01]    from qonnx.core.datatype import DataType
+[05:41:01]    from qonnx.util.basic import qonnx_make_model, roundup_to_integer_multiple
+[05:41:01]    
+[05:41:01]    from finn.custom_op.fpgadataflow.hwcustomop import HWCustomOp
+[05:41:01]    from finn.util.basic import Characteristic_Node
+[05:41:01]    
+[05:41:01]    
+[05:41:01]    class LabelSelect(HWCustomOp):
+[05:41:01]        """Abstraction layer for HW implementation of LabelSelect"""
+[05:41:01]    
+[05:41:01]        def __init__(self, onnx_node, **kwargs):
+[05:41:01]            super().__init__(onnx_node, **kwargs)
+[05:41:01]            odt_name = self.get_nodeattr("outputDataType")
+[05:41:01]            if odt_name == "":
+[05:41:01]                # If not provided compute min size
+[05:41:01]                labels = self.get_nodeattr("Labels")
+[05:41:22] 
+[05:41:22] -> bash({"command": "sed -n '1,200p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadat...)
+[05:41:22]    (exit 0)
+[05:41:22]    import numpy as np
+[05:41:22]    
+[05:41:22]    from finn.custom_op.fpgadataflow.hlsbackend import HLSBackend
+[05:41:22]    from finn.custom_op.fpgadataflow.labelselect import LabelSelect
+[05:41:22]    
+[05:41:22]    
+[05:41:22]    class LabelSelect_hls(LabelSelect, HLSBackend):
+[05:41:22]        """Class that corresponds to finn-hlslib LabelSelect_Batch function."""
+[05:41:22]    
+[05:41:22]        def __init__(self, onnx_node, **kwargs):
+[05:41:22]            super().__init__(onnx_node, **kwargs)
+[05:41:22]    
+[05:41:22]        def get_nodeattr_types(self):
+[05:41:22]            my_attrs = {}
+[05:41:22]            my_attrs.update(LabelSelect.get_nodeattr_types(self))
+[05:41:22]            my_attrs.update(HLSBackend.get_nodeattr_types(self))
+[05:41:22]            return my_attrs
+[05:41:22]    
+[05:41:22]        def verify_node(self):
+[05:41:24] 
+[05:41:24] -> bash({"command": "sed -n '120,220p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlslib/maxpool...)
+[05:41:24]    (exit 0)
+[05:41:24]     * \param in            Input stream
+[05:41:24]     * \param out           Output stream
+[05:41:24]     * \param numReps       Number of times the function has to be repeatedly executed (e.g. number of images)
+[05:41:24]     *
+[05:41:24]     */
+[05:41:24]    
+[05:41:24]    template<
+[05:41:24]        // tensor size parameters
+[05:41:24]        unsigned int NumClasses,
+[05:41:24]        unsigned int PECount,
+[05:41:24]        unsigned int NumTop,
+[05:41:24]        typename In_T,
+[05:41:24]        typename Out_T>
+[05:41:24]    void LabelSelect_Batch(hls::stream<ap_uint<PECount * In_T::width> > & in,
+[05:41:24]            hls::stream<Out_T> & out, const unsigned int numReps) {
+[05:41:24]    
+[05:41:24]      // Check that classes, aka. labels / indeces, can be encoded as non-negative outputs
+[05:41:24]      static_assert(clog2(NumClasses) <= Out_T::width - Out_T::sign_flag, "");
+[05:41:24]      static In_T const  In_T_MIN_VAL = (In_T(-1)<0)? 1<<(In_T::width-1) : 0;
+[05:41:32] 
+[05:41:32] -> bash({"command": "sed -n '1,260p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadat...)
+[05:41:32]    (exit 0)
+[05:41:32]    import numpy as np
+[05:41:32]    import onnxruntime as rt
+[05:41:32]    from onnx import TensorProto, helper
+[05:41:32]    from qonnx.core.datatype import DataType
+[05:41:32]    from qonnx.util.basic import qonnx_make_model, roundup_to_integer_multiple
+[05:41:32]    
+[05:41:32]    from finn.custom_op.fpgadataflow.hwcustomop import HWCustomOp
+[05:41:32]    from finn.util.basic import Characteristic_Node
+[05:41:32]    
+[05:41:32]    
+[05:41:32]    class LabelSelect(HWCustomOp):
+[05:41:32]        """Abstraction layer for HW implementation of LabelSelect"""
+[05:41:32]    
+[05:41:32]        def __init__(self, onnx_node, **kwargs):
+[05:41:32]            super().__init__(onnx_node, **kwargs)
+[05:41:32]            odt_name = self.get_nodeattr("outputDataType")
+[05:41:32]            if odt_name == "":
+[05:41:32]                # If not provided compute min size
+[05:41:32]                labels = self.get_nodeattr("Labels")
+[05:41:46] 
+[05:41:46] -> bash({"command": "sed -n '1,200p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadat...)
+[05:41:46]    (exit 0)
+[05:41:46]    import numpy as np
+[05:41:46]    
+[05:41:46]    from finn.custom_op.fpgadataflow.hlsbackend import HLSBackend
+[05:41:46]    from finn.custom_op.fpgadataflow.labelselect import LabelSelect
+[05:41:46]    
+[05:41:46]    
+[05:41:46]    class LabelSelect_hls(LabelSelect, HLSBackend):
+[05:41:46]        """Class that corresponds to finn-hlslib LabelSelect_Batch function."""
+[05:41:46]    
+[05:41:46]        def __init__(self, onnx_node, **kwargs):
+[05:41:46]            super().__init__(onnx_node, **kwargs)
+[05:41:46]    
+[05:41:46]        def get_nodeattr_types(self):
+[05:41:46]            my_attrs = {}
+[05:41:46]            my_attrs.update(LabelSelect.get_nodeattr_types(self))
+[05:41:46]            my_attrs.update(HLSBackend.get_nodeattr_types(self))
+[05:41:46]            return my_attrs
+[05:41:46]    
+[05:41:46]        def verify_node(self):
+[05:41:49] 
+[05:41:49] -> bash({"command": "sed -n '120,200p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlslib/maxpool...)
+[05:41:49]    (exit 0)
+[05:41:49]     * \param in            Input stream
+[05:41:49]     * \param out           Output stream
+[05:41:49]     * \param numReps       Number of times the function has to be repeatedly executed (e.g. number of images)
+[05:41:49]     *
+[05:41:49]     */
+[05:41:49]    
+[05:41:49]    template<
+[05:41:49]        // tensor size parameters
+[05:41:49]        unsigned int NumClasses,
+[05:41:49]        unsigned int PECount,
+[05:41:49]        unsigned int NumTop,
+[05:41:49]        typename In_T,
+[05:41:49]        typename Out_T>
+[05:41:49]    void LabelSelect_Batch(hls::stream<ap_uint<PECount * In_T::width> > & in,
+[05:41:49]            hls::stream<Out_T> & out, const unsigned int numReps) {
+[05:41:49]    
+[05:41:49]      // Check that classes, aka. labels / indeces, can be encoded as non-negative outputs
+[05:41:49]      static_assert(clog2(NumClasses) <= Out_T::width - Out_T::sign_flag, "");
+[05:41:49]      static In_T const  In_T_MIN_VAL = (In_T(-1)<0)? 1<<(In_T::width-1) : 0;
+[05:42:00] 
+[05:42:00] -> bash({"command": "grep -n \"class LabelSelect\" -n /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/...)
+[05:42:00]    (exit 0)
+[05:42:00]    11:class LabelSelect(HWCustomOp):
+[05:42:01] 
+[05:42:01] -> bash({"command": "sed -n '1,220p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadat...)
+[05:42:01]    (exit 0)
+[05:42:01]    import numpy as np
+[05:42:01]    import onnxruntime as rt
+[05:42:01]    from onnx import TensorProto, helper
+[05:42:01]    from qonnx.core.datatype import DataType
+[05:42:01]    from qonnx.util.basic import qonnx_make_model, roundup_to_integer_multiple
+[05:42:01]    
+[05:42:01]    from finn.custom_op.fpgadataflow.hwcustomop import HWCustomOp
+[05:42:01]    from finn.util.basic import Characteristic_Node
+[05:42:01]    
+[05:42:01]    
+[05:42:01]    class LabelSelect(HWCustomOp):
+[05:42:01]        """Abstraction layer for HW implementation of LabelSelect"""
+[05:42:01]    
+[05:42:01]        def __init__(self, onnx_node, **kwargs):
+[05:42:01]            super().__init__(onnx_node, **kwargs)
+[05:42:01]            odt_name = self.get_nodeattr("outputDataType")
+[05:42:01]            if odt_name == "":
+[05:42:01]                # If not provided compute min size
+[05:42:01]                labels = self.get_nodeattr("Labels")
+[05:42:03] 
+[05:42:03] -> bash({"command": "sed -n '110,200p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlslib/maxpool...)
+[05:42:03]    [source-reading budget of 25 calls is spent for this attempt. Stop reading source now and ITERATE on your tree with eval_tree_model -- the target vectors in the feedback are the ground truth, not the RTL.]
+[05:47:06] 
+[05:47:06] -> eval_tree_model({"source": "def get_tree_model(self):\n    # extract node attrs\n    labels = self.get_nodeattr(\"Labels\")\n    pe = se...)
+[05:47:06]    backend=local score=21123.71 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[05:47:06]      vs your previous attempt: 22156.14 -> 21123.71 (IMPROVED)
+[05:47:06]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[05:47:06]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (42 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[05:47:06]    
+[05:47:06]    All 48 cases (worst first):
+[05:47:06]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[05:47:06]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[05:47:06]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:47:06]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:47:06]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:47:06]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:47:06]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[05:47:06]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[05:47:06]      [impl_style='hls' k=-1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[05:47:06]      [impl_style='hls' k=-1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[05:47:06]      [impl_style='hls' k=5 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[05:47:06]      [impl_style='hls' k=5 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[05:47:06]      [impl_style='hls' k=5 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[05:47:06]      [impl_style='hls' k=5 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[05:49:58] 
+[05:49:58] -> eval_tree_model({"source": "def get_tree_model(self):\n    labels = self.get_nodeattr(\"Labels\")\n    pe = self.get_nodeattr(\"PE\")\n ...)
+[05:49:58]    backend=local score=22199.12 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[05:49:58]      vs your previous attempt: 21123.71 -> 22199.12 (WORSE)
+[05:49:58]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[05:49:58]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (44 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[05:49:58]    
+[05:49:58]    All 48 cases (worst first):
+[05:49:58]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[05:49:58]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[05:49:58]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:49:58]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:49:58]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:49:58]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:49:58]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[05:49:58]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[05:49:58]      [impl_style='hls' k=-1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[05:49:58]      [impl_style='hls' k=-1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[05:49:58]      [impl_style='hls' k=5 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[05:49:58]      [impl_style='hls' k=5 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[05:49:58]      [impl_style='hls' k=5 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[05:49:58]      [impl_style='hls' k=5 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[05:52:36] 
+[05:52:36] -> eval_tree_model({"source": "def get_tree_model(self):\n    labels = self.get_nodeattr(\"Labels\")\n    pe = self.get_nodeattr(\"PE\")\n ...)
+[05:52:36]    backend=local score=21143.24 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[05:52:36]      vs your previous attempt: 22199.12 -> 21143.24 (IMPROVED)
+[05:52:36]      INPUT ports: 10/48 exact.  OUTPUT ports: 0/48 exact.
+[05:52:36]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 38 input port(s) still differ (32 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[05:52:36]    
+[05:52:36]    All 48 cases (worst first):
+[05:52:36]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[05:52:36]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[05:52:36]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:52:36]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:52:36]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:52:36]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:52:36]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[05:52:36]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[05:52:36]      [impl_style='hls' k=-1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[05:52:36]      [impl_style='hls' k=-1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[05:52:36]      [impl_style='hls' k=5 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[05:52:36]      [impl_style='hls' k=5 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[05:52:36]      [impl_style='hls' k=5 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[05:52:36]      [impl_style='hls' k=5 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[05:53:47] 
+[05:53:47] -> eval_tree_model({"source": "def get_tree_model(self):\n    labels = self.get_nodeattr(\"Labels\")\n    pe = self.get_nodeattr(\"PE\")\n ...)
+[05:53:47]    backend=local score=21153.69 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[05:53:47]      vs your previous attempt: 21143.24 -> 21153.69 (WORSE)
+[05:53:47]      INPUT ports: 10/48 exact.  OUTPUT ports: 0/48 exact.
+[05:53:47]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 38 input port(s) still differ (32 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[05:53:47]    
+[05:53:47]    All 48 cases (worst first):
+[05:53:47]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[05:53:47]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[05:53:47]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:53:47]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:53:47]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:53:47]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:53:47]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[05:53:47]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[05:53:47]      [impl_style='hls' k=-1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[05:53:47]      [impl_style='hls' k=-1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[05:53:47]      [impl_style='hls' k=5 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[05:53:47]      [impl_style='hls' k=5 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[05:53:47]      [impl_style='hls' k=5 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[05:53:47]      [impl_style='hls' k=5 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[05:56:18] 
+[05:56:18] -> eval_tree_model({"source": "def get_tree_model(self):\n    labels = self.get_nodeattr(\"Labels\")\n    pe = self.get_nodeattr(\"PE\")\n ...)
+[05:56:18]    backend=local score=23331.47 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[05:56:18]      vs your previous attempt: 21153.69 -> 23331.47 (WORSE)
+[05:56:18]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[05:56:18]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (44 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[05:56:18]    
+[05:56:18]    All 48 cases (worst first):
+[05:56:18]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[05:56:18]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[05:56:18]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:56:18]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:56:18]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:56:18]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:56:18]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[05:56:18]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[05:56:18]      [impl_style='hls' k=-1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[05:56:18]      [impl_style='hls' k=-1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[05:56:18]      [impl_style='hls' k=5 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[05:56:18]      [impl_style='hls' k=5 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[05:56:18]      [impl_style='hls' k=5 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[05:56:18]      [impl_style='hls' k=5 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[05:58:59] 
+[05:58:59] -> eval_tree_model({"source": "def get_tree_model(self):\n    labels = self.get_nodeattr(\"Labels\")\n    pe = self.get_nodeattr(\"PE\")\n ...)
+[05:58:59]    backend=local score=22306.46 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[05:58:59]      vs your previous attempt: 23331.47 -> 22306.46 (IMPROVED)
+[05:58:59]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[05:58:59]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (44 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[05:58:59]    
+[05:58:59]    All 48 cases (worst first):
+[05:58:59]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[05:58:59]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[05:58:59]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:58:59]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:58:59]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:58:59]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[05:58:59]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[05:58:59]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[05:58:59]      [impl_style='hls' k=-1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[05:58:59]      [impl_style='hls' k=-1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[05:58:59]      [impl_style='hls' k=5 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[05:58:59]      [impl_style='hls' k=5 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[05:58:59]      [impl_style='hls' k=5 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[05:58:59]      [impl_style='hls' k=5 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:02:04] 
+[06:02:04] -> eval_tree_model({"source": "def get_tree_model(self):\n    labels = self.get_nodeattr(\"Labels\")\n    pe = self.get_nodeattr(\"PE\")\n ...)
+[06:02:04]    backend=local score=25376.94 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:02:04]      vs your previous attempt: 22306.46 -> 25376.94 (WORSE)
+[06:02:04]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[06:02:04]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (44 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:02:04]    
+[06:02:04]    All 48 cases (worst first):
+[06:02:04]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:02:04]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:02:04]      [impl_style='hls' k=1 labels=256 fold=16 idt=UINT8] FAIL | input Σ|d|=244 len_d=+28 | output Σ|d|=24 len_d=+28
+[06:02:04]      [impl_style='hls' k=1 labels=256 fold=16 idt=INT8] FAIL | input Σ|d|=244 len_d=+28 | output Σ|d|=24 len_d=+28
+[06:02:04]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:02:04]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:02:04]      [impl_style='hls' k=1 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=469 len_d=+126 | output Σ|d|=73 len_d=+126
+[06:02:04]      [impl_style='hls' k=1 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=469 len_d=+126 | output Σ|d|=73 len_d=+126
+[06:02:04]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:02:04]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:02:04]      [impl_style='hls' k=1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=196 len_d=+48 | output Σ|d|=34 len_d=+48
+[06:02:04]      [impl_style='hls' k=1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=196 len_d=+48 | output Σ|d|=34 len_d=+48
+[06:02:04]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:02:04]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:04:58] 
+[06:04:58] -> eval_tree_model({"source": "def get_tree_model(self):\n    labels = self.get_nodeattr(\"Labels\")\n    pe = self.get_nodeattr(\"PE\")\n ...)
+[06:04:58]    backend=local score=23644.65 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:04:58]      vs your previous attempt: 25376.94 -> 23644.65 (IMPROVED)
+[06:04:58]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[06:04:58]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (44 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:04:58]    
+[06:04:58]    All 48 cases (worst first):
+[06:04:58]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:04:58]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:04:58]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:04:58]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:04:58]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:04:58]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:04:58]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:04:58]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:04:58]      [impl_style='hls' k=-1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:04:58]      [impl_style='hls' k=-1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:04:58]      [impl_style='hls' k=5 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:04:58]      [impl_style='hls' k=5 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:04:58]      [impl_style='hls' k=5 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:04:58]      [impl_style='hls' k=5 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:07:53] 
+[06:07:53] -> eval_tree_model({"source": "def get_tree_model(self):\n    read = Characteristic_Node(\"read\", [(1, [1, 0])], True)\n    top = Characte...)
+[06:07:53]    backend=local score=9527.71 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:07:53]      vs your previous attempt: 23644.65 -> 9527.71 (IMPROVED)
+[06:07:53]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[06:07:53]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (48 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:07:53]    
+[06:07:53]    All 48 cases (worst first):
+[06:07:53]      [impl_style='hls' k=1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=3 len_d=-34 | output Σ|d|=1 len_d=-34
+[06:07:53]      [impl_style='hls' k=1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=3 len_d=-34 | output Σ|d|=1 len_d=-34
+[06:07:53]      [impl_style='hls' k=-1 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=3 len_d=-658 | output Σ|d|=0 len_d=-658
+[06:07:53]      [impl_style='hls' k=-1 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=3 len_d=-658 | output Σ|d|=0 len_d=-658
+[06:07:53]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=3 len_d=-602 | output Σ|d|=0 len_d=-602
+[06:07:53]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=3 len_d=-602 | output Σ|d|=0 len_d=-602
+[06:07:53]      [impl_style='hls' k=-1 labels=256 fold=16 idt=UINT8] FAIL | input Σ|d|=3 len_d=-562 | output Σ|d|=0 len_d=-562
+[06:07:53]      [impl_style='hls' k=-1 labels=256 fold=16 idt=INT8] FAIL | input Σ|d|=3 len_d=-562 | output Σ|d|=0 len_d=-562
+[06:07:53]      [impl_style='hls' k=5 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=3 len_d=-410 | output Σ|d|=0 len_d=-410
+[06:07:53]      [impl_style='hls' k=5 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=3 len_d=-410 | output Σ|d|=0 len_d=-410
+[06:07:53]      [impl_style='hls' k=1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=3 len_d=-400 | output Σ|d|=0 len_d=-400
+[06:07:53]      [impl_style='hls' k=1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=3 len_d=-400 | output Σ|d|=0 len_d=-400
+[06:07:53]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=3 len_d=-268 | output Σ|d|=0 len_d=-268
+[06:07:53]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=3 len_d=-268 | output Σ|d|=0 len_d=-268
+[06:09:51] 
+[06:09:51] -> eval_tree_model({"source": "def get_tree_model(self):\n    labels = self.get_nodeattr(\"Labels\")\n    pe = self.get_nodeattr(\"PE\")\n ...)
+[06:09:51]    backend=local score=23674.89 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:09:51]      vs your previous attempt: 9527.71 -> 23674.89 (WORSE)
+[06:09:51]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[06:09:51]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (44 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:09:51]    
+[06:09:51]    All 48 cases (worst first):
+[06:09:51]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:09:51]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:09:51]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:09:51]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:09:51]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:09:51]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:09:51]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:09:51]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:09:51]      [impl_style='hls' k=-1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:09:51]      [impl_style='hls' k=-1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:09:51]      [impl_style='hls' k=5 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:09:51]      [impl_style='hls' k=5 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:09:51]      [impl_style='hls' k=5 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:09:51]      [impl_style='hls' k=5 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:11:59] 
+[06:11:59] -> eval_tree_model({"source": "def get_tree_model(self):\n    init_node = Characteristic_Node(\"init\", [(3, [0, 0])], True)\n    read_node...)
+[06:11:59]    backend=local score=21202.15 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:11:59]      vs your previous attempt: 23674.89 -> 21202.15 (IMPROVED)
+[06:11:59]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[06:11:59]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (46 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:11:59]    
+[06:11:59]    All 48 cases (worst first):
+[06:11:59]      [impl_style='hls' k=1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=210 len_d=+4 | output Σ|d|=18 len_d=+4
+[06:11:59]      [impl_style='hls' k=1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=210 len_d=+4 | output Σ|d|=18 len_d=+4
+[06:11:59]      [impl_style='hls' k=1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=224 len_d=+2 | output Σ|d|=19 len_d=+2
+[06:11:59]      [impl_style='hls' k=1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=224 len_d=+2 | output Σ|d|=19 len_d=+2
+[06:11:59]      [impl_style='hls' k=1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=374 len_d=-28 | output Σ|d|=5 len_d=-28
+[06:11:59]      [impl_style='hls' k=1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=374 len_d=-28 | output Σ|d|=5 len_d=-28
+[06:11:59]      [impl_style='hls' k=-1 labels=10 fold=2 idt=UINT8] FAIL | input Σ|d|=74 len_d=-6 | output Σ|d|=198 len_d=-6
+[06:11:59]      [impl_style='hls' k=-1 labels=10 fold=2 idt=INT8] FAIL | input Σ|d|=74 len_d=-6 | output Σ|d|=198 len_d=-6
+[06:11:59]      [impl_style='hls' k=1 labels=256 fold=16 idt=UINT8] FAIL | input Σ|d|=253 len_d=-12 | output Σ|d|=12 len_d=-12
+[06:11:59]      [impl_style='hls' k=1 labels=256 fold=16 idt=INT8] FAIL | input Σ|d|=253 len_d=-12 | output Σ|d|=12 len_d=-12
+[06:11:59]      [impl_style='hls' k=5 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=178 len_d=-12 | output Σ|d|=80 len_d=-12
+[06:11:59]      [impl_style='hls' k=5 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=178 len_d=-12 | output Σ|d|=80 len_d=-12
+[06:11:59]      [impl_style='hls' k=5 labels=256 fold=16 idt=UINT8] FAIL | input Σ|d|=232 len_d=-24 | output Σ|d|=40 len_d=-24
+[06:11:59]      [impl_style='hls' k=5 labels=256 fold=16 idt=INT8] FAIL | input Σ|d|=232 len_d=-24 | output Σ|d|=40 len_d=-24
+[06:14:43] 
+[06:14:43] -> eval_tree_model({"source": "def get_tree_model(self):\n    labels = self.get_nodeattr(\"Labels\")\n    pe = self.get_nodeattr(\"PE\")\n ...)
+[06:14:43]    backend=local score=23712.72 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:14:43]      vs your previous attempt: 21202.15 -> 23712.72 (WORSE)
+[06:14:43]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[06:14:43]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (44 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:14:43]    
+[06:14:43]    All 48 cases (worst first):
+[06:14:43]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:14:43]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:14:43]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:14:43]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:14:43]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:14:43]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:14:43]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:14:43]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:14:43]      [impl_style='hls' k=-1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:14:43]      [impl_style='hls' k=-1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:14:43]      [impl_style='hls' k=5 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:14:43]      [impl_style='hls' k=5 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:14:43]      [impl_style='hls' k=5 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:14:43]      [impl_style='hls' k=5 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:16:29] 
+[06:16:29] -> eval_tree_model({"source": "def get_tree_model(self):\n    # single read cycle\n    read_node = Characteristic_Node(\"read\", [(1, [1, 0...)
+[06:16:29]    backend=local score=9527.71 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:16:29]      vs your previous attempt: 23712.72 -> 9527.71 (IMPROVED)
+[06:16:29]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[06:16:29]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (48 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:16:29]    
+[06:16:29]    All 48 cases (worst first):
+[06:16:29]      [impl_style='hls' k=1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=3 len_d=-34 | output Σ|d|=1 len_d=-34
+[06:16:29]      [impl_style='hls' k=1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=3 len_d=-34 | output Σ|d|=1 len_d=-34
+[06:16:29]      [impl_style='hls' k=-1 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=3 len_d=-658 | output Σ|d|=0 len_d=-658
+[06:16:29]      [impl_style='hls' k=-1 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=3 len_d=-658 | output Σ|d|=0 len_d=-658
+[06:16:29]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=3 len_d=-602 | output Σ|d|=0 len_d=-602
+[06:16:29]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=3 len_d=-602 | output Σ|d|=0 len_d=-602
+[06:16:29]      [impl_style='hls' k=-1 labels=256 fold=16 idt=UINT8] FAIL | input Σ|d|=3 len_d=-562 | output Σ|d|=0 len_d=-562
+[06:16:29]      [impl_style='hls' k=-1 labels=256 fold=16 idt=INT8] FAIL | input Σ|d|=3 len_d=-562 | output Σ|d|=0 len_d=-562
+[06:16:29]      [impl_style='hls' k=5 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=3 len_d=-410 | output Σ|d|=0 len_d=-410
+[06:16:29]      [impl_style='hls' k=5 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=3 len_d=-410 | output Σ|d|=0 len_d=-410
+[06:16:29]      [impl_style='hls' k=1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=3 len_d=-400 | output Σ|d|=0 len_d=-400
+[06:16:29]      [impl_style='hls' k=1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=3 len_d=-400 | output Σ|d|=0 len_d=-400
+[06:16:29]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=3 len_d=-268 | output Σ|d|=0 len_d=-268
+[06:16:29]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=3 len_d=-268 | output Σ|d|=0 len_d=-268
+[06:17:51] 
+[06:17:51] -> eval_tree_model({"source": "def get_tree_model(self):\n    labels = self.get_nodeattr(\"Labels\")\n    pe = self.get_nodeattr(\"PE\")\n ...)
+[06:17:51]    backend=local score=25787.07 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:17:51]      vs your previous attempt: 9527.71 -> 25787.07 (WORSE)
+[06:17:51]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[06:17:51]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (44 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:17:51]    
+[06:17:51]    All 48 cases (worst first):
+[06:17:51]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:17:51]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:17:51]      [impl_style='hls' k=1 labels=256 fold=16 idt=UINT8] FAIL | input Σ|d|=263 len_d=+22 | output Σ|d|=24 len_d=+22
+[06:17:51]      [impl_style='hls' k=1 labels=256 fold=16 idt=INT8] FAIL | input Σ|d|=263 len_d=+22 | output Σ|d|=24 len_d=+22
+[06:17:51]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:17:51]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:17:51]      [impl_style='hls' k=1 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=484 len_d=+120 | output Σ|d|=73 len_d=+120
+[06:17:51]      [impl_style='hls' k=1 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=484 len_d=+120 | output Σ|d|=73 len_d=+120
+[06:17:51]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:17:51]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:17:51]      [impl_style='hls' k=1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=211 len_d=+42 | output Σ|d|=34 len_d=+42
+[06:17:51]      [impl_style='hls' k=1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=211 len_d=+42 | output Σ|d|=34 len_d=+42
+[06:17:51]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:17:51]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:20:33] 
+[06:20:33] -> eval_tree_model({"source": "def get_tree_model(self):\n    labels = self.get_nodeattr(\"Labels\")\n    pe = self.get_nodeattr(\"PE\")\n ...)
+[06:20:33]    backend=local score=164109.35 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:20:33]      vs your previous attempt: 25787.07 -> 164109.35 (WORSE)
+[06:20:33]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[06:20:33]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (48 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:20:33]    
+[06:20:33]    All 48 cases (worst first):
+[06:20:33]      [impl_style='hls' k=-1 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=21248 len_d=+302 | output Σ|d|=149505 len_d=+302
+[06:20:33]      [impl_style='hls' k=-1 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=21248 len_d=+302 | output Σ|d|=149505 len_d=+302
+[06:20:33]      [impl_style='hls' k=-1 labels=256 fold=16 idt=UINT8] FAIL | input Σ|d|=5696 len_d=+254 | output Σ|d|=137217 len_d=+254
+[06:20:33]      [impl_style='hls' k=-1 labels=256 fold=16 idt=INT8] FAIL | input Σ|d|=5696 len_d=+254 | output Σ|d|=137217 len_d=+254
+[06:20:33]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=2925 len_d=+106 | output Σ|d|=23301 len_d=+106
+[06:20:33]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=2925 len_d=+106 | output Σ|d|=23301 len_d=+106
+[06:20:33]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=1250 len_d=+92 | output Σ|d|=21801 len_d=+92
+[06:20:33]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=1250 len_d=+92 | output Σ|d|=21801 len_d=+92
+[06:20:33]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=336 len_d=+4 | output Σ|d|=371 len_d=+4
+[06:20:33]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=336 len_d=+4 | output Σ|d|=371 len_d=+4
+[06:20:33]      [impl_style='hls' k=5 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=1131 len_d=+110 | output Σ|d|=406 len_d=+110
+[06:20:33]      [impl_style='hls' k=5 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=1131 len_d=+110 | output Σ|d|=406 len_d=+110
+[06:20:33]      [impl_style='hls' k=5 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=546 len_d=+32 | output Σ|d|=211 len_d=+32
+[06:20:33]      [impl_style='hls' k=5 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=546 len_d=+32 | output Σ|d|=211 len_d=+32
+[06:23:36] 
+[06:23:36] -> eval_tree_model({"source": "def get_tree_model(self):\n    num_in_words = self.get_nodeattr(\"Labels\")\n    PE = self.get_nodeattr(\"PE...)
+[06:23:36]    backend=local score=22156.14 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:23:36]      vs your previous attempt: 164109.35 -> 22156.14 (IMPROVED)
+[06:23:36]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[06:23:36]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (44 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:23:36]    
+[06:23:36]    All 48 cases (worst first):
+[06:23:36]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:23:36]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:23:36]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:23:36]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:23:36]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:23:36]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:23:36]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:23:36]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:23:36]      [impl_style='hls' k=-1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:23:36]      [impl_style='hls' k=-1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:23:36]      [impl_style='hls' k=5 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:23:36]      [impl_style='hls' k=5 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:23:36]      [impl_style='hls' k=5 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:23:36]      [impl_style='hls' k=5 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:26:09] 
+[06:26:09] -> eval_tree_model({"source": "def get_tree_model(self):\n    read_node = Characteristic_Node(\"read\", [(1, [1, 0])], True)\n    return Ch...)
+[06:26:09]    backend=local score=9527.71 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:26:09]      vs your previous attempt: 22156.14 -> 9527.71 (IMPROVED)
+[06:26:09]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[06:26:09]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (48 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:26:09]    
+[06:26:09]    All 48 cases (worst first):
+[06:26:09]      [impl_style='hls' k=1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=3 len_d=-34 | output Σ|d|=1 len_d=-34
+[06:26:09]      [impl_style='hls' k=1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=3 len_d=-34 | output Σ|d|=1 len_d=-34
+[06:26:09]      [impl_style='hls' k=-1 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=3 len_d=-658 | output Σ|d|=0 len_d=-658
+[06:26:09]      [impl_style='hls' k=-1 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=3 len_d=-658 | output Σ|d|=0 len_d=-658
+[06:26:09]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=3 len_d=-602 | output Σ|d|=0 len_d=-602
+[06:26:09]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=3 len_d=-602 | output Σ|d|=0 len_d=-602
+[06:26:09]      [impl_style='hls' k=-1 labels=256 fold=16 idt=UINT8] FAIL | input Σ|d|=3 len_d=-562 | output Σ|d|=0 len_d=-562
+[06:26:09]      [impl_style='hls' k=-1 labels=256 fold=16 idt=INT8] FAIL | input Σ|d|=3 len_d=-562 | output Σ|d|=0 len_d=-562
+[06:26:09]      [impl_style='hls' k=5 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=3 len_d=-410 | output Σ|d|=0 len_d=-410
+[06:26:09]      [impl_style='hls' k=5 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=3 len_d=-410 | output Σ|d|=0 len_d=-410
+[06:26:09]      [impl_style='hls' k=1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=3 len_d=-400 | output Σ|d|=0 len_d=-400
+[06:26:09]      [impl_style='hls' k=1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=3 len_d=-400 | output Σ|d|=0 len_d=-400
+[06:26:09]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=3 len_d=-268 | output Σ|d|=0 len_d=-268
+[06:26:09]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=3 len_d=-268 | output Σ|d|=0 len_d=-268
+[06:27:52] 
+[06:27:52] -> eval_tree_model({"source": "def get_tree_model(self):\n    labels = self.get_nodeattr(\"Labels\")\n    pe = self.get_nodeattr(\"PE\")\n ...)
+[06:27:52]    backend=local score=23712.72 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:27:52]      vs your previous attempt: 9527.71 -> 23712.72 (WORSE)
+[06:27:52]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[06:27:52]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (44 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:27:52]    
+[06:27:52]    All 48 cases (worst first):
+[06:27:52]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:27:52]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:27:52]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:27:52]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:27:52]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:27:52]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:27:52]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:27:52]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:27:52]      [impl_style='hls' k=-1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:27:52]      [impl_style='hls' k=-1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:27:52]      [impl_style='hls' k=5 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:27:52]      [impl_style='hls' k=5 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:27:52]      [impl_style='hls' k=5 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:27:52]      [impl_style='hls' k=5 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:29:53] 
+[06:29:53] -> eval_tree_model({"source": "def get_tree_model(self):\n    labels = self.get_nodeattr(\"Labels\")\n    pe = self.get_nodeattr(\"PE\")\n ...)
+[06:29:53]    backend=local score=22199.12 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:29:53]      vs your previous attempt: 23712.72 -> 22199.12 (IMPROVED)
+[06:29:53]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[06:29:53]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (44 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:29:53]    
+[06:29:53]    All 48 cases (worst first):
+[06:29:53]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:29:53]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:29:53]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:29:53]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:29:53]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:29:53]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:29:53]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:29:53]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:29:53]      [impl_style='hls' k=-1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:29:53]      [impl_style='hls' k=-1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:29:53]      [impl_style='hls' k=5 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:29:53]      [impl_style='hls' k=5 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:29:53]      [impl_style='hls' k=5 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:29:53]      [impl_style='hls' k=5 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:33:06] 
+[06:33:06] -> eval_tree_model({"source": "def get_tree_model(self):\n    labels = self.get_nodeattr(\"Labels\")\n    pe = self.get_nodeattr(\"PE\")\n ...)
+[06:33:06]    backend=local score=23712.72 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:33:06]      vs your previous attempt: 22199.12 -> 23712.72 (WORSE)
+[06:33:06]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[06:33:06]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (44 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:33:06]    
+[06:33:06]    All 48 cases (worst first):
+[06:33:06]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:33:06]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:33:06]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:33:06]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:33:06]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:33:06]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:33:06]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:33:06]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:33:06]      [impl_style='hls' k=-1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:33:06]      [impl_style='hls' k=-1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:33:06]      [impl_style='hls' k=5 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:33:06]      [impl_style='hls' k=5 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:33:06]      [impl_style='hls' k=5 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:33:06]      [impl_style='hls' k=5 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:33:08] 
+[06:33:08] -> eval_tree_model({"source": "def get_tree_model(self):\n    # This is a placeholder: uses existing helper if present\n    if hasattr(self...)
+[06:33:08]    backend=local score=22156.14 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:33:08]      vs your previous attempt: 23712.72 -> 22156.14 (IMPROVED)
+[06:33:08]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[06:33:08]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (44 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:33:08]    
+[06:33:08]    All 48 cases (worst first):
+[06:33:08]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:33:08]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:33:08]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:33:08]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:33:08]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:33:08]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:33:08]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:33:08]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:33:08]      [impl_style='hls' k=-1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:33:08]      [impl_style='hls' k=-1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:33:08]      [impl_style='hls' k=5 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:33:08]      [impl_style='hls' k=5 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:33:08]      [impl_style='hls' k=5 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:33:08]      [impl_style='hls' k=5 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:34:01] 
+[06:34:01] -> eval_tree_model({"source": "def get_tree_model(self):\n    labels = self.get_nodeattr(\"Labels\")\n    pe = self.get_nodeattr(\"PE\")\n ...)
+[06:34:01]    backend=local score=23708.25 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:34:01]      vs your previous attempt: 22156.14 -> 23708.25 (WORSE)
+[06:34:01]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[06:34:01]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (44 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:34:01]    
+[06:34:01]    All 48 cases (worst first):
+[06:34:01]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:34:01]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:34:01]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:34:01]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:34:01]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:34:01]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:34:01]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:34:01]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:34:01]      [impl_style='hls' k=-1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:34:01]      [impl_style='hls' k=-1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:34:01]      [impl_style='hls' k=5 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:34:01]      [impl_style='hls' k=5 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:34:01]      [impl_style='hls' k=5 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:34:01]      [impl_style='hls' k=5 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:38:50] 
+[06:38:50] -> eval_tree_model({"source": "def get_tree_model(self):\n    labels = self.get_nodeattr(\"Labels\")\n    pe = self.get_nodeattr(\"PE\")\n ...)
+[06:38:50]    backend=local score=22841.9 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:38:50]      vs your previous attempt: 23708.25 -> 22841.9 (IMPROVED)
+[06:38:50]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[06:38:50]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (44 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:38:50]    
+[06:38:50]    All 48 cases (worst first):
+[06:38:50]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:38:50]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:38:50]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:38:50]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:38:50]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:38:50]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:38:50]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:38:50]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:38:50]      [impl_style='hls' k=-1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:38:50]      [impl_style='hls' k=-1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:38:50]      [impl_style='hls' k=5 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:38:50]      [impl_style='hls' k=5 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:38:50]      [impl_style='hls' k=5 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:38:50]      [impl_style='hls' k=5 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:41:55] 
+[06:41:55] -> eval_tree_model({"source": "def get_tree_model(self):\n    labels = self.get_nodeattr(\"Labels\")\n    pe = self.get_nodeattr(\"PE\")\n ...)
+[06:41:55]    backend=local score=25190.84 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:41:55]      vs your previous attempt: 22841.9 -> 25190.84 (WORSE)
+[06:41:55]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[06:41:55]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (44 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:41:55]    
+[06:41:55]    All 48 cases (worst first):
+[06:41:55]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:41:55]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:41:55]      [impl_style='hls' k=1 labels=256 fold=16 idt=UINT8] FAIL | input Σ|d|=218 len_d=+34 | output Σ|d|=24 len_d=+34
+[06:41:55]      [impl_style='hls' k=1 labels=256 fold=16 idt=INT8] FAIL | input Σ|d|=218 len_d=+34 | output Σ|d|=24 len_d=+34
+[06:41:55]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:41:55]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:41:55]      [impl_style='hls' k=1 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=451 len_d=+132 | output Σ|d|=73 len_d=+132
+[06:41:55]      [impl_style='hls' k=1 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=451 len_d=+132 | output Σ|d|=73 len_d=+132
+[06:41:55]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:41:55]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:41:55]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:41:55]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:41:55]      [impl_style='hls' k=1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=185 len_d=+50 | output Σ|d|=34 len_d=+50
+[06:41:55]      [impl_style='hls' k=1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=185 len_d=+50 | output Σ|d|=34 len_d=+50
+[06:44:18] 
+[06:44:18] -> eval_tree_model({"source": "def get_tree_model(self):\n    labels_total = self.get_nodeattr(\"Labels\")\n    pe = self.get_nodeattr(\"PE...)
+[06:44:18]    backend=local score=23712.72 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:44:18]      vs your previous attempt: 25190.84 -> 23712.72 (IMPROVED)
+[06:44:18]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[06:44:18]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (44 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:44:18]    
+[06:44:18]    All 48 cases (worst first):
+[06:44:18]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:44:18]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:44:18]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:44:18]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:44:18]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:44:18]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:44:18]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:44:18]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:44:18]      [impl_style='hls' k=-1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:44:18]      [impl_style='hls' k=-1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:44:18]      [impl_style='hls' k=5 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:44:18]      [impl_style='hls' k=5 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:44:18]      [impl_style='hls' k=5 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:44:18]      [impl_style='hls' k=5 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:46:47] 
+[06:46:47] -> eval_tree_model({"source": "def get_tree_model(self):\n    labels = self.get_nodeattr(\"Labels\")\n    pe = self.get_nodeattr(\"PE\")\n ...)
+[06:46:47]    backend=local score=23280.39 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:46:47]      vs your previous attempt: 23712.72 -> 23280.39 (IMPROVED)
+[06:46:47]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[06:46:47]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (44 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:46:47]    
+[06:46:47]    All 48 cases (worst first):
+[06:46:47]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:46:47]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:46:47]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:46:47]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:46:47]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:46:47]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:46:47]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:46:47]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:46:47]      [impl_style='hls' k=-1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:46:47]      [impl_style='hls' k=-1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:46:47]      [impl_style='hls' k=5 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:46:47]      [impl_style='hls' k=5 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:46:47]      [impl_style='hls' k=5 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:46:47]      [impl_style='hls' k=5 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:46:51] 
+[06:46:51] -> eval_tree_model({"source": "def get_tree_model(self):\n    labels_total = self.get_nodeattr(\"Labels\")\n    pe = self.get_nodeattr(\"PE...)
+[06:46:51]    backend=local score=23280.39 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:46:51]      vs your previous attempt: 23280.39 -> 23280.39 (unchanged)
+[06:46:51]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[06:46:51]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (44 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:46:51]    
+[06:46:51]    All 48 cases (worst first):
+[06:46:51]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:46:51]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:46:51]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:46:51]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:46:51]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:46:51]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:46:51]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:46:51]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:46:51]      [impl_style='hls' k=-1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:46:51]      [impl_style='hls' k=-1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:46:51]      [impl_style='hls' k=5 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:46:51]      [impl_style='hls' k=5 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:46:51]      [impl_style='hls' k=5 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:46:51]      [impl_style='hls' k=5 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:48:28] 
+[06:48:28] -> eval_tree_model({"source": "def get_tree_model(self):\n    labels = self.get_nodeattr(\"Labels\")\n    pe = self.get_nodeattr(\"PE\")\n ...)
+[06:48:28]    backend=local score=21284.79 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:48:28]      vs your previous attempt: 23280.39 -> 21284.79 (IMPROVED)
+[06:48:28]      INPUT ports: 8/48 exact.  OUTPUT ports: 0/48 exact.
+[06:48:28]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 40 input port(s) still differ (36 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:48:28]    
+[06:48:28]    All 48 cases (worst first):
+[06:48:28]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:48:28]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:48:28]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:48:28]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:48:28]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:48:28]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:48:28]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:48:28]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:48:28]      [impl_style='hls' k=-1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:48:28]      [impl_style='hls' k=-1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:48:28]      [impl_style='hls' k=5 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:48:28]      [impl_style='hls' k=5 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:48:28]      [impl_style='hls' k=5 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:48:28]      [impl_style='hls' k=5 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:53:01] 
+[06:53:01] -> eval_tree_model({"source": "def get_tree_model(self):\n    labels = self.get_nodeattr(\"Labels\")\n    pe = self.get_nodeattr(\"PE\")\n ...)
+[06:53:01]    backend=local score=149439.69 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:53:01]      vs your previous attempt: 21284.79 -> 149439.69 (WORSE)
+[06:53:01]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[06:53:01]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (48 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:53:01]    
+[06:53:01]    All 48 cases (worst first):
+[06:53:01]      [impl_style='hls' k=-1 labels=256 fold=16 idt=UINT8] FAIL | input Σ|d|=16 len_d=+568 | output Σ|d|=137217 len_d=+568
+[06:53:01]      [impl_style='hls' k=-1 labels=256 fold=16 idt=INT8] FAIL | input Σ|d|=16 len_d=+568 | output Σ|d|=137217 len_d=+568
+[06:53:01]      [impl_style='hls' k=-1 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=64 len_d=+664 | output Σ|d|=149505 len_d=+664
+[06:53:01]      [impl_style='hls' k=-1 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=64 len_d=+664 | output Σ|d|=149505 len_d=+664
+[06:53:01]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=50 len_d=+240 | output Σ|d|=21801 len_d=+240
+[06:53:01]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=50 len_d=+240 | output Σ|d|=21801 len_d=+240
+[06:53:01]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=125 len_d=+266 | output Σ|d|=23301 len_d=+266
+[06:53:01]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=125 len_d=+266 | output Σ|d|=23301 len_d=+266
+[06:53:01]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=50 len_d=+58 | output Σ|d|=371 len_d=+58
+[06:53:01]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=50 len_d=+58 | output Σ|d|=371 len_d=+58
+[06:53:01]      [impl_style='hls' k=-1 labels=10 fold=2 idt=UINT8] FAIL | input Σ|d|=0 len_d=+42 | output Σ|d|=291 len_d=+42
+[06:53:01]      [impl_style='hls' k=-1 labels=10 fold=2 idt=INT8] FAIL | input Σ|d|=0 len_d=+42 | output Σ|d|=291 len_d=+42
+[06:53:01]      [impl_style='hls' k=-1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=10 len_d=+38 | output Σ|d|=450 len_d=+38
+[06:53:01]      [impl_style='hls' k=-1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=10 len_d=+38 | output Σ|d|=450 len_d=+38
+[06:54:12] 
+[06:54:12] -> eval_tree_model({"source": "def get_tree_model(self):\n    labels = self.get_nodeattr(\"Labels\")\n    pe = self.get_nodeattr(\"PE\")\n ...)
+[06:54:12]    backend=local score=23712.72 (exact=0 differ=48 error=0 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:54:12]      vs your previous attempt: 149439.69 -> 23712.72 (IMPROVED)
+[06:54:12]      INPUT ports: 0/48 exact.  OUTPUT ports: 0/48 exact.
+[06:54:12]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 48 input port(s) still differ (44 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:54:12]    
+[06:54:12]    All 48 cases (worst first):
+[06:54:12]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:54:12]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] FAIL | input Σ|d|=111 len_d=-388 | output Σ|d|=20780 len_d=-388
+[06:54:12]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:54:12]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=350 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:54:12]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:54:12]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] FAIL | input Σ|d|=140 len_d=-6 | output Σ|d|=1172 len_d=-6
+[06:54:12]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:54:12]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] FAIL | input Σ|d|=160 len_d=-10 | output Σ|d|=115 len_d=-10
+[06:54:12]      [impl_style='hls' k=-1 labels=10 fold=1 idt=UINT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:54:12]      [impl_style='hls' k=-1 labels=10 fold=1 idt=INT8] FAIL | input Σ|d|=18 len_d=-34 | output Σ|d|=215 len_d=-34
+[06:54:12]      [impl_style='hls' k=5 labels=100 fold=25 idt=UINT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:54:12]      [impl_style='hls' k=5 labels=100 fold=25 idt=INT8] FAIL | input Σ|d|=325 len_d=-4 | output Σ|d|=30 len_d=-4
+[06:54:12]      [impl_style='hls' k=5 labels=256 fold=64 idt=UINT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:54:12]      [impl_style='hls' k=5 labels=256 fold=64 idt=INT8] FAIL | input Σ|d|=704 len_d=+0 | output Σ|d|=14 len_d=+0
+[06:55:54] 
+[06:55:54] -> eval_tree_model({"source": "def get_tree_model(self):\n    labels = self.get_nodeattr(\"Labels\")\n    pe = self.get_nodeattr(\"PE\")\n ...)
+[06:55:54]    backend=local score=48000000.0 (exact=0 differ=0 error=48 of 48 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:55:54]      vs your previous attempt: 23712.72 -> 48000000.0 (WORSE)
+[06:55:54]      INPUT ports: 0/0 exact.  OUTPUT ports: 0/0 exact.
+[06:55:54]    
+[06:55:54]    All 48 cases (worst first):
+[06:55:54]      [impl_style='hls' k=-1 labels=10 fold=1 idt=UINT8] ERROR: AttributeError: 'LabelSelect_hls' object has no attribute 'nodeattr_exists' -- it was not captured from the docker run, so the host oracle cannot supply it. Either derive the value from self.get_nodeattr(...), or run with --oracle both (auto-escalates such candidates to docker) / --oracle docker.
+[06:55:54]      [impl_style='hls' k=-1 labels=10 fold=1 idt=INT8] ERROR: AttributeError: 'LabelSelect_hls' object has no attribute 'nodeattr_exists' -- it was not captured from the docker run, so the host oracle cannot supply it. Either derive the value from self.get_nodeattr(...), or run with --oracle both (auto-escalates such candidates to docker) / --oracle docker.
+[06:55:54]      [impl_style='hls' k=-1 labels=10 fold=10 idt=UINT8] ERROR: AttributeError: 'LabelSelect_hls' object has no attribute 'nodeattr_exists' -- it was not captured from the docker run, so the host oracle cannot supply it. Either derive the value from self.get_nodeattr(...), or run with --oracle both (auto-escalates such candidates to docker) / --oracle docker.
+[06:55:54]      [impl_style='hls' k=-1 labels=10 fold=10 idt=INT8] ERROR: AttributeError: 'LabelSelect_hls' object has no attribute 'nodeattr_exists' -- it was not captured from the docker run, so the host oracle cannot supply it. Either derive the value from self.get_nodeattr(...), or run with --oracle both (auto-escalates such candidates to docker) / --oracle docker.
+[06:55:54]      [impl_style='hls' k=-1 labels=10 fold=2 idt=UINT8] ERROR: AttributeError: 'LabelSelect_hls' object has no attribute 'nodeattr_exists' -- it was not captured from the docker run, so the host oracle cannot supply it. Either derive the value from self.get_nodeattr(...), or run with --oracle both (auto-escalates such candidates to docker) / --oracle docker.
+[06:55:54]      [impl_style='hls' k=-1 labels=10 fold=2 idt=INT8] ERROR: AttributeError: 'LabelSelect_hls' object has no attribute 'nodeattr_exists' -- it was not captured from the docker run, so the host oracle cannot supply it. Either derive the value from self.get_nodeattr(...), or run with --oracle both (auto-escalates such candidates to docker) / --oracle docker.
+[06:55:54]      [impl_style='hls' k=-1 labels=100 fold=1 idt=UINT8] ERROR: AttributeError: 'LabelSelect_hls' object has no attribute 'nodeattr_exists' -- it was not captured from the docker run, so the host oracle cannot supply it. Either derive the value from self.get_nodeattr(...), or run with --oracle both (auto-escalates such candidates to docker) / --oracle docker.
+[06:55:54]      [impl_style='hls' k=-1 labels=100 fold=1 idt=INT8] ERROR: AttributeError: 'LabelSelect_hls' object has no attribute 'nodeattr_exists' -- it was not captured from the docker run, so the host oracle cannot supply it. Either derive the value from self.get_nodeattr(...), or run with --oracle both (auto-escalates such candidates to docker) / --oracle docker.
+[06:55:54]      [impl_style='hls' k=-1 labels=100 fold=10 idt=UINT8] ERROR: AttributeError: 'LabelSelect_hls' object has no attribute 'nodeattr_exists' -- it was not captured from the docker run, so the host oracle cannot supply it. Either derive the value from self.get_nodeattr(...), or run with --oracle both (auto-escalates such candidates to docker) / --oracle docker.
+[06:55:54]      [impl_style='hls' k=-1 labels=100 fold=10 idt=INT8] ERROR: AttributeError: 'LabelSelect_hls' object has no attribute 'nodeattr_exists' -- it was not captured from the docker run, so the host oracle cannot supply it. Either derive the value from self.get_nodeattr(...), or run with --oracle both (auto-escalates such candidates to docker) / --oracle docker.
+[06:55:54]      [impl_style='hls' k=-1 labels=100 fold=25 idt=UINT8] ERROR: AttributeError: 'LabelSelect_hls' object has no attribute 'nodeattr_exists' -- it was not captured from the docker run, so the host oracle cannot supply it. Either derive the value from self.get_nodeattr(...), or run with --oracle both (auto-escalates such candidates to docker) / --oracle docker.
+[06:55:54]      [impl_style='hls' k=-1 labels=100 fold=25 idt=INT8] ERROR: AttributeError: 'LabelSelect_hls' object has no attribute 'nodeattr_exists' -- it was not captured from the docker run, so the host oracle cannot supply it. Either derive the value from self.get_nodeattr(...), or run with --oracle both (auto-escalates such candidates to docker) / --oracle docker.
+[06:55:54]      [impl_style='hls' k=-1 labels=256 fold=16 idt=UINT8] ERROR: AttributeError: 'LabelSelect_hls' object has no attribute 'nodeattr_exists' -- it was not captured from the docker run, so the host oracle cannot supply it. Either derive the value from self.get_nodeattr(...), or run with --oracle both (auto-escalates such candidates to docker) / --oracle docker.
+[06:55:54]      [impl_style='hls' k=-1 labels=256 fold=16 idt=INT8] ERROR: AttributeError: 'LabelSelect_hls' object has no attribute 'nodeattr_exists' -- it was not captured from the docker run, so the host oracle cannot supply it. Either derive the value from self.get_nodeattr(...), or run with --oracle both (auto-escalates such candidates to docker) / --oracle docker.
+[06:55:54]      [impl_style='hls' k=-1 labels=256 fold=64 idt=UINT8] ERROR: AttributeError: 'LabelSelect_hls' object has no attribute 'nodeattr_exists' -- it was not captured from the docker run, so the host oracle cannot supply it. Either derive the value from self.get_nodeattr(...), or run with --oracle both (auto-escalates such candidates to docker) / --oracle docker.

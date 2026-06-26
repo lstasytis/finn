@@ -1,0 +1,1054 @@
+[05:38:50] node=Pool model=gpt-5.2-codex oracle=local parallel=1 curriculum=False memory=True max_iterations=10
+[05:38:50] out_dir=/tmp/finn_dev_lstasytis/tav_bespoke/Pool-20260626-053850
+[05:38:50] 
+[05:38:50] ============================================================
+[05:38:50] baseline docker run (capturing reference TAVs)
+[05:38:50] ============================================================
+[05:38:50] [tav_eval] patched get_tree_model in /home/lstasytis/backup/finn/src/finn/custom_op/fpgadataflow/pool.py (backup: /home/lstasytis/backup/finn/src/finn/custom_op/fpgadataflow/pool.py.tav_orig)
+[05:38:50] [tav_eval] waiting for container python environment ...
+[05:38:53] [tav_eval] synced 0 cached rtlsim reference(s) into build dir
+[05:39:00] [tav_eval] pytest exit code: 1
+[05:39:00] captured 30 case(s); baseline docker score=5081.6 solved=False
+[05:39:00] [oracle self-test] local oracle self-test passed on all cases with captured vectors
+[05:39:00] 
+[05:39:00] baseline local score (active set)=5081.6
+[05:39:00] baseline delta vs rtlsim: max_abs=392 avg_norm=5.76%
+[05:39:00] backend=local score=5081.6 (exact=0 differ=30 error=0 of 30 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[05:39:00]   INPUT ports: 0/30 exact.  OUTPUT ports: 0/30 exact.
+[05:39:00] >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 30 input port(s) still differ (30 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[05:39:00] 
+[05:39:00] All 30 cases (worst first):
+[05:39:00]   [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=185 len_d=-2 | output Σ|d|=94 len_d=-2
+[05:39:00]   [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=185 len_d=-2 | output Σ|d|=94 len_d=-2
+[05:39:00]   [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=185 len_d=-2 | output Σ|d|=94 len_d=-2
+[05:39:00]   [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=185 len_d=-2 | output Σ|d|=94 len_d=-2
+[05:39:00]   [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=185 len_d=-2 | output Σ|d|=94 len_d=-2
+[05:39:00]   [ifm_ch=16 pe=16 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=425 len_d=-2 | output Σ|d|=146 len_d=-2
+[05:39:00]   [ifm_ch=8 pe=1 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=425 len_d=-2 | output Σ|d|=146 len_d=-2
+[05:39:00]   [ifm_ch=8 pe=2 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=425 len_d=-2 | output Σ|d|=146 len_d=-2
+[05:39:00]   [ifm_ch=8 pe=4 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=425 len_d=-2 | output Σ|d|=146 len_d=-2
+[05:39:00]   [ifm_ch=8 pe=8 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=425 len_d=-2 | output Σ|d|=146 len_d=-2
+[05:39:00]   [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=581 len_d=-2 | output Σ|d|=49 len_d=-2
+[05:39:00]   [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=581 len_d=-2 | output Σ|d|=49 len_d=-2
+[05:39:00]   [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=581 len_d=-2 | output Σ|d|=49 len_d=-2
+[05:39:00]   [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=581 len_d=-2 | output Σ|d|=49 len_d=-2
+[05:39:00]   [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=581 len_d=-2 | output Σ|d|=49 len_d=-2
+[05:39:00]   [ifm_ch=16 pe=16 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=185 len_d=-2 | output Σ|d|=16 len_d=-2
+[05:39:00]   [ifm_ch=8 pe=1 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=185 len_d=-2 | output Σ|d|=16 len_d=-2
+[05:39:00]   [ifm_ch=8 pe=2 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=185 len_d=-2 | output Σ|d|=16 len_d=-2
+[05:39:00]   [ifm_ch=8 pe=4 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=185 len_d=-2 | output Σ|d|=16 len_d=-2
+[05:39:00]   [ifm_ch=8 pe=8 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=185 len_d=-2 | output Σ|d|=16 len_d=-2
+[05:39:00]   [ifm_ch=16 pe=16 op_type='MaxPool1D' idt=INT4 odt=INT4 k=3 stride=3 pad=0 ifm_dim=6] FAIL | input Σ|d|=13 len_d=-2 | output Σ|d|=3 len_d=-2
+[05:39:00]   [ifm_ch=8 pe=1 op_type='MaxPool1D' idt=INT4 odt=INT4 k=3 stride=3 pad=0 ifm_dim=6] FAIL | input Σ|d|=13 len_d=-2 | output Σ|d|=3 len_d=-2
+[05:39:00]   [ifm_ch=8 pe=2 op_type='MaxPool1D' idt=INT4 odt=INT4 k=3 stride=3 pad=0 ifm_dim=6] FAIL | input Σ|d|=13 len_d=-2 | output Σ|d|=3 len_d=-2
+[05:39:00]   [ifm_ch=8 pe=4 op_type='MaxPool1D' idt=INT4 odt=INT4 k=3 stride=3 pad=0 ifm_dim=6] FAIL | input Σ|d|=13 len_d=-2 | output Σ|d|=3 len_d=-2
+[05:39:00]   [ifm_ch=8 pe=8 op_type='MaxPool1D' idt=INT4 odt=INT4 k=3 stride=3 pad=0 ifm_dim=6] FAIL | input Σ|d|=13 len_d=-2 | output Σ|d|=3 len_d=-2
+[05:39:00]   [ifm_ch=16 pe=16 op_type='MaxPool1D' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=19 len_d=-2 | output Σ|d|=2 len_d=-2
+[05:39:00]   [ifm_ch=8 pe=1 op_type='MaxPool1D' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=19 len_d=-2 | output Σ|d|=2 len_d=-2
+[05:39:00]   [ifm_ch=8 pe=2 op_type='MaxPool1D' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=19 len_d=-2 | output Σ|d|=2 len_d=-2
+[05:39:00]   [ifm_ch=8 pe=4 op_type='MaxPool1D' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=19 len_d=-2 | output Σ|d|=2 len_d=-2
+[05:39:00]   [ifm_ch=8 pe=8 op_type='MaxPool1D' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=19 len_d=-2 | output Σ|d|=2 len_d=-2
+[05:39:00] 
+[05:39:00] Detail for the smallest cases whose input port still differs (per-cycle pattern is clearest here and usually transfers to bigger cases). Vectors are RLE'd (run_length,value), truncated after 120 runs:
+[05:39:00]   [ifm_ch=16 pe=16 op_type='MaxPool1D' idt=INT4 odt=INT4 k=3 stride=3 pad=0 ifm_dim=6] (case score 142.9):
+[05:39:00]      input: yours len=12 target len=14 (len_delta=-2), Σ|delta|=13, peak=2
+[05:39:00]         TARGET (rtlsim): [(1,+1), (2,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (2,+8), (1,+9), (1,+10), (1,+11), (1,+12)]
+[05:39:00]         YOURS          : [(1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (1,+10), (1,+11), (1,+12)]
+[05:39:00]         DELTA (yours-target): [(2,0), (7,+1), (3,+2)]
+[05:39:00]      output: differs (len_delta=-2, Σ|delta|=3) -- deprioritized, get input exact first
+[05:39:00]   [ifm_ch=8 pe=1 op_type='MaxPool1D' idt=INT4 odt=INT4 k=3 stride=3 pad=0 ifm_dim=6] (case score 142.9):
+[05:39:00]      input: yours len=12 target len=14 (len_delta=-2), Σ|delta|=13, peak=2
+[05:39:00]         TARGET (rtlsim): [(1,+1), (2,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (2,+8), (1,+9), (1,+10), (1,+11), (1,+12)]
+[05:39:00]         YOURS          : [(1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (1,+10), (1,+11), (1,+12)]
+[05:39:00]         DELTA (yours-target): [(2,0), (7,+1), (3,+2)]
+[05:39:00]      output: differs (len_delta=-2, Σ|delta|=3) -- deprioritized, get input exact first
+[05:39:00]   [ifm_ch=8 pe=2 op_type='MaxPool1D' idt=INT4 odt=INT4 k=3 stride=3 pad=0 ifm_dim=6] (case score 142.9):
+[05:39:00]      input: yours len=12 target len=14 (len_delta=-2), Σ|delta|=13, peak=2
+[05:39:00]         TARGET (rtlsim): [(1,+1), (2,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (2,+8), (1,+9), (1,+10), (1,+11), (1,+12)]
+[05:39:00]         YOURS          : [(1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (1,+10), (1,+11), (1,+12)]
+[05:39:00]         DELTA (yours-target): [(2,0), (7,+1), (3,+2)]
+[05:39:00]      output: differs (len_delta=-2, Σ|delta|=3) -- deprioritized, get input exact first
+[05:39:00]   [ifm_ch=8 pe=4 op_type='MaxPool1D' idt=INT4 odt=INT4 k=3 stride=3 pad=0 ifm_dim=6] (case score 142.9):
+[05:39:00]      input: yours len=12 target len=14 (len_delta=-2), Σ|delta|=13, peak=2
+[05:39:00]         TARGET (rtlsim): [(1,+1), (2,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (2,+8), (1,+9), (1,+10), (1,+11), (1,+12)]
+[05:39:00]         YOURS          : [(1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (1,+10), (1,+11), (1,+12)]
+[05:39:00]         DELTA (yours-target): [(2,0), (7,+1), (3,+2)]
+[05:39:00]      output: differs (len_delta=-2, Σ|delta|=3) -- deprioritized, get input exact first
+[05:39:00]   [ifm_ch=8 pe=8 op_type='MaxPool1D' idt=INT4 odt=INT4 k=3 stride=3 pad=0 ifm_dim=6] (case score 142.9):
+[05:39:00]      input: yours len=12 target len=14 (len_delta=-2), Σ|delta|=13, peak=2
+[05:39:00]         TARGET (rtlsim): [(1,+1), (2,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (2,+8), (1,+9), (1,+10), (1,+11), (1,+12)]
+[05:39:00]         YOURS          : [(1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (1,+10), (1,+11), (1,+12)]
+[05:39:00]         DELTA (yours-target): [(2,0), (7,+1), (3,+2)]
+[05:39:00]      output: differs (len_delta=-2, Σ|delta|=3) -- deprioritized, get input exact first
+[05:39:00]   [ifm_ch=16 pe=16 op_type='MaxPool1D' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] (case score 138.9):
+[05:39:00]      input: yours len=16 target len=18 (len_delta=-2), Σ|delta|=19, peak=2
+[05:39:00]         TARGET (rtlsim): [(1,+1), (2,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (2,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16)]
+[05:39:00]         YOURS          : [(1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (1,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16)]
+[05:39:00]         DELTA (yours-target): [(2,0), (9,+1), (5,+2)]
+[05:39:00]      output: differs (len_delta=-2, Σ|delta|=2) -- deprioritized, get input exact first
+[05:39:00]   [ifm_ch=8 pe=1 op_type='MaxPool1D' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] (case score 138.9):
+[05:39:00]      input: yours len=16 target len=18 (len_delta=-2), Σ|delta|=19, peak=2
+[05:39:00]         TARGET (rtlsim): [(1,+1), (2,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (2,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16)]
+[05:39:00]         YOURS          : [(1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (1,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16)]
+[05:39:00]         DELTA (yours-target): [(2,0), (9,+1), (5,+2)]
+[05:39:00]      output: differs (len_delta=-2, Σ|delta|=2) -- deprioritized, get input exact first
+[05:39:00]   [ifm_ch=8 pe=2 op_type='MaxPool1D' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] (case score 138.9):
+[05:39:00]      input: yours len=16 target len=18 (len_delta=-2), Σ|delta|=19, peak=2
+[05:39:00]         TARGET (rtlsim): [(1,+1), (2,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (2,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16)]
+[05:39:00]         YOURS          : [(1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (1,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16)]
+[05:39:00]         DELTA (yours-target): [(2,0), (9,+1), (5,+2)]
+[05:39:00]      output: differs (len_delta=-2, Σ|delta|=2) -- deprioritized, get input exact first
+[05:39:00]   [ifm_ch=8 pe=4 op_type='MaxPool1D' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] (case score 138.9):
+[05:39:00]      input: yours len=16 target len=18 (len_delta=-2), Σ|delta|=19, peak=2
+[05:39:00]         TARGET (rtlsim): [(1,+1), (2,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (2,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16)]
+[05:39:00]         YOURS          : [(1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (1,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16)]
+[05:39:00]         DELTA (yours-target): [(2,0), (9,+1), (5,+2)]
+[05:39:00]      output: differs (len_delta=-2, Σ|delta|=2) -- deprioritized, get input exact first
+[05:39:00]   [ifm_ch=8 pe=8 op_type='MaxPool1D' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] (case score 138.9):
+[05:39:00]      input: yours len=16 target len=18 (len_delta=-2), Σ|delta|=19, peak=2
+[05:39:00]         TARGET (rtlsim): [(1,+1), (2,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (2,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16)]
+[05:39:00]         YOURS          : [(1,+1), (1,+2), (1,+3), (1,+4), (1,+5), (1,+6), (1,+7), (1,+8), (1,+9), (1,+10), (1,+11), (1,+12), (1,+13), (1,+14), (1,+15), (1,+16)]
+[05:39:00]         DELTA (yours-target): [(2,0), (9,+1), (5,+2)]
+[05:39:00]      output: differs (len_delta=-2, Σ|delta|=2) -- deprioritized, get input exact first
+[05:39:00]   (+20 more case(s) with a failing input port summarized above -- fix these first, then re-evaluate.)
+[05:39:00] 
+[05:39:00] ============================================================
+[05:39:00] iteration 1  (active cases: 30/30, best score 5081.6)
+[05:39:00] ============================================================
+[05:39:04] 
+[05:39:04] -> eval_tree_model({"source": "def get_tree_model(self):\n    # extract node attr\n\n    PE = self.get_nodeattr(\"PE\")\n    Channels = sel...)
+[05:39:04]    backend=local score=5081.6 (exact=0 differ=30 error=0 of 30 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[05:39:04]      INPUT ports: 0/30 exact.  OUTPUT ports: 0/30 exact.
+[05:39:04]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 30 input port(s) still differ (30 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[05:39:04]    
+[05:39:04]    All 30 cases (worst first):
+[05:39:04]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=185 len_d=-2 | output Σ|d|=94 len_d=-2
+[05:39:04]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=185 len_d=-2 | output Σ|d|=94 len_d=-2
+[05:39:04]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=185 len_d=-2 | output Σ|d|=94 len_d=-2
+[05:39:04]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=185 len_d=-2 | output Σ|d|=94 len_d=-2
+[05:39:04]      [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=185 len_d=-2 | output Σ|d|=94 len_d=-2
+[05:39:04]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=425 len_d=-2 | output Σ|d|=146 len_d=-2
+[05:39:04]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=425 len_d=-2 | output Σ|d|=146 len_d=-2
+[05:39:04]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=425 len_d=-2 | output Σ|d|=146 len_d=-2
+[05:39:04]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=425 len_d=-2 | output Σ|d|=146 len_d=-2
+[05:39:04]      [ifm_ch=8 pe=8 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=425 len_d=-2 | output Σ|d|=146 len_d=-2
+[05:39:04]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=581 len_d=-2 | output Σ|d|=49 len_d=-2
+[05:39:04]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=581 len_d=-2 | output Σ|d|=49 len_d=-2
+[05:39:04]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=581 len_d=-2 | output Σ|d|=49 len_d=-2
+[05:39:04]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=581 len_d=-2 | output Σ|d|=49 len_d=-2
+[05:39:04]      [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=581 len_d=-2 | output Σ|d|=49 len_d=-2
+[05:39:29] 
+[05:39:29] -> bash({"command": "ls -R /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs"})
+[05:39:29]    (exit 0)
+[05:39:29]    /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs:
+[05:39:29]    deps
+[05:39:29]    finn-rtllib
+[05:39:29]    src
+[05:39:29]    
+[05:39:29]    /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps:
+[05:39:29]    finn-hlslib
+[05:39:29]    
+[05:39:29]    /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlslib:
+[05:39:29]    activations.hpp
+[05:39:29]    maxpool.h
+[05:39:29]    mvau.hpp
+[05:39:29]    pool.hpp
+[05:39:29]    streamtools.h
+[05:39:29]    vvau.hpp
+[05:39:29]    
+[05:39:29]    /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/finn-rtllib:
+[05:39:29]    dwc
+[05:39:29]    fmpadding
+[05:39:30] 
+[05:39:30] -> bash({"command": "sed -n '1,240p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlslib/pool.hpp"...)
+[05:39:30]    (exit 0)
+[05:39:30]    #ifndef POOL_HPP
+[05:39:30]    #define POOL_HPP
+[05:39:30]    
+[05:39:30]    #include "utils.hpp"
+[05:39:30]    
+[05:39:30]    
+[05:39:30]    #include <type_traits>
+[05:39:30]    #include <limits>
+[05:39:30]    #include <algorithm>
+[05:39:30]    
+[05:39:30]    
+[05:39:30]    /*!
+[05:39:30]     * \brief PoolFunction: General contract for pool functions.
+[05:39:30]     *
+[05:39:30]     * This class itself has no formal significance for the implementation
+[05:39:30]     * of the pool function. It provides a guidence for specific pool function to be used in Pool_batch
+[05:39:30]     * 
+[05:39:30]     * \tparam  TO  Datatype of the output generated by the pool function
+[05:39:30]     * \tparam  TA  Datatype of the internal accumulation in the pool function
+[05:39:45] 
+[05:39:45] -> bash({"command": "sed -n '1,260p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadat...)
+[05:39:45]    (exit 0)
+[05:39:45]    import numpy as np
+[05:39:45]    from qonnx.core.datatype import DataType
+[05:39:45]    
+[05:39:45]    from finn.custom_op.fpgadataflow.hwcustomop import HWCustomOp
+[05:39:45]    from finn.util.basic import Characteristic_Node
+[05:39:45]    
+[05:39:45]    
+[05:39:45]    class Pool(HWCustomOp):
+[05:39:45]        """Abstraction layer for HW implementation of Pool.
+[05:39:45]        Requires ConvolutionInputGenerator(depthwise == 1) to format its input
+[05:39:45]    
+[05:39:45]        Input shape (BatchSize,OutImgDim,OutImgDim,TotalKernelSize*Channels)
+[05:39:45]        Output shape (BatchSize,OutImgDim,OutImgDim,Channels)
+[05:39:45]    
+[05:39:45]        Notes:
+[05:39:45]    
+[05:39:45]        * The input shape was chosen to be compatible with im2col (only true when there
+[05:39:45]          is not folding).
+[05:39:45]        * The actual data layout produced by the hlslib kernels is different
+[05:41:05] 
+[05:41:05] -> bash({"command": "grep -R \"class ModCounter\" -n /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-...)
+[05:41:05]    (exit 2)
+[05:41:05]    grep: /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlslib/utils.hpp: No such file or directory
+[05:41:07] 
+[05:41:07] -> bash({"command": "grep -R \"ModCounter\" -n /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlslib...)
+[05:41:07]    (exit 0)
+[05:41:07]    /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlslib/pool.hpp:216:	ModCounter<K>  cnt;
+[05:41:08] 
+[05:41:08] -> bash({"command": "sed -n '180,260p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlslib/pool.hp...)
+[05:41:08]    (exit 0)
+[05:41:08]            }  
+[05:41:08]            return res;  
+[05:41:08]        }  
+[05:41:08]    }; // class QuantAvgPoolFunction<hls::vector>
+[05:41:08]    
+[05:41:08]    
+[05:41:08]    //===========================================================================
+[05:41:08]    // Operator Top-Level Function
+[05:41:08]    
+[05:41:08]    /**
+[05:41:08]     * The function implements generic pooling and works in conjuction with a
+[05:41:08]     * sliding window unit performing im2col on the input data, which enables
+[05:41:08]     * generic kernel and stride values. Parallel independent reduction lanes
+[05:41:08]     * are implemented by the passed Pool<> functor when TI and TO are
+[05:41:08]     * hls::vector types.
+[05:41:08]     *
+[05:41:08]     * @param src  Input stream
+[05:41:08]     * @param dst  Output stream
+[05:41:08]     * @param fct  Pooling functor (Max, Avg, Sum, ...)
+[05:41:23] 
+[05:41:23] -> bash({"command": "grep -n \"OutImgDims\" -n /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_...)
+[05:41:23]    (exit 0)
+[05:41:23]    37:            "OutImgDims": ("ints", True, []),
+[05:41:23]    75:        odims = self.get_nodeattr("OutImgDims")
+[05:41:23]    93:        odims = self.get_nodeattr("OutImgDims")
+[05:41:23]    113:        odims = self.get_nodeattr("OutImgDims")
+[05:41:23]    194:        OutImgDims = self.get_nodeattr("OutImgDims")
+[05:41:23]    208:            reps = BatchSize * np.prod(OutImgDims)  # number of pooling windows to process
+[05:41:23]    211:            reps = BatchSize * np.prod(OutImgDims)  # number of pooling windows to process
+[05:41:24] 
+[05:41:24] -> bash({"command": "sed -n '160,250p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgad...)
+[05:41:24]    (exit 0)
+[05:41:24]            # simulate behavior with Python functionality
+[05:41:24]            node = self.onnx_node
+[05:41:24]            fnx = self.get_nodeattr("Function")
+[05:41:24]            k = self.get_nodeattr("KernelSize")
+[05:41:24]            ch = self.get_nodeattr("Channels")
+[05:41:24]            k2 = k[0] * k[1]
+[05:41:24]    
+[05:41:24]            inp_values = context[node.input[0]]
+[05:41:24]            ishape = inp_values.shape
+[05:41:24]            # reshape array to apply max or avg function only on kernel
+[05:41:24]            tmp_shape = tuple(list(ishape)[:-1] + [k2, ch])
+[05:41:24]            tmp_values = inp_values.reshape(tmp_shape)
+[05:41:24]            if fnx == "MaxPool":
+[05:41:24]                result = np.max(tmp_values, axis=3)
+[05:41:24]            elif fnx == "QuantAvgPool":
+[05:41:24]                # determine bits to shift
+[05:41:24]                ibits = self.get_input_datatype().bitwidth()
+[05:41:24]                obits = self.get_output_datatype().bitwidth()
+[05:41:24]                max_value = 2**ibits - 1
+[05:41:44] 
+[05:41:44] -> bash({"command": "sed -n '1,240p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadat...)
+[05:41:44]    (exit 0)
+[05:41:44]    import numpy as np
+[05:41:44]    
+[05:41:44]    from finn.custom_op.fpgadataflow.hlsbackend import HLSBackend
+[05:41:44]    from finn.custom_op.fpgadataflow.pool import Pool
+[05:41:44]    
+[05:41:44]    
+[05:41:44]    class Pool_hls(Pool, HLSBackend):
+[05:41:44]        """Class that corresponds to finn-hlslib Pool_batch function.
+[05:41:44]        Requires ConvolutionInputGenerator(depthwise == 1) to format its input
+[05:41:44]    
+[05:41:44]        Input shape (BatchSize,OutImgDim,OutImgDim,TotalKernelSize*Channels)
+[05:41:44]        Output shape (BatchSize,OutImgDim,OutImgDim,Channels)
+[05:41:44]    
+[05:41:44]        Notes:
+[05:41:44]    
+[05:41:44]        * The input shape was chosen to be compatible with im2col (only true when there
+[05:41:44]          is not folding).
+[05:41:44]        * The actual data layout produced by the hlslib kernels is different
+[05:41:44]          for depthwise ops.
+[05:42:21] 
+[05:42:21] -> bash({"command": "grep -R \"ap_ctrl\" -n /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/...)
+[05:42:21]    (exit 2)
+[05:42:21]    grep: /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadataflow/hlsbackend.py: No such file or directory
+[05:42:22] 
+[05:42:22] -> bash({"command": "grep -R \"ap_ctrl\" -n /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/...)
+[05:42:22]    (exit 0)
+[05:42:22]    /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadataflow/hls/streamingdatawidthconverter_hls.py:85:        self.code_gen_dict["$PRAGMAS$"].append("#pragma HLS INTERFACE ap_ctrl_none port=return")
+[05:42:22]    /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadataflow/hls/matrixvectoractivation_hls.py:421:        self.code_gen_dict["$PRAGMAS$"].append("#pragma HLS INTERFACE ap_ctrl_none port=return")
+[05:42:22]    /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadataflow/hls/thresholding_hls.py:507:            # - for synth the unit runs continuously anyway (ap_ctrl_none)
+[05:42:22]    /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadataflow/hls/thresholding_hls.py:576:        self.code_gen_dict["$PRAGMAS$"].append("#pragma HLS INTERFACE ap_ctrl_none port=return")
+[05:42:22]    /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadataflow/hls/vectorvectoractivation_hls.py:472:        self.code_gen_dict["$PRAGMAS$"].append("#pragma HLS INTERFACE ap_ctrl_none port=return")
+[05:42:23] 
+[05:42:23] -> bash({"command": "sed -n '1,200p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadat...)
+[05:42:23]    (exit 0)
+[05:42:23]    import numpy as np
+[05:42:23]    
+[05:42:23]    from finn.custom_op.fpgadataflow.hlsbackend import HLSBackend
+[05:42:23]    from finn.custom_op.fpgadataflow.pool import Pool
+[05:42:23]    
+[05:42:23]    
+[05:42:23]    class Pool_hls(Pool, HLSBackend):
+[05:42:23]        """Class that corresponds to finn-hlslib Pool_batch function.
+[05:42:23]        Requires ConvolutionInputGenerator(depthwise == 1) to format its input
+[05:42:23]    
+[05:42:23]        Input shape (BatchSize,OutImgDim,OutImgDim,TotalKernelSize*Channels)
+[05:42:23]        Output shape (BatchSize,OutImgDim,OutImgDim,Channels)
+[05:42:23]    
+[05:42:23]        Notes:
+[05:42:23]    
+[05:42:23]        * The input shape was chosen to be compatible with im2col (only true when there
+[05:42:23]          is not folding).
+[05:42:23]        * The actual data layout produced by the hlslib kernels is different
+[05:42:23]          for depthwise ops.
+[05:42:38] 
+[05:42:38] -> bash({"command": "sed -n '1,160p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadat...)
+[05:42:38]    (exit 0)
+[05:42:38]    import numpy as np
+[05:42:38]    from qonnx.core.datatype import DataType
+[05:42:38]    
+[05:42:38]    from finn.custom_op.fpgadataflow.hwcustomop import HWCustomOp
+[05:42:38]    from finn.util.basic import Characteristic_Node
+[05:42:38]    
+[05:42:38]    
+[05:42:38]    class Pool(HWCustomOp):
+[05:42:38]        """Abstraction layer for HW implementation of Pool.
+[05:42:38]        Requires ConvolutionInputGenerator(depthwise == 1) to format its input
+[05:42:38]    
+[05:42:38]        Input shape (BatchSize,OutImgDim,OutImgDim,TotalKernelSize*Channels)
+[05:42:38]        Output shape (BatchSize,OutImgDim,OutImgDim,Channels)
+[05:42:38]    
+[05:42:38]        Notes:
+[05:42:38]    
+[05:42:38]        * The input shape was chosen to be compatible with im2col (only true when there
+[05:42:38]          is not folding).
+[05:42:38]        * The actual data layout produced by the hlslib kernels is different
+[05:42:39] 
+[05:42:39] -> bash({"command": "sed -n '160,260p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgad...)
+[05:42:39]    (exit 0)
+[05:42:39]            # simulate behavior with Python functionality
+[05:42:39]            node = self.onnx_node
+[05:42:39]            fnx = self.get_nodeattr("Function")
+[05:42:39]            k = self.get_nodeattr("KernelSize")
+[05:42:39]            ch = self.get_nodeattr("Channels")
+[05:42:39]            k2 = k[0] * k[1]
+[05:42:39]    
+[05:42:39]            inp_values = context[node.input[0]]
+[05:42:39]            ishape = inp_values.shape
+[05:42:39]            # reshape array to apply max or avg function only on kernel
+[05:42:39]            tmp_shape = tuple(list(ishape)[:-1] + [k2, ch])
+[05:42:39]            tmp_values = inp_values.reshape(tmp_shape)
+[05:42:39]            if fnx == "MaxPool":
+[05:42:39]                result = np.max(tmp_values, axis=3)
+[05:42:39]            elif fnx == "QuantAvgPool":
+[05:42:39]                # determine bits to shift
+[05:42:39]                ibits = self.get_input_datatype().bitwidth()
+[05:42:39]                obits = self.get_output_datatype().bitwidth()
+[05:42:39]                max_value = 2**ibits - 1
+[05:43:04] 
+[05:43:04] -> bash({"command": "sed -n '1,220p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadat...)
+[05:43:04]    (exit 0)
+[05:43:04]    import numpy as np
+[05:43:04]    
+[05:43:04]    from finn.custom_op.fpgadataflow.hlsbackend import HLSBackend
+[05:43:04]    from finn.custom_op.fpgadataflow.pool import Pool
+[05:43:04]    
+[05:43:04]    
+[05:43:04]    class Pool_hls(Pool, HLSBackend):
+[05:43:04]        """Class that corresponds to finn-hlslib Pool_batch function.
+[05:43:04]        Requires ConvolutionInputGenerator(depthwise == 1) to format its input
+[05:43:04]    
+[05:43:04]        Input shape (BatchSize,OutImgDim,OutImgDim,TotalKernelSize*Channels)
+[05:43:04]        Output shape (BatchSize,OutImgDim,OutImgDim,Channels)
+[05:43:04]    
+[05:43:04]        Notes:
+[05:43:04]    
+[05:43:04]        * The input shape was chosen to be compatible with im2col (only true when there
+[05:43:04]          is not folding).
+[05:43:04]        * The actual data layout produced by the hlslib kernels is different
+[05:43:04]          for depthwise ops.
+[05:43:30] 
+[05:43:30] -> bash({"command": "grep -n \"get_nodeattr_types\" -n /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn...)
+[05:43:30]    (exit 0)
+[05:43:30]    27:    def get_nodeattr_types(self):
+[05:43:30]    46:        my_attrs.update(super().get_nodeattr_types())
+[05:43:31] 
+[05:43:31] -> bash({"command": "sed -n '1,120p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadat...)
+[05:43:31]    (exit 0)
+[05:43:31]    import numpy as np
+[05:43:31]    from qonnx.core.datatype import DataType
+[05:43:31]    
+[05:43:31]    from finn.custom_op.fpgadataflow.hwcustomop import HWCustomOp
+[05:43:31]    from finn.util.basic import Characteristic_Node
+[05:43:31]    
+[05:43:31]    
+[05:43:31]    class Pool(HWCustomOp):
+[05:43:31]        """Abstraction layer for HW implementation of Pool.
+[05:43:31]        Requires ConvolutionInputGenerator(depthwise == 1) to format its input
+[05:43:31]    
+[05:43:31]        Input shape (BatchSize,OutImgDim,OutImgDim,TotalKernelSize*Channels)
+[05:43:31]        Output shape (BatchSize,OutImgDim,OutImgDim,Channels)
+[05:43:31]    
+[05:43:31]        Notes:
+[05:43:31]    
+[05:43:31]        * The input shape was chosen to be compatible with im2col (only true when there
+[05:43:31]          is not folding).
+[05:43:31]        * The actual data layout produced by the hlslib kernels is different
+[05:44:03] 
+[05:44:03] -> bash({"command": "sed -n '1,200p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadat...)
+[05:44:03]    (exit 0)
+[05:44:03]    import numpy as np
+[05:44:03]    
+[05:44:03]    from finn.custom_op.fpgadataflow.hlsbackend import HLSBackend
+[05:44:03]    from finn.custom_op.fpgadataflow.pool import Pool
+[05:44:03]    
+[05:44:03]    
+[05:44:03]    class Pool_hls(Pool, HLSBackend):
+[05:44:03]        """Class that corresponds to finn-hlslib Pool_batch function.
+[05:44:03]        Requires ConvolutionInputGenerator(depthwise == 1) to format its input
+[05:44:03]    
+[05:44:03]        Input shape (BatchSize,OutImgDim,OutImgDim,TotalKernelSize*Channels)
+[05:44:03]        Output shape (BatchSize,OutImgDim,OutImgDim,Channels)
+[05:44:03]    
+[05:44:03]        Notes:
+[05:44:03]    
+[05:44:03]        * The input shape was chosen to be compatible with im2col (only true when there
+[05:44:03]          is not folding).
+[05:44:03]        * The actual data layout produced by the hlslib kernels is different
+[05:44:03]          for depthwise ops.
+[05:44:23] 
+[05:44:23] -> bash({"command": "grep -R \"MaxPool1D\" -n /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs"})
+[05:44:23]    (exit 1, no output)
+[05:44:25] 
+[05:44:25] -> bash({"command": "sed -n '1,220p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlslib/quant_avg...)
+[05:44:25]    (exit 2)
+[05:44:25]    sed: can't read /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlslib/quant_avgpool.hpp: No such file or directory
+[05:44:26] 
+[05:44:26] -> bash({"command": "ls /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlslib"})
+[05:44:26]    (exit 0)
+[05:44:26]    activations.hpp
+[05:44:26]    maxpool.h
+[05:44:26]    mvau.hpp
+[05:44:26]    pool.hpp
+[05:44:26]    streamtools.h
+[05:44:26]    vvau.hpp
+[05:44:27] 
+[05:44:27] -> bash({"command": "sed -n '1,200p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/deps/finn-hlslib/maxpool.h...)
+[05:44:27]    (exit 0)
+[05:44:27]    #ifndef MAXPOOL_H
+[05:44:27]    #define MAXPOOL_H
+[05:44:27]     
+[05:44:27]    #include "interpret.hpp"
+[05:44:27]    #include "utils.hpp"
+[05:44:27]    
+[05:44:27]    /**
+[05:44:27]     * \brief   ReLU for fixed-point or integer; can accept a bias at input, which it removes
+[05:44:27]     *
+[05:44:27]     * \tparam ImgDim       Width and Heigth of the Input Feature Map (assumed square)
+[05:44:27]     * \tparam NumChannels  Number of Input Feature Maps
+[05:44:27]     * \tparam ActType      DataType of the input activation (as used in the comparison)
+[05:44:27]     * \tparam PECount      PE parallelism to apply ReLU
+[05:44:27]     * \tparam offset       Offset to be subtracted before applying ReLU
+[05:44:27]     * 
+[05:44:27]     * \param in            Input stream
+[05:44:27]     * \param out           Output stream
+[05:44:27]     * \param numReps       Number of time the function has to be repeatedly executed (e.g. number of images)
+[05:44:27]     *
+[05:44:43] 
+[05:44:43] -> bash({"command": "sed -n '1,200p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadat...)
+[05:44:43]    (exit 0)
+[05:44:43]    import numpy as np
+[05:44:43]    from qonnx.core.datatype import DataType
+[05:44:43]    
+[05:44:43]    from finn.custom_op.fpgadataflow.hwcustomop import HWCustomOp
+[05:44:43]    from finn.util.basic import Characteristic_Node
+[05:44:43]    
+[05:44:43]    
+[05:44:43]    class Pool(HWCustomOp):
+[05:44:43]        """Abstraction layer for HW implementation of Pool.
+[05:44:43]        Requires ConvolutionInputGenerator(depthwise == 1) to format its input
+[05:44:43]    
+[05:44:43]        Input shape (BatchSize,OutImgDim,OutImgDim,TotalKernelSize*Channels)
+[05:44:43]        Output shape (BatchSize,OutImgDim,OutImgDim,Channels)
+[05:44:43]    
+[05:44:43]        Notes:
+[05:44:43]    
+[05:44:43]        * The input shape was chosen to be compatible with im2col (only true when there
+[05:44:43]          is not folding).
+[05:44:43]        * The actual data layout produced by the hlslib kernels is different
+[05:44:44] 
+[05:44:44] -> bash({"command": "sed -n '200,320p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgad...)
+[05:44:44]    (exit 0)
+[05:44:44]            if func == "MaxPool":
+[05:44:44]                SF = KernelSize[1] ** 2  # spatial folding per pooling window
+[05:44:44]                if KernelSize[0] == 1 or KernelSize[1] == 1:
+[05:44:44]                    if KernelSize[0] == 1:
+[05:44:44]                        SF = KernelSize[1] ** 2
+[05:44:44]                    else:
+[05:44:44]                        SF = KernelSize[0] ** 2
+[05:44:44]                    SF = np.prod(KernelSize)
+[05:44:44]                reps = BatchSize * np.prod(OutImgDims)  # number of pooling windows to process
+[05:44:44]            else:
+[05:44:44]                SF = np.prod(KernelSize)  # spatial folding per pooling window
+[05:44:44]                reps = BatchSize * np.prod(OutImgDims)  # number of pooling windows to process
+[05:44:44]    
+[05:44:44]            # One input read per SF iteration
+[05:44:44]            read_pooling_input = Characteristic_Node("Read Pool Input", [(1, [1, 0])], True)
+[05:44:44]    
+[05:44:44]            readwrite_pooling_input = Characteristic_Node("Read Write Pool Input", [(1, [1, 1])], True)
+[05:44:44]    
+[05:44:44]            # SF - 1 reads + 1 read that overlaps with write
+[05:44:58] 
+[05:44:58] -> bash({"command": "grep -R \"MaxPool1D\" -n /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs"})
+[05:44:58]    (exit 1, no output)
+[05:45:06] 
+[05:45:06] -> bash({"command": "sed -n '1,200p' /home/lstasytis/backup/finn/tools/Bespoke-Base-Retreat-26/inputs/src/finn/custom_op/fpgadat...)
+[05:45:06]    [source-reading budget of 25 calls is spent for this attempt. Stop reading source now and ITERATE on your tree with eval_tree_model -- the target vectors in the feedback are the ground truth, not the RTL.]
+[05:51:30] 
+[05:51:30] -> eval_tree_model({"source": "def get_tree_model(self):\n    PE = self.get_nodeattr(\"PE\")\n    Channels = self.get_nodeattr(\"Channels\"...)
+[05:51:30]    backend=local score=3109.16 (exact=0 differ=30 error=0 of 30 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[05:51:30]      vs your previous attempt: 5081.6 -> 3109.16 (IMPROVED)
+[05:51:30]      INPUT ports: 10/30 exact.  OUTPUT ports: 0/30 exact.
+[05:51:30]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 20 input port(s) still differ. FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[05:51:30]    
+[05:51:30]    All 30 cases (worst first):
+[05:51:30]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[05:51:30]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[05:51:30]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[05:51:30]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[05:51:30]      [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[05:51:30]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=192 len_d=+0
+[05:51:30]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=192 len_d=+0
+[05:51:30]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=192 len_d=+0
+[05:51:30]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=192 len_d=+0
+[05:51:30]      [ifm_ch=8 pe=8 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=192 len_d=+0
+[05:51:30]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=76 len_d=+0
+[05:51:30]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=76 len_d=+0
+[05:51:30]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=76 len_d=+0
+[05:51:30]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=76 len_d=+0
+[05:53:57] 
+[05:53:57] -> eval_tree_model({"source": "def get_tree_model(self):\n    PE = self.get_nodeattr(\"PE\")\n    Channels = self.get_nodeattr(\"Channels\"...)
+[05:53:57]    backend=local score=3173.83 (exact=0 differ=30 error=0 of 30 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[05:53:57]      vs your previous attempt: 3109.16 -> 3173.83 (WORSE)
+[05:53:57]      INPUT ports: 10/30 exact.  OUTPUT ports: 0/30 exact.
+[05:53:57]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 20 input port(s) still differ. FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[05:53:57]    
+[05:53:57]    All 30 cases (worst first):
+[05:53:57]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[05:53:57]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[05:53:57]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[05:53:57]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[05:53:57]      [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[05:53:57]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[05:53:57]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[05:53:57]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[05:53:57]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[05:53:57]      [ifm_ch=8 pe=8 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[05:53:57]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[05:53:57]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[05:53:57]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[05:53:57]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[05:56:16] 
+[05:56:16] -> eval_tree_model({"source": "def get_tree_model(self):\n    PE = self.get_nodeattr(\"PE\")\n    Channels = self.get_nodeattr(\"Channels\"...)
+[05:56:16]    backend=local score=3173.83 (exact=0 differ=30 error=0 of 30 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[05:56:16]      vs your previous attempt: 3173.83 -> 3173.83 (unchanged)
+[05:56:16]      INPUT ports: 10/30 exact.  OUTPUT ports: 0/30 exact.
+[05:56:16]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 20 input port(s) still differ. FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[05:56:16]    
+[05:56:16]    All 30 cases (worst first):
+[05:56:16]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[05:56:16]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[05:56:16]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[05:56:16]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[05:56:16]      [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[05:56:16]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[05:56:16]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[05:56:16]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[05:56:16]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[05:56:16]      [ifm_ch=8 pe=8 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[05:56:16]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[05:56:16]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[05:56:16]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[05:56:16]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[05:58:31] 
+[05:58:31] -> eval_tree_model({"source": "def get_tree_model(self):\n    PE = self.get_nodeattr(\"PE\")\n    Channels = self.get_nodeattr(\"Channels\"...)
+[05:58:31]    backend=local score=3173.83 (exact=0 differ=30 error=0 of 30 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[05:58:31]      vs your previous attempt: 3173.83 -> 3173.83 (unchanged)
+[05:58:31]      INPUT ports: 10/30 exact.  OUTPUT ports: 0/30 exact.
+[05:58:31]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 20 input port(s) still differ. FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[05:58:31]    
+[05:58:31]    All 30 cases (worst first):
+[05:58:31]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[05:58:31]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[05:58:31]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[05:58:31]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[05:58:31]      [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[05:58:31]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[05:58:31]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[05:58:31]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[05:58:31]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[05:58:31]      [ifm_ch=8 pe=8 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[05:58:31]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[05:58:31]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[05:58:31]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[05:58:31]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[06:00:35] 
+[06:00:35] -> eval_tree_model({"source": "def get_tree_model(self):\n    PE = self.get_nodeattr(\"PE\")\n    Channels = self.get_nodeattr(\"Channels\"...)
+[06:00:35]    backend=local score=3173.83 (exact=0 differ=30 error=0 of 30 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:00:35]      vs your previous attempt: 3173.83 -> 3173.83 (unchanged)
+[06:00:35]      INPUT ports: 10/30 exact.  OUTPUT ports: 0/30 exact.
+[06:00:35]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 20 input port(s) still differ. FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:00:35]    
+[06:00:35]    All 30 cases (worst first):
+[06:00:35]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:00:35]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:00:35]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:00:35]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:00:35]      [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:00:35]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:00:35]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:00:35]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:00:35]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:00:35]      [ifm_ch=8 pe=8 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:00:35]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[06:00:35]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[06:00:35]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[06:00:35]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[06:05:47] 
+[06:05:47] -> eval_tree_model({"source": "def get_tree_model(self):\n    PE = self.get_nodeattr(\"PE\")\n    Channels = self.get_nodeattr(\"Channels\"...)
+[06:05:47]    backend=local score=46541.68 (exact=0 differ=30 error=0 of 30 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:05:47]      vs your previous attempt: 3173.83 -> 46541.68 (WORSE)
+[06:05:47]      INPUT ports: 10/30 exact.  OUTPUT ports: 0/30 exact.
+[06:05:47]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 20 input port(s) still differ. FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:05:47]    
+[06:05:47]    All 30 cases (worst first):
+[06:05:47]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:05:47]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:05:47]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:05:47]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:05:47]      [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:05:47]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:05:47]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:05:47]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:05:47]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:05:47]      [ifm_ch=8 pe=8 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:05:47]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=2066 len_d=+0
+[06:05:47]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=2066 len_d=+0
+[06:05:47]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=2066 len_d=+0
+[06:05:47]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=2066 len_d=+0
+[06:08:53] 
+[06:08:53] -> eval_tree_model({"source": "def get_tree_model(self):\n    PE = self.get_nodeattr(\"PE\")\n    Channels = self.get_nodeattr(\"Channels\"...)
+[06:08:53]    backend=local score=3173.83 (exact=0 differ=30 error=0 of 30 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:08:53]      vs your previous attempt: 46541.68 -> 3173.83 (IMPROVED)
+[06:08:53]      INPUT ports: 10/30 exact.  OUTPUT ports: 0/30 exact.
+[06:08:53]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 20 input port(s) still differ. FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:08:53]    
+[06:08:53]    All 30 cases (worst first):
+[06:08:53]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:08:53]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:08:53]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:08:53]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:08:53]      [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:08:53]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:08:53]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:08:53]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:08:53]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:08:53]      [ifm_ch=8 pe=8 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:08:53]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[06:08:53]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[06:08:53]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[06:08:53]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[06:13:47] 
+[06:13:47] -> eval_tree_model({"source": "def get_tree_model(self):\n    PE = self.get_nodeattr(\"PE\")\n    Channels = self.get_nodeattr(\"Channels\"...)
+[06:13:47]    backend=local score=44851.21 (exact=0 differ=30 error=0 of 30 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:13:47]      vs your previous attempt: 3173.83 -> 44851.21 (WORSE)
+[06:13:47]      INPUT ports: 10/30 exact.  OUTPUT ports: 0/30 exact.
+[06:13:47]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 20 input port(s) still differ. FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:13:47]    
+[06:13:47]    All 30 cases (worst first):
+[06:13:47]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:13:47]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:13:47]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:13:47]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:13:47]      [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:13:47]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:13:47]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:13:47]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:13:47]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:13:47]      [ifm_ch=8 pe=8 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:13:47]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=2066 len_d=+0
+[06:13:47]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=2066 len_d=+0
+[06:13:47]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=2066 len_d=+0
+[06:13:47]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=2066 len_d=+0
+[06:15:57] 
+[06:15:57] -> eval_tree_model({"source": "def get_tree_model(self):\n    PE = self.get_nodeattr(\"PE\")\n    Channels = self.get_nodeattr(\"Channels\"...)
+[06:15:57]    backend=local score=3173.83 (exact=0 differ=30 error=0 of 30 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:15:57]      vs your previous attempt: 44851.21 -> 3173.83 (IMPROVED)
+[06:15:57]      INPUT ports: 10/30 exact.  OUTPUT ports: 0/30 exact.
+[06:15:57]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 20 input port(s) still differ. FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:15:57]    
+[06:15:57]    All 30 cases (worst first):
+[06:15:57]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:15:57]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:15:57]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:15:57]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:15:57]      [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:15:57]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:15:57]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:15:57]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:15:57]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:15:57]      [ifm_ch=8 pe=8 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:15:57]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[06:15:57]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[06:15:57]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[06:15:57]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[06:18:22] 
+[06:18:22] -> eval_tree_model({"source": "def get_tree_model(self):\n    PE = self.get_nodeattr(\"PE\")\n    Channels = self.get_nodeattr(\"Channels\"...)
+[06:18:22]    backend=local score=3173.83 (exact=0 differ=30 error=0 of 30 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:18:22]      vs your previous attempt: 3173.83 -> 3173.83 (unchanged)
+[06:18:22]      INPUT ports: 10/30 exact.  OUTPUT ports: 0/30 exact.
+[06:18:22]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 20 input port(s) still differ. FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:18:22]    
+[06:18:22]    All 30 cases (worst first):
+[06:18:22]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:18:22]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:18:22]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:18:22]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:18:22]      [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:18:22]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:18:22]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:18:22]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:18:22]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:18:22]      [ifm_ch=8 pe=8 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:18:22]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[06:18:22]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[06:18:22]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[06:18:22]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[06:21:18] 
+[06:21:18] -> eval_tree_model({"source": "def get_tree_model(self):\n    PE = self.get_nodeattr(\"PE\")\n    Channels = self.get_nodeattr(\"Channels\"...)
+[06:21:18]    backend=local score=46541.68 (exact=0 differ=30 error=0 of 30 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:21:18]      vs your previous attempt: 3173.83 -> 46541.68 (WORSE)
+[06:21:18]      INPUT ports: 10/30 exact.  OUTPUT ports: 0/30 exact.
+[06:21:18]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 20 input port(s) still differ. FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:21:18]    
+[06:21:18]    All 30 cases (worst first):
+[06:21:18]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:21:18]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:21:18]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:21:18]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:21:18]      [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:21:18]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:21:18]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:21:18]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:21:18]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:21:18]      [ifm_ch=8 pe=8 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:21:18]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=2066 len_d=+0
+[06:21:18]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=2066 len_d=+0
+[06:21:18]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=2066 len_d=+0
+[06:21:18]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=2066 len_d=+0
+[06:24:22] 
+[06:24:22] -> eval_tree_model({"source": "def get_tree_model(self):\n    # extract node attr\n    OutImgDims = self.get_nodeattr(\"OutImgDims\")\n    ...)
+[06:24:22]    backend=local score=14508.35 (exact=0 differ=30 error=0 of 30 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:24:22]      vs your previous attempt: 46541.68 -> 14508.35 (IMPROVED)
+[06:24:22]      INPUT ports: 0/30 exact.  OUTPUT ports: 0/30 exact.
+[06:24:22]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 30 input port(s) still differ (30 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:24:22]    
+[06:24:22]    All 30 cases (worst first):
+[06:24:22]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=199 len_d=-194 | output Σ|d|=4951 len_d=-194
+[06:24:22]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=199 len_d=-194 | output Σ|d|=4951 len_d=-194
+[06:24:22]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=199 len_d=-194 | output Σ|d|=4951 len_d=-194
+[06:24:22]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=199 len_d=-194 | output Σ|d|=4951 len_d=-194
+[06:24:22]      [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=199 len_d=-194 | output Σ|d|=4951 len_d=-194
+[06:24:22]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=67 len_d=-62 | output Σ|d|=562 len_d=-62
+[06:24:22]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=67 len_d=-62 | output Σ|d|=562 len_d=-62
+[06:24:22]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=67 len_d=-62 | output Σ|d|=562 len_d=-62
+[06:24:22]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=67 len_d=-62 | output Σ|d|=562 len_d=-62
+[06:24:22]      [ifm_ch=8 pe=8 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=67 len_d=-62 | output Σ|d|=562 len_d=-62
+[06:24:22]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=68 len_d=-222 | output Σ|d|=269 len_d=-222
+[06:24:22]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=68 len_d=-222 | output Σ|d|=269 len_d=-222
+[06:24:22]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=68 len_d=-222 | output Σ|d|=269 len_d=-222
+[06:24:22]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=68 len_d=-222 | output Σ|d|=269 len_d=-222
+[06:26:33] 
+[06:26:33] -> eval_tree_model({"source": "def get_tree_model(self):\n    # get node attributes\n    OutImgDims = self.get_nodeattr(\"OutImgDims\")\n  ...)
+[06:26:33]    backend=local score=24535.69 (exact=0 differ=30 error=0 of 30 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:26:33]      vs your previous attempt: 14508.35 -> 24535.69 (WORSE)
+[06:26:33]      INPUT ports: 0/30 exact.  OUTPUT ports: 0/30 exact.
+[06:26:33]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 30 input port(s) still differ (30 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:26:33]    
+[06:26:33]    All 30 cases (worst first):
+[06:26:33]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=199 len_d=-134 | output Σ|d|=8371 len_d=-134
+[06:26:33]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=199 len_d=-134 | output Σ|d|=8371 len_d=-134
+[06:26:33]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=199 len_d=-134 | output Σ|d|=8371 len_d=-134
+[06:26:33]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=199 len_d=-134 | output Σ|d|=8371 len_d=-134
+[06:26:33]      [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=199 len_d=-134 | output Σ|d|=8371 len_d=-134
+[06:26:33]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=67 len_d=-26 | output Σ|d|=1318 len_d=-26
+[06:26:33]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=67 len_d=-26 | output Σ|d|=1318 len_d=-26
+[06:26:33]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=67 len_d=-26 | output Σ|d|=1318 len_d=-26
+[06:26:33]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=67 len_d=-26 | output Σ|d|=1318 len_d=-26
+[06:26:33]      [ifm_ch=8 pe=8 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=67 len_d=-26 | output Σ|d|=1318 len_d=-26
+[06:26:33]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=147 len_d=-142 | output Σ|d|=1242 len_d=-142
+[06:26:33]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=147 len_d=-142 | output Σ|d|=1242 len_d=-142
+[06:26:33]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=147 len_d=-142 | output Σ|d|=1242 len_d=-142
+[06:26:33]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=147 len_d=-142 | output Σ|d|=1242 len_d=-142
+[06:29:01] 
+[06:29:01] -> eval_tree_model({"source": "def get_tree_model(self):\n    # extract node attr\n    PE = self.get_nodeattr(\"PE\")\n    Channels = self....)
+[06:29:02]    backend=local score=2738.23 (exact=0 differ=30 error=0 of 30 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:29:02]      vs your previous attempt: 24535.69 -> 2738.23 (IMPROVED)
+[06:29:02]      INPUT ports: 0/30 exact.  OUTPUT ports: 0/30 exact.
+[06:29:02]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 30 input port(s) still differ (30 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:29:02]    
+[06:29:02]    All 30 cases (worst first):
+[06:29:02]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=64 len_d=+2 | output Σ|d|=102 len_d=+2
+[06:29:02]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=64 len_d=+2 | output Σ|d|=102 len_d=+2
+[06:29:02]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=64 len_d=+2 | output Σ|d|=102 len_d=+2
+[06:29:02]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=64 len_d=+2 | output Σ|d|=102 len_d=+2
+[06:29:02]      [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=64 len_d=+2 | output Σ|d|=102 len_d=+2
+[06:29:02]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=144 len_d=+2 | output Σ|d|=178 len_d=+2
+[06:29:02]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=144 len_d=+2 | output Σ|d|=178 len_d=+2
+[06:29:02]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=144 len_d=+2 | output Σ|d|=178 len_d=+2
+[06:29:02]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=144 len_d=+2 | output Σ|d|=178 len_d=+2
+[06:29:02]      [ifm_ch=8 pe=8 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=144 len_d=+2 | output Σ|d|=178 len_d=+2
+[06:29:02]      [ifm_ch=16 pe=16 op_type='MaxPool1D' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=8 len_d=+2 | output Σ|d|=4 len_d=+2
+[06:29:02]      [ifm_ch=8 pe=1 op_type='MaxPool1D' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=8 len_d=+2 | output Σ|d|=4 len_d=+2
+[06:29:02]      [ifm_ch=8 pe=2 op_type='MaxPool1D' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=8 len_d=+2 | output Σ|d|=4 len_d=+2
+[06:29:02]      [ifm_ch=8 pe=4 op_type='MaxPool1D' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=8 len_d=+2 | output Σ|d|=4 len_d=+2
+[06:30:43] 
+[06:30:43] -> eval_tree_model({"source": "def get_tree_model(self):\n    # extract node attr\n\n    PE = self.get_nodeattr(\"PE\")\n    Channels = sel...)
+[06:30:43]    backend=local score=5081.6 (exact=0 differ=30 error=0 of 30 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:30:43]      vs your previous attempt: 2738.23 -> 5081.6 (WORSE)
+[06:30:43]      INPUT ports: 0/30 exact.  OUTPUT ports: 0/30 exact.
+[06:30:43]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 30 input port(s) still differ (30 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:30:43]    
+[06:30:43]    All 30 cases (worst first):
+[06:30:43]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=185 len_d=-2 | output Σ|d|=94 len_d=-2
+[06:30:43]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=185 len_d=-2 | output Σ|d|=94 len_d=-2
+[06:30:43]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=185 len_d=-2 | output Σ|d|=94 len_d=-2
+[06:30:43]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=185 len_d=-2 | output Σ|d|=94 len_d=-2
+[06:30:43]      [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=185 len_d=-2 | output Σ|d|=94 len_d=-2
+[06:30:43]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=425 len_d=-2 | output Σ|d|=146 len_d=-2
+[06:30:43]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=425 len_d=-2 | output Σ|d|=146 len_d=-2
+[06:30:43]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=425 len_d=-2 | output Σ|d|=146 len_d=-2
+[06:30:43]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=425 len_d=-2 | output Σ|d|=146 len_d=-2
+[06:30:43]      [ifm_ch=8 pe=8 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=425 len_d=-2 | output Σ|d|=146 len_d=-2
+[06:30:43]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=581 len_d=-2 | output Σ|d|=49 len_d=-2
+[06:30:43]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=581 len_d=-2 | output Σ|d|=49 len_d=-2
+[06:30:43]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=581 len_d=-2 | output Σ|d|=49 len_d=-2
+[06:30:43]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=581 len_d=-2 | output Σ|d|=49 len_d=-2
+[06:33:15] 
+[06:33:15] -> eval_tree_model({"source": "def get_tree_model(self):\n    # extract node attr\n    PE = self.get_nodeattr(\"PE\")\n    Channels = self....)
+[06:33:15]    backend=local score=2716.65 (exact=0 differ=30 error=0 of 30 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:33:15]      vs your previous attempt: 5081.6 -> 2716.65 (IMPROVED)
+[06:33:15]      INPUT ports: 10/30 exact.  OUTPUT ports: 0/30 exact.
+[06:33:15]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 20 input port(s) still differ (20 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:33:15]    
+[06:33:15]    All 30 cases (worst first):
+[06:33:15]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=64 len_d=+2 | output Σ|d|=113 len_d=+2
+[06:33:15]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=64 len_d=+2 | output Σ|d|=113 len_d=+2
+[06:33:15]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=64 len_d=+2 | output Σ|d|=113 len_d=+2
+[06:33:15]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=64 len_d=+2 | output Σ|d|=113 len_d=+2
+[06:33:15]      [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=64 len_d=+2 | output Σ|d|=113 len_d=+2
+[06:33:15]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=144 len_d=+2 | output Σ|d|=237 len_d=+2
+[06:33:15]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=144 len_d=+2 | output Σ|d|=237 len_d=+2
+[06:33:15]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=144 len_d=+2 | output Σ|d|=237 len_d=+2
+[06:33:15]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=144 len_d=+2 | output Σ|d|=237 len_d=+2
+[06:33:15]      [ifm_ch=8 pe=8 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=144 len_d=+2 | output Σ|d|=237 len_d=+2
+[06:33:15]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=196 len_d=+2 | output Σ|d|=242 len_d=+2
+[06:33:15]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=196 len_d=+2 | output Σ|d|=242 len_d=+2
+[06:33:15]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=196 len_d=+2 | output Σ|d|=242 len_d=+2
+[06:33:15]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=196 len_d=+2 | output Σ|d|=242 len_d=+2
+[06:35:21] 
+[06:35:21] -> eval_tree_model({"source": "def get_tree_model(self):\n    # extract node attr\n    PE = self.get_nodeattr(\"PE\")\n    Channels = self....)
+[06:35:21]    backend=local score=4271.27 (exact=0 differ=30 error=0 of 30 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:35:21]      vs your previous attempt: 2716.65 -> 4271.27 (WORSE)
+[06:35:21]      INPUT ports: 0/30 exact.  OUTPUT ports: 0/30 exact.
+[06:35:21]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 30 input port(s) still differ (30 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:35:21]    
+[06:35:21]    All 30 cases (worst first):
+[06:35:21]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=67 len_d=-2 | output Σ|d|=168 len_d=-2
+[06:35:21]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=67 len_d=-2 | output Σ|d|=168 len_d=-2
+[06:35:21]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=67 len_d=-2 | output Σ|d|=168 len_d=-2
+[06:35:21]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=67 len_d=-2 | output Σ|d|=168 len_d=-2
+[06:35:21]      [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=67 len_d=-2 | output Σ|d|=168 len_d=-2
+[06:35:21]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=147 len_d=-2 | output Σ|d|=336 len_d=-2
+[06:35:21]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=147 len_d=-2 | output Σ|d|=336 len_d=-2
+[06:35:21]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=147 len_d=-2 | output Σ|d|=336 len_d=-2
+[06:35:21]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=147 len_d=-2 | output Σ|d|=336 len_d=-2
+[06:35:21]      [ifm_ch=8 pe=8 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=147 len_d=-2 | output Σ|d|=336 len_d=-2
+[06:35:21]      [ifm_ch=16 pe=16 op_type='MaxPool1D' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=11 len_d=+2 | output Σ|d|=9 len_d=+2
+[06:35:21]      [ifm_ch=8 pe=1 op_type='MaxPool1D' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=11 len_d=+2 | output Σ|d|=9 len_d=+2
+[06:35:21]      [ifm_ch=8 pe=2 op_type='MaxPool1D' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=11 len_d=+2 | output Σ|d|=9 len_d=+2
+[06:35:21]      [ifm_ch=8 pe=4 op_type='MaxPool1D' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=11 len_d=+2 | output Σ|d|=9 len_d=+2
+[06:38:28] 
+[06:38:28] -> eval_tree_model({"source": "def get_tree_model(self):\n    # extract node attr\n    PE = self.get_nodeattr(\"PE\")\n    Channels = self....)
+[06:38:28]    backend=local score=3173.83 (exact=0 differ=30 error=0 of 30 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:38:28]      vs your previous attempt: 4271.27 -> 3173.83 (IMPROVED)
+[06:38:28]      INPUT ports: 10/30 exact.  OUTPUT ports: 0/30 exact.
+[06:38:28]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 20 input port(s) still differ. FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:38:28]    
+[06:38:28]    All 30 cases (worst first):
+[06:38:28]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:38:28]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:38:28]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:38:28]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:38:28]      [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:38:28]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:38:28]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:38:28]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:38:28]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:38:28]      [ifm_ch=8 pe=8 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:38:28]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[06:38:28]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[06:38:28]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[06:38:28]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[06:41:42] 
+[06:41:42] -> eval_tree_model({"source": "def get_tree_model(self):\n    # extract node attributes\n    PE = self.get_nodeattr(\"PE\")\n    Channels =...)
+[06:41:42]    backend=local score=46447.38 (exact=0 differ=30 error=0 of 30 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:41:42]      vs your previous attempt: 3173.83 -> 46447.38 (WORSE)
+[06:41:42]      INPUT ports: 0/30 exact.  OUTPUT ports: 0/30 exact.
+[06:41:42]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 30 input port(s) still differ (30 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:41:42]    
+[06:41:42]    All 30 cases (worst first):
+[06:41:42]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=196 len_d=+2 | output Σ|d|=19259 len_d=+2
+[06:41:42]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=196 len_d=+2 | output Σ|d|=19259 len_d=+2
+[06:41:42]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=196 len_d=+2 | output Σ|d|=19259 len_d=+2
+[06:41:42]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=196 len_d=+2 | output Σ|d|=19259 len_d=+2
+[06:41:42]      [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=196 len_d=+2 | output Σ|d|=19259 len_d=+2
+[06:41:42]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=144 len_d=+2 | output Σ|d|=4706 len_d=+2
+[06:41:42]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=144 len_d=+2 | output Σ|d|=4706 len_d=+2
+[06:41:42]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=144 len_d=+2 | output Σ|d|=4706 len_d=+2
+[06:41:42]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=144 len_d=+2 | output Σ|d|=4706 len_d=+2
+[06:41:42]      [ifm_ch=8 pe=8 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=144 len_d=+2 | output Σ|d|=4706 len_d=+2
+[06:41:42]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=64 len_d=+2 | output Σ|d|=2066 len_d=+2
+[06:41:42]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=64 len_d=+2 | output Σ|d|=2066 len_d=+2
+[06:41:42]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=64 len_d=+2 | output Σ|d|=2066 len_d=+2
+[06:41:42]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=64 len_d=+2 | output Σ|d|=2066 len_d=+2
+[06:43:21] 
+[06:43:21] -> eval_tree_model({"source": "def get_tree_model(self):\n    PE = self.get_nodeattr(\"PE\")\n    Channels = self.get_nodeattr(\"Channels\"...)
+[06:43:21]    backend=local score=3173.83 (exact=0 differ=30 error=0 of 30 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:43:21]      vs your previous attempt: 46447.38 -> 3173.83 (IMPROVED)
+[06:43:21]      INPUT ports: 10/30 exact.  OUTPUT ports: 0/30 exact.
+[06:43:21]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 20 input port(s) still differ. FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:43:21]    
+[06:43:21]    All 30 cases (worst first):
+[06:43:21]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:43:21]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:43:21]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:43:21]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:43:21]      [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=UINT4 odt=UINT4 k=4 stride=4 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=106 len_d=+0
+[06:43:21]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:43:21]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:43:21]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:43:21]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:43:21]      [ifm_ch=8 pe=8 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=194 len_d=+0
+[06:43:21]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[06:43:21]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[06:43:21]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[06:43:21]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=100 len_d=+0
+[06:46:14] 
+[06:46:14] -> eval_tree_model({"source": "def get_tree_model(self):\n    # extract node attr\n    PE = self.get_nodeattr(\"PE\")\n    Channels = self....)
+[06:46:14]    backend=local score=46541.68 (exact=0 differ=30 error=0 of 30 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:46:14]      vs your previous attempt: 3173.83 -> 46541.68 (WORSE)
+[06:46:14]      INPUT ports: 10/30 exact.  OUTPUT ports: 0/30 exact.
+[06:46:14]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 20 input port(s) still differ. FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:46:14]    
+[06:46:14]    All 30 cases (worst first):
+[06:46:14]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:46:14]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:46:14]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:46:14]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:46:14]      [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:46:14]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:46:14]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:46:14]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:46:14]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:46:14]      [ifm_ch=8 pe=8 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:46:14]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=2066 len_d=+0
+[06:46:14]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=2066 len_d=+0
+[06:46:14]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=2066 len_d=+0
+[06:46:14]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=2066 len_d=+0
+[06:49:05] 
+[06:49:05] -> eval_tree_model({"source": "def get_tree_model(self):\n    # extract node attr\n    KernelSize = self.get_nodeattr(\"KernelSize\")\n    ...)
+[06:49:05]    backend=local score=46541.68 (exact=0 differ=30 error=0 of 30 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:49:05]      vs your previous attempt: 46541.68 -> 46541.68 (unchanged)
+[06:49:05]      INPUT ports: 10/30 exact.  OUTPUT ports: 0/30 exact.
+[06:49:05]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 20 input port(s) still differ. FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:49:05]    
+[06:49:05]    All 30 cases (worst first):
+[06:49:05]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:49:05]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:49:05]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:49:05]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:49:05]      [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:49:05]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:49:05]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:49:05]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:49:05]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:49:05]      [ifm_ch=8 pe=8 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:49:05]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=2066 len_d=+0
+[06:49:05]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=2066 len_d=+0
+[06:49:05]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=2066 len_d=+0
+[06:49:05]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=2066 len_d=+0
+[06:53:35] 
+[06:53:35] -> eval_tree_model({"source": "def get_tree_model(self):\n    KernelSize = self.get_nodeattr(\"KernelSize\")\n    OutImgDims = self.get_nod...)
+[06:53:35]    backend=local score=46447.38 (exact=0 differ=30 error=0 of 30 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:53:35]      vs your previous attempt: 46541.68 -> 46447.38 (IMPROVED)
+[06:53:35]      INPUT ports: 0/30 exact.  OUTPUT ports: 0/30 exact.
+[06:53:35]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 30 input port(s) still differ (30 with a LENGTH mismatch). FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:53:35]    
+[06:53:35]    All 30 cases (worst first):
+[06:53:35]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=196 len_d=+2 | output Σ|d|=19259 len_d=+2
+[06:53:35]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=196 len_d=+2 | output Σ|d|=19259 len_d=+2
+[06:53:35]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=196 len_d=+2 | output Σ|d|=19259 len_d=+2
+[06:53:35]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=196 len_d=+2 | output Σ|d|=19259 len_d=+2
+[06:53:35]      [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=196 len_d=+2 | output Σ|d|=19259 len_d=+2
+[06:53:35]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=144 len_d=+2 | output Σ|d|=4706 len_d=+2
+[06:53:35]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=144 len_d=+2 | output Σ|d|=4706 len_d=+2
+[06:53:35]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=144 len_d=+2 | output Σ|d|=4706 len_d=+2
+[06:53:35]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=144 len_d=+2 | output Σ|d|=4706 len_d=+2
+[06:53:35]      [ifm_ch=8 pe=8 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=144 len_d=+2 | output Σ|d|=4706 len_d=+2
+[06:53:35]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=64 len_d=+2 | output Σ|d|=2066 len_d=+2
+[06:53:35]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=64 len_d=+2 | output Σ|d|=2066 len_d=+2
+[06:53:35]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=64 len_d=+2 | output Σ|d|=2066 len_d=+2
+[06:53:35]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=64 len_d=+2 | output Σ|d|=2066 len_d=+2
+[06:55:28] 
+[06:55:28] -> eval_tree_model({"source": "def get_tree_model(self):\n    KernelSize = self.get_nodeattr(\"KernelSize\")\n    OutImgDims = self.get_nod...)
+[06:55:28]    backend=local score=46541.68 (exact=0 differ=30 error=0 of 30 cases). GOAL: drive score to 0 -- every case exact on both ports.
+[06:55:28]      vs your previous attempt: 46447.38 -> 46541.68 (WORSE)
+[06:55:28]      INPUT ports: 10/30 exact.  OUTPUT ports: 0/30 exact.
+[06:55:28]    >> FOCUS: work ONE port type to completion at a time -- input OR output -- then the other. 20 input port(s) still differ. FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length means your tree emits the wrong number of cycles, so the per-cycle values can never line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0.
+[06:55:28]    
+[06:55:28]    All 30 cases (worst first):
+[06:55:28]      [ifm_ch=16 pe=16 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:55:28]      [ifm_ch=8 pe=1 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:55:28]      [ifm_ch=8 pe=2 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:55:28]      [ifm_ch=8 pe=4 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:55:28]      [ifm_ch=8 pe=8 op_type='QuantAvgPool2d' idt=INT8 odt=INT4 k=2 stride=1 pad=0 ifm_dim=8] FAIL | input Σ|d|=388 len_d=+0 | output Σ|d|=19259 len_d=+0
+[06:55:28]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:55:28]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:55:28]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:55:28]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:55:28]      [ifm_ch=8 pe=8 op_type='MaxPool' idt=UINT4 odt=UINT4 k=3 stride=2 pad=1 ifm_dim=7] FAIL | input Σ|d|=284 len_d=+0 | output Σ|d|=4706 len_d=+0
+[06:55:28]      [ifm_ch=16 pe=16 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=2066 len_d=+0
+[06:55:28]      [ifm_ch=8 pe=1 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=2066 len_d=+0
+[06:55:28]      [ifm_ch=8 pe=2 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=2066 len_d=+0
+[06:55:28]      [ifm_ch=8 pe=4 op_type='MaxPool' idt=INT8 odt=INT8 k=2 stride=2 pad=0 ifm_dim=8] FAIL | input Σ|d|=124 len_d=+0 | output Σ|d|=2066 len_d=+0
