@@ -450,7 +450,7 @@ class Oracle:
             lines.append("  ALL CASES EXACT -- this is the goal.")
             return "\n".join(lines)
 
-        # per-port progress + the input-first focus phase
+        # per-port progress + the one-port-type-at-a-time focus phase
         in_exact, in_have = self._port_status(result.cases, "input")
         out_exact, out_have = self._port_status(result.cases, "output")
         lines.append(f"  INPUT ports: {in_exact}/{in_have} exact.  "
@@ -459,24 +459,38 @@ class Oracle:
         def _port_fails(c, port):
             return any(p.port == port and not p.matched for p in c.ports)
 
+        def _port_len_wrong(c, port):
+            return any(p.port == port and p.len_delta != 0 for p in c.ports)
+
         input_failing = [c for c in result.cases if c.error is None and _port_fails(c, "input")]
         output_failing = [c for c in result.cases if c.error is None and _port_fails(c, "output")]
+
+        # The single most important ordering rule: get the LENGTH right before the values.
+        _LEN_FIRST = (
+            "FIRST get the vector LENGTH identical on every case (len_delta = 0) -- a wrong length "
+            "means your tree emits the wrong number of cycles, so the per-cycle values can never "
+            "line up until it is fixed. ONLY THEN drive the per-cycle (volume) deltas to 0."
+        )
 
         if input_failing:
             focus = "input"
             focus_failing = input_failing
+            n_len = sum(1 for c in input_failing if _port_len_wrong(c, "input"))
             lines.append(
-                f">> FOCUS: get EVERY input port exact first ({len(input_failing)} still differ). "
-                "Input is the simpler port and the foundation the output model builds on. Overall "
-                "score still matters, but prioritize input now -- output ports are summarized "
-                "below, not shown in full, until all inputs match."
+                ">> FOCUS: work ONE port type to completion at a time -- input OR output -- then the "
+                f"other. {len(input_failing)} input port(s) still differ"
+                + (f" ({n_len} with a LENGTH mismatch)" if n_len else "")
+                + f". " + _LEN_FIRST
             )
         elif output_failing:
             focus = "output"
             focus_failing = output_failing
+            n_len = sum(1 for c in output_failing if _port_len_wrong(c, "output"))
             lines.append(
-                ">> All input ports are EXACT. FOCUS NOW: make every OUTPUT port exact while "
-                "keeping the inputs exact."
+                ">> FOCUS: input ports are all exact -- now finish the OTHER port type. "
+                f"{len(output_failing)} output port(s) still differ"
+                + (f" ({n_len} with a LENGTH mismatch)" if n_len else "")
+                + " (keep inputs exact). " + _LEN_FIRST
             )
         else:
             focus, focus_failing = None, [c for c in result.cases if not c.matched]
