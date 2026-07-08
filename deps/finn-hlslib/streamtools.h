@@ -899,6 +899,39 @@ void AddStreamsLayer_Batch(hls::stream<ap_uint<NumChannels * In1_t::width>> &in1
 
 
 /**
+ * \brief   Label alignment - Reads in elements from two streams (labels and inputs) and aligns them to output with two streams
+ *
+ * \tparam     LabelWidth   Width, in number of bits, of the label streams
+ * \tparam     DataWidth    Width, in number of bits, of the data streams
+ * \tparam     NumTotal     Total number of words in the data input stream per label
+ *
+ * \param      in1          Input stream I
+ * \param      in2          Input stream II
+ * \param      out1         Output stream I
+ * \param      out2         Output stream II
+ *
+ */
+
+template <unsigned int LabelWidth,
+          unsigned int DataWidth,
+          unsigned int NumTotal>
+void AlignLabels(hls::stream<ap_uint<LabelWidth>> &in0, hls::stream<ap_uint<DataWidth>> &in1,
+                 hls::stream<ap_uint<LabelWidth>> &out0, hls::stream<ap_uint<DataWidth>> &out1) {
+
+
+  ap_uint<LabelWidth> label = in0.read();
+  for (unsigned int i = 0; i < NumTotal; i++) {
+#pragma HLS pipeline style=flp II=1
+    ap_uint<LabelWidth> data = in1.read();
+    if(i == 0) out0.write(label); // TODO: Does this work to only write label once? Would help with input width=output width on the label side
+    out1.write(data);
+  }
+}
+
+// TODO: Are things like AlignLabels_Batch and AlignLabelsLayer_Batch necessary?
+
+
+/**
  * \brief   Stream Multi Chan Data Width Converter - Converts the width of the input stream in the output stream, working on multiple parallel streams
  *
  * Used to upscale or downscale a stream, without any loss of data in the procedure. 

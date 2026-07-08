@@ -262,6 +262,12 @@ class DataflowBuildConfig:
     #: the first transpose converts NCHW to NHWC layout for data preprocessing.
     #: Enabled by default.
     infer_shuffle_skip_first: Optional[bool] = True
+    
+    #: (Optional) Whether the model outputs (labels) should be outputted
+    #: aligned with their respective model inputs. This gives the model 
+    #: two output streams and introduces a buffer for inputs corresponding
+    #: to the model's latency.
+    align_labels: Optional[bool] = False
 
     #: Target board, only needed for generating full bitfiles where the FINN
     #: design is integrated into a shell.

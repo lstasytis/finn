@@ -555,6 +555,9 @@ def step_convert_to_hw(model: ModelWrapper, cfg: DataflowBuildConfig):
     # DuplicateStreams: detects forks where tensors have multiple consumers
     print("Checking for graph forks (duplicate streams)...")
     model = model.transform(to_hw.InferDuplicateStreamsLayer())
+    
+    if(cfg.align_labels): model = model.transform(to_hw.InsertAlignLabels())
+    # TODO: This doesn't really fit here but I think it should happen after DuplicateStreams for branching networks
 
     # Optimization: Absorb ElementwiseMul/Add into Requant
     # This should be run after all HW layers are inferred
@@ -721,6 +724,7 @@ def step_apply_folding_config(model: ModelWrapper, cfg: DataflowBuildConfig):
         node_inst.set_nodeattr("body", loop_model.graph)
     if cfg.folding_config_file is not None:
         model = model.transform(ApplyConfig(cfg.folding_config_file), apply_to_subgraphs=True)
+        # TODO: Ensure AlignLabels is folded in accordance to the data stream, i.e. to the first model layer
     else:
         print("No folding config json provided, skipping step_apply_folding_config.")
 
