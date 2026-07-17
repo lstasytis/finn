@@ -61,6 +61,7 @@ RUN apt-get update && \
     git \
     openssh-client \
     sshpass \
+    curl \
     wget \
     sudo \
     unzip \
@@ -146,6 +147,17 @@ RUN pip install tokenize-rt==4.2.1
 
 # assure that we have the right setuptools version
 RUN pip install setuptools==68.2.2
+
+# install the Claude Code CLI (set INSTALL_CLAUDE_CODE=0 to skip)
+# requires a recent Node.js, so we pull the LTS from NodeSource (Ubuntu's
+# apt nodejs is too old) and then install the CLI globally so that "claude"
+# is on PATH for every user of the image
+ARG INSTALL_CLAUDE_CODE=1
+RUN if [ "$INSTALL_CLAUDE_CODE" = "1" ]; then \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    npm install -g @anthropic-ai/claude-code && \
+    rm -rf /var/lib/apt/lists/*; fi
 
 # extra environment variables for FINN compiler
 ENV VIVADO_IP_CACHE "/tmp/vivado_ip_cache"
