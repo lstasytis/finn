@@ -267,6 +267,18 @@ if [ "$FINN_DOCKER_RUN_AS_ROOT" = "0" ] && [ -z "$FINN_SINGULARITY" ];then
 else
   DOCKER_EXEC+="-v $FINN_SSH_KEY_DIR:/root/.ssh "
 fi
+# Persist Claude Code login/config across container runs by bind-mounting a
+# host directory into the container home (which the entrypoint sets to
+# /tmp/home_dir). By default we reuse the host's ~/.claude so a login on the
+# host is shared with the container. Set FINN_INSTALL_CLAUDE_CODE=0 to skip,
+# or point FINN_CLAUDE_CONFIG_DIR elsewhere.
+if [ "$FINN_INSTALL_CLAUDE_CODE" != "0" ]; then
+  : ${FINN_CLAUDE_CONFIG_DIR="$HOME/.claude"}
+  mkdir -p "$FINN_CLAUDE_CONFIG_DIR"
+  if [ ! -f "$HOME/.claude.json" ]; then echo '{}' > "$HOME/.claude.json"; fi
+  DOCKER_EXEC+="-v $FINN_CLAUDE_CONFIG_DIR:/tmp/home_dir/.claude "
+  DOCKER_EXEC+="-v $HOME/.claude.json:/tmp/home_dir/.claude.json "
+fi
 if [ ! -z "$IMAGENET_VAL_PATH" ];then
   DOCKER_EXEC+="-v $IMAGENET_VAL_PATH:$IMAGENET_VAL_PATH "
   DOCKER_EXEC+="-e IMAGENET_VAL_PATH=$IMAGENET_VAL_PATH "

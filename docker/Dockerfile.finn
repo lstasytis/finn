@@ -159,6 +159,12 @@ RUN if [ "$INSTALL_CLAUDE_CODE" = "1" ]; then \
     npm install -g @anthropic-ai/claude-code && \
     rm -rf /var/lib/apt/lists/*; fi
 
+# ensure the container home directory (set to /tmp/home_dir in
+# finn_entrypoint.sh) exists and is writable by whatever --user the image is
+# run as. This keeps "pip install --user" working and provides a stable mount
+# point for a bind-mounted ~/.claude config. 1777 = sticky, world-writable.
+RUN mkdir -p /tmp/home_dir && chmod 1777 /tmp/home_dir
+
 # extra environment variables for FINN compiler
 ENV VIVADO_IP_CACHE "/tmp/vivado_ip_cache"
 
