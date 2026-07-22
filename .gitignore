@@ -96,3 +96,6 @@ MANIFEST
 
 # downloaded dep repos
 /deps/
+
+# cached characterization models (rtlsim/tree-model TAV caching artifacts)
+/cached_models/
