@@ -44,6 +44,7 @@ from finn.transformation.fpgadataflow.set_exec_mode import SetExecMode
 from finn.util.basic import (
     compress_numpy_to_string,
     decompress_string_to_numpy,
+    save_tav_npy,
     stretch,
 )
 from finn.util.fpgadataflow import is_hls_node, is_rtl_node
@@ -731,7 +732,9 @@ class ProducerDelayCharacteristicFunctions(NodeLocalTransformation):
 
                         prod.set_nodeattr(
                             "io_chrc_out_stretch",
-                            compress_numpy_to_string(np.array([prod_chrc_out_stretch])),
+                            save_tav_npy(
+                                prod, "io_chrc_out_stretch", np.array([prod_chrc_out_stretch])
+                            ),
                         )
 
             except KeyError:
@@ -820,15 +823,16 @@ class DelayCharacteristicFunctions(NodeLocalTransformation):
                         #
                         cons.set_nodeattr(
                             "io_chrc_in_stretch",
-                            compress_numpy_to_string(np.array([cons_chrc_in_stretch])),
+                            save_tav_npy(
+                                cons, "io_chrc_in_stretch", np.array([cons_chrc_in_stretch])
+                            ),
                         )
-
-                    compressed_cons_chrc_in = compress_numpy_to_string(np.array([cons_chrc_in]))
-                    # compressed_cons_chrc_out = compress_numpy_to_string(np.array([cons_chrc_out]))
 
                     # setting these parameters here will make final
                     # characterization func comparisons impossible!
-                    cons.set_nodeattr("io_chrc_in", compressed_cons_chrc_in)
+                    cons.set_nodeattr(
+                        "io_chrc_in", save_tav_npy(cons, "io_chrc_in", np.array([cons_chrc_in]))
+                    )
                     print(f"updated {cons.onnx_node.name} period to {len(cons_chrc_in)}")
 
             except KeyError:

@@ -33,11 +33,7 @@ from qonnx.custom_op.base import CustomOp
 from qonnx.util.basic import roundup_to_integer_multiple
 
 from finn import xsi
-from finn.util.basic import (
-    compress_numpy_to_string,
-    get_liveness_threshold_cycles,
-    is_versal,
-)
+from finn.util.basic import get_liveness_threshold_cycles, is_versal, save_tav_npy
 
 finnxsi = xsi if xsi.is_available() else None
 
@@ -458,9 +454,9 @@ class HWCustomOp(CustomOp):
 
         all_txns_in = np.empty((len(txns_in.keys()), cycles), dtype=np.int32)
         all_txns_in[0, :] = np.array(txn_in[:])
-        compressed_np_array = compress_numpy_to_string(all_txns_in)
-        self.set_nodeattr("io_chrc_in", compressed_np_array)
-        self.set_nodeattr("io_chrc_in_original", compressed_np_array)
+        tav_path_in = save_tav_npy(self, "io_chrc_in", all_txns_in)
+        self.set_nodeattr("io_chrc_in", tav_path_in)
+        self.set_nodeattr("io_chrc_in_original", tav_path_in)
 
         counter = 0
         cycles = 0
@@ -473,9 +469,9 @@ class HWCustomOp(CustomOp):
 
         all_txns_out = np.empty((len(txns_out.keys()), cycles), dtype=np.int32)
         all_txns_out[0, :] = np.array(txn_out[:])
-        compressed_np_array = compress_numpy_to_string(all_txns_out)
-        self.set_nodeattr("io_chrc_out", compressed_np_array)
-        self.set_nodeattr("io_chrc_out_original", compressed_np_array)
+        tav_path_out = save_tav_npy(self, "io_chrc_out", all_txns_out)
+        self.set_nodeattr("io_chrc_out", tav_path_out)
+        self.set_nodeattr("io_chrc_out_original", tav_path_out)
 
     def generate_hdl_memstream(self, fpgapart, pumped_memory=0):
         """Helper function to generate verilog code for memstream component.
@@ -727,13 +723,13 @@ class HWCustomOp(CustomOp):
             all_txns_out[out_idx, :] = txn_out
             all_pad_out.append(pad_out)
 
-        compressed_np_array_in = compress_numpy_to_string(all_txns_in)
-        self.set_nodeattr("io_chrc_in", compressed_np_array_in)
-        self.set_nodeattr("io_chrc_in_original", compressed_np_array_in)
+        tav_path_in = save_tav_npy(self, "io_chrc_in", all_txns_in)
+        self.set_nodeattr("io_chrc_in", tav_path_in)
+        self.set_nodeattr("io_chrc_in_original", tav_path_in)
 
-        compressed_np_array_out = compress_numpy_to_string(all_txns_out)
-        self.set_nodeattr("io_chrc_out", compressed_np_array_out)
-        self.set_nodeattr("io_chrc_out_original", compressed_np_array_out)
+        tav_path_out = save_tav_npy(self, "io_chrc_out", all_txns_out)
+        self.set_nodeattr("io_chrc_out", tav_path_out)
+        self.set_nodeattr("io_chrc_out_original", tav_path_out)
 
     def adapt_for_loop_body(self, input_types):
         """

@@ -470,10 +470,92 @@ def compress_numpy_to_string(arr):
     return base64.b64encode(combined_data).decode("utf-8")
 
 
+def _save_gaps_npy(arr, path):
+    """Save a Token Access Vector array to ``path`` as a gzip-compressed .npy file
+    holding the run-length encoding of its per-cycle deltas (the gaps form). One
+    flat int64 array is written with layout::
+
+        [k, n, n_runs(k), starts(k), run_values(sum n_runs), run_lengths(sum n_runs)]
+
+    where a run of value 0 in the deltas is the number of cycles spent without a
+    token. The array is gzip-compressed on disk (same scheme as the inline string
+    encoding). This is lossless; load_tav_npy() reconstructs the exact array."""
+    arr = np.asarray(arr)
+    if arr.ndim == 1:
+        arr = arr.reshape(1, -1)
+    k, n = arr.shape[0], arr.shape[-1]
+    n_runs = []
+    run_values = []
+    run_lengths = []
+    for row in arr:
+        vals, lens = _rle_encode(np.diff(row))
+        run_values.append(vals)
+        run_lengths.append(lens)
+        n_runs.append(vals.size)
+    flat = np.concatenate(
+        [
+            np.array([k, n], dtype=np.int64),
+            np.array(n_runs, dtype=np.int64),
+            arr[:, 0].astype(np.int64) if n >= 1 else np.empty(0, dtype=np.int64),
+            np.concatenate(run_values) if run_values else np.empty(0, dtype=np.int64),
+            np.concatenate(run_lengths) if run_lengths else np.empty(0, dtype=np.int64),
+        ]
+    ).astype(np.int64)
+    with gzip.open(path, "wb") as f:
+        np.save(f, flat)
+
+
+def load_tav_npy(path):
+    """Load and unroll a Token Access Vector stored by _save_gaps_npy(), returning
+    the full per-cycle cumulative array of shape (k, n), dtype int32. Handles both
+    gzip-compressed and plain .npy sidecars (autodetected by the gzip magic)."""
+    with open(path, "rb") as fh:
+        is_gzip = fh.read(2) == b"\x1f\x8b"
+    opener = gzip.open if is_gzip else open
+    with opener(path, "rb") as f:
+        flat = np.load(f)
+    k, n = int(flat[0]), int(flat[1])
+    off = 2
+    n_runs = flat[off : off + k].astype(np.int64)
+    off += k
+    starts = flat[off : off + k]
+    off += k
+    total_runs = int(n_runs.sum())
+    run_values = flat[off : off + total_runs]
+    off += total_runs
+    run_lengths = flat[off : off + total_runs]
+
+    rows = np.empty((k, n), dtype=np.int32)
+    pos = 0
+    for r in range(k):
+        c = int(n_runs[r])
+        deltas = np.repeat(run_values[pos : pos + c], run_lengths[pos : pos + c])
+        pos += c
+        rows[r, :] = (int(starts[r]) + np.concatenate(([0], np.cumsum(deltas)))).astype(np.int32)
+    return rows
+
+
+def save_tav_npy(inst, attr_name, arr):
+    """Persist a Token Access Vector as an .npy sidecar inside the node's generated
+    build folder and return the file path (to be stored in the ``attr_name`` node
+    attribute instead of the inline array). Falls back to a fresh build dir if the
+    node has no code generation directory yet."""
+    tav_dir = inst.get_nodeattr("code_gen_dir_ipgen")
+    if not tav_dir or not os.path.isdir(tav_dir):
+        tav_dir = make_build_dir(prefix="tav_")
+    safe_name = re.sub(r"[^0-9A-Za-z_.-]", "_", inst.onnx_node.name)
+    path = os.path.join(tav_dir, "tav_%s_%s.npy" % (safe_name, attr_name))
+    _save_gaps_npy(arr, path)
+    return path
+
+
 def decompress_string_to_numpy(s):
     """Inverse of compress_numpy_to_string(). Auto-detects the storage format:
-    the gaps format ("fmt": "gaps1") is unrolled back to the full per-cycle TAV,
-    while legacy raw-array strings (no "fmt" key) are decoded as before."""
+    a path to an .npy sidecar (written by save_tav_npy) is loaded and unrolled;
+    the inline gaps format ("fmt": "gaps1") is unrolled back to the full per-cycle
+    TAV; legacy raw-array strings (no "fmt" key) are decoded as before."""
+    if isinstance(s, str) and s.endswith(".npy") and os.path.exists(s):
+        return load_tav_npy(s)
     combined_data = base64.b64decode(s.encode("utf-8"))  # Decode from base64
     metadata_bytes, compressed_data = combined_data.split(b"||", 1)  # Split metadata & data
 
