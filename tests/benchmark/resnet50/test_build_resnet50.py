@@ -66,7 +66,7 @@ resnet50_build_steps = [
     "step_set_fifo_depths",
     step_resnet50_slr_floorplan,
     "step_synthesize_bitfile",
-    "step_make_pynq_driver",
+    "step_make_driver",
     "step_deployment_package",
 ]
 
