@@ -412,32 +412,102 @@ class Characteristic_Node:
         return cycles, last_update, ch_fnc
 
 
-def compress_numpy_to_string(arr):
-    metadata = {
-        "dtype": str(arr.dtype),  # Store dtype as string
-        "shape": arr.shape,  # Store shape as a tuple
-    }
-    metadata_str = json.dumps(metadata)  # Convert metadata to JSON string
-    metadata_bytes = metadata_str.encode("utf-8")  # Convert metadata to bytes
+def _rle_encode(d):
+    """Run-length encode a 1D array. Returns (values, lengths) as int64 arrays
+    with sum(lengths) == len(d)."""
+    if d.size == 0:
+        return np.empty(0, dtype=np.int64), np.empty(0, dtype=np.int64)
+    change = np.flatnonzero(d[1:] != d[:-1]) + 1
+    starts = np.concatenate(([0], change))
+    ends = np.concatenate((change, [d.size]))
+    return d[starts].astype(np.int64), (ends - starts).astype(np.int64)
 
-    compressed_data = gzip.compress(arr.tobytes())  # Compress array data
-    combined_data = (
-        metadata_bytes + b"||" + compressed_data
-    )  # Concatenate metadata & compressed data
-    s = base64.b64encode(combined_data).decode("utf-8")
-    return s  # Encode to string
+
+def compress_numpy_to_string(arr):
+    """Serialize a Token Access Vector (TAV) array to a compact string.
+
+    TAVs are cumulative, monotonically non-decreasing per-cycle token counts.
+    Rather than storing the full per-cycle state (how many tokens have
+    accumulated at every clock cycle), we store the TAV in its *gaps* form: a
+    run-length encoding of the per-cycle deltas (np.diff along the time axis).
+    A run of value 0 is exactly the number of cycles spent without a token
+    being read/written, i.e. the gap between two tokens.
+
+    This encoding is lossless: decompress_string_to_numpy() unrolls it back to
+    the exact original array, so downstream FIFO sizing is unchanged. The last
+    axis is treated as the time axis; any leading axes (e.g. multiple streams)
+    are handled row by row."""
+    arr = np.asarray(arr)
+    # gaps encoding only well-defined for arrays that have a time axis
+    if arr.ndim >= 1 and arr.shape[-1] >= 1:
+        n = arr.shape[-1]
+        rows = arr.reshape(-1, n)
+        starts = rows[:, 0]
+        run_values = []
+        run_lengths = []
+        n_runs = []
+        for row in rows:
+            vals, lens = _rle_encode(np.diff(row))
+            run_values.append(vals)
+            run_lengths.append(lens)
+            n_runs.append(int(vals.size))
+        run_values = np.concatenate(run_values) if run_values else np.empty(0, dtype=np.int64)
+        run_lengths = np.concatenate(run_lengths) if run_lengths else np.empty(0, dtype=np.int64)
+        metadata = {
+            "fmt": "gaps1",  # marks the gaps format for decompress auto-detection
+            "dtype": str(arr.dtype),
+            "shape": list(arr.shape),
+            "n_runs": n_runs,  # runs per row, to split the flat run arrays
+        }
+        payload = starts.astype(arr.dtype).tobytes() + run_values.tobytes() + run_lengths.tobytes()
+    else:
+        # fallback: legacy raw storage for degenerate (0D / empty time axis) shapes
+        metadata = {"dtype": str(arr.dtype), "shape": list(arr.shape)}
+        payload = arr.tobytes()
+
+    metadata_bytes = json.dumps(metadata).encode("utf-8")
+    combined_data = metadata_bytes + b"||" + gzip.compress(payload)
+    return base64.b64encode(combined_data).decode("utf-8")
 
 
 def decompress_string_to_numpy(s):
+    """Inverse of compress_numpy_to_string(). Auto-detects the storage format:
+    the gaps format ("fmt": "gaps1") is unrolled back to the full per-cycle TAV,
+    while legacy raw-array strings (no "fmt" key) are decoded as before."""
     combined_data = base64.b64decode(s.encode("utf-8"))  # Decode from base64
     metadata_bytes, compressed_data = combined_data.split(b"||", 1)  # Split metadata & data
 
     metadata = json.loads(metadata_bytes.decode("utf-8"))  # Decode metadata
     dtype = np.dtype(metadata["dtype"])  # Convert dtype back
     shape = tuple(metadata["shape"])  # Convert shape back
+    payload = gzip.decompress(compressed_data)
 
-    decompressed_data = gzip.decompress(compressed_data)  # Decompress data
-    return np.frombuffer(decompressed_data, dtype=dtype).reshape(shape)  # Reshape into array
+    if metadata.get("fmt") != "gaps1":
+        # legacy raw format: full per-cycle array stored directly
+        return np.frombuffer(payload, dtype=dtype).reshape(shape)
+
+    # gaps format: unroll run-length-encoded deltas back to the cumulative TAV
+    n = shape[-1]
+    n_runs = metadata["n_runs"]
+    m = len(n_runs)
+    itemsize = dtype.itemsize
+    starts = np.frombuffer(payload[: m * itemsize], dtype=dtype)
+    rest = payload[m * itemsize :]
+    total_runs = int(sum(n_runs))
+    int64_size = np.dtype(np.int64).itemsize
+    run_values = np.frombuffer(rest[: total_runs * int64_size], dtype=np.int64)
+    run_lengths = np.frombuffer(
+        rest[total_runs * int64_size : 2 * total_runs * int64_size], dtype=np.int64
+    )
+
+    rows = np.empty((m, n), dtype=dtype)
+    pos = 0
+    for r in range(m):
+        k = n_runs[r]
+        deltas = np.repeat(run_values[pos : pos + k], run_lengths[pos : pos + k])
+        pos += k
+        rows[r, :] = (int(starts[r]) + np.concatenate(([0], np.cumsum(deltas)))).astype(dtype)
+    return rows.reshape(shape)
 
 
 def compute_total_model_fifo_size(model):
