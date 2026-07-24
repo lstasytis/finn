@@ -562,6 +562,9 @@ def step_convert_to_hw(model: ModelWrapper, cfg: DataflowBuildConfig):
     print("Checking for graph forks (duplicate streams)...")
     model = model.transform(to_hw.InferDuplicateStreamsLayer())
 
+    if cfg.align_labels:
+        model = model.transform(to_hw.InsertAlignLabels())
+
     # Optimization: Absorb ElementwiseMul/Add into Requant
     # This should be run after all HW layers are inferred
     model = apply_if_relevant(

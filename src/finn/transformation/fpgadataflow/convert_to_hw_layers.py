@@ -2416,3 +2416,92 @@ class InferCrop(Transformation):
             model = model.transform(InferShapes())
             model = model.transform(InferDataTypes())
         return (model, graph_modified)
+
+
+class InsertAlignLabels(Transformation):
+    """
+    Integrates a node to align model output labels with their corresponding
+    inputs by duplicating the input stream and buffering the duplicate
+    """
+    
+    def __init__(self):
+        super().__init__()
+        
+    def apply(self, model):
+        graph = model.graph
+        
+        input_tensor = graph.input[0].name
+        
+        first_successor = model.find_consumers(input_tensor)
+        assert (len(first_successor) < 2
+                ), """Input has two successors, please run InferDuplicateStreamsLayer first."""
+        
+        input_shape = model.get_tensor_shape(input_tensor)
+        input_datatype = model.get_tensor_datatype(input_tensor)
+        
+        model_input = helper.make_tensor_value_info(model.make_new_valueinfo_name(), TensorProto.FLOAT, input_shape)
+        model.graph.value_info.append(model_input)
+        buffer_input = helper.make_tensor_value_info(model.make_new_valueinfo_name(), TensorProto.FLOAT, input_shape)
+        model.graph.value_info.append(buffer_input)
+        
+        num_ch = int(input_shape[-1])
+        vecs = input_shape[:-1]
+        
+        dup_node = helper.make_node(
+                "DuplicateStreams",
+                [input_tensor],
+                [model_input, buffer_input],
+                domain="finn.custom_op.fpgadataflow",
+                backend="fpgadataflow",
+                NumChannels=num_ch,
+                PE=1,
+                inputDataType=input_datatype.name,
+                numInputVectors=vecs,
+                NumOutputStreams=2,
+                outFIFODepths=[2] * 2,
+                name="DuplicateStreams_" + input_tensor,
+                cpp_interface="hls_vector",
+                hls_style="freerunning",
+            )
+        
+        graph.node.insert(0, dup_node)
+        for i, successor_input in enumerate(first_successor[0].input):
+            if successor_input == input_tensor: # Match the first layer's input with the duplicated stream
+                    first_successor[0].input[i] = model_input
+                    break
+
+        last_node = graph.node[-1]
+        final_output = last_node.output[0].name # TODO: Need to consider multiple outputs here?
+        output_shape = model.get_tensor_shape(final_output)
+        output_datatype = model.get_tensor_datatype(final_output)
+        
+        model_output = helper.make_tensor_value_info(model.make_new_valueinfo_name(), TensorProto.FLOAT, output_shape)
+        model.graph.value_info.append(model_output)
+        buffer_output = helper.make_tensor_value_info(model.make_new_valueinfo_name(), TensorProto.FLOAT, input_shape)
+        model.graph.value_info.append(buffer_output)
+        # TODO: Do I need to and how do I define buffer_output as a global output?
+
+        align_node = helper.make_node(
+                "AlignLabels",
+                [model_output, buffer_input],
+                [final_output, buffer_output],
+                domain="finn.custom_op.fpgadataflow",
+                backend="fpgadataflow",
+                label_dtype = output_datatype.name,
+                data_dtype = input_datatype.name,
+                label_shape = output_shape,
+                data_shape = input_shape,
+                PE=1,
+                name="DuplicateStreams_" + input_tensor,
+                #cpp_interface="hls_vector", TODO: Necessary
+                #hls_style="freerunning",
+                # TODO: Anything else outside of attributes in my class? (superclass attributes?)
+            )
+
+        graph.node.append(align_node)
+
+        # TODO: Is this necessary? Could it be detrimental?
+        model = model.transform(SortGraph())
+        model = model.transform(InferShapes())
+        model = model.transform(InferDataTypes())
+        return (model, False) # Transformation needs to be applied exactly once => return False
