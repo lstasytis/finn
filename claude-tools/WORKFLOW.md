@@ -105,6 +105,35 @@ git add -A && git commit --no-edit     # rerere records it
 git switch - && git branch -D _train
 ```
 
+## Committing a change back to the branch that owns it
+
+`env/*` is a scratch workspace — commits made on it are discarded on the next
+rebuild. Every change must land on the **feature branch that owns the files you
+touched**. Ownership is deterministic: a feature branch owns exactly the files in
+its diff vs base (`git diff BASE..feature --stat`). FIFO sizing owns
+`derive_characteristic.py`, the `io_chrc`/TAV code, `get_tree_model`, the
+analytical build step; the align branch owns `alignlabels*`, `InsertAlignLabels`.
+
+```bash
+# 1. In your env, see where your edits belong:
+claude-tools/whose.sh                       # inspects all modified files
+#   src/finn/transformation/fpgadataflow/derive_characteristic.py -> feature/analytical-fifo-sizing
+
+# 2. Land them on that feature branch (survives env rebuilds):
+claude-tools/promote.sh feature/analytical-fifo-sizing -m "fix backpressure in TAV stretch"
+
+# 3. Rebuild any env to re-derive from the updated feature:
+claude-tools/mkenv.sh env/align feature/analytical-fifo-sizing feature/label_aligner-clean
+```
+
+`promote.sh` **refuses** to put a file on a branch that doesn't own it (it belongs
+to a different feature) — so a change can't silently land on the wrong branch. If
+one edit spans two features, split it: promote each file set to its owner. New
+files (owned by nobody yet) are allowed onto the target with a note.
+
+> Prefer keeping each edit scoped to one feature's files. If you find yourself
+> editing FIFO and align code in the same change, that's usually two commits.
+
 ## Updating the base / tools
 
 - **Base** moves forward (upstream dev, new finn-examples): update
