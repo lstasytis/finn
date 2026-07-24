@@ -1,0 +1,23 @@
+== EXACT multiple downscale ==
+   32->16    exact    mult g=16   bufL=3   LUT=   263 FF=    71 
+  128->64    exact    mult g=64   bufL=3   LUT=   263 FF=   215 
+ 1024->512   exact    mult g=512  bufL=3   LUT=   263 FF=  1559 
+  480->15    exact    mult g=15   bufL=33  LUT=   284 FF=   980 
+  128->8     exact    mult g=8    bufL=17  LUT=   282 FF=   280 
+== EXACT multiple upscale ==
+   16->32    exact    mult g=16   bufL=3   LUT=   156 FF=    47 
+   64->128   exact    mult g=64   bufL=3   LUT=   156 FF=   143 
+    8->64    exact    mult g=8    bufL=9   LUT=   163 FF=    83 
+    4->64    exact    mult g=4    bufL=17  LUT=   166 FF=    85 
+== EXACT non-multiple ==
+   48->32    exact NONmult g=16   bufL=5   LUT=   626 FF=   123 
+   96->40    exact NONmult g=8    bufL=17  LUT=  1808 FF=   206 
+   44->48    exact NONmult g=4    bufL=23  LUT=  2418 FF=   179 
+== PAD (folding-optimizer style) ==
+    8->16      pad    mult g=8    bufL=3   LUT=   499 FF=    64 
+   44->48      pad NONmult g=4    bufL=23  LUT=  2418 FF=   179 
+  480->512     pad NONmult g=32   bufL=31  LUT=  3343 FF=  1543 
+    4->32      pad    mult g=4    bufL=9   LUT=   892 FF=    98 
+== CROP ==
+   16->8      crop    mult g=8    bufL=3   LUT=   268 FF=    48 
+   48->32     crop NONmult g=16   bufL=5   LUT=   629 FF=   124 

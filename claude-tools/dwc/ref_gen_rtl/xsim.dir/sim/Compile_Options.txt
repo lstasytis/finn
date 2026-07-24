@@ -1,0 +1,1 @@
+"dwc_gen_tb" -s "sim" --timescale "1ns/1ps" 

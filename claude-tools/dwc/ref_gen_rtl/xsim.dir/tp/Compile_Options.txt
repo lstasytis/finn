@@ -1,0 +1,1 @@
+"tput" -s "tp" --timescale "1ns/1ps" 

@@ -1,0 +1,16 @@
+== multiple (regression check) ==
+  128->64    exact mult g=64   OutL=1   LUT=   263 FF=   215
+ 1024->512   exact mult g=512  OutL=1   LUT=   263 FF=  1559
+    4->64    exact mult g=4    OutL=16  LUT=   166 FF=    85
+== non-multiple exact ==
+   48->32    exact  NON g=16   OutL=2   LUT=   510 FF=   139
+   96->40    exact  NON g=8    OutL=5   LUT=   892 FF=   211
+   44->48    exact  NON g=4    OutL=12  LUT=   747 FF=   176
+   88->40    exact  NON g=8    OutL=5   LUT=   860 FF=   202
+  480->512   exact  NON g=32   OutL=16  LUT=  4088 FF=  1540
+ 1024->768   exact  NON g=256  OutL=3   LUT=  5243 FF=  2588
+== pad/crop ==
+   44->48      pad  NON g=4    OutL=12  LUT=   747 FF=   176
+    4->32      pad mult g=4    OutL=8   LUT=   458 FF=    98
+   16->8      crop mult g=8    OutL=1   LUT=   268 FF=    48
+   96->40     crop  NON g=8    OutL=5   LUT=   892 FF=   211

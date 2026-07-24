@@ -1,0 +1,9 @@
+in->out   impl                 LUT     FF
+   32->16    StreamingDataWidthConverter_hls   1606   1303
+   64->32    StreamingDataWidthConverter_hls   2990   3770
+  128->64    StreamingDataWidthConverter_hls   5573   7154
+  256->128   StreamingDataWidthConverter_hls  11261  13958
+  512->256   StreamingDataWidthConverter_hls  18128  23398
+ 1024->512   StreamingDataWidthConverter_hls  21969  33902
+   48->32    StreamingDataWidthConverter_hls   2526   3178
+   96->40    StreamingDataWidthConverter_hls   4075   5212
