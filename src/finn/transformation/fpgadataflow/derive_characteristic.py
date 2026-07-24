@@ -947,8 +947,12 @@ class DeriveFIFOSizes(Transformation):
                     prod = registry.getCustomOp(node)
                     out_fifo_depths = []
                     for indx, output_name in enumerate(node.output):
-                        # cons_node = model.find_consumer(output_name)
-                        cons_node = find_non_dwc_consumer(model, node)
+                        # Size the FIFO against the DIRECT consumer (the DWC itself,
+                        # which is rate-matched to the producer's output width). Seeing
+                        # *through* the DWC to the post-DWC consumer compares TAVs whose
+                        # transaction counts differ by the width ratio, blowing the
+                        # peak-delta up to ~a full frame (the producer->DWC over-size).
+                        cons_node = model.find_consumer(output_name)
                         if cons_node is None:
                             # could be final node, will be overridden if so
                             # need an entry in the list anyway
