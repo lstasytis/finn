@@ -1,20 +1,23 @@
 {
   "bnn-pynq-cnv-w1a1": {
-    "fifo_kb": 4.061
+    "fifo_kb": 0.547
   },
   "bnn-pynq-cnv-w1a2": {
-    "fifo_kb": 11.97
+    "fifo_kb": 1.454
   },
   "bnn-pynq-tfc-w1a1": {
-    "fifo_kb": 0.342
+    "fifo_kb": 0.34
   },
   "bnn-pynq-tfc-w1a2": {
-    "fifo_kb": 0.427
+    "fifo_kb": 0.424
   },
   "cybersecurity-mlp": {
     "fifo_kb": 0.016
   },
+  "mobilenet_v1": {
+    "fifo_kb": 92.545
+  },
   "vgg10-radioml": {
-    "fifo_kb": 22.878
+    "fifo_kb": 2.062
   }
 }

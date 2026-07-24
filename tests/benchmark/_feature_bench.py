@@ -45,6 +45,7 @@ import importlib.util
 import inspect
 import json
 import os
+import sys
 
 # tests/benchmark/_feature_bench.py -> repo root
 BENCH_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -86,7 +87,16 @@ def load_bench_module(model_dir):
     mod_name = "bench_" + model_dir.replace("-", "_")
     spec = importlib.util.spec_from_file_location(mod_name, cands[0])
     mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
+    # Some model dirs (mobilenet_v1) keep sibling helpers next to the build module
+    # (``from custom_steps import ...``); put the model dir on sys.path so those
+    # local imports resolve, then remove it again to avoid cross-model collisions.
+    mod_dir = os.path.join(BENCH_DIR, model_dir)
+    sys.path.insert(0, mod_dir)
+    try:
+        spec.loader.exec_module(mod)
+    finally:
+        if sys.path and sys.path[0] == mod_dir:
+            sys.path.pop(0)
     return mod
 
 

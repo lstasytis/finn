@@ -51,13 +51,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _feature_bench as fb  # noqa: E402
 
 FEATURE = "fifo_sizing"
-# mobilenet_v1 is a known analytic over-size gap (isolated-characterization
-# ignores backpressure) -- tracked, not yet matching ground truth.
 # kws hits the dev "Non-contiguous dataflow block" validation at convert-to-hw
 # (dev contiguity check vs the post-conv flatten removal in the kws flow); this
 # fails before FIFO sizing and is unrelated to the sizer -- xfail to match the
 # sibling benchmark harness on expanded-finnexamples.
-XFAIL_MODELS = {"mobilenet_v1", "kws"}
+XFAIL_MODELS = {"kws"}
 TOLERANCES = {"fifo_kb": 0.10}
 
 
