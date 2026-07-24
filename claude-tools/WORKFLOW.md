@@ -94,6 +94,10 @@ git switch - && git branch -D _train
   rebase. The `env/*` branches diverge from any remote of the same name — push
   them only if you deliberately want to (force). Feature branches and the tools
   overlay are the things you push normally.
-- `deps/finn-hlslib` is gitignored and cloned by `fetch-repos.sh`; the overlay
-  force-tracks `activations.hpp` (and the align branch `streamtools.h`) to keep
-  HLS synthesis self-contained. A fresh `fetch-repos.sh` re-clones over them.
+- `deps/finn-hlslib` is gitignored and cloned by `fetch-repos.sh`. We do **not**
+  git-track dep files (a branch that doesn't track them deletes them from the
+  shared clone on checkout). Instead the overlay keeps complete reference copies
+  under `claude-tools/hlslib/` and `claude-tools/patch_hlslib.sh` installs them
+  into the clone (the `AlignLabels` template + the `activations.hpp` the clone
+  shipped without). `mkenv.sh` runs it automatically; run it yourself after any
+  fresh `fetch-repos.sh`.

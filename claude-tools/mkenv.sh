@@ -70,5 +70,11 @@ merge() {  # merge $1; if rerere fully resolved the conflicts, commit and go on
 merge "$TOOLS"
 for f in "${FEATURES[@]}"; do merge "$f"; done
 
+# Install our finn-hlslib additions (AlignLabels + activations.hpp) into the
+# gitignored clone; harmless if deps/finn-hlslib isn't populated yet.
+if [ -d "$(git rev-parse --show-toplevel)/deps/finn-hlslib" ]; then
+  bash "$(git rev-parse --show-toplevel)/claude-tools/patch_hlslib.sh" || true
+fi
+
 echo ">> '$ENV' ready${WORKTREE:+ in $WORKTREE}"
 echo "   layers: $BASE -> $TOOLS -> ${FEATURES[*]}"
