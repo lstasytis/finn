@@ -56,11 +56,13 @@ REFERENCE_DIR = os.path.join(BENCH_DIR, "reference")
 # needed (estimate-only). ``model`` is only used by the multi-model bnn-pynq family.
 # resnet50 is intentionally excluded (deferred: needs core/streamline changes).
 SUPPORTED_MODELS = [
-    ("gtsrb", "Pynq-Z1", None),
     ("kws", "Pynq-Z1", None),
     ("cybersecurity-mlp", "Pynq-Z1", None),
     ("vgg10-radioml", "ZCU104", None),
+    ("bnn-pynq", "Pynq-Z1", "tfc-w1a1"),
+    ("bnn-pynq", "Pynq-Z1", "tfc-w1a2"),
     ("bnn-pynq", "Pynq-Z1", "cnv-w1a1"),
+    ("bnn-pynq", "Pynq-Z1", "cnv-w1a2"),
     ("mobilenet_v1", "ZCU104", None),
 ]
 
