@@ -113,6 +113,7 @@ class JustInTimeSynthesize(Transformation):
                     not in [
                         "AddStreams_hls",
                         "DuplicateStreams_hls",
+                        "AlignLabels_hls",
                         "StreamingFIFO_hls",
                         "StreamingFIFO_rtl",
                     ]
@@ -183,6 +184,7 @@ class DeriveTokenAccessVectors(NodeLocalTransformation):
                 if op_type not in [
                     "AddStreams_hls",
                     "DuplicateStreams_hls",
+                    "AlignLabels_hls",
                     "StreamingFIFO_hls",
                     "StreamingFIFO_rtl",
                 ]:
@@ -229,6 +231,7 @@ class LocalStretchCharacteristicFunctions(NodeLocalTransformation):
                 if node.name in self.nodes_to_ignore or node.op_type in [
                     "AddStreams_hls",
                     "DuplicateStreams_hls",
+                    "AlignLabels_hls",
                     "StreamingFIFO_hls",
                     "StreamingFIFO_rtl",
                 ]:
@@ -277,7 +280,7 @@ def get_top_producer_period(node, model):
         # prod_node = model.find_producer(input_name)
         prod_node = find_non_dwc_producer(model, node)
 
-        if prod_node is not None:
+        if prod_node is not None and registry.getCustomOp(prod_node).get_nodeattr("io_chrc_out"):
             prod_chrc = decompress_string_to_numpy(
                 registry.getCustomOp(prod_node).get_nodeattr("io_chrc_out")
             )[0]
@@ -295,7 +298,7 @@ def get_top_consumer_period(node, model):
         # prod_node = model.find_consumer(output_name)
         prod_node = find_non_dwc_consumer(model, node)
 
-        if prod_node is not None:
+        if prod_node is not None and registry.getCustomOp(prod_node).get_nodeattr("io_chrc_out"):
             prod_chrc = decompress_string_to_numpy(
                 registry.getCustomOp(prod_node).get_nodeattr("io_chrc_out")
             )[0]
@@ -564,15 +567,26 @@ def assign_extra_fifo_volume(as_node, model, global_period):
     _, branch_0, _, _, period_0 = get_branch_volume(as_node, 0, model)
     _, branch_1, _, _, period_1 = get_branch_volume(as_node, 1, model)
 
-    # propagate the producer to duplicatestreams node
+    # propagate a characteristic onto the duplicatestreams node. Normally this is
+    # inherited from its producer's output TAV; when the DuplicateStreams forks the
+    # global input (e.g. the AlignLabels side-channel) it has no producer, so fall
+    # back to the input TAV of the first layer it feeds on the model branch -- the
+    # rate at which tokens leave the fork equals the rate that layer accepts them.
     ds_node = registry.getCustomOp(branch_0[-1])
     prod_node = model.find_producer(branch_0[-1].input[0])
 
-    period_ds = get_true_period(registry.getCustomOp(prod_node))
+    if prod_node is not None:
+        src_inst = registry.getCustomOp(prod_node)
+        tav_ds = src_inst.get_nodeattr("io_chrc_out")
+        tav_stretched_ds = src_inst.get_nodeattr("io_chrc_out_stretch")
+        tav_pad_ds = src_inst.get_nodeattr("io_chrc_out_original")
+    else:
+        src_inst = registry.getCustomOp(model.find_consumer(branch_0[-1].output[0]))
+        tav_ds = src_inst.get_nodeattr("io_chrc_in")
+        tav_stretched_ds = src_inst.get_nodeattr("io_chrc_in_stretch")
+        tav_pad_ds = src_inst.get_nodeattr("io_chrc_in_original")
 
-    tav_ds = registry.getCustomOp(prod_node).get_nodeattr("io_chrc_out")
-    tav_stretched_ds = registry.getCustomOp(prod_node).get_nodeattr("io_chrc_out_stretch")
-    tav_pad_ds = registry.getCustomOp(prod_node).get_nodeattr("io_chrc_out_original")
+    period_ds = get_true_period(src_inst)
     ds_node.set_nodeattr("io_chrc_in", tav_ds)
     ds_node.set_nodeattr("io_chrc_out", tav_ds)
 
@@ -584,9 +598,13 @@ def assign_extra_fifo_volume(as_node, model, global_period):
 
     ds_node.set_nodeattr("io_chrc_period", period_ds)
 
-    # last node with latencies version
-    latency_to_first_output_0 = get_full_branch_latency(branch_0[1:], period_0)
-    latency_to_first_output_1 = get_full_branch_latency(branch_1[1:], period_1)
+    # last node with latencies version. Stretch both branches to a common,
+    # non-zero period: a side-channel branch (e.g. AlignLabels' direct edge) can
+    # contain only the DuplicateStreams, whose period is still unset here (0),
+    # which would collapse the stretch to an empty vector.
+    branch_period = max(period_0, period_1, global_period)
+    latency_to_first_output_0 = get_full_branch_latency(branch_0[1:], branch_period)
+    latency_to_first_output_1 = get_full_branch_latency(branch_1[1:], branch_period)
     peak_deltas = calculate_peak_volume_delta(
         latency_to_first_output_0,
         branch_0[1],
@@ -610,8 +628,21 @@ def assign_extra_fifo_volume(as_node, model, global_period):
     add_strm_child = get_consumer(as_node, model)
     volumes = [0, 0]
 
-    volumes[0] = peak_deltas[1]
-    volumes[1] = peak_deltas[0]
+    if as_node.op_type == "AlignLabels_hls":
+        # AlignLabels reads its whole label input before streaming the buffered
+        # data, so the DuplicateStreams keeps forking input into the side-channel
+        # for the entire model latency before that data is drained. The bypass
+        # FIFO must therefore hold ~the model-latency worth of input tokens, or the
+        # fork back-pressures and stalls the model path (throughput collapses).
+        # Put that whole surplus on exactly the DuplicateStreams output feeding the
+        # data input; the model-path output stays rate-matched (minimal). The
+        # AddStreams swap below assumes a different fork->branch mapping.
+        buf_tensor = as_node.input[1]
+        buf_idx = list(branch_0[-1].output).index(buf_tensor)
+        volumes[buf_idx] = int(max(peak_deltas))
+    else:
+        volumes[0] = peak_deltas[1]
+        volumes[1] = peak_deltas[0]
 
     print([volumes[0], volumes[1]])
     ds_node.set_nodeattr("extra_branch_fifos", volumes)
@@ -621,18 +652,22 @@ def assign_extra_fifo_volume(as_node, model, global_period):
     old_sizes[1] += volumes[1]
     ds_node.set_nodeattr("outFIFODepths", old_sizes)
 
-    tav = registry.getCustomOp(add_strm_child).get_nodeattr("io_chrc_in")
-    tav_pad = registry.getCustomOp(add_strm_child).get_nodeattr("io_chrc_in_original")
+    # Propagate the join node's characteristic from its consumer so its own
+    # output FIFO can be sized downstream. A terminal join (e.g. AlignLabels,
+    # whose outputs are global outputs) has no consumer -- nothing to size there.
+    if add_strm_child is not None:
+        tav = registry.getCustomOp(add_strm_child).get_nodeattr("io_chrc_in")
+        tav_pad = registry.getCustomOp(add_strm_child).get_nodeattr("io_chrc_in_original")
 
-    period_add = get_true_period(registry.getCustomOp(add_strm_child))
+        period_add = get_true_period(registry.getCustomOp(add_strm_child))
 
-    addstrm_node_inst.set_nodeattr("io_chrc_in", tav)
-    addstrm_node_inst.set_nodeattr("io_chrc_out", tav)
+        addstrm_node_inst.set_nodeattr("io_chrc_in", tav)
+        addstrm_node_inst.set_nodeattr("io_chrc_out", tav)
 
-    addstrm_node_inst.set_nodeattr("io_chrc_out_original", tav_pad)
-    addstrm_node_inst.set_nodeattr("io_chrc_in_original", tav_pad)
+        addstrm_node_inst.set_nodeattr("io_chrc_out_original", tav_pad)
+        addstrm_node_inst.set_nodeattr("io_chrc_in_original", tav_pad)
 
-    addstrm_node_inst.set_nodeattr("io_chrc_period", period_add)
+        addstrm_node_inst.set_nodeattr("io_chrc_period", period_add)
     return sum(volumes)
 
 
@@ -656,13 +691,19 @@ class HandleBranches(Transformation):
 
     def apply(self, model: ModelWrapper):
         depth_added = 0
-        addstrm_nodes = model.get_nodes_by_op_type("AddStreams_hls")
-        if len(addstrm_nodes) == 0:
-            warnings.warn("No AddStreams nodes found, skipping")
+        # AddStreams and AlignLabels are both two-input join nodes fed by a
+        # DuplicateStreams fork; each needs the faster branch's FIFO stretched so
+        # the slower branch (e.g. the AlignLabels side-channel that buffers the
+        # model input for the whole model latency) does not deadlock.
+        join_nodes = model.get_nodes_by_op_type("AddStreams_hls") + model.get_nodes_by_op_type(
+            "AlignLabels_hls"
+        )
+        if len(join_nodes) == 0:
+            warnings.warn("No AddStreams/AlignLabels nodes found, skipping")
             return (model, False)
 
-        for addstrm_node in addstrm_nodes:
-            depth_added += assign_extra_fifo_volume(addstrm_node, model, self.period)
+        for join_node in join_nodes:
+            depth_added += assign_extra_fifo_volume(join_node, model, self.period)
 
         return (model, False)
 
@@ -696,6 +737,7 @@ class ProducerDelayCharacteristicFunctions(NodeLocalTransformation):
 
                 if node.op_type in [
                     "DuplicateStreams_hls",
+                    "AlignLabels_hls",
                     "StreamingFIFO_hls",
                     "StreamingFIFO_rtl",
                 ]:
@@ -717,6 +759,10 @@ class ProducerDelayCharacteristicFunctions(NodeLocalTransformation):
                         continue
 
                     cons = registry.getCustomOp(cons)
+                    if cons.get_nodeattr("io_chrc_in") == "":
+                        # consumer is an uncharacterized join (e.g. terminal
+                        # AlignLabels) -- no input pattern to match against
+                        continue
                     cons_chrc_in = decompress_string_to_numpy(cons.get_nodeattr("io_chrc_in"))[0]
 
                     diff = len(cons_chrc_in) - len(prod_chrc_out)
@@ -772,6 +818,7 @@ class DelayCharacteristicFunctions(NodeLocalTransformation):
 
                 if node.op_type in [
                     "DuplicateStreams_hls",
+                    "AlignLabels_hls",
                     "StreamingFIFO_hls",
                     "StreamingFIFO_rtl",
                 ]:
@@ -983,7 +1030,21 @@ class DeriveFIFOSizes(Transformation):
                                 continue
 
                             if (cons.get_nodeattr(chr_pairs[0][1])) == "":
-                                out_fifo_depths.append(2)
+                                # Consumer isn't characterized (e.g. the terminal
+                                # AlignLabels join). For a DuplicateStreams
+                                # side-channel output still apply the branch buffer
+                                # volume from HandleBranches so the bypass FIFO that
+                                # holds the model input for the whole model latency
+                                # is sized rather than left at the default depth.
+                                base = 2
+                                if node.op_type == "DuplicateStreams_hls":
+                                    base += prod.get_nodeattr("extra_branch_fifos")[indx]
+                                out_fifo_depths.append(base)
+                                # persist here too: the outFIFODepths set below is
+                                # skipped by this continue, which would otherwise
+                                # leave a multi-output node's list short (e.g. the
+                                # DuplicateStreams side-channel output).
+                                prod.set_nodeattr("outFIFODepths", out_fifo_depths)
                                 continue
 
                             for pair in chr_pairs[:1]:

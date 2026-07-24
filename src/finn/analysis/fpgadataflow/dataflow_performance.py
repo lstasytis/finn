@@ -100,6 +100,7 @@ def max_period(model):
         if node is not None and node.op_type not in [
             "AddStreams_hls",
             "DuplicateStreams_hls",
+            "AlignLabels_hls",
             "StreamingFIFO_hls",
             "StreamingFIFO_rtl",
         ]:
@@ -141,6 +142,7 @@ def max_remaining_period(model, node):
         if node is not None and node.op_type not in [
             "AddStreams_hls",
             "DuplicateStreams_hls",
+            "AlignLabels_hls",
             "StreamingFIFO_hls",
             "StreamingFIFO_rtl",
         ]:

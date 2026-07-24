@@ -228,7 +228,12 @@ class HWCustomOp(CustomOp):
 
     def rtlsim_multi_io(self, sim, io_dict, sname="_V", batch_size=1):
         "Run rtlsim for this node, supports multiple i/o streams."
-        num_out_values = self.get_number_output_values() * batch_size
+        num_out_values = self.get_number_output_values()
+        # multi-output nodes report a per-stream dict; single-output an int
+        if isinstance(num_out_values, dict):
+            num_out_values = {k: v * batch_size for k, v in num_out_values.items()}
+        else:
+            num_out_values = num_out_values * batch_size
         # Use the larger of expected cycles or liveness threshold
         exp_cycles = self.get_exp_cycles()
         liveness_threshold = get_liveness_threshold_cycles()
