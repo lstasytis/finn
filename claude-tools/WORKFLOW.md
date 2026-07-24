@@ -36,6 +36,31 @@ branch or the tools overlay.
 > `feature/label_aligner` (the original) also carries MVAU/thresholding MMV
 > changes. `feature/label_aligner-clean` is the scoped version used for envs.
 
+## Starting point: it doesn't matter where you are
+
+`mkenv` always rebuilds the target env **from the base**, regardless of your
+current branch — there is no "home" branch to return to first. To switch from any
+environment to another combination, just run `mkenv` with the branches you want:
+
+```bash
+claude-tools/mkenv.sh env/align feature/analytical-fifo-sizing feature/label_aligner-clean
+```
+
+Only two requirements:
+1. **Clean tracked tree** — commit or stash real changes first (untracked scratch
+   files like `*.sv` / build dirs are fine; `mkenv` refuses on tracked changes).
+2. **Reach the script** — `claude-tools/mkenv.sh` exists on the overlay and every
+   `env/*` (they all carry the folder), so any env can launch it. It re-execs from
+   a temp copy, so it survives its own base checkout.
+
+To not even think about #2, symlink it onto your PATH once:
+```bash
+ln -s "$(git rev-parse --show-toplevel)/claude-tools/mkenv.sh" ~/bin/finn-mkenv
+# then from anywhere: finn-mkenv env/fifo feature/analytical-fifo-sizing
+```
+(Re-create the symlink target only if you move the repo; the script resolves the
+repo root itself.)
+
 ## Building an environment
 
 ```bash

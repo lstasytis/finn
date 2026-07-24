@@ -22,6 +22,15 @@
 #   MKENV_BASE=feature/expanded-finn-examples  MKENV_TOOLS=claude-tools
 set -euo pipefail
 
+# Re-exec from a stable temp copy: mkenv briefly checks out the base branch,
+# which does NOT contain claude-tools/, so the in-tree copy of this script can
+# vanish mid-run. Running from a copy makes "run it from any branch" always safe.
+if [ -z "${MKENV_REEXEC:-}" ]; then
+  _self="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+  _tmp="$(mktemp)"; cat "$_self" > "$_tmp"
+  MKENV_REEXEC=1 exec bash "$_tmp" "$@"
+fi
+
 BASE="${MKENV_BASE:-feature/expanded-finn-examples}"
 TOOLS="${MKENV_TOOLS:-claude-tools}"
 
@@ -33,6 +42,14 @@ FEATURES=("$@")
 
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
+
+# Refuse to run on a dirty tree (tracked changes) -- git switch -C would carry or
+# clobber them. Untracked scratch files (*.sv, build dirs) are fine and ignored.
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+  echo "!! working tree has uncommitted tracked changes; commit or stash first:" >&2
+  git status --short --untracked-files=no | sed 's/^/     /' >&2
+  exit 1
+fi
 
 # rerere = "reuse recorded resolution": remembers how a conflict was resolved
 # and replays it automatically the next time the same conflict appears.
