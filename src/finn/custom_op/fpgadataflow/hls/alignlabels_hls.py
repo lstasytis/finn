@@ -1,8 +1,7 @@
+import numpy as np
 
 from finn.custom_op.fpgadataflow.alignlabels import AlignLabels
 from finn.custom_op.fpgadataflow.hlsbackend import HLSBackend
-
-import numpy as np
 
 
 class AlignLabels_hls(AlignLabels, HLSBackend):
@@ -15,6 +14,10 @@ class AlignLabels_hls(AlignLabels, HLSBackend):
         my_attrs = {}
         my_attrs.update(AlignLabels.get_nodeattr_types(self))
         my_attrs.update(HLSBackend.get_nodeattr_types(self))
+        # HLSBackend defaults inFIFODepths/outFIFODepths to a single entry; this
+        # node has two input and two output streams, so restore length-2 defaults.
+        my_attrs["inFIFODepths"] = ("ints", False, [2, 2])
+        my_attrs["outFIFODepths"] = ("ints", False, [2, 2])
         return my_attrs
 
     def verify_node(self):
@@ -42,7 +45,7 @@ class AlignLabels_hls(AlignLabels, HLSBackend):
 
     def global_includes(self):
         self.code_gen_dict["$GLOBALS$"] = ['#include "streamtools.h"']
-        
+
     def strm_decl(self):
         self.code_gen_dict["$STREAMDECLARATIONS$"] = []
         self.code_gen_dict["$STREAMDECLARATIONS$"].append(
@@ -57,10 +60,8 @@ class AlignLabels_hls(AlignLabels, HLSBackend):
         self.code_gen_dict["$STREAMDECLARATIONS$"].append(
             'hls::stream<ap_uint<{}>> out1_V ("out1_V");'.format(self.get_outstream_width(1))
         )
-        
 
     def defines(self, var):
-        pe = self.get_nodeattr("PE")
         numTotal = np.prod(self.get_folded_output_shape(1)[:-1])
         self.code_gen_dict["$DEFINES$"] = [
             "#define LabelWidth %d " % self.get_instream_width(0),
@@ -79,11 +80,17 @@ class AlignLabels_hls(AlignLabels, HLSBackend):
         in_stream2 = "hls::stream<ap_uint<%d>> &in1_V" % (self.get_instream_width(1))
         out_stream1 = "hls::stream<ap_uint<%d>> &out0_V" % (self.get_outstream_width(0))
         out_stream2 = "hls::stream<ap_uint<%d>> &out1_V" % (self.get_outstream_width(1))
-        
-        blackbox_hls = "void %s(%s, %s, %s, %s)" % (self.onnx_node.name, in_stream1, in_stream2, out_stream1, out_stream2)
+
+        blackbox_hls = "void %s(%s, %s, %s, %s)" % (
+            self.onnx_node.name,
+            in_stream1,
+            in_stream2,
+            out_stream1,
+            out_stream2,
+        )
         self.code_gen_dict["$BLACKBOXFUNCTION$"] = [blackbox_hls]
 
-    def pragmas(self): # TODO: Same as DuplicateStreams like this?  
+    def pragmas(self):  # TODO: Same as DuplicateStreams like this?
         pragmas = []
         pragmas.append("#pragma HLS dataflow disable_start_propagation")
         pragmas.append("#pragma HLS INTERFACE axis port=in0_V")
@@ -101,6 +108,5 @@ class AlignLabels_hls(AlignLabels, HLSBackend):
     # def timeout_condition(self):
 
     # def timeout_read_stream(self):
-    
 
     # TODO: Further methods?

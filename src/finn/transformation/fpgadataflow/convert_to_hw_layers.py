@@ -45,6 +45,7 @@ from qonnx.util.onnx import nchw_to_nhwc
 
 # Module containing specializations of elementwise binary operations
 import finn.custom_op.fpgadataflow.elementwise_binary as elementwise_binary
+from finn.util.fpgadataflow import is_fpgadataflow_node
 
 
 class InferConvInpGen(Transformation):
@@ -2423,85 +2424,108 @@ class InsertAlignLabels(Transformation):
     Integrates a node to align model output labels with their corresponding
     inputs by duplicating the input stream and buffering the duplicate
     """
-    
+
     def __init__(self):
         super().__init__()
-        
+
     def apply(self, model):
         graph = model.graph
-        
+
+        # Fork the tensor entering the first dataflow layer, skipping any leading
+        # non-dataflow layers (e.g. a leading Reshape/Transpose). Inserting the
+        # DuplicateStreams ahead of those would sandwich them inside the dataflow
+        # block and break the contiguity check.
         input_tensor = graph.input[0].name
-        
+        while True:
+            cons = model.find_consumers(input_tensor)
+            assert (
+                cons is not None and len(cons) < 2
+            ), """Input has two successors, please run InferDuplicateStreamsLayer first."""
+            if len(cons) == 1 and not is_fpgadataflow_node(cons[0]):
+                input_tensor = cons[0].output[0]
+            else:
+                break
+
         first_successor = model.find_consumers(input_tensor)
-        assert (len(first_successor) < 2
-                ), """Input has two successors, please run InferDuplicateStreamsLayer first."""
-        
+
         input_shape = model.get_tensor_shape(input_tensor)
         input_datatype = model.get_tensor_datatype(input_tensor)
-        
-        model_input = helper.make_tensor_value_info(model.make_new_valueinfo_name(), TensorProto.FLOAT, input_shape)
-        model.graph.value_info.append(model_input)
-        buffer_input = helper.make_tensor_value_info(model.make_new_valueinfo_name(), TensorProto.FLOAT, input_shape)
-        model.graph.value_info.append(buffer_input)
-        
+
+        # DuplicateStreams forks the model input into the model path (model_input)
+        # and a passed-through side-channel (buffer_input) that is buffered while
+        # the model computes its output.
+        model_input = model.make_new_valueinfo_name()
+        buffer_input = model.make_new_valueinfo_name()
+        for t in (model_input, buffer_input):
+            model.set_tensor_shape(t, input_shape)
+            model.set_tensor_datatype(t, input_datatype)
+
         num_ch = int(input_shape[-1])
         vecs = input_shape[:-1]
-        
+
         dup_node = helper.make_node(
-                "DuplicateStreams",
-                [input_tensor],
-                [model_input, buffer_input],
-                domain="finn.custom_op.fpgadataflow",
-                backend="fpgadataflow",
-                NumChannels=num_ch,
-                PE=1,
-                inputDataType=input_datatype.name,
-                numInputVectors=vecs,
-                NumOutputStreams=2,
-                outFIFODepths=[2] * 2,
-                name="DuplicateStreams_" + input_tensor,
-                cpp_interface="hls_vector",
-                hls_style="freerunning",
-            )
-        
+            "DuplicateStreams",
+            [input_tensor],
+            [model_input, buffer_input],
+            domain="finn.custom_op.fpgadataflow",
+            backend="fpgadataflow",
+            NumChannels=num_ch,
+            PE=1,
+            inputDataType=input_datatype.name,
+            numInputVectors=vecs,
+            NumOutputStreams=2,
+            outFIFODepths=[2] * 2,
+            name="DuplicateStreams_" + input_tensor,
+            cpp_interface="hls_vector",
+            hls_style="freerunning",
+        )
+
         graph.node.insert(0, dup_node)
         for i, successor_input in enumerate(first_successor[0].input):
-            if successor_input == input_tensor: # Match the first layer's input with the duplicated stream
-                    first_successor[0].input[i] = model_input
-                    break
+            if successor_input == input_tensor:  # rewire first layer onto the model path
+                first_successor[0].input[i] = model_input
+                break
 
         last_node = graph.node[-1]
-        final_output = last_node.output[0].name # TODO: Need to consider multiple outputs here?
+        final_output = last_node.output[0]  # current graph output (the labels)
         output_shape = model.get_tensor_shape(final_output)
         output_datatype = model.get_tensor_datatype(final_output)
-        
-        model_output = helper.make_tensor_value_info(model.make_new_valueinfo_name(), TensorProto.FLOAT, output_shape)
-        model.graph.value_info.append(model_output)
-        buffer_output = helper.make_tensor_value_info(model.make_new_valueinfo_name(), TensorProto.FLOAT, input_shape)
-        model.graph.value_info.append(buffer_output)
-        # TODO: Do I need to and how do I define buffer_output as a global output?
+
+        # Detach the last layer's output onto an internal tensor so AlignLabels can
+        # consume it and re-emit the (now aligned) label stream on final_output.
+        model_output = model.make_new_valueinfo_name()
+        model.set_tensor_shape(model_output, output_shape)
+        model.set_tensor_datatype(model_output, output_datatype)
+        last_node.output[0] = model_output
+
+        # Passed-through input, emitted aligned with each label. It becomes a
+        # second global output below, so its shape lives in graph.output only
+        # (adding it to value_info too would duplicate the ValueInfoProto).
+        buffer_output = model.make_new_valueinfo_name()
+        model.set_tensor_datatype(buffer_output, input_datatype)
 
         align_node = helper.make_node(
-                "AlignLabels",
-                [model_output, buffer_input],
-                [final_output, buffer_output],
-                domain="finn.custom_op.fpgadataflow",
-                backend="fpgadataflow",
-                label_dtype = output_datatype.name,
-                data_dtype = input_datatype.name,
-                label_shape = output_shape,
-                data_shape = input_shape,
-                PE=1,
-                name="DuplicateStreams_" + input_tensor,
-                #cpp_interface="hls_vector", TODO: Necessary
-                #hls_style="freerunning",
-                # TODO: Anything else outside of attributes in my class? (superclass attributes?)
-            )
+            "AlignLabels",
+            [model_output, buffer_input],
+            [final_output, buffer_output],
+            domain="finn.custom_op.fpgadataflow",
+            backend="fpgadataflow",
+            label_dtype=output_datatype.name,
+            data_dtype=input_datatype.name,
+            label_shape=output_shape,
+            data_shape=input_shape,
+            PE=1,
+            name="AlignLabels_" + input_tensor,
+        )
 
         graph.node.append(align_node)
 
-        # TODO: Is this necessary? Could it be detrimental?
+        # Expose the passed-through input as a second global output.
+        graph.output.append(
+            helper.make_tensor_value_info(buffer_output, TensorProto.FLOAT, input_shape)
+        )
+
         model = model.transform(SortGraph())
         model = model.transform(InferShapes())
         model = model.transform(InferDataTypes())
-        return (model, False) # Transformation needs to be applied exactly once => return False
+        return (model, False)  # apply exactly once

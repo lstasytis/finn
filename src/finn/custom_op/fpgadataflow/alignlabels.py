@@ -1,4 +1,3 @@
-
 import numpy as np
 import warnings
 from qonnx.core.datatype import DataType
@@ -17,24 +16,16 @@ class AlignLabels(HWCustomOp):
             # FINN DataTypes for label and (model input) data
             "label_dtype": ("s", True, ""),
             "data_dtype": ("s", True, ""),
-            
             # Shapes of the label and data
             "label_shape": ("ints", True, [1]),
             "data_shape": ("ints", True, [1]),
-            
-            # PE for the data stream - folds data analogous to model's first layer? 
-            # TODO: Do we want this? Inherently good, because chunks of data are smaller => more fitting for AXI, but is this always given?
+            # PE for the data stream - folds the passed-through data (PE elements
+            # per transaction), analogous to the model's first layer.
             "PE": ("i", True, 0),
-            
-            # Data to label ratio, how many "chunks" of data to produce one label
-            # "label_ratio": ("i", True, 1),
-            # TODO: Unnecessary? label_ratio is always np.prod(self.get_folded_output_shape(1)[:-1]), right?
-            
-            # TODO: Is this required like in elementwiseop?
-            # Input and output FIFO depths for multi-I/O nodes
-            #   Note: Need to override here as there might be two inputs
-            # "inFIFODepths": ("ints", False, [2, 2]),
-            # "outFIFODepths": ("ints", False, [2, 2]),
+            # Per-stream FIFO depths -- AlignLabels has two inputs (label, data)
+            # and two outputs (label, data), so these must hold two entries each.
+            "inFIFODepths": ("ints", False, [2, 2]),
+            "outFIFODepths": ("ints", False, [2, 2]),
         }
         my_attrs.update(super().get_nodeattr_types())
         return my_attrs
@@ -43,8 +34,11 @@ class AlignLabels(HWCustomOp):
         return [self.get_nodeattr("label_shape"), self.get_nodeattr("data_shape")][ind]
 
     def get_folded_input_shape(self, ind=0):
-        if(ind == 0): return self.get_normal_input_shape(0) # Label always fully folded - TODO: Valid assumption?
-        
+        # Label is fully folded: one transaction carrying every label element.
+        # Return a tuple (the HLS codegen formats shapes via str(tuple)).
+        if ind == 0:
+            return tuple(self.get_normal_input_shape(0))
+
         *input_vectors, input_channels = self.get_nodeattr("data_shape")
         pe = self.get_nodeattr("PE")
         assert input_channels % pe == 0, "PE must divide data shape's number of channels"
@@ -87,26 +81,28 @@ class AlignLabels(HWCustomOp):
             )
             warnings.warn(warn_str)
         self.set_nodeattr("data_dtype", data_dtype.name)
-        
+
         # Set output data types accordingly
         model.set_tensor_datatype(node.output[0], label_dtype)
         model.set_tensor_datatype(node.output[1], data_dtype)
 
-
-    def get_input_datatype(self, ind=0): 
+    def get_input_datatype(self, ind=0):
         """Returns FINN DataType of input."""
-        return [self.get_nodeattr("label_dtype"), self.get_nodeattr("data_dtype")][ind]
+        return DataType[[self.get_nodeattr("label_dtype"), self.get_nodeattr("data_dtype")][ind]]
 
-    def get_output_datatype(self, ind=0): 
+    def get_output_datatype(self, ind=0):
         """Returns FINN DataType of output."""
         return self.get_input_datatype(ind)
 
     def get_instream_width(self, ind=0):
         """Returns input stream width."""
-        if (ind == 0):
-            return np.prod(self.get_normal_input_shape(0)) # Label always fully folded - TODO: Valid assumption?
-        
-        else: 
+        if ind == 0:
+            # Label arrives fully folded: one transaction carrying all label
+            # elements, so the width is the total number of label bits.
+            lbits = self.get_input_datatype(0).bitwidth()
+            return int(np.prod(self.get_normal_input_shape(0))) * lbits
+
+        else:
             ibits = self.get_input_datatype(ind).bitwidth()
             pe = self.get_nodeattr("PE")
             in_width = pe * ibits
@@ -121,7 +117,17 @@ class AlignLabels(HWCustomOp):
         # (1) to get data shape - always more data than labels => determines amount of cycles
         return np.prod(self.get_folded_output_shape(1)[:-1])
 
-    def execute_node(self, context, graph): # TODO: Does this method have to reflect the alignment? (Shouldn't, right?)
+    def get_number_output_values(self):
+        # Per output stream (needed for multi-output rtlsim): the label is
+        # written once, the data stream passes NumTotal transactions through.
+        return {
+            "out0": int(np.prod(self.get_folded_output_shape(0)[:-1])),
+            "out1": int(np.prod(self.get_folded_output_shape(1)[:-1])),
+        }
+
+    def execute_node(
+        self, context, graph
+    ):  # TODO: Does this method have to reflect the alignment? (Shouldn't, right?)
         node = self.onnx_node
         inputs = [context[node.input[0]], context[node.input[1]]]
         context[node.output[0]] = inputs[0].astype(np.float32)
@@ -131,6 +137,5 @@ class AlignLabels(HWCustomOp):
     # def derive_characteristic_fxns(self, period):
 
     # def get_number_output_values(self):
-        
 
     # TODO: Further methods?
