@@ -1,1 +1,14 @@
-{}
+{
+  "bnn-pynq-cnv-w1a1": {
+    "fifo_kb": 4.061
+  },
+  "cybersecurity-mlp": {
+    "fifo_kb": 0.016
+  },
+  "gtsrb": {
+    "fifo_kb": 111.394
+  },
+  "vgg10-radioml": {
+    "fifo_kb": 22.878
+  }
+}

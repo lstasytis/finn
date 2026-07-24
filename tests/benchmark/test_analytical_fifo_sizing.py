@@ -53,7 +53,11 @@ import _feature_bench as fb  # noqa: E402
 FEATURE = "fifo_sizing"
 # mobilenet_v1 is a known analytic over-size gap (isolated-characterization
 # ignores backpressure) -- tracked, not yet matching ground truth.
-XFAIL_MODELS = {"mobilenet_v1"}
+# kws hits the dev "Non-contiguous dataflow block" validation at convert-to-hw
+# (dev contiguity check vs the post-conv flatten removal in the kws flow); this
+# fails before FIFO sizing and is unrelated to the sizer -- xfail to match the
+# sibling benchmark harness on expanded-finnexamples.
+XFAIL_MODELS = {"mobilenet_v1", "kws"}
 TOLERANCES = {"fifo_kb": 0.10}
 
 
@@ -76,6 +80,10 @@ def _configure_analytic_fifo(cfg, build_cfg):
     cfg.tav_utilization_strategy = build_cfg.TAVUtilizationMethod.CONSERVATIVE_RELAXATION
     # fixed reference folding (never auto-fold during a sizing run)
     cfg.target_fps = None
+    # estimate-only: the analytic tree-model sizer needs no built IP, so skip the
+    # trailing PrepareIP/HLSSynthIP re-synth at the end of step_set_fifo_depths
+    # (otherwise the benchmark would invoke Vitis HLS and is no longer synth-free).
+    cfg.skip_resynth_during_fifo_sizing = True
 
 
 @pytest.mark.slow
