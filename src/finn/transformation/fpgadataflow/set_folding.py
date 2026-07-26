@@ -1403,9 +1403,15 @@ def insert_and_size_fifos(
     it will take an extremely long amount of time.
     """
     from finn.builder.build_dataflow_steps import step_set_fifo_depths
+    from finn.transformation.streamline.round_thresholds import RoundAndClipThresholds
 
     if not consider_dwc_costs:
         model = model.transform(InsertDWC())
+
+    # this scoring copy is sized before step_minimize_bit_width has run, but
+    # RTL Thresholding codegen (needed by the sizer's characterization pass)
+    # requires integer thresholds -- round them here like the real flow will
+    model = model.transform(RoundAndClipThresholds())
 
     cfg = DataflowBuildConfig(
         output_dir="",
