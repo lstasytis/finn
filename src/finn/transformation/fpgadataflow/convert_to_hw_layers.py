@@ -2419,6 +2419,62 @@ class InferCrop(Transformation):
         return (model, graph_modified)
 
 
+class MatchAlignLabelsThroughput(Transformation):
+    """Fold the label-alignment bypass machinery -- each AlignLabels node and
+    the DuplicateStreams fork feeding it -- so the input bypass keeps up with
+    the rest of the model. Both nodes are inserted unfolded (PE=1), making the
+    element-serial bypass stream the accelerator's bottleneck; this picks the
+    smallest channel divisor whose per-frame cycle count does not exceed the
+    slowest remaining dataflow node. Run after folding is final."""
+
+    def apply(self, model):
+        align_nodes = [n for n in model.graph.node if n.op_type.startswith("AlignLabels")]
+        if not align_nodes:
+            return (model, False)
+
+        # the bypass set: AlignLabels + the DuplicateStreams producing its data
+        # input (other DuplicateStreams in the graph are real model forks)
+        bypass = {n.name: n for n in align_nodes}
+        for node in align_nodes:
+            prod = model.find_producer(node.input[1])
+            if prod is not None and prod.op_type.startswith("DuplicateStreams"):
+                bypass[prod.name] = prod
+
+        from finn.transformation.fpgadataflow.annotate_cycles import AnnotateCycles
+
+        model = model.transform(AnnotateCycles())
+        other_cycles = [
+            getCustomOp(n).get_nodeattr("cycles_estimate")
+            for n in model.graph.node
+            if is_fpgadataflow_node(n) and n.name not in bypass
+        ]
+        if not other_cycles or max(other_cycles) <= 0:
+            return (model, False)
+        max_cycles = max(other_cycles)
+
+        def fold_to(channels, frames):
+            for cand in range(1, channels + 1):
+                if channels % cand == 0 and frames * (channels // cand) <= max_cycles:
+                    return cand
+            return channels  # worst case: fully parallel single-beat bypass
+
+        # names can go stale after AnnotateCycles' copy; re-resolve by name
+        by_name = {n.name: n for n in model.graph.node}
+        for name in bypass:
+            node = by_name[name]
+            inst = getCustomOp(node)
+            if node.op_type.startswith("AlignLabels"):
+                data_shape = inst.get_nodeattr("data_shape")
+                channels = data_shape[-1]
+                frames = int(np.prod(data_shape[:-1]))
+            else:  # DuplicateStreams
+                channels = inst.get_nodeattr("NumChannels")
+                frames = int(np.prod(inst.get_nodeattr("numInputVectors")))
+            inst.set_nodeattr("PE", fold_to(channels, frames))
+
+        return (model, False)
+
+
 class InsertAlignLabels(Transformation):
     """
     Integrates a node to align model output labels with their corresponding

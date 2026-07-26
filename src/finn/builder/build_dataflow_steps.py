@@ -743,6 +743,10 @@ def step_apply_folding_config(model: ModelWrapper, cfg: DataflowBuildConfig):
     else:
         print("No folding config json provided, skipping step_apply_folding_config.")
 
+    if cfg.align_labels:
+        # folding is final here; fold the AlignLabels bypass stream to match it
+        model = model.transform(to_hw.MatchAlignLabelsThroughput())
+
     return model
 
 
