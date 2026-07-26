@@ -1413,6 +1413,25 @@ def insert_and_size_fifos(
     # requires integer thresholds -- round them here like the real flow will
     model = model.transform(RoundAndClipThresholds())
 
+    # per this function's contract, the in-loop sizing must run tree-model TAV
+    # generation and stay synthesis-free: the default (rtlsim characterization,
+    # trailing re-synth) invokes vitis_hls per node per scoring candidate. The
+    # TAV knobs only exist on trees that carry the analytic FIFO sizer.
+    tav_kwargs = {}
+    try:
+        from finn.builder.build_dataflow_config import (
+            TAVGenerationMethod,
+            TAVUtilizationMethod,
+        )
+
+        tav_kwargs = dict(
+            tav_generation_strategy=TAVGenerationMethod.TREE_MODEL,
+            tav_utilization_strategy=TAVUtilizationMethod.CONSERVATIVE_RELAXATION,
+            skip_resynth_during_fifo_sizing=True,
+        )
+    except ImportError:
+        pass
+
     cfg = DataflowBuildConfig(
         output_dir="",
         auto_fifo_depths=True,
@@ -1425,6 +1444,7 @@ def insert_and_size_fifos(
         generate_outputs=[],
         board=board,
         extract_hw_config=False,
+        **tav_kwargs,
     )
 
     model = step_set_fifo_depths(model, cfg)
