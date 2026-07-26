@@ -40,6 +40,7 @@ run_tests() {  # run_tests <tree> <log-tag> <testfile> [testfile...]
       ( cd "$tree" &&
         FINN_ROOT="$tree" PYTHONPATH="$tree/src" \
         FINN_E2E_RESULTS="$RESULTS" FINN_E2E_BUILD_ROOT="$BUILDS" \
+        FINN_BUILD_DIR="$BUILDS/tmp" \
         NUM_DEFAULT_WORKERS=8 \
         python3 -m pytest -q -p no:cacheprovider \
           "tests/benchmark/$f::${tname}[${model}]"
