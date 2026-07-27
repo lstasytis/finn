@@ -271,6 +271,13 @@ class SetFolding(Transformation):
                 else:
                     max_simd = node_inst.get_nodeattr("NumChannels")
                     self.optimize_attribute_val(node_inst, max_simd, "SIMD")
+            elif op_type.startswith("AlignLabels"):
+                # fold the bypass data stream like any PE op; without this the
+                # two-pass relaxation sees the freshly-inserted PE=1 AlignLabels
+                # as the model bottleneck and re-folds the whole model down to
+                # its element-serial rate (cybersecurity-mlp: 74 -> 520 cyc)
+                max_pe = node_inst.get_nodeattr("data_shape")[-1]
+                self.optimize_attribute_val(node_inst, max_pe, "PE")
             else:
                 warnings.warn("SetFolding doesn't know how to handle op_type " + op_type)
 
