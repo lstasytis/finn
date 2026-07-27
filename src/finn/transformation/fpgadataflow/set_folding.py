@@ -1043,7 +1043,14 @@ class Optimizer:
         the attribute is skipped entirely if the resource estimator is blind to it
         (all choices give the same estimate) -- optimizing such a lever would only
         waste search time and pick an estimator-unjustified value."""
-        excluded = RESOURCE_TYPE_EXCLUDED_VALUES.get(param, set())
+        excluded = set(RESOURCE_TYPE_EXCLUDED_VALUES.get(param, set()))
+        # URAM weight memories require runtime_writeable_weights=1 on Ultrascale
+        # (asserted in MVAU/VVAU generate_infra_hdl); don't let the optimizer
+        # pick "ultra" for a weight ram_style unless the user opted in. Nodes
+        # without the attr (e.g. SWG line buffers) are unaffected.
+        if param == "ram_style" and "runtime_writeable_weights" in inst.get_nodeattr_types():
+            if inst.get_nodeattr("runtime_writeable_weights") != 1:
+                excluded = excluded | {"ultra"}
         allowed = sorted(set(inst.get_nodeattr_types()[param][3]) - excluded)
         if len(allowed) < 2:
             return None
