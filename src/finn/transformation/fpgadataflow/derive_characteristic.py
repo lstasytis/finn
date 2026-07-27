@@ -959,6 +959,47 @@ def remove_leading_duplicates_keep_one(arr):
     return np.concatenate(([first_val], arr[i + 1 :]))
 
 
+
+def swg_edge_burst_floor(prod_node, cons_node):
+    """Analytic FIFO floor for edges touching a sliding-window generator.
+
+    The TAV comparison stretches the SWG's curve to the consumer's period,
+    which flattens its window bursts: after the line buffer fills, the SWG
+    emits a full ROW of windows back-to-back (verified in stitched-IP rtlsim:
+    cnv-w1a1 needs exactly OFMDim_w x k^2 x C/SIMD = 270 slots on SWG->MVAU
+    where the stretched TAV delta is ~1). Floor the depth at one output-row
+    burst on SWG outputs, and at the line-buffer fill on SWG inputs.
+    """
+
+    def swg_attrs(node):
+        inst = registry.getCustomOp(node)
+        k = inst.get_nodeattr("ConvKernelDim")
+        ifm = inst.get_nodeattr("IFMDim")
+        ofm = inst.get_nodeattr("OFMDim")
+        ch = inst.get_nodeattr("IFMChannels")
+        simd = inst.get_nodeattr("SIMD")
+        return k, ifm, ofm, ch, simd
+
+    floor = 0
+    try:
+        if prod_node is not None and prod_node.op_type.startswith("ConvolutionInputGenerator"):
+            k, ifm, ofm, ch, simd = swg_attrs(prod_node)
+            window_beats = int(np.prod(k)) * ch // simd
+            if ofm[0] > 1:  # 2D: one output row of windows
+                floor = max(floor, ofm[1] * window_beats)
+            else:  # 1D: a couple of windows
+                floor = max(floor, 2 * window_beats)
+        if cons_node is not None and cons_node.op_type.startswith("ConvolutionInputGenerator"):
+            k, ifm, ofm, ch, simd = swg_attrs(cons_node)
+            if ifm[0] > 1:  # 2D: line-buffer fill of (k_h - 1) input rows
+                floor = max(floor, (k[0] - 1) * ifm[1] * ch // simd)
+            else:
+                floor = max(floor, k[1] * ch // simd)
+    except Exception:
+        return 0
+    return int(floor)
+
+
 class DeriveFIFOSizes(Transformation):
     """Prerequisite: DeriveTokenAccessVectors, ProducerDelayCharacteristic
     #  and DelayCharacteristic already called on graph.
@@ -1332,6 +1373,8 @@ class DeriveFIFOSizes(Transformation):
                                 # print(f"sized {node.name} with {fifo_depth} ")
                                 depth_attempts.append(fifo_depth)
                             fifo_depth = min(depth_attempts)
+                            # SWG bursts survive no relaxation strategy
+                            fifo_depth = max(fifo_depth, swg_edge_burst_floor(node, cons_node))
                         else:
                             fifo_depth = 0
 
