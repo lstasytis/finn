@@ -683,8 +683,20 @@ void StreamingDataWidthConverterGeneralized_Batch(
 		}
 	}
   } else { // InWidth < OutWidth
-    // read multiple input words per output word emitted
-    for (unsigned int t = 0; t < totalItersReps; t++) {
+    // read multiple input words per output word emitted.
+    // Exact per-rep iteration budget: reads occupy iterations 0..NumInWords-1;
+    // after the final read the writes still owed are
+    //   NumOutWords - (InWidth*(NumInWords-1))/OutWidth   (>= 1),
+    // one per iteration. The flat "+1 per rep" of totalItersReps under-budgets
+    // padded configs owing >= 2 trailing writes (e.g. 4b->6b, 256->258 els:
+    // the 86th, padded, word was never emitted -> downstream deadlock), while
+    // any surplus iteration would block forever on in.read() of a word that
+    // never arrives -- so the budget must be exact, not merely large enough.
+    constexpr unsigned long long TrailingWrites =
+        (unsigned long long)NumOutWords
+        - ((unsigned long long)InWidth * (NumInWords - 1)) / OutWidth;
+    unsigned const upItersReps = (NumInWords + TrailingWrites) * numReps;
+    for (unsigned int t = 0; t < upItersReps; t++) {
 #pragma HLS pipeline style=flp II=1
 	  // we reached the end of the transaction for this numReps superiteration
 	  // reset all trackers to allow further stream IO and stop padding/cropping
