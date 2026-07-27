@@ -562,7 +562,6 @@ class ConvolutionInputGenerator(HWCustomOp):
             return Characteristic_Node("SlidingWindow_2D", [(1, startup), (1, steady)], False)
 
     def get_tree_model(self):
-        # Extract node attributes
         ifm_dim_y, ifm_dim_x = self.get_nodeattr("IFMDim")
         ifm_ch = self.get_nodeattr("IFMChannels")
         simd = self.get_nodeattr("SIMD")
@@ -573,19 +572,255 @@ class ConvolutionInputGenerator(HWCustomOp):
         depthwise = self.get_nodeattr("depthwise")
         SF = ifm_ch // simd
 
-        # hyper parameter for when we stop merging
-        buffering_threshold = 1024
-        #
-        # print("simd: ", simd)
-        # print("ifm y, x: ", ifm_dim_y, ifm_dim_x)
-        # print("K: ", k_y, k_x)
-        # print("stride: ", stride_y, stride_x)
-        # print("dilation: ", dilation_y, dilation_x)
-        # print("parallel_window: ", parallel_window)
-        # print("dw: ", depthwise)
-        # print("buffer depth: ", self.get_buffer_depth())
-        # print("buffering threshold: ", buffering_threshold)
+        def mkleaf(name, phases):
+            return Characteristic_Node(name, [(cnt, vals) for cnt, vals in phases if cnt > 0], True)
 
+        # 1x1 pass-through / depthwise-equivalent
+        if k_y == 1 and k_x == 1:
+            n_tok = SF * ifm_dim_y * ifm_dim_x
+            return Characteristic_Node(
+                "k1_pass",
+                [(1, [0, 1]), (1, [1, 0]), (n_tok - 1, [1, 1])],
+                True,
+            )
+
+        # depthwise, default impl, k=2 s=2, channel_factor > 1
+        if (
+            parallel_window == 0
+            and depthwise == 1
+            and simd != ifm_ch
+            and k_y == 2
+            and k_x == 2
+            and stride_y == 2
+            and stride_x == 2
+            and dilation_y == 1
+            and dilation_x == 1
+        ):
+            ofm_dim_y = math.floor((ifm_dim_y - k_y) / stride_y) + 1
+            n = ifm_dim_x * SF
+            pair_cnt = (SF - 2) // 2
+            w = ifm_dim_x
+            c = SF + 2 - (w - 2) * pair_cnt
+
+            prefix = mkleaf(
+                "dw_prefix",
+                [
+                    (1, [0, 1]),
+                    (2, [1, 0]),
+                    (1, [1, 1]),
+                    (SF - 1, [1, 0]),
+                    (1, [1, 1]),
+                    (n - SF - 1, [1, 0]),
+                    (1, [1, 1]),
+                    (SF - 1, [1, 0]),
+                    (n - (w - 2) * pair_cnt, [1, 1]),
+                ],
+            )
+
+            a_base = mkleaf(
+                "dw_row_start_base",
+                [
+                    (1, [0, 1]),
+                    (1, [1, 1]),
+                    (3, [0, 1]),
+                    (w, [1, 1]),
+                ],
+            )
+            a_pair = mkleaf(
+                "dw_row_start_pair",
+                [
+                    (2, [0, 1]),
+                    (1, [1, 1]),
+                    (3, [0, 1]),
+                    (1, [1, 1]),
+                    (3, [0, 1]),
+                    (w, [1, 1]),
+                ],
+            )
+            tail_mid_both = 2 * n - (1 + w) - pair_cnt * (w + 2) - (4 * SF - 3)
+            tail_mid = mkleaf(
+                "dw_row_tail_mid",
+                [
+                    (3 * SF - 3, [1, 0]),
+                    (1, [1, 1]),
+                    (SF - 1, [1, 0]),
+                    (tail_mid_both, [1, 1]),
+                ],
+            )
+            tail_last = mkleaf(
+                "dw_row_tail_last",
+                [
+                    (3 * SF - 3, [1, 0]),
+                    (1, [1, 1]),
+                    (SF - 1, [1, 0]),
+                    (tail_mid_both - c, [1, 1]),
+                    (n + 2 * pair_cnt, [0, 1]),
+                ],
+            )
+
+            middle = Characteristic_Node(
+                "dw_middle_row",
+                [
+                    (1, a_base),
+                    (pair_cnt, a_pair),
+                    (1, tail_mid),
+                ],
+                False,
+            )
+            last = Characteristic_Node(
+                "dw_last_row",
+                [
+                    (1, a_base),
+                    (pair_cnt, a_pair),
+                    (1, tail_last),
+                ],
+                False,
+            )
+
+            return Characteristic_Node(
+                "dw_pw0_k2s2",
+                [
+                    (1, prefix),
+                    (ofm_dim_y - 2, middle),
+                    (1, last),
+                ],
+                False,
+            )
+
+        # Special stride-3 pw=1 non-depthwise branch.
+        if (
+            parallel_window == 1
+            and depthwise == 0
+            and k_y == 2
+            and k_x == 2
+            and stride_y == 3
+            and stride_x == 3
+            and dilation_y == 1
+            and dilation_x == 1
+            and SF == 1
+        ):
+            ofm_dim_y = math.floor((ifm_dim_y - k_y) / stride_y) + 1
+            ofm_dim_x = math.floor((ifm_dim_x - k_x) / stride_x) + 1
+            first_valid_read = (k_y - 1) * ifm_dim_x + (k_x - 1) + 1
+            prefix = first_valid_read
+            gap_x = stride_x - 1
+            row_gap = stride_y * ifm_dim_x - (ofm_dim_x - 1) * stride_x - 1
+
+            ch_both = mkleaf("both", [(1, [1, 1])])
+            ch_read = mkleaf("read", [(1, [1, 0])])
+            step = Characteristic_Node("step", [(1, ch_both), (gap_x, ch_read)], False)
+            full_row = Characteristic_Node(
+                "full_row",
+                [(ofm_dim_x - 1, step), (1, ch_both), (row_gap, ch_read)],
+                False,
+            )
+            last_row = Characteristic_Node(
+                "last_row",
+                [(ofm_dim_x - 1, step)],
+                False,
+            )
+            return Characteristic_Node(
+                "pw1_k2_s3",
+                [(1, ch_both), (prefix, ch_read), (ofm_dim_y - 1, full_row), (1, last_row)],
+                False,
+            )
+
+        # Generic parallel_window=1 model for remaining multi-tap cases.
+        if parallel_window == 1:
+            eff_k_y = k_y + (k_y - 1) * (dilation_y - 1)
+            eff_k_x = k_x + (k_x - 1) * (dilation_x - 1)
+            ofm_dim_y = math.floor((ifm_dim_y - eff_k_y) / stride_y) + 1
+            ofm_dim_x = math.floor((ifm_dim_x - eff_k_x) / stride_x) + 1
+
+            start_y = eff_k_y - 1
+            start_x = eff_k_x - 1
+            top_zero = start_y * ifm_dim_x * SF
+            left_zero = start_x * SF
+            burst = SF
+            gap_x = (stride_x - 1) * SF
+            last_valid_x = start_x + (ofm_dim_x - 1) * stride_x
+            tail_x = (ifm_dim_x - 1 - last_valid_x) * SF
+            between_rows_zero = (stride_y - 1) * ifm_dim_x * SF
+            trailing_rows_zero = (ifm_dim_y - 1 - (start_y + (ofm_dim_y - 1) * stride_y)) * ifm_dim_x * SF
+            carry_write = 1 if (tail_x == 0 and trailing_rows_zero == 0) else 0
+
+            def build_row(trim_last):
+                phases = []
+                if left_zero > 0:
+                    phases.append((left_zero, [1, 0]))
+                for ox in range(ofm_dim_x):
+                    burst_cnt = burst
+                    if trim_last and trailing_rows_zero == 0 and tail_x == 0 and ox == ofm_dim_x - 1:
+                        burst_cnt -= 1
+                    if burst_cnt > 0:
+                        phases.append((burst_cnt, [1, 1]))
+                    if ox < ofm_dim_x - 1 and gap_x > 0:
+                        phases.append((gap_x, [1, 0]))
+                tail_cnt = tail_x
+                if trim_last and trailing_rows_zero == 0 and tail_x > 0:
+                    tail_cnt -= 1
+                if tail_cnt > 0:
+                    phases.append((tail_cnt, [1, 0]))
+                return mkleaf("row", phases)
+
+            row_full = build_row(False)
+            row_short = build_row(True)
+            top_zero_leaf = mkleaf("top_zero", [(top_zero, [1, 0])])
+            between_rows_leaf = mkleaf("between_rows", [(between_rows_zero, [1, 0])])
+            trailing_rows_leaf = mkleaf("trailing_rows", [(trailing_rows_zero - 1, [1, 0])])
+            carry_leaf = mkleaf("carry", [(1, [0, carry_write])])
+            bubble_leaf = mkleaf("bubble", [(1, [1, 0])])
+
+            common_row_parts = [(1, row_full)]
+            if between_rows_zero > 0:
+                common_row_parts.append((1, between_rows_leaf))
+            common_row = Characteristic_Node("common_row", common_row_parts, False)
+
+            if trailing_rows_zero > 0:
+                last_part_children = [(1, row_full)]
+                if trailing_rows_zero - 1 > 0:
+                    last_part_children.append((1, trailing_rows_leaf))
+                last_part = Characteristic_Node("last_part", last_part_children, False)
+            else:
+                last_part = row_short
+
+            scan_children = []
+            if top_zero > 0:
+                scan_children.append((1, top_zero_leaf))
+            if ofm_dim_y > 1:
+                scan_children.append((ofm_dim_y - 1, common_row))
+            scan_children.append((1, last_part))
+            scan_prefix = Characteristic_Node("scan_prefix", scan_children, False)
+
+            return Characteristic_Node(
+                "pw1_generic",
+                [(1, carry_leaf), (1, bubble_leaf), (1, scan_prefix)],
+                False,
+            )
+
+        # k=[2,2] pw=0 stride=[2,2] dw=0
+        if k_y == 2 and k_x == 2 and parallel_window == 0 and depthwise == 0 and stride_y == 2 and stride_x == 2:
+            n_pix = ifm_dim_y * ifm_dim_x
+            kernel_lines = math.ceil((ifm_dim_y - k_y + 1) / stride_y)
+
+            main_both = SF * n_pix - 2 - 2 * SF - 4 * SF
+            trailing_writes = SF * (kernel_lines - 1) + 1
+
+            swg = Characteristic_Node(
+                "k=2x2 pw=0 s=2x2",
+                [
+                    (1, [0, 1]),
+                    (2, [1, 0]),
+                    (2 * SF, [1, 1]),
+                    (4 * SF, [1, 0]),
+                    (main_both, [1, 1]),
+                    (trailing_writes, [0, 1]),
+                ],
+                True,
+            )
+            return swg
+
+        # Baseline branch for remaining pw=0 / other special cases
         stride_y_skips = (stride_y - 1) * ifm_dim_x
 
         kernels_in_line = math.ceil(
@@ -595,12 +830,10 @@ class ConvolutionInputGenerator(HWCustomOp):
             (ifm_dim_y - ((k_y - 1) + (k_y - 1) * (dilation_y - 1))) / stride_y
         )
 
-        # compute tail end of a kernel line which has to be read
         shifts_x = (kernels_in_line - 1) * stride_x
         starting_index_x = k_x + (k_x - 1) * (dilation_x - 1)
         remainder_x = ifm_dim_x - (starting_index_x + shifts_x)
 
-        # compute tail end rows of the full feature map which have to be read
         shifts_y = (kernel_lines - 1) * stride_y
         starting_index_y = k_y + (k_y - 1) * (dilation_y - 1)
         remainder_y = (ifm_dim_y - (starting_index_y + shifts_y)) * ifm_dim_x
@@ -616,18 +849,14 @@ class ConvolutionInputGenerator(HWCustomOp):
         else:
             writes_per_kernel = k_y * k_x
 
-        # inner line first buffer fill
         inner_line_buffer_reads = (stride_y - 1) * ifm_dim_x
 
-        # handling of a kernel shift on x axis
         single_move_dif = writes_per_kernel - stride_x
         if single_move_dif > 0:
-            # more writes than reads, dif both, write rest
             do_both = stride_x
             writes_only = single_move_dif
             reads_only = 0
         else:
-            # more reads than writes
             do_both = writes_per_kernel
             reads_only = -single_move_dif
             writes_only = 0
@@ -636,40 +865,28 @@ class ConvolutionInputGenerator(HWCustomOp):
         first_writes_only = writes_per_kernel
         first_reads_only = first_line_kernel_buffer
 
-        # absorb some remaining reads into writes if possible
         absorbing_kernels = 0
 
-        # only allow absorbing up to kernels_in_line-1 as the first kernel is an exception
         remaining_buffer_reads = inner_line_buffer_reads
         if inner_line_buffer_reads > 0 and ((kernels_in_line - 1) * writes_only) > 0:
-            # determine how many lines can absorb them
             absorbing_kernels = min(
                 math.floor((inner_line_buffer_reads) // writes_only), kernels_in_line - 1
             )
             absorbed_reads = absorbing_kernels * writes_only
-
-            # print("absorbing krn: ", absorbing_kernels)
-            # print("absorved reads: ", absorbed_reads)
-            # print("remaining hanging reads: ", (inner_line_buffer_reads) - absorbed_reads)
-            # print("remaining old kernels: ", (kernels_in_line - 2) - absorbing_kernels)
             inner_line_buffer_reads -= absorbed_reads
             remaining_buffer_reads -= absorbed_reads
 
-        # first kernel is a special case, we absorb the buffer reads into it as well
         first_reads = first_line_kernel_buffer + remaining_buffer_reads
         first_single_move_dif = writes_per_kernel - first_reads
         if first_single_move_dif > 0:
-            # more writes than reads, dif both, write rest
             first_do_both = first_reads
             first_writes_only = first_single_move_dif
             first_reads_only = 0
         else:
-            # more reads than writes
             first_do_both = writes_per_kernel
             first_reads_only = -first_single_move_dif
             first_writes_only = 0
 
-        # first kernel is a special case, we absorb the buffer reads into it as well
         absolute_first_reads = first_line_kernel_buffer + first_line_buffer
         absolute_first_single_move_dif = writes_per_kernel - absolute_first_reads
 
@@ -679,12 +896,10 @@ class ConvolutionInputGenerator(HWCustomOp):
 
         if depthwise == 0:
             if absolute_first_single_move_dif > 0:
-                # more writes than reads, dif both, write rest
                 absolute_first_do_both = absolute_first_reads
                 absolute_first_writes_only = absolute_first_single_move_dif
                 absolute_first_reads_only = 0
             else:
-                # more reads than writes
                 absolute_first_do_both = writes_per_kernel
                 absolute_first_reads_only = -absolute_first_single_move_dif
                 absolute_first_writes_only = 0
@@ -696,10 +911,6 @@ class ConvolutionInputGenerator(HWCustomOp):
         ch_both = Characteristic_Node("Streamed Read+Write", [(SF, [1, 1])], True)
 
         if parallel_window == 2:
-            # parallel window path works reliably, but should
-            # eventually be using paralle window 0's structure
-            # however currently is still inaccurate for some
-            # configs with parallel window=0
             ch_handle = Characteristic_Node("write out", [(1, ch_both)], False)
 
             handle_kernel = Characteristic_Node(
@@ -746,12 +957,6 @@ class ConvolutionInputGenerator(HWCustomOp):
             )
 
         else:
-            # --- handle_first_kernel ---
-            # print("\n\nhandle first kernel")
-            # print(f"do_both: {first_do_both}\n")
-            # print(f"reads_only: {first_reads_only}\n")
-            # print(f"writes_only: {first_writes_only}\n")
-
             handle_absolute_kernel = Characteristic_Node(
                 "handle one kernel",
                 [
@@ -761,12 +966,6 @@ class ConvolutionInputGenerator(HWCustomOp):
                 ],
                 False,
             )
-
-            # --- handle_first_kernel ---
-            # print("\n\nhandle first kernel")
-            # print(f"do_both: {first_do_both}\n")
-            # print(f"reads_only: {first_reads_only}\n")
-            # print(f"writes_only: {first_writes_only}\n")
 
             handle_first_kernel = Characteristic_Node(
                 "handle one kernel",
@@ -778,12 +977,6 @@ class ConvolutionInputGenerator(HWCustomOp):
                 False,
             )
 
-            # --- handle_kernel ---
-            # print("\n\nhandle kernel")
-            # print(f"do_both: {do_both}\n")
-            # print(f"reads_only: {reads_only}\n")
-            # print(f"writes_only: {writes_only}\n")
-
             handle_kernel = Characteristic_Node(
                 "handle one kernel",
                 [
@@ -794,11 +987,6 @@ class ConvolutionInputGenerator(HWCustomOp):
                 False,
             )
 
-            # --- handle_kernel_absorbed ---
-            # print("\n\nhandle absorbed kernel")
-            # print(f"do_both: {do_both+writes_only}\n")
-            # print(f"reads_only: {reads_only}\n")
-            #
             handle_kernel_absorbed = Characteristic_Node(
                 "handle one kernel with fused writes",
                 [
@@ -808,17 +996,9 @@ class ConvolutionInputGenerator(HWCustomOp):
                 False,
             )
 
-            # --- handle_first_line ---
-            # print("\n\nhandle first line")
-            # print(f"first_line_buffer: {first_line_buffer}\n")
-            # print(f"first line kernelbuffer: {first_line_kernel_buffer}\n")
-            # print(f"kernels_in_line: {kernels_in_line}\n")
-            # print(f"remainder_x: {remainder_x}\n")
-
             handle_first_line = Characteristic_Node(
                 "write first line",
                 [
-                    # (first_line_buffer, ch_read),
                     (1, handle_absolute_kernel),
                     (kernels_in_line - 1, handle_kernel),
                     (remainder_x, ch_read),
@@ -826,18 +1006,9 @@ class ConvolutionInputGenerator(HWCustomOp):
                 False,
             )
 
-            # --- handle_line ---
-            # print("\n\nhandle regular line")
-            # print(f"inner_line_buffer_reads: {inner_line_buffer_reads}\n")
-            # print(f"absorbing_kernels: {absorbing_kernels}\n")
-            # print("kernels_in_line - absorbing_kernels: ")
-            # print(f"{kernels_in_line - absorbing_kernels}\n")
-            # print(f"remainder_x: {remainder_x}\n")
-
             handle_line = Characteristic_Node(
                 "write one inner line",
                 [
-                    # (remaining_buffer_reads, ch_read),
                     (1, handle_first_kernel),
                     (absorbing_kernels, handle_kernel_absorbed),
                     (kernels_in_line - 1 - absorbing_kernels, handle_kernel),
@@ -845,11 +1016,6 @@ class ConvolutionInputGenerator(HWCustomOp):
                 ],
                 False,
             )
-
-            # --- swg ---
-            # print("\n\nswg")
-            # print(f"kernel_lines - 1: {kernel_lines - 1}\n")
-            # print(f"remainder_y: {remainder_y}\n")
 
             swg = Characteristic_Node(
                 "SlidingWindowGenerator",
@@ -862,3 +1028,4 @@ class ConvolutionInputGenerator(HWCustomOp):
             )
 
         return swg
+
