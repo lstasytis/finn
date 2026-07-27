@@ -91,6 +91,7 @@ from finn.transformation.fpgadataflow.create_dataflow_partition import (
 )
 from finn.transformation.fpgadataflow.create_stitched_ip import CreateStitchedIP
 from finn.transformation.fpgadataflow.derive_characteristic import (
+    ChainComposeTAVs,
     DelayCharacteristicFunctions,
     DeriveFIFOSizes,
     DeriveTokenAccessVectors,
@@ -1049,6 +1050,12 @@ def step_set_fifo_depths(model: ModelWrapper, cfg: DataflowBuildConfig):
             )
 
             period = int(model.analysis(max_period)["max_cycles"])
+
+            if (
+                cfg.tav_utilization_strategy == "chain_composed"
+                or os.environ.get("FINN_TAV_STRATEGY") == "chain_composed"
+            ):
+                model = model.transform(ChainComposeTAVs())
 
             model = model.transform(
                 DeriveFIFOSizes(

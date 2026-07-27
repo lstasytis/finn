@@ -960,6 +960,97 @@ def remove_leading_duplicates_keep_one(arr):
 
 
 
+
+def _curve_to_times(curve):
+    """Cumulative token curve -> per-token event times (cycle when token i,
+    1-indexed, becomes available/consumed)."""
+    total = int(curve[-1])
+    return np.searchsorted(curve, np.arange(1, total + 1), side="left")
+
+
+def _times_to_attr(times):
+    return compress_numpy_to_string(np.asarray([times], dtype=np.int64))
+
+
+class ChainComposeTAVs(Transformation):
+    """Compose the isolated per-node token access vectors along the dataflow
+    chain: each node's schedule is shifted by the lateness of its input
+    arrivals (blocking-read semantics, prefix-max of per-token delays), and
+    the resulting effective output schedule feeds the next node.
+
+    Isolated curves assume input always available (over-stating run-ahead:
+    open-loop) while the stretch pass assumes the producer slows to the
+    consumer's rate (under-stating bursts: closed-loop). The composed curves
+    are the middle ground -- free-running but input-constrained -- verified on
+    cnv-w1a1 where the SWG->MVAU edge needs the one-output-row burst (270
+    slots) that stretching flattens to ~1 and free-running inflates to ~a
+    frame. Composed schedules are stored as io_chrc_in/out_composed event-time
+    arrays for DeriveFIFOSizes' chain_composed strategy.
+
+    Joins (AddStreams) compose with the elementwise-max of both arrivals;
+    AlignLabels keeps its dedicated side-channel machinery; nodes without
+    characterization break the chain (edges touching them fall back to the
+    default sizing strategy).
+    """
+
+    def apply(self, model):
+        eff_out = {}  # tensor name -> np.array of token arrival times
+
+        for node in model.graph.node:
+            if not (is_hls_node(node) or is_rtl_node(node)):
+                continue
+            if node.op_type.startswith("AlignLabels"):
+                continue
+            inst = registry.getCustomOp(node)
+            chrc_in = inst.get_nodeattr("io_chrc_in")
+            chrc_out = inst.get_nodeattr("io_chrc_out")
+            if chrc_in == "" or chrc_out == "":
+                continue
+            in_times = _curve_to_times(decompress_string_to_numpy(chrc_in)[0])
+            out_times = _curve_to_times(decompress_string_to_numpy(chrc_out)[0])
+            if len(in_times) == 0 or len(out_times) == 0:
+                continue
+
+            # arrival schedule of this node's input tokens; graph inputs and
+            # chain breaks count as always-available (zero delay)
+            arrivals = []
+            for inp in node.input:
+                if inp in eff_out:
+                    arrivals.append(eff_out[inp])
+            arrival = None
+            if arrivals:
+                n = min(min(len(a) for a in arrivals), len(in_times))
+                arrival = arrivals[0][:n]
+                for a in arrivals[1:]:
+                    arrival = np.maximum(arrival, a[:n])
+
+            if arrival is None:
+                shift_in = np.zeros(len(in_times), dtype=np.int64)
+            else:
+                n = len(arrival)
+                delay = np.maximum(0, arrival - in_times[:n])
+                shift_in = np.zeros(len(in_times), dtype=np.int64)
+                shift_in[:n] = np.maximum.accumulate(delay)
+                if n < len(in_times):
+                    shift_in[n:] = shift_in[n - 1]
+
+            actual_in = in_times + shift_in
+
+            # dependency: inputs consumed by the native emission time of each
+            # output token; its shift propagates to the output
+            in_curve = decompress_string_to_numpy(chrc_in)[0]
+            dep = in_curve[np.minimum(out_times, len(in_curve) - 1)].astype(np.int64)
+            shift_out = np.where(dep >= 1, shift_in[np.maximum(dep - 1, 0)], 0)
+            actual_out = out_times + shift_out
+
+            inst.set_nodeattr("io_chrc_in_composed", _times_to_attr(actual_in))
+            inst.set_nodeattr("io_chrc_out_composed", _times_to_attr(actual_out))
+            for out in node.output:
+                eff_out[out] = actual_out
+
+        return (model, False)
+
+
 def swg_edge_burst_floor(prod_node, cons_node):
     """Analytic FIFO floor for edges touching a sliding-window generator.
 
@@ -1074,6 +1165,43 @@ class DeriveFIFOSizes(Transformation):
                             continue
 
                         cons = registry.getCustomOp(cons_node)
+
+                        # chain-composed strategy: occupancy between composed
+                        # (input-arrival-constrained) schedules -- no stretch,
+                        # no relaxation, no floors; falls through to the default
+                        # machinery for edges lacking composed data (joins,
+                        # uncharacterized nodes)
+                        strategy_env = os.environ.get(
+                            "FINN_TAV_STRATEGY", self.tav_utilization_strategy
+                        )
+                        if (
+                            strategy_env == "chain_composed"
+                            and node.op_type != "AddStreams_hls"
+                            and prod.get_nodeattr("io_chrc_out_composed") != ""
+                            and cons.get_nodeattr("io_chrc_in_composed") != ""
+                        ):
+                            prod_ct = decompress_string_to_numpy(
+                                prod.get_nodeattr("io_chrc_out_composed")
+                            )[0]
+                            cons_ct = decompress_string_to_numpy(
+                                cons.get_nodeattr("io_chrc_in_composed")
+                            )[0]
+                            n = min(len(prod_ct), len(cons_ct))
+                            if n > 0:
+                                occ = np.searchsorted(
+                                    prod_ct, cons_ct[:n], side="right"
+                                ) - np.arange(n)
+                                fifo_depth = int(max(2, occ.max()))
+                            else:
+                                fifo_depth = 2
+                            extra_volume = prod.get_nodeattr("extra_branch_fifos")
+                            if node.op_type == "DuplicateStreams_hls":
+                                fifo_depth += extra_volume[indx]
+                            elif extra_volume:
+                                fifo_depth += extra_volume[0]
+                            out_fifo_depths.append(max(fifo_depth, self.minimum_size))
+                            prod.set_nodeattr("outFIFODepths", out_fifo_depths)
+                            continue
 
                         if node.op_type != "AddStreams_hls":
                             # determine which of prod and cons TAVs to compare

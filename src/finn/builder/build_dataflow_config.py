@@ -60,6 +60,11 @@ class TAVUtilizationMethod(str, Enum):
     # average-case ratio of data rates between a consumer and producer
     AGGRESSIVE_RELAXATION = "aggressive_relaxation"
 
+    # compose isolated TAVs along the chain (input-arrival-constrained
+    # schedules) and size from occupancy between composed schedules; no
+    # stretch/relaxation heuristics
+    CHAIN_COMPOSED = "chain_composed"
+
     # no relaxation, use the token access vectors as-is
     NO_RELAXATION = "no_relaxation"
 

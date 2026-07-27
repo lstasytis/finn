@@ -91,6 +91,9 @@ class HWCustomOp(CustomOp):
             "io_chrc_out_stretch": ("s", False, ""),
             "io_chrc_in_original": ("s", False, ""),
             "io_chrc_out_original": ("s", False, ""),
+            # chain-composed event-time schedules (input-arrival-constrained)
+            "io_chrc_in_composed": ("s", False, ""),
+            "io_chrc_out_composed": ("s", False, ""),
             # the period for which the characterization was run
             "io_chrc_period": ("i", False, 0),
             # amount of zero padding inserted during chrc.
