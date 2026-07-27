@@ -2432,45 +2432,46 @@ class MatchAlignLabelsThroughput(Transformation):
         if not align_nodes:
             return (model, False)
 
-        # the bypass set: AlignLabels + the DuplicateStreams producing its data
-        # input (other DuplicateStreams in the graph are real model forks)
-        bypass = {n.name: n for n in align_nodes}
-        for node in align_nodes:
-            prod = model.find_producer(node.input[1])
-            if prod is not None and prod.op_type.startswith("DuplicateStreams"):
-                bypass[prod.name] = prod
+        for align in align_nodes:
+            fork = model.find_producer(align.input[1])
+            if fork is None or not fork.op_type.startswith("DuplicateStreams"):
+                continue
 
-        from finn.transformation.fpgadataflow.annotate_cycles import AnnotateCycles
+            # Anchor the bypass folding to the MODEL PATH's own input rate: the
+            # elems/beat the first real layer consumes from the fork. The fork
+            # emits both outputs in lockstep, so at that PE the bypass can never
+            # be the bottleneck -- and the anchor is estimate-free (matching
+            # against cycles_estimate mis-folds when estimates are pessimistic:
+            # cybersecurity-mlp estimates ~7x above its measured interval, which
+            # left the bypass at 300 cycles/frame against a real 74).
+            # Storage is unaffected: the bypass buffer gets wider by the same
+            # factor its depth shrinks.
+            model_cons = None
+            for out in fork.output:
+                for cons in model.find_consumers(out):
+                    if not cons.op_type.startswith("AlignLabels"):
+                        cons_input_idx = list(cons.input).index(out)
+                        model_cons = (cons, cons_input_idx)
+            if model_cons is None:
+                continue
+            cons, idx = model_cons
+            try:
+                elems_per_beat = int(getCustomOp(cons).get_folded_input_shape(idx)[-1])
+            except Exception:
+                elems_per_beat = 1
 
-        model = model.transform(AnnotateCycles())
-        other_cycles = [
-            getCustomOp(n).get_nodeattr("cycles_estimate")
-            for n in model.graph.node
-            if is_fpgadataflow_node(n) and n.name not in bypass
-        ]
-        if not other_cycles or max(other_cycles) <= 0:
-            return (model, False)
-        max_cycles = max(other_cycles)
-
-        def fold_to(channels, frames):
-            for cand in range(1, channels + 1):
-                if channels % cand == 0 and frames * (channels // cand) <= max_cycles:
-                    return cand
-            return channels  # worst case: fully parallel single-beat bypass
-
-        # names can go stale after AnnotateCycles' copy; re-resolve by name
-        by_name = {n.name: n for n in model.graph.node}
-        for name in bypass:
-            node = by_name[name]
-            inst = getCustomOp(node)
-            if node.op_type.startswith("AlignLabels"):
-                data_shape = inst.get_nodeattr("data_shape")
-                channels = data_shape[-1]
-                frames = int(np.prod(data_shape[:-1]))
-            else:  # DuplicateStreams
-                channels = inst.get_nodeattr("NumChannels")
-                frames = int(np.prod(inst.get_nodeattr("numInputVectors")))
-            inst.set_nodeattr("PE", fold_to(channels, frames))
+            for node in (fork, align):
+                inst = getCustomOp(node)
+                if node.op_type.startswith("AlignLabels"):
+                    channels = inst.get_nodeattr("data_shape")[-1]
+                else:
+                    channels = inst.get_nodeattr("NumChannels")
+                pe = channels  # fallback: fully parallel
+                for cand in range(1, channels + 1):
+                    if channels % cand == 0 and cand >= elems_per_beat:
+                        pe = cand
+                        break
+                inst.set_nodeattr("PE", pe)
 
         return (model, False)
 
