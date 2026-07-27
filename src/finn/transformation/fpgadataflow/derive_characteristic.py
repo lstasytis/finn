@@ -1166,14 +1166,19 @@ class DeriveFIFOSizes(Transformation):
 
                         cons = registry.getCustomOp(cons_node)
 
-                        # chain-composed strategy: occupancy between composed
-                        # (input-arrival-constrained) schedules -- no stretch,
-                        # no relaxation, no floors; falls through to the default
-                        # machinery for edges lacking composed data (joins,
-                        # uncharacterized nodes)
+                        # chain-composed strategy: the occupancy between composed
+                        # (input-arrival-constrained) schedules replaces the
+                        # stretched-pair peak delta as the un-relaxed deficit;
+                        # the budget-debited relaxation then trims it where
+                        # backpressure absorbs the transient for free (deep
+                        # nets like mobilenet: front-half run-ahead is real but
+                        # throttling it costs no throughput). Edges lacking
+                        # composed data (joins, uncharacterized nodes) use the
+                        # default machinery.
                         strategy_env = os.environ.get(
                             "FINN_TAV_STRATEGY", self.tav_utilization_strategy
                         )
+                        composed_max = None
                         if (
                             strategy_env == "chain_composed"
                             and node.op_type != "AddStreams_hls"
@@ -1191,17 +1196,7 @@ class DeriveFIFOSizes(Transformation):
                                 occ = np.searchsorted(
                                     prod_ct, cons_ct[:n], side="right"
                                 ) - np.arange(n)
-                                fifo_depth = int(max(2, occ.max()))
-                            else:
-                                fifo_depth = 2
-                            extra_volume = prod.get_nodeattr("extra_branch_fifos")
-                            if node.op_type == "DuplicateStreams_hls":
-                                fifo_depth += extra_volume[indx]
-                            elif extra_volume:
-                                fifo_depth += extra_volume[0]
-                            out_fifo_depths.append(max(fifo_depth, self.minimum_size))
-                            prod.set_nodeattr("outFIFODepths", out_fifo_depths)
-                            continue
+                                composed_max = int(max(0, occ.max()))
 
                         if node.op_type != "AddStreams_hls":
                             # determine which of prod and cons TAVs to compare
@@ -1309,6 +1304,10 @@ class DeriveFIFOSizes(Transformation):
                                 # find peak delta between the two TAVs and use as initial FIFO guess
                                 max_pos = np.argmax(diff)
                                 fifo_depth_maximum = max(0, int(diff[max_pos]))
+                                if composed_max is not None:
+                                    # composed occupancy is the true un-relaxed
+                                    # deficit (stretch flattens SWG bursts)
+                                    fifo_depth_maximum = composed_max
 
                                 # Step 2: Compute relaxation factors to refine
                                 # the fifo size computed in Step 1
@@ -1475,7 +1474,7 @@ class DeriveFIFOSizes(Transformation):
                                 strategy = os.environ.get(
                                     "FINN_TAV_STRATEGY", self.tav_utilization_strategy
                                 )
-                                if strategy == "conservative_relaxation":
+                                if strategy in ("conservative_relaxation", "chain_composed"):
                                     # minimized TAV different
                                     fifo_depth = minimized_depth
                                 elif strategy == "aggressive_relaxation":
@@ -1501,8 +1500,11 @@ class DeriveFIFOSizes(Transformation):
                                 # print(f"sized {node.name} with {fifo_depth} ")
                                 depth_attempts.append(fifo_depth)
                             fifo_depth = min(depth_attempts)
-                            # SWG bursts survive no relaxation strategy
-                            fifo_depth = max(fifo_depth, swg_edge_burst_floor(node, cons_node))
+                            if composed_max is None:
+                                # SWG bursts survive relaxation; composed curves
+                                # already carry them (floors over-provision deep
+                                # nets: mobilenet 92 -> 582 KiB)
+                                fifo_depth = max(fifo_depth, swg_edge_burst_floor(node, cons_node))
                         else:
                             fifo_depth = 0
 
