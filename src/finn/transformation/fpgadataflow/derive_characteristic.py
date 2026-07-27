@@ -1008,8 +1008,12 @@ class DeriveFIFOSizes(Transformation):
                     if node.name in self.nodes_to_ignore:
                         continue
 
-                    if "StreamingDataWidthConverter" in node.name:
-                        continue
+                    # DWC nodes ARE processed as producers: their output edge (e.g.
+                    # DWC->ConvolutionInputGenerator, which rtlsim sizing finds needs
+                    # hundreds of slots on cnv) would otherwise silently keep the
+                    # default depth 2. Uncharacterized DWCs (non-multiple widths, no
+                    # tree model) still fall through to depth 2 via the empty-chrc
+                    # guards below.
 
                     assert not (op_type.startswith("StreamingFIFO")), "Found existing FIFOs"
 
@@ -1221,15 +1225,31 @@ class DeriveFIFOSizes(Transformation):
                                     [tolerable_slowdown_parent, tolerable_slowdown_prod]
                                 )
 
-                                prod_loss = (global_period - period_true) // cycle_loss_of_fifo
-                                cons_loss = (global_period - period_cons) // cycle_loss_of_fifo
+                                # The slack a removed FIFO slot "spends" is shared by the
+                                # whole chain: debit it from a running budget instead of
+                                # letting every edge claim the full global slack
+                                # independently. Without the debit each SWG->MVAU edge of a
+                                # conv pipeline relaxes to depth 2 and the compounded
+                                # stalls surface at the bottleneck (cnv-w1a1: interval
+                                # 32849 -> 62548 in stitched-IP rtlsim, -47% throughput).
+                                avail_slack = max(
+                                    0, global_period - self.slowdown_so_far[indx] - period_true
+                                )
+                                prod_loss = avail_slack // cycle_loss_of_fifo
+                                # the bubbles from removed slots are eaten by the CONSUMER,
+                                # so its (debited) slack bounds the relaxation as well: a
+                                # fast SWG feeding a near-bottleneck MVAU must keep its
+                                # buffer even though the SWG itself has plenty of slack
+                                cons_loss = (
+                                    max(0, global_period - self.slowdown_so_far[indx] - period_cons)
+                                    // cycle_loss_of_fifo
+                                )
                                 pred_loss = (global_period - parent_period) // cycle_loss_of_fifo
                                 # print("node: ",node.name)
                                 # print("pred, prod, cons periods and losses:")
                                 # print(parent_period, period_true, period_cons)
                                 # print(pred_loss, prod_loss, cons_loss)
-                                # ignorable_fifos = int(max(0,min(prod_loss, cons_loss, pred_loss)))
-                                ignorable_fifos = int(max(0, min([prod_loss])))
+                                ignorable_fifos = int(max(0, min([prod_loss, cons_loss])))
 
                                 if producer_node is not None:
                                     if producer_node.op_type.startswith("DuplicateStreams"):
@@ -1240,6 +1260,10 @@ class DeriveFIFOSizes(Transformation):
 
                                 minimized_depth = max(2, fifo_depth_maximum - ignorable_fifos)
                                 minimum_fifos = max(1, minimum_fifos - ignorable_fifos)
+
+                                # debit the slack actually consumed by the removed slots
+                                removed_slots = min(ignorable_fifos, fifo_depth_maximum)
+                                self.slowdown_so_far[indx] += removed_slots * cycle_loss_of_fifo
 
                                 if fifo_slowdown > tolerable_slowdown:
                                     fifos_to_remove = int(
@@ -1277,13 +1301,18 @@ class DeriveFIFOSizes(Transformation):
                                 self.hybrid_fifo_size += hybrid_size
                                 self.hybrid_fifo_size_rate += hybrid_size_rate
 
-                                if self.tav_utilization_strategy == "conservative_relaxation":
+                                # experimentation override (e.g. no_relaxation probes
+                                # of the raw TAV ceiling) without a config rebuild
+                                strategy = os.environ.get(
+                                    "FINN_TAV_STRATEGY", self.tav_utilization_strategy
+                                )
+                                if strategy == "conservative_relaxation":
                                     # minimized TAV different
                                     fifo_depth = minimized_depth
-                                elif self.tav_utilization_strategy == "aggressive_relaxation":
+                                elif strategy == "aggressive_relaxation":
                                     # minimized delta based, uses slowdown tracking
                                     fifo_depth = delta_fifo_size_post_adjustment
-                                elif self.tav_utilization_strategy == "no_relaxation":
+                                elif strategy == "no_relaxation":
                                     # maximum from TAV comparisons
                                     fifo_depth = fifo_depth_maximum
 
