@@ -640,6 +640,28 @@ def assign_extra_fifo_volume(as_node, model, global_period):
         buf_tensor = as_node.input[1]
         buf_idx = list(branch_0[-1].output).index(buf_tensor)
         volumes[buf_idx] = int(max(peak_deltas))
+
+        # Analytic floor, independent of the TAV state: the bypass must hold
+        # every input beat the fork emits while the model branch drains its
+        # pipeline, i.e. (ceil(branch latency / interval) + 1) frames of input.
+        # The TAV-based peak delta above under-sizes on deep models (cnv: 237
+        # beats vs ~4 frames x 3072 beats needed -> 10% throughput loss from
+        # fork back-pressure); take whichever is larger.
+        model_branch = branch_0 if len(branch_0) >= len(branch_1) else branch_1
+        mid_nodes = model_branch[1:-1]
+        node_cycles = []
+        for mn in mid_nodes:
+            try:
+                node_cycles.append(int(registry.getCustomOp(mn).get_exp_cycles()))
+            except Exception:
+                pass
+        if node_cycles and max(node_cycles) > 0:
+            branch_latency = sum(node_cycles)
+            interval = max(node_cycles)
+            frames_in_flight = int(np.ceil(branch_latency / interval)) + 1
+            fork_inst = registry.getCustomOp(branch_0[-1])
+            beats_per_frame = int(np.prod(fork_inst.get_folded_output_shape()[:-1]))
+            volumes[buf_idx] = max(volumes[buf_idx], frames_in_flight * beats_per_frame)
     else:
         volumes[0] = peak_deltas[1]
         volumes[1] = peak_deltas[0]
