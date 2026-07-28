@@ -68,6 +68,10 @@ class TAVUtilizationMethod(str, Enum):
     # no relaxation, use the token access vectors as-is
     NO_RELAXATION = "no_relaxation"
 
+    # propagate token arrival times across the whole graph, instead of comparing
+    # a producer's trace against its consumer's in isolation
+    CHAINED_TAV = "chained_tav"
+
 
 class ShellFlowType(str, Enum):
     """For builds that produce a bitfile, select the shell flow that will integrate

@@ -1155,41 +1155,100 @@ class MVAU(HWCustomOp):
         IMPL_STYLE = "rtl" if "_rtl" in (self.__class__.__name__) else "hls"
         assert IMPL_STYLE in ["rtl", "hls"], "Implementation style must be 'rtl' or 'hls'"
 
-        # additional precision which is typically unnecessary for FIFO size modelling
-        # if IMPL_STYLE == "hls":
-        #     output_delay = 0  # cycles before output starts
-        # writing when input is read. Typically 2
-        #     wind_up = 0  # about 3 cycles of wind-up for HLS MVAU
-        # else:
-        #     # RTL implementation
-        #     output_delay = 0
-        wind_up = 0
+        def legacy_tree():
+            idle = Characteristic_Node("idle cycles", [(1, [0, 0])], True)
+            read = Characteristic_Node("Read a burst of input", [(1, [1, 0])], True)
+            write = Characteristic_Node("update output", [(1, [0, 1])], True)
+            read_and_write = Characteristic_Node("update output", [(1, [1, 1])], True)
+            write_PE = Characteristic_Node(
+                "iterate MW/SIMD and update an output", [(SF - 1, idle), (1, write)], False
+            )
+            feature_map = Characteristic_Node(
+                "Compute single feature map",
+                [(SF - 1, read), (1, read_and_write), (NF - 1, write_PE)],
+                False,
+            )
+            return Characteristic_Node(
+                "compute set of feature maps", [(1, idle), (numVectors, feature_map)], False
+            )
 
-        idle = Characteristic_Node("idle cycles", [(1, [0, 0])], True)
-        read = Characteristic_Node("Read a burst of input", [(1, [1, 0])], True)
-        write = Characteristic_Node("update output", [(1, [0, 1])], True)
-        read_and_write = Characteristic_Node("update output", [(1, [1, 1])], True)
+        if IMPL_STYLE != "hls":
+            # The wind-up below was measured on MVAU_hls only. MVAU_rtl is a
+            # different pipeline: measured on vgg10's ten MVAU_rtl nodes its
+            # period is numVectors*NF*SF + 3 rather than + 1, and its first input
+            # transaction is not a small wind-up but a wrap-around phase (up to
+            # 505 cycles into a 515-cycle period), so the same shape does not
+            # transfer. Applying it anyway was measured to make the *output*
+            # stream worse on vgg10 (worst error 2 -> 11) for no gain on the
+            # input stream, so MVAU_rtl keeps the old shape until someone
+            # measures it properly.
+            return legacy_tree()
 
-        write_PE = Characteristic_Node(
-            "iterate MW/SIMD and update an output",
-            [
-                (SF - 1, idle),
-                (1, write),
-            ],
-            False,
-        )
+        # Wind-up, measured against rtlsim on cnv-w2a2's nine MVAU_hls nodes
+        # (SF from 9 to 512, NF from 2 to 512, numInputVectors from 1 to 900).
+        # Three things hold across all nine, and are what the phases below encode:
+        #
+        #   * the first output transaction is at cycle SF + 4, exactly, in all
+        #     nine -- the old shape put it at SF;
+        #   * outputs are then spaced SF cycles apart, which the old shape had
+        #     right;
+        #   * the period is numVectors*NF*SF + 9 - L, where L is the cycle of the
+        #     first input transaction. The old shape had L = 1 and no wind-up at
+        #     all, so its period was short by 3 to 5 cycles on every node.
+        #
+        # L is 3 only when the node has an activation (threshold) stage *and*
+        # NF >= 8; otherwise it is 5. Both factors were isolated by controlled
+        # single-node experiments (ci/experiments/gen_mvau_refs.py):
+        #
+        #   MW=32 SIMD=4 PE=2, no activation, INT4:  NF = 1,2,4,8,16,32 -> L = 5
+        #                                            at every point. NF alone
+        #                                            does nothing.
+        #   same shape, no activation, INT2:         L = 5. Datatype does
+        #                                            nothing either.
+        #   same shape, NF=16, *with* thresholds:    L = 3.
+        #   same shape, NF=2,  *with* thresholds:    L = 5.
+        #
+        # so the threshold stage moves it, but only once NF is large enough. The
+        # rule then predicts twelve of the thirteen MVAU_hls nodes of cnv-w2a2
+        # and cybsec correctly -- 21 of 22 nodes in total.
+        #
+        # The thirteenth, cybsec MVAU_hls_3 (SF=64, NF=1, nVec=1), obeys none of
+        # this: L = 0, first output at cycle 1, period SF+1. With a single output
+        # per feature map the steady-state window has nowhere else to put it. The
+        # old shape gets that period exactly right, so NF < 2 keeps it. (The
+        # sweep's own NF=1 point, SF=8, *does* obey the laws, so the exclusion is
+        # conservative rather than exact.)
+        LEAD_IN = 3 if (self.get_nodeattr("noActivation") == 0 and NF >= 8) else 5
+        FIRST_OUT = SF + 4
+        n_vec = int(numVectors)
+        period = n_vec * NF * SF + 9 - LEAD_IN
 
-        feature_map = Characteristic_Node(
-            "Compute single feature map",
-            [(wind_up, idle), (SF - 1, read), (0, idle), (1, read_and_write), (NF - 1, write_PE)],
-            False,
-        )
+        if SF < 1 or NF < 2 or n_vec < 1 or period <= FIRST_OUT + 1:
+            # degenerate folding: a period too short to hold even the first
+            # output. Keep the old shape rather than emit something malformed.
+            return legacy_tree()
 
-        all_feature_maps = Characteristic_Node(
-            "compute set of feature maps", [(1, idle), (numVectors, feature_map)], False
-        )
+        # Reads arrive as one burst of SF per feature map, at the start of that
+        # feature map's NF*SF window; writes are a single train of numVectors*NF
+        # spaced SF apart, which is *not* aligned to the feature-map boundaries.
+        # Expressing both as one flat run-length encoded leaf is simpler, and
+        # cheaper to traverse, than nesting them.
+        rd = np.zeros(period, dtype=np.int8)
+        wr = np.zeros(period, dtype=np.int8)
+        for i in range(n_vec):
+            base = LEAD_IN + i * NF * SF
+            rd[base : base + SF] = 1
+        out_cycles = FIRST_OUT + SF * np.arange(n_vec * NF)
+        wr[out_cycles[out_cycles < period]] = 1
 
-        return all_feature_maps
+        pattern = np.stack([rd, wr], axis=1)
+        change = np.flatnonzero(np.any(pattern[1:] != pattern[:-1], axis=1)) + 1
+        starts = np.concatenate(([0], change))
+        lengths = np.diff(np.concatenate((starts, [period])))
+        phases = [
+            (int(n), [int(pattern[s, 0]), int(pattern[s, 1])]) for s, n in zip(starts, lengths)
+        ]
+        return Characteristic_Node("MVAU burst schedule", phases, True)
 
     def derive_token_access_vectors(
         self, model, period, strategy, fpga_part, clk_period, op_type, override_dict=None

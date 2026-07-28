@@ -1091,6 +1091,757 @@ def swg_edge_burst_floor(prod_node, cons_node):
     return int(floor)
 
 
+#: Ops that fan out or join without a token access vector of their own. They are
+#: treated as transparent in the chained-TAV pass: a token handed to them is
+#: handed on in the same cycle, which is what the hardware does.
+#:
+#: Names for op types this tree does not (yet) carry -- the transformer fork/join
+#: family -- are listed on purpose: the test is a string comparison against
+#: node.op_type, so an absent op simply never matches, and the list stays
+#: diffable against finn-plus.
+_TRANSPARENT_OPS = (
+    "DuplicateStreams_hls",
+    "ReplicateStream_hls",
+    "AddStreams_hls",
+    "ElementwiseAdd_hls",
+    "AlignLabels_hls",
+)
+
+
+def _raw_tav(inst):
+    """A node's token access vectors as rtlsim/tree-model derived them.
+
+    ``io_chrc_in``/``io_chrc_out`` are rewritten in place by the stretching and
+    delay transforms; ``*_original`` keeps the untouched pair. The chained-TAV
+    pass must see the untouched one, because the whole point is to derive each
+    node's real timeline from its neighbours rather than to assume it.
+    """
+    out = []
+    for name in ("io_chrc_in", "io_chrc_out"):
+        raw = inst.get_nodeattr(name + "_original")
+        if raw == "":
+            raw = inst.get_nodeattr(name)
+        out.append(None if raw == "" else decompress_string_to_numpy(raw)[0].astype(np.int64))
+    return out[0], out[1]
+
+
+def _raw_tav_rows(inst):
+    """Every stream's cumulative token trace, not just the first.
+
+    ``derive_token_access_vectors_using_rtlsim`` traces one stream per row:
+    inputs in ``node.input`` order skipping the ones with no stream width,
+    outputs in ``node.output`` order. Everything downstream of it -- the stretch
+    transforms, the old sizing arithmetic, ``_raw_tav`` -- reads row 0 only,
+    which is exact for a node whose streams all keep the same schedule and
+    wrong for one whose streams do not.
+
+    ``StreamingSplit_hls``, ``StreamingConcat_hls`` and
+    ``ScaledDotProductAttention_hls`` are the second kind, and they are the
+    entire attention block: a split writes its four outputs in staggered
+    contiguous bursts, a concat reads its four inputs the same way, and
+    attention reads K and V as one burst up front while dribbling Q out over
+    the frame. Collapsing that onto one schedule erases exactly the imbalance
+    the FIFOs in front of them exist to absorb.
+    """
+    out = []
+    for name in ("io_chrc_in", "io_chrc_out"):
+        raw = inst.get_nodeattr(name + "_original")
+        if raw == "":
+            raw = inst.get_nodeattr(name)
+        out.append(
+            None if raw == "" else np.atleast_2d(decompress_string_to_numpy(raw)).astype(np.int64)
+        )
+    return out[0], out[1]
+
+
+def _stream_curves(node, inst, rows_in, rows_out):
+    """Bind TAV rows to tensor names: ``({tensor: curve}, {tensor: curve})``.
+
+    The binding is only taken when the row count matches the stream count,
+    which is the shape rtlsim produces. A tree model can emit only one row --
+    ``derive_token_access_vectors_using_tree_model`` filters the io_dict to
+    ``in0``/``out0`` -- so tree-derived nodes fall back to row 0 for every
+    stream, which is what this pass did for every node before.
+    """
+    in_curves, out_curves, bound = {}, {}, True
+    if rows_in is not None:
+        streamed = []
+        for i, t in enumerate(node.input):
+            try:
+                if inst.get_instream_width(i) == 0:
+                    continue
+            except Exception:
+                pass
+            streamed.append(t)
+        if len(streamed) == rows_in.shape[0]:
+            in_curves = {t: rows_in[k] for k, t in enumerate(streamed)}
+        else:
+            in_curves = {t: rows_in[0] for t in node.input}
+            bound = False
+    if rows_out is not None:
+        if len(node.output) == rows_out.shape[0]:
+            out_curves = {t: rows_out[k] for k, t in enumerate(node.output)}
+        else:
+            out_curves = {t: rows_out[0] for t in node.output}
+            bound = False
+    return in_curves, out_curves, bound
+
+
+def _arrival_of(schedule, counts):
+    """Time at which ``counts[i]`` tokens have arrived, given per-token times."""
+    idx = np.clip(counts, 0, len(schedule)) - 1
+    return np.where(counts > 0, schedule[np.maximum(idx, 0)], 0)
+
+
+def _peak_occupancy(write_times, read_times):
+    """Largest number of tokens simultaneously in flight on one edge."""
+    n = min(len(write_times), len(read_times))
+    if n == 0:
+        return 0
+    consumed = np.searchsorted(read_times, write_times[:n], side="right")
+    return int(np.max(np.arange(1, n + 1) - consumed))
+
+
+def _peak_occupancy_periodic(write_times, read_times, period, per_frame=0, both_frames=True):
+    """Peak occupancy in steady state, when both schedules repeat every frame.
+
+    ``_peak_occupancy`` measures one frame in isolation, so it can never report
+    more than a frame's tokens however far behind the consumer is. That is the
+    wrong answer wherever the consumer lags the producer by more than one frame
+    -- radioml's residual edge (``Thresholding_rtl_5`` around the whole
+    attention block) needs 1976 tokens on a 1024-token-per-frame edge, because
+    attention takes about two frame periods to deliver the other input of the
+    join.
+
+    In steady state the design runs one frame per ``period``, so frame *f*
+    writes token *i* at ``w_i + f*period`` and reads it at ``r_i + f*period``,
+    and occupancy is periodic::
+
+        occ(t) = sum over f of g(t - f*period),   g(u) = |w <= u| - |r <= u|
+
+    ``g`` has finite support (both counts reach n), so the sum is finite and
+    the peak follows from a merge of the two schedules -- no tiling of the
+    per-cycle arrays, which is what made the previous multi-frame experiment
+    cost ``frames`` times the memory of every node's schedule and put resnet50
+    out of reach.
+    """
+    n = min(len(write_times), len(read_times))
+    if n == 0:
+        return 0
+    w = np.sort(np.asarray(write_times[:n], dtype=np.int64))
+    r = np.sort(np.asarray(read_times[:n], dtype=np.int64))
+    if period <= 0:
+        return _peak_occupancy(w, r)
+    # A token access vector stores two periods, so these schedules already hold
+    # two frames of tokens. Extending *those* with period ``period`` would count
+    # every token twice.
+    #
+    # Both stored periods are steady state as the node measured them, but the
+    # wall-clock propagation makes the first the frame that fills the pipeline
+    # and the second the first fully-pipelined one, and neither is reliably the
+    # worse -- on cnv-w2a2 the first frame alone loses 16% of throughput
+    # (133681 cy against its 115206 optimum), because the run-ahead that needs
+    # the buffer has not built up by frame 0. So evaluate both and take the
+    # larger.
+    #
+    # In frame 1 a producer faster than its consumer has had a frame to get
+    # ahead, and on an ordinary chain edge that run-ahead is exactly what the
+    # buffer is for. Re-anchoring the two frames onto a common period to remove
+    # it was tried and rejected: it takes cnv-w2a2 straight back to the frame-0
+    # answer and its 16% loss.
+    #
+    # ``both_frames=False`` is for edges the caller will not relax -- a join's
+    # input and anything inside a reconvergent branch. There the run-ahead is
+    # charged in full because there is no relaxation left to trim it, and it
+    # compounds: resnet50 took 835-1762 on 20-odd such edges whose ground truth
+    # is 25-400 (+22 kB) purely from frame 1. Frame 0 already carries the
+    # latency difference that a join actually has to buffer -- which is the
+    # quantity that matters there -- so measuring it alone loses nothing on
+    # those edges and is verified on the board not to.
+    if per_frame and 2 * per_frame <= n:
+        if not both_frames:
+            return _peak_occupancy_periodic(w[:per_frame], r[:per_frame], period)
+        return max(
+            _peak_occupancy_periodic(w[:per_frame], r[:per_frame], period),
+            _peak_occupancy_periodic(w[n - per_frame : n], r[n - per_frame : n], period),
+        )
+    lo = int(min(w[0], r[0]))
+    hi = int(max(w[-1], r[-1]))
+    # how many periods of history can still be in flight
+    reps = int((hi - lo) // period) + 2
+    # occupancy only changes at an event, so those are the only candidates
+    cand = np.unique(np.concatenate([w, r]) % period) + lo - (lo % period)
+    cand = np.concatenate([cand, cand + period])
+    occ = np.zeros(len(cand), dtype=np.int64)
+    for k in range(reps):
+        u = cand + k * period
+        occ += np.searchsorted(w, u, side="right") - np.searchsorted(r, u, side="right")
+    return int(max(0, occ.max()))
+
+
+def _causal_writes(write_times, in_scheds):
+    """Hold each output token until the inputs that carry it have arrived.
+
+    A token access vector is a *steady-state* trace with an arbitrary phase: it
+    is accumulated from the middle of a multi-period rtlsim, so the first output
+    it records belongs to a frame whose inputs were consumed before the window
+    opened. Its within-window ``first_write - first_read`` is therefore not the
+    node's latency, and reading one out of it under-states any node that has to
+    gather several inputs per output.
+
+    tr-language shows how far that goes. A 64:1 width converter measures
+    ``first_read = 0, first_write = 1`` -- one cycle, where physically it cannot
+    emit until 64 input words have arrived, and at that point in the graph they
+    arrive one every four cycles. The pass put the MLP branch's first token 198
+    cycles behind its sibling where the board needs about 404, and sized the
+    residual FIFO at 52 against a requirement of 106; on hardware that costs
+    66.9% of the design's throughput.
+
+    So impose the dependency the trace cannot express: with ``N_in`` inputs and
+    ``N_out`` outputs a frame, output *j* cannot precede input
+    ``ceil((j+1) * N_in / N_out)``. That is exact for a rate converter, a valid
+    lower bound for anything that consumes a prefix to produce a prefix, and
+    vacuous for a node that expands (the bound lands on input 1).
+
+    **Only over the first frame.** There the pipeline starts empty, so output
+    *j* provably comes from this frame's inputs. In steady state it does not: a
+    compacting node emits its first outputs of frame *f* from inputs it took
+    during frame *f-1*, and index-aligning the two schedules then pushes its
+    whole trace a frame late. Applied to every frame this deadlocked resnet50 --
+    three ``ConvolutionInputGenerator`` output edges collapsed from 48-50 to
+    4-16 against a ground truth of 45-47, because their producers were being
+    held back into the next frame and the occupancy against them vanished.
+    """
+    if not in_scheds:
+        return write_times
+    n_out = len(write_times)
+    if n_out == 0:
+        return write_times
+    out = np.array(write_times, dtype=np.int64, copy=True)
+    fill = max(1, n_out // 2)  # a token access vector stores two frames
+    idx = np.arange(1, fill + 1, dtype=np.int64)
+    for sched, _ in in_scheds.values():
+        n_in = len(sched)
+        if n_in == 0 or n_in <= n_out:
+            continue  # expanding or one-to-one: the clock already covers it
+        need = np.minimum(-(-idx * (n_in // 2) // fill), n_in)
+        out[:fill] = np.maximum(out[:fill], sched[need - 1])
+    return np.maximum.accumulate(out)
+
+
+def _burst_above_rate(read_times, rate):
+    """Depth a consumer needs when its supply arrives at a constant ``rate``.
+
+    The largest excursion of demand above a rate line,
+    ``max over t1 < t2 of C(t2) - C(t1) - rate * (t2 - t1)``, which for a
+    monotone read schedule is one running minimum.
+
+    Beware what dominates this: a consumer with period ``T_c`` reading ``N``
+    tokens a frame contributes ``N * (1 - T_c / global_period)`` from the frame
+    as a whole, which for a consumer much faster than the pacer swamps any
+    genuine short-timescale burst. That whole-frame term is only real if the
+    consumer must keep its native rate; a consumer with slack can simply be
+    stretched. Use ``_longest_read_run`` when the short-timescale part is what
+    is wanted.
+    """
+    if len(read_times) == 0 or rate <= 0:
+        return 0
+    g = np.arange(1, len(read_times) + 1) - rate * read_times
+    return int(np.ceil(np.max(g - np.minimum.accumulate(g))))
+
+
+def _longest_read_run(read_times):
+    """Most tokens a consumer takes back to back, one per cycle.
+
+    The demand a buffer has to satisfy instantaneously, with no help from the
+    producer: whatever rate the supply sustains on average, it cannot serve a
+    run of one-per-cycle reads out of an empty FIFO. Unlike
+    ``_burst_above_rate`` this carries no whole-frame term, so it does not grow
+    just because the consumer happens to be much faster than the pacer.
+    """
+    if len(read_times) < 2:
+        return int(len(read_times))
+    gaps = np.diff(read_times)
+    breaks = np.flatnonzero(gaps > 1)
+    starts = np.concatenate(([0], breaks + 1))
+    ends = np.concatenate((breaks, [len(read_times) - 1]))
+    return int(np.max(ends - starts) + 1)
+
+
+def _stream_transactions(model, tensor):
+    """Number of stream transactions one frame of ``tensor`` takes, or None."""
+    shape = model.get_tensor_shape(tensor)
+    if shape is None or len(shape) < 2:
+        return None
+    n = 1
+    for d in shape[:-1]:
+        n *= int(d)
+    return n
+
+
+def _warn_if_streams_differ(model, node):
+    """Flag the shapes the single-schedule-per-node assumption cannot express.
+
+    A node has one token access vector, so this pass gives every output the same
+    write schedule and reads every input off the same clock. That is exact when
+    the node's streams all carry the same number of transactions per frame --
+    every op in cnv-w2a2, vgg10, mobilenetv1 and resnet50 -- and wrong when they
+    do not, which is what ``StreamingSplit_hls`` and ``StreamingConcat_hls`` in
+    the transformers do. Warn rather than guess: the token access vector does not
+    carry the information needed to split the schedule, and inventing a division
+    would produce a number that looks like a result.
+    """
+    for direction, tensors in (("output", node.output), ("input", node.input)):
+        counts = set()
+        for t in tensors:
+            if direction == "output" and model.find_consumer(t) is None:
+                continue
+            if direction == "input" and model.find_producer(t) is None:
+                continue
+            n = _stream_transactions(model, t)
+            if n is not None:
+                counts.add(n)
+        if len(counts) > 1:
+            warnings.warn(
+                "%s (%s) has %s streams of differing length %s; chained-TAV "
+                "sizing assumes one schedule per node and will mis-size them"
+                % (node.name, node.op_type, direction, sorted(counts))
+            )
+
+
+def derive_chained_tav_depths(
+    model,
+    global_period=None,
+    slack_relaxation=0.0,
+    floor_mode="burst",
+    throttled_cap=256,
+    causal=True,
+    trace=None,
+):
+    """Per-edge FIFO depths from token arrival times on the dataflow DAG.
+
+    Returns ``{tensor_name: depth}``.
+
+    Each node's token access vector is a cumulative per-cycle token count on a
+    *local* clock: the schedule it would keep if nothing ever made it wait. In a
+    real graph a node waits, so its local clock runs slower than the wall clock
+    in a way that depends entirely on when its inputs turn up. Propagating that
+    forward in topological order is a max-plus recurrence,
+
+        R(c) = max(R(c - 1) + 1, earliest time the tokens read at c have arrived)
+
+    which is a running maximum of ``req(c) - c``, so one vectorised pass per
+    node. The depth an edge needs is then the peak of
+    ``written_by(t) - read_by(t)`` over that schedule.
+
+    Two things this gets right that comparing a stretched producer trace against
+    a stretched consumer trace cannot:
+
+    * **Run-ahead survives.** Stretching both traces to a common length asserts
+      that producer and consumer move at the same rate, which is exactly the
+      assumption a FIFO exists to break. A producer whose own upstream lets it
+      finish a frame early *does* run ahead, and the buffer must hold the
+      surplus. On cnv-w2a2 that is the difference between 208 and the ~1666 the
+      board needs in front of ``MVAU_hls_3``.
+    * **Starvation is charged upstream.** A node that looks fast in isolation may
+      be starved by its own producer, in which case it never runs ahead and needs
+      no buffer. Comparing local traces cannot see this and invents deep FIFOs
+      after every width converter; the chained-TAV pass simply never gives those
+      tokens an early arrival time.
+
+    The graph's input is paced at the steady-state rate (one frame per
+    ``global_period``). Without that the source is infinitely fast, every buffer
+    upstream of the bottleneck grows without bound, and the numbers scale with
+    how many frames you happen to simulate.
+
+    ``slack_relaxation`` (0..1) trades a little of that back. The peak occupancy
+    is the depth at which the producer *never* waits, which is more than
+    throughput needs: a producer whose own upstream chain finishes a frame in
+    ``T_up < global_period`` can afford to be blocked for the remaining
+    ``global_period - T_up`` cycles per frame and still deliver on time. Draining
+    ``k`` tokens takes ``k * global_period / N`` cycles, so up to
+    ``N * (1 - T_up / global_period)`` tokens of the peak can be given up. At 1.0
+    that whole allowance is spent; at 0.0 nothing is (the depth is what full
+    decoupling costs). Nodes downstream of the bottleneck have ``T_up ==
+    global_period`` and are never relaxed, which is the point -- blocking those
+    blocks the bottleneck itself.
+    """
+    nodes = [n for n in model.graph.node if is_hls_node(n) or is_rtl_node(n)]
+
+    tavs = {}
+    curves = {}
+    for node in nodes:
+        try:
+            inst = registry.getCustomOp(node)
+            tavs[node.name] = _raw_tav(inst)
+            curves[node.name] = _stream_curves(node, inst, *_raw_tav_rows(inst))
+        except Exception:
+            tavs[node.name] = (None, None)
+            curves[node.name] = ({}, {}, False)
+
+    periods = [len(t[0]) // 2 for t in tavs.values() if t[0] is not None]
+    #: The caller passes the analytic estimate (``dataflow_performance``'s
+    #: ``max_cycles``), which is what every op type's ``get_exp_cycles`` adds up
+    #: to. For the ops in bnn-pynq and resnet50 that estimate is the measured
+    #: period, but for the transformer ops it is not: radioml's
+    #: ``StreamingSplit_hls``/``StreamingConcat_hls`` are freerunning at one word
+    #: every five cycles, so they take 20480 cycles a frame where the estimate
+    #: says 4096 -- and 20480 is exactly what the board measures. A steady-state
+    #: rate taken from the estimate then has the whole graph running five times
+    #: faster than it does, which the periodic occupancy reads as five frames of
+    #: backlog on every edge below the bottleneck. The token access vectors are
+    #: measured, so believe them: the pacer is the slowest of the two.
+    measured = max(periods) if periods else 0
+    global_period = max(int(global_period or 0), measured, 1)
+    graph_inputs = {x.name for x in model.graph.input}
+    #: The slowest node in the graph paces every stream in it. A node at that
+    #: period is where a chain's slack accounting starts over: what happens
+    #: further upstream cannot make the segment below it any tighter, because
+    #: the pacer is already handing that segment one frame per global_period.
+    #:
+    #: Compared with a tolerance rather than for equality. A graph's slowest
+    #: stage is usually several nodes wide and their periods differ by a cycle
+    #: or two -- mobilenetv1's thresholds sit at 394274 and the width converters
+    #: between them at 394272. An exact test resets at a threshold and is then
+    #: re-poisoned by the converter two cycles below it, which switched the
+    #: relaxation off for the entire network. The margin is wide enough to
+    #: capture that and far narrower than any real second-slowest node
+    #: (cnv-w2a2's runner-up is at 0.98 of its pacer).
+    pacer_period = max([global_period] + periods) * 0.995
+
+    arrival = {}  # tensor name -> per-token write times
+    depths = {}
+    #: tensor -> (tokens the producer writes on it per frame,
+    #:            longest period in the chain feeding this edge,
+    #:            the same thing to hand further downstream)
+    #: The third differs from the second only at the pacer, which propagates "no
+    #: constraint": the edge leaving the pacer has no slack, because blocking it
+    #: blocks the pacer, but an edge two hops down is limited only by the segment
+    #: since the pacer -- that segment is faster than the pacer by construction
+    #: and can absorb being blocked.
+    supply = {}
+
+    #: Is this node, or anything it feeds, running at the pacer's period? If not,
+    #: the node can be throttled and simply finish its frame later, so a buffer
+    #: in front of it only has to smooth short-timescale mismatch -- it never has
+    #: to hold a whole frame's worth of the producer running ahead.
+    #:
+    #: ``down_chain`` is the mirror of ``chain_period``'s upstream walk: the
+    #: longest period between a node and the next pacer below it. A consumer
+    #: whose downstream segment is faster than the pacer can be made to wait and
+    #: still deliver its frame on time, exactly as a producer with upstream slack
+    #: can be made to block -- so either side's slack shortens the buffer.
+    drives_pacer = {}
+    down_chain = {}
+    down_prop = {}
+    for node in reversed(nodes):
+        tin = tavs[node.name][0]
+        own = len(tin) // 2 if tin is not None else 0
+        below = False
+        downstream = []
+        for t in node.output:
+            cons = model.find_consumer(t)
+            if cons is None:
+                continue
+            if drives_pacer.get(cons.name):
+                below = True
+            if cons.name in down_prop:
+                downstream.append(down_prop[cons.name])
+        drives_pacer[node.name] = own >= pacer_period or below
+        chain = max([own] + downstream) if (downstream or own) else global_period
+        down_chain[node.name] = chain
+        down_prop[node.name] = 0 if own >= pacer_period else chain
+
+    def chain_period(node, tin):
+        own = len(tin) // 2 if tin is not None else 0
+        upstream = [supply[t][2] for t in node.input if t in supply]
+        chain = max([own] + upstream) if (upstream or own) else global_period
+        propagated = 0 if own >= pacer_period else chain
+        return chain, propagated
+
+    #: Nodes that sit on a branch between a fork and the join it reconverges at.
+    #: The slack relaxation says a producer with upstream slack can be blocked for
+    #: ``global_period - T_up`` cycles a frame and still deliver on time. Its only
+    #: deadline is the frame. Inside a reconvergent branch that is false: the
+    #: deadline is the *join*, whose other input is arriving on its own schedule,
+    #: so a cycle lost here is a cycle the join waits and a cycle the graph loses.
+    #: Measured on resnet50: relaxing these gave the right total (215 kB against
+    #: the ground truth's 206) at 1108271 cycles instead of 903174, +22.7%.
+    def _reachable(tensor):
+        seen, stack = set(), [model.find_consumer(tensor)]
+        while stack:
+            n = stack.pop()
+            if n is None or n.name in seen:
+                continue
+            seen.add(n.name)
+            for t in n.output:
+                stack.append(model.find_consumer(t))
+        return seen
+
+    in_branch = set()
+    for node in nodes:
+        outs = [t for t in node.output if model.find_consumer(t) is not None]
+        if len(outs) < 2:
+            continue
+        reach = [_reachable(t) for t in outs]
+        shared = set.intersection(*reach)
+        if not shared:
+            continue  # the branches never meet again; ordinary chains
+        for r in reach:
+            in_branch |= r - shared
+
+    def _record(**row):
+        if trace is not None:
+            trace.append(row)
+
+    def idle_window_floor(tensor, curve, consumer):
+        """Tokens that arrive while the consumer is not reading this stream.
+
+        The peak occupancy is computed from the *stretched* read schedule, and
+        stretching is what a large FIFO buys: the consumer reads each token the
+        instant it turns up, so on any single stream the peak collapses towards
+        one. That is right for a node that reads continuously and wrong for one
+        that reads a stream inside a short window of its period and then does
+        something else, because during the rest of the period the producer
+        keeps delivering into a FIFO nobody is draining.
+
+        The measure is the stream's *duty cycle* in the node's own schedule --
+        the span from its first to its last read of that stream, over the
+        node's period. What has to be buffered is the frame's tokens times the
+        fraction of the period the node spends elsewhere.
+
+        Radioml's four attention nodes are the case this exists for: each reads
+        its K and V streams as 64 back-to-back words in cycles 5..68 of a
+        4485-cycle period, a duty of 1.4%, so essentially a whole frame arrives
+        while they are busy. At depth 2 those eight edges cost 10.9% of the
+        design's throughput -- measured on the board, and restoring only them
+        recovers the optimum exactly. A Thresholding or a width converter reads
+        across its whole period, duty 1, and is charged nothing, which is why
+        this leaves ordinary chains alone.
+        """
+        if curve is None or tensor not in supply or floor_mode == "none":
+            return 0
+        half = len(curve) // 2
+        if half < 2:
+            return 0
+        per_frame = int(curve[half - 1])
+        if per_frame <= 0:
+            return 0
+        reads = np.searchsorted(curve, np.arange(1, per_frame + 1), side="left")
+        duty = min(1.0, float(reads[-1] - reads[0] + 1) / float(half))
+        want = int(round(per_frame * (1.0 - duty)))
+        if throttled_cap and consumer is not None and not drives_pacer.get(consumer, True):
+            # a consumer that nothing at the pacer's period depends on can be
+            # made to wait through its idle window instead of buffering it
+            want = min(want, throttled_cap)
+        return want
+
+    def relaxed(tensor, peak, read_times=None, consumer=None, join=False, burst_floor=0):
+        if slack_relaxation <= 0 or tensor not in supply or join:
+            # ``join``: an edge feeding a node with more than one dynamic input is
+            # never relaxed. Every term the relaxation trades away assumes the
+            # consumer can simply be made to wait and finish its frame later --
+            # true in a chain, false at a join. The early-arriving input of a join
+            # cannot be throttled without throttling the fork it came from, which
+            # starves the *other* branch, which is what the join is waiting for.
+            # On hardware that is not a slowdown but a deadlock: resnet50 locks up
+            # whenever a shortcut FIFO is shorter than the long branch's frame
+            # occupancy (measured, sizing-log attempt 34). The peak occupancy is
+            # exactly the storage that imbalance needs, so it is the floor here.
+            #
+            # The consumer's own burst demand is a second, independent floor:
+            # not a relaxation to be traded away but a lower bound the peak
+            # cannot see, because the peak is measured on a schedule that has
+            # already been stretched to the supply's rate. Whichever is larger
+            # wins.
+            depth = max(int(peak), int(burst_floor))
+            _record(
+                tensor=tensor, consumer=consumer, peak=int(peak),
+                burst_floor=int(burst_floor), depth=depth, join=join,
+            )
+            return depth
+        per_frame, t_up, _ = supply[tensor]
+        # Whichever side has more slack sets the allowance: the producer can be
+        # blocked for global_period - t_up, the consumer can be made to wait for
+        # global_period - down_chain, and either shortens the buffer by the same
+        # arithmetic.
+        #
+        # Except when the producer's own chain is *at* the pacer. Then blocking
+        # it is not a delay it can absorb, it is a cycle the whole graph loses,
+        # and no amount of patience downstream buys that back -- so the
+        # consumer's slack must not be allowed to excuse it. tr-vision's
+        # `Reshape_rtl_2 -> ConvolutionInputGenerator_rtl_1` is exactly this
+        # shape: producer at the pacer (65540), consumer with 50% slack
+        # (32451). Taking the consumer's side allowed 9894 tokens away from a
+        # peak of 3132, leaving the throttled floor of 256 where the board needs
+        # 3201 -- and that one edge was the whole of tr-vision's +15.7%.
+        t_side = t_up
+        if t_up < pacer_period:
+            t_side = min(t_up, down_chain.get(consumer, global_period))
+        allowance = per_frame * (1.0 - min(t_side, global_period) / float(global_period))
+        after_slack = int(round(peak - slack_relaxation * allowance))
+        floor = 0
+        if read_times is not None and floor_mode != "none":
+            if floor_mode == "burst":
+                floor = _burst_above_rate(read_times, per_frame / float(global_period))
+            elif floor_mode.startswith("const:"):
+                floor = int(floor_mode.split(":", 1)[1])
+            else:
+                floor = _longest_read_run(read_times)
+            floor = min(peak, floor)
+        capped = False
+        if (
+            throttled_cap
+            and consumer is not None
+            and not drives_pacer.get(consumer, True)
+            and t_up <= down_chain.get(consumer, global_period)
+        ):
+            # The cap says a throttleable consumer needs only short-timescale
+            # smoothing. It bounds the *floor*, not the slack result: if the
+            # producer has no slack of its own -- it is at the pacer's period --
+            # then blocking it is not free however patient its consumer is.
+            #
+            # The producer's slack has to be at least the consumer's for that to
+            # hold. Capping trades depth for producer blocking, and the argument
+            # that the blocking is absorbed assumes the segment above the edge
+            # can hold a frame's slack somewhere -- which it can only if it is
+            # the slacker of the two. tr-vision's
+            # `Reshape_rtl_2 -> ConvolutionInputGenerator_rtl_1` is the
+            # counterexample: producer chain at 0.80 of the pacer, consumer at
+            # 0.40, capped from a peak of 3132 to 256 where the board needs
+            # 3201, and that one edge is the whole of its +15.7%.
+            floor = min(floor, throttled_cap)
+            capped = True
+        depth = max(after_slack, floor)
+        _record(
+            tensor=tensor, consumer=consumer, peak=int(peak), per_frame=int(per_frame),
+            t_up=int(t_up), allowance=round(allowance, 1), after_slack=after_slack,
+            floor=int(floor), capped=capped, run=int(_longest_read_run(read_times))
+            if read_times is not None else 0,
+            burst=int(_burst_above_rate(read_times, per_frame / float(global_period)))
+            if read_times is not None else 0,
+            cons_period=int(len(tavs[consumer][0]) // 2)
+            if consumer in tavs and tavs[consumer][0] is not None else 0,
+            down_chain=int(down_chain.get(consumer, 0)),
+            drives_pacer=bool(drives_pacer.get(consumer, True)),
+            depth=int(depth),
+        )
+        return depth
+
+    for node in nodes:
+        tin, tout = tavs[node.name]
+        dyn_inputs = [t for t in node.input if model.find_producer(t) is not None]
+        # a node the characterisation skipped (the fork/join ops) just forwards
+        # its input timeline; it adds no schedule of its own
+        transparent = tin is None or tout is None or node.op_type in _TRANSPARENT_OPS
+
+        if transparent:
+            if dyn_inputs:
+                # the slowest input governs a join; a fork hands the same
+                # timeline to every output
+                srcs = [arrival[t] for t in dyn_inputs if t in arrival]
+                if srcs:
+                    n = min(len(s) for s in srcs)
+                    out_sched = np.max(np.stack([s[:n] for s in srcs]), axis=0)
+                else:
+                    out_sched = None
+                read_sched = out_sched
+            else:
+                out_sched = read_sched = None
+            t_up, t_prop = chain_period(node, tin)
+            is_join = len(dyn_inputs) > 1
+            for t in dyn_inputs:
+                if t in arrival and read_sched is not None:
+                    peak = _peak_occupancy_periodic(
+                        arrival[t], read_sched, global_period, supply.get(t, (0,))[0],
+                        both_frames=not (is_join or node.name in in_branch),
+                    )
+                    depths[t] = relaxed(
+                        t,
+                        peak,
+                        read_sched,
+                        node.name,
+                        join=is_join or node.name in in_branch,
+                    )
+            for t in node.output:
+                if out_sched is not None:
+                    arrival[t] = out_sched
+                    per_frame = max(1, len(out_sched) // 2)
+                    supply[t] = (per_frame, t_up, t_prop)
+            continue
+
+        in_curves, out_curves, bound = curves[node.name]
+        span = len(tin)
+        cycles = np.arange(span, dtype=np.int64)
+
+        per_frame_in = int(tin[len(tin) // 2 - 1]) if len(tin) >= 2 else int(tin[-1])
+        req = np.zeros(span, dtype=np.int64)
+        in_scheds = {}
+        for t in node.input:
+            curve = in_curves.get(t)
+            if curve is None:
+                continue
+            curve_t = curve
+            if t in arrival:
+                sched = arrival[t]
+            elif t in graph_inputs and model.find_producer(t) is None:
+                # graph input: paced at the steady-state rate, so nothing
+                # upstream of the bottleneck can run ahead without limit
+                rate = global_period / max(int(curve[len(curve) // 2 - 1]), 1)
+                sched = (np.arange(1, int(curve_t[-1]) + 1) * rate).astype(np.int64)
+            else:
+                continue  # weights / thresholds: no stream behind them
+            in_scheds[t] = (sched, curve_t)
+            req = np.maximum(req, _arrival_of(sched, curve_t))
+
+        clock = cycles + np.maximum.accumulate(req - cycles)
+
+        def _times(curve_t):
+            n = int(curve_t[-1])
+            return clock[
+                np.minimum(np.searchsorted(curve_t, np.arange(1, n + 1), side="left"), span - 1)
+            ]
+
+        is_join = len(dyn_inputs) > 1
+        for t, (sched, curve_t) in in_scheds.items():
+            if model.find_producer(t) is None:
+                continue
+            read_times = _times(curve_t)
+            curve = in_curves[t]
+            n_frame = int(curve[len(curve) // 2 - 1]) if len(curve) >= 2 else 0
+            peak = _peak_occupancy_periodic(
+                sched, read_times, global_period, n_frame,
+                both_frames=not (is_join or node.name in in_branch),
+            )
+            depths[t] = relaxed(
+                t,
+                peak,
+                read_times,
+                node.name,
+                join=is_join or node.name in in_branch,
+                burst_floor=idle_window_floor(t, curve, node.name),
+            )
+
+        t_up, t_prop = chain_period(node, tin)
+        # the warning is about the single-schedule-per-node assumption, so it
+        # only applies to nodes that still fall back to row 0
+        if not bound:
+            _warn_if_streams_differ(model, node)
+        for t in node.output:
+            curve = out_curves.get(t)
+            if curve is None:
+                continue
+            wt = _times(curve)
+            arrival[t] = _causal_writes(wt, in_scheds) if causal else wt
+            per_frame_out = int(curve[len(curve) // 2 - 1]) if len(curve) >= 2 else int(curve[-1])
+            supply[t] = (max(1, per_frame_out), t_up, t_prop)
+
+    if trace is not None:
+        trace.append({"global_period": int(global_period), "pacer_period": float(pacer_period)})
+
+    return depths
+
+
 class DeriveFIFOSizes(Transformation):
     """Prerequisite: DeriveTokenAccessVectors, ProducerDelayCharacteristic
     #  and DelayCharacteristic already called on graph.
@@ -1098,6 +1849,33 @@ class DeriveFIFOSizes(Transformation):
     to perform FIFO sizing, setting the in/outFIFODepths attributes of HLSCustomOp
     nodes.
     """
+
+    #: ``chained_tav`` only, and deliberately not build-config options: one
+    #: value of each fits every model measured on the ZCU104 (cnv-w2a2, vgg10,
+    #: cnv-w1a1, gtsrb, kws, tfc, cybsec, mobilenetv1, resnet50 and the three
+    #: transformers), and a sizer that needs to be retuned per model is not a
+    #: sizer. They are named here so the numbers are inspectable and so a sweep
+    #: can subclass, not so a build config can drift.
+
+    #: How much of a producer's upstream slack to spend rather than buffer. The
+    #: chained-TAV peak is the depth at which the producer never blocks, which is
+    #: more than throughput needs when its own chain finishes a frame early:
+    #: draining k tokens costs k * period / N cycles, so up to
+    #: N * (1 - T_up / period) tokens of the peak can be given up. Measured: 0.0
+    #: leaves cnv-w2a2 at 24.5 kB against a ground truth of 10.1, 1.0 brings it
+    #: to 13.0 with no loss of throughput.
+    CHAINED_TAV_SLACK_RELAXATION = 1.0
+
+    #: Lower bound on the relaxation: the consumer's largest excursion of demand
+    #: above the edge's steady-state rate line. "none" costs mobilenetv1 41%.
+    CHAINED_TAV_FLOOR = "burst"
+
+    #: Depth cap for edges whose consumer neither runs at the pacer's period nor
+    #: feeds anything that does -- blocking such a consumer only makes it finish
+    #: its frame later. 256 is SplitLargeFIFOs' max_qsrl_depth, above which a
+    #: FIFO stops fitting in SRLs, and is also the measured knee: 128 costs
+    #: cnv-w2a2 2.8%, 512 costs mobilenetv1 6.8 kB.
+    CHAINED_TAV_THROTTLED_CAP = 256
 
     def __init__(
         self,
@@ -1126,9 +1904,61 @@ class DeriveFIFOSizes(Transformation):
         self.data_rate_total_fifo_size = 0
         self.data_rate_adjusted_fifo_size = 0
         self.hybrid_fifo_size = 0
+        self.chained_tav_depths = None
+        #: set to a list before ``apply`` to collect the per-edge derivation
+        #: (peak, floor, slack, resulting depth). Diagnostics only; nothing in
+        #: the pass reads it back.
+        self.chained_tav_trace = None
 
     def apply(self, model):
         nodes = [node for node in model.graph.node]
+
+        if self.tav_utilization_strategy == "chained_tav":
+            # Two derivations of the same quantity, and the requirement is at
+            # least both. They differ only in whether a node's writes are held
+            # to the inputs that carry them (``_causal_writes``):
+            #
+            #   * without it, a node's schedule keeps the phase its token access
+            #     vector was measured with, so a producer's potential run-ahead
+            #     survives -- which is what resnet50's residual branches need;
+            #   * with it, a node that gathers many inputs per output shows the
+            #     latency it really has -- which is what tr-language's MLP
+            #     residual needs, and it is worth 66.9% of that model's
+            #     throughput.
+            #
+            # Neither dominates: the bound raises latency downstream and lowers
+            # occupancy on the bounded edge itself, so each pass is a lower
+            # bound on the depth and the larger of the two is the safe answer.
+            # Measured: taking only the causal pass deadlocks resnet50, taking
+            # only the other leaves tr-language at +66.9%, and the max clears
+            # both at 1.7% more storage than the cheaper of them.
+            common = dict(
+                global_period=self.period,
+                slack_relaxation=self.CHAINED_TAV_SLACK_RELAXATION,
+                floor_mode=self.CHAINED_TAV_FLOOR,
+                throttled_cap=self.CHAINED_TAV_THROTTLED_CAP,
+            )
+            phased = derive_chained_tav_depths(
+                model, causal=False, trace=self.chained_tav_trace, **common
+            )
+            self.chained_tav_depths = derive_chained_tav_depths(model, causal=True, **common)
+            for tensor, depth in phased.items():
+                if depth > self.chained_tav_depths.get(tensor, 0):
+                    self.chained_tav_depths[tensor] = depth
+            # InsertFIFO takes max(producer.outFIFODepths, consumer.inFIFODepths),
+            # and a folding config may carry both -- resnet50's
+            # U250_folding_config_live_fifo.json sets them on all 515 nodes, up to
+            # 95924 deep. Those values then override the sizer wherever they are
+            # larger, which was 238 of resnet50's 269 edges and 87% of what looked
+            # like this pass oversizing. The arrival pass derives every edge, so it
+            # owns every edge: clear both attributes here and write both below.
+            # Scoped to chained_tav; the other strategies, which only ever write
+            # outFIFODepths, keep the max() behaviour they were measured with.
+            for node in model.graph.node:
+                if is_hls_node(node) or is_rtl_node(node):
+                    inst = registry.getCustomOp(node)
+                    inst.set_nodeattr("inFIFODepths", [self.minimum_size] * len(node.input))
+                    inst.set_nodeattr("outFIFODepths", [self.minimum_size] * len(node.output))
 
         for node in nodes:
             op_type = node.op_type
@@ -1175,9 +2005,7 @@ class DeriveFIFOSizes(Transformation):
                         # throttling it costs no throughput). Edges lacking
                         # composed data (joins, uncharacterized nodes) use the
                         # default machinery.
-                        strategy_env = os.environ.get(
-                            "FINN_TAV_STRATEGY", self.tav_utilization_strategy
-                        )
+                        strategy_env = self.tav_utilization_strategy
                         composed_max = None
                         if (
                             strategy_env == "chain_composed"
@@ -1198,7 +2026,12 @@ class DeriveFIFOSizes(Transformation):
                                 ) - np.arange(n)
                                 composed_max = int(max(0, occ.max()))
 
-                        if node.op_type != "AddStreams_hls":
+                        if self.chained_tav_depths is not None:
+                            # depth already follows from the graph-wide arrival
+                            # schedule; the per-edge trace comparison below is the
+                            # thing it replaces
+                            fifo_depth = self.chained_tav_depths.get(output_name, self.minimum_size)
+                        elif node.op_type != "AddStreams_hls":
                             # determine which of prod and cons TAVs to compare
                             # based on which one was stretched
                             chr_pairs = []
@@ -1469,11 +2302,7 @@ class DeriveFIFOSizes(Transformation):
                                 self.hybrid_fifo_size += hybrid_size
                                 self.hybrid_fifo_size_rate += hybrid_size_rate
 
-                                # experimentation override (e.g. no_relaxation probes
-                                # of the raw TAV ceiling) without a config rebuild
-                                strategy = os.environ.get(
-                                    "FINN_TAV_STRATEGY", self.tav_utilization_strategy
-                                )
+                                strategy = self.tav_utilization_strategy
                                 if strategy in ("conservative_relaxation", "chain_composed"):
                                     # minimized TAV different
                                     fifo_depth = minimized_depth
@@ -1508,7 +2337,11 @@ class DeriveFIFOSizes(Transformation):
                         else:
                             fifo_depth = 0
 
-                        if node.op_type == "DuplicateStreams_hls":
+                        if self.chained_tav_depths is not None:
+                            # HandleBranches' fork/join imbalance is already part of
+                            # the arrival schedule -- adding it again double-counts
+                            pass
+                        elif node.op_type == "DuplicateStreams_hls":
                             # propagate slowdown
                             if indx == 0:
                                 self.slowdown_so_far[1] = self.slowdown_so_far[0]
@@ -1522,6 +2355,16 @@ class DeriveFIFOSizes(Transformation):
                         out_fifo_depths.append(max(fifo_depth, self.minimum_size))
 
                         prod.set_nodeattr("outFIFODepths", out_fifo_depths)
+
+                        if self.chained_tav_depths is not None:
+                            # ... and the matching half on the consumer, so the
+                            # max() in InsertFIFO is a no-op rather than a way for
+                            # a stale attribute to win
+                            in_depths = cons.get_nodeattr("inFIFODepths")
+                            for i, inp in enumerate(cons_node.input):
+                                if inp == output_name:
+                                    in_depths[i] = max(fifo_depth, self.minimum_size)
+                            cons.set_nodeattr("inFIFODepths", in_depths)
 
                         in_fifo_depths = prod.get_nodeattr("inFIFODepths")
                         for i, input_name in enumerate(node.input):

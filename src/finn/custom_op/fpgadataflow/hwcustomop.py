@@ -412,12 +412,6 @@ class HWCustomOp(CustomOp):
                 else:
                     buffer = 2
 
-            if "MVAU" in self.onnx_node.name:
-                if "_rtl" in (self.__class__.__name__):
-                    buffer = 1
-                else:
-                    buffer = 2
-
             if buffer > 0:
                 # buffering does not happen in nodes with short wind-ups
                 if period < 14:
