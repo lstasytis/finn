@@ -30,7 +30,7 @@ import numpy as np
 from qonnx.core.datatype import DataType
 
 from finn.custom_op.fpgadataflow.hwcustomop import HWCustomOp
-from finn.util.basic import Characteristic_Node
+from finn.util.basic import Characteristic_Node, flat_characteristic_leaf
 
 
 class Pool(HWCustomOp):
@@ -237,6 +237,26 @@ class Pool(HWCustomOp):
         else:
             SF = np.prod(KernelSize)  # spatial folding per pooling window
             reps = BatchSize * np.prod(OutImgDims)  # number of pooling windows to process
+
+        # The HLS pool reads one folded word every cycle and emits one every
+        # SF, and its first write is at cycle 1, not at SF - 1. Measured on all
+        # 14 harvested references: the reference reads back to back for the
+        # whole period and writes at 1, 1 + SF, 1 + 2*SF, ...
+        #
+        # A flat leaf rather than the nested form below because the nested one
+        # can only place the write at the *end* of its SF-cycle window, and
+        # because it left the token count one short per period once the
+        # micro-buffer correction had shifted it (the correction is now off for
+        # Pool_hls; see hwcustomop.derive_token_access_vectors_using_tree_model).
+        impl_style = "rtl" if "_rtl" in (self.__class__.__name__) else "hls"
+        if impl_style == "hls" and SF >= 1 and NF >= 1 and reps >= 1:
+            n_in = int(reps) * int(NF) * int(SF)
+            n_out = int(reps) * int(NF)
+            if n_in > 2:
+                rd = np.ones(n_in, dtype=np.int8)
+                wr = np.zeros(n_in, dtype=np.int8)
+                wr[(1 + int(SF) * np.arange(n_out)) % n_in] = 1
+                return flat_characteristic_leaf(rd, wr, "Pool_hls schedule")
 
         # One input read per SF iteration
         read_pooling_input = Characteristic_Node("Read Pool Input", [(1, [1, 0])], True)

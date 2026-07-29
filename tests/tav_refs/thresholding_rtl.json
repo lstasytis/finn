@@ -1,0 +1,4689 @@
+{
+ "Thresholding_rtl_04fd13": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Nl0sICJuX3J1bnMiOiBbMV19fHwfiwgAzaxoagL/Y2RgYGBkgAB2DggNACR28P0UAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Nl0sICJuX3J1bnMiOiBbMV19fHwfiwgAzaxoagL/Y2RgYGBkgAB2DggNACR28P0UAAAA",
+  "io_chrc_period": 5140,
+  "provenance": "rtlsim",
+  "source": "cache:radioml/Thresholding_rtl_0",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 2,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "FLOAT32",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     1,
+     1024
+    ],
+    "numSteps": 255,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT8",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "FLOAT32"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_0",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_05f19c": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAwMzU2XSwgIm5fcnVucyI6IFsxXX18fB+LCAAX3mdqAv9jZGBgYGSAAOYOCAsAiUHwOhQAAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAwMzU2XSwgIm5fcnVucyI6IFsxXX18fB+LCAAX3mdqAv9jZGBgYGSAAOYOCAsAiUHwOhQAAAA=",
+  "io_chrc_period": 250892,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/Thresholding_rtl_26",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 1024,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 16384,
+    "depth_trigger_uram": 32768,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT16",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     7,
+     7
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT17"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_26",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_064cf2": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTYzODhdLCAibl9ydW5zIjogWzFdfXx8H4sIAAK4aGoC/2NkYGBgZIAAZgcIDQDAQ14OFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTYzODhdLCAibl9ydW5zIjogWzFdfXx8H4sIAAK4aGoC/2NkYGBgZIAAZgcIDQDAQ14OFAAAAA==",
+  "io_chrc_period": 40972,
+  "provenance": "rtlsim",
+  "source": "cache:vision/Thresholding_rtl_19",
+  "spec": {
+   "attrs": {
+    "ActVal": -8,
+    "NumChannels": 64,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT12",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT13"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_19",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_072a42": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTMyXSwgIm5fcnVucyI6IFsxXX18fB+LCABY22dqAv9jZGBgYGSAgGYoDQBjs24ZFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTMyXSwgIm5fcnVucyI6IFsxXX18fB+LCABY22dqAv9jZGBgYGSAgGYoDQBjs24ZFAAAAA==",
+  "io_chrc_period": 332,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/Thresholding_rtl_7",
+  "spec": {
+   "attrs": {
+    "ActVal": -8,
+    "NumChannels": 128,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT14",
+    "mem_port": "",
+    "numInputVectors": [
+     1
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT15"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_7",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_0790f5": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAwNzA2XSwgIm5fcnVucyI6IFsxXX18fB+LCAD8CmlqAv9jZGBgYGSAAEYBZjANAKTfOukUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAwNzA2XSwgIm5fcnVucyI6IFsxXX18fB+LCAD8CmlqAv9jZGBgYGSAAEYBZjANAKTfOukUAAAA",
+  "io_chrc_period": 501768,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/Thresholding_rtl_33",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 1024,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 38000,
+    "depth_trigger_uram": 38000,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     14,
+     14
+    ],
+    "numSteps": 3,
+    "outFIFODepths": [
+     9144
+    ],
+    "outputDataType": "UINT2",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT5"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_33",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_0afa15": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAWttnagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAWttnagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_period": 5132,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/Thresholding_rtl_0",
+  "spec": {
+   "attrs": {
+    "ActVal": -8,
+    "NumChannels": 32,
+    "PE": 32,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT14",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     1024,
+     1
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT15"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_0",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_0bd06a": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIAMHEaGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIAMHEaGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_period": 81932,
+  "provenance": "rtlsim",
+  "source": "cache:language/Thresholding_rtl_8",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 2147483647,
+    "depth_trigger_uram": 2147483647,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT13",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT14"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_8",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_0d4448": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzZdLCAibl9ydW5zIjogWzFdfXx8H4sIABLFaGoC/2NkYGBgZIAA9gYIDQCx0glGFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzZdLCAibl9ydW5zIjogWzFdfXx8H4sIABLFaGoC/2NkYGBgZIAA9gYIDQCx0glGFAAAAA==",
+  "io_chrc_period": 81940,
+  "provenance": "rtlsim",
+  "source": "cache:language/Thresholding_rtl_0",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 2147483647,
+    "depth_trigger_uram": 2147483647,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT64",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "numSteps": 255,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT8",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT64"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_0",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_127fd4": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIAMHEaGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIAMHEaGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_period": 81932,
+  "provenance": "rtlsim",
+  "source": "cache:language/Thresholding_rtl_7",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 2147483647,
+    "depth_trigger_uram": 2147483647,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT32",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT33"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_7",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_13e6e2": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIAHC4aGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIAHC4aGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_period": 81932,
+  "provenance": "rtlsim",
+  "source": "cache:vision/Thresholding_rtl_6",
+  "spec": {
+   "attrs": {
+    "ActVal": -8,
+    "NumChannels": 64,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT16",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT17"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_6",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_154066": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgODE5Nl0sICJuX3J1bnMiOiBbMV19fHwfiwgArrdoagL/Y2RgYGBkgABmBQgNACUP6IUUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgODE5Nl0sICJuX3J1bnMiOiBbMV19fHwfiwgArrdoagL/Y2RgYGBkgABmBQgNACUP6IUUAAAA",
+  "io_chrc_period": 20492,
+  "provenance": "rtlsim",
+  "source": "cache:vision/Thresholding_rtl_26",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 4,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT14",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT15"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_26",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_17c04c": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIABHFaGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIABHFaGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_period": 81932,
+  "provenance": "rtlsim",
+  "source": "cache:language/Thresholding_rtl_2",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 2147483647,
+    "depth_trigger_uram": 2147483647,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT8",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT9"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_2",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_1de8ae": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAwNzA4XSwgIm5fcnVucyI6IFsxXX18fB+LCACnFWlqAv9jZGBgYGSAAGYBZjANANnYH6sUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAwNzA4XSwgIm5fcnVucyI6IFsxXX18fB+LCACnFWlqAv9jZGBgYGSAAGYBZjANANnYH6sUAAAA",
+  "io_chrc_period": 501772,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/Thresholding_rtl_20",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 1024,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 38000,
+    "depth_trigger_uram": 38000,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     14,
+     14
+    ],
+    "numSteps": 14,
+    "outFIFODepths": [
+     9144
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT5"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_20",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_1df526": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDAxNDEyXSwgIm5fcnVucyI6IFsxXX18fB+LCABl4mdqAv9jZGBgYGSAAGYFNjANADjssVMUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDAxNDEyXSwgIm5fcnVucyI6IFsxXX18fB+LCABl4mdqAv9jZGBgYGSAAGYFNjANADjssVMUAAAA",
+  "io_chrc_period": 1003532,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/Thresholding_rtl_9",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 256,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 4096,
+    "depth_trigger_uram": 8192,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT11",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     28,
+     28
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT12"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_9",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_1f9d6d": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAxqxoagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAxqxoagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_period": 5132,
+  "provenance": "rtlsim",
+  "source": "cache:radioml/Thresholding_rtl_9",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 4,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT32",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     64
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT33"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_9",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_1fe30e": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIACK4aGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIACK4aGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_period": 81932,
+  "provenance": "rtlsim",
+  "source": "cache:vision/Thresholding_rtl_11",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT5"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_11",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_256fb1": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIALTEaGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIALTEaGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_period": 81932,
+  "provenance": "rtlsim",
+  "source": "cache:language/Thresholding_rtl_12",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 2147483647,
+    "depth_trigger_uram": 2147483647,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT14",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT15"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_12",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_27a6c0": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNzg4NTQ4XSwgIm5fcnVucyI6IFsxXX18fB+LCABB5mdqAv9jZGBgYGSAAGcOHjANAEh65ScUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNzg4NTQ4XSwgIm5fcnVucyI6IFsxXX18fB+LCABB5mdqAv9jZGBgYGSAAGcOHjANAEh65ScUAAAA",
+  "io_chrc_period": 1971372,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/Thresholding_rtl_1",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 32,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 512,
+    "depth_trigger_uram": 1024,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT10",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     111,
+     111
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT11"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_1",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_28c174": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNTAxODBdLCAibl9ydW5zIjogWzFdfXx8H4sIAGDeZ2oC/2NkYGBgZIAA5iMQGgAhjQdyFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNTAxODBdLCAibl9ydW5zIjogWzFdfXx8H4sIAGDeZ2oC/2NkYGBgZIAA5iMQGgAhjQdyFAAAAA==",
+  "io_chrc_period": 125452,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/Thresholding_rtl_23",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 512,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 8192,
+    "depth_trigger_uram": 16384,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT11",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     7,
+     7
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT12"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_23",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_2a6cbe": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgODAyODIwXSwgIm5fcnVucyI6IFsxXX18fB+LCACCK2lqAv9jZGBgYGSAAGYHHjANALuDnHkUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgODAyODIwXSwgIm5fcnVucyI6IFsxXX18fB+LCACCK2lqAv9jZGBgYGSAAGYHHjANALuDnHkUAAAA",
+  "io_chrc_period": 2007052,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/Thresholding_rtl_1",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 256,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 38000,
+    "depth_trigger_uram": 38000,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     56,
+     56
+    ],
+    "numSteps": 14,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT5"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_1",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_3513db": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAwMzU2XSwgIm5fcnVucyI6IFsxXX18fB+LCACC4WdqAv9jZGBgYGSAAOYOCAsAiUHwOhQAAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAwMzU2XSwgIm5fcnVucyI6IFsxXX18fB+LCACC4WdqAv9jZGBgYGSAAOYOCAsAiUHwOhQAAAA=",
+  "io_chrc_period": 250892,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/Thresholding_rtl_11",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 256,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 4096,
+    "depth_trigger_uram": 8192,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT11",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     14,
+     14
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT12"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_11",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_378236": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAwNzA4XSwgIm5fcnVucyI6IFsxXX18fB+LCABy4WdqAv9jZGBgYGSAAGYBZjANANnYH6sUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAwNzA4XSwgIm5fcnVucyI6IFsxXX18fB+LCABy4WdqAv9jZGBgYGSAAGYBZjANANnYH6sUAAAA",
+  "io_chrc_period": 501772,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/Thresholding_rtl_12",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 512,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 8192,
+    "depth_trigger_uram": 16384,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT14",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     14,
+     14
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT15"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_12",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_37ca83": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAwNzA4XSwgIm5fcnVucyI6IFsxXX18fB+LCAD/CmlqAv9jZGBgYGSAAGYBZjANANnYH6sUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAwNzA4XSwgIm5fcnVucyI6IFsxXX18fB+LCAD/CmlqAv9jZGBgYGSAAGYBZjANANnYH6sUAAAA",
+  "io_chrc_period": 501772,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/Thresholding_rtl_32",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 1024,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 38000,
+    "depth_trigger_uram": 38000,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     14,
+     14
+    ],
+    "numSteps": 14,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT5"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_32",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_3b2fc1": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNzg4NTQ4XSwgIm5fcnVucyI6IFsxXX18fB+LCAAL52dqAv9jZGBgYGSAAGcOHjANAEh65ScUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNzg4NTQ4XSwgIm5fcnVucyI6IFsxXX18fB+LCAAL52dqAv9jZGBgYGSAAGcOHjANAEh65ScUAAAA",
+  "io_chrc_period": 1971372,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/Thresholding_rtl_0",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 32,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 512,
+    "depth_trigger_uram": 1024,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT20",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     111,
+     111
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT21"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_0",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_417e92": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Nl0sICJuX3J1bnMiOiBbMV19fHwfiwgAzaxoagL/Y2RgYGBkgAB2DggNACR28P0UAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Nl0sICJuX3J1bnMiOiBbMV19fHwfiwgAzaxoagL/Y2RgYGBkgAB2DggNACR28P0UAAAA",
+  "io_chrc_period": 5140,
+  "provenance": "rtlsim",
+  "source": "cache:radioml/Thresholding_rtl_3",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 4,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT10",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     1,
+     64
+    ],
+    "numSteps": 255,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT8",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT11"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_3",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_444aa5": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzRdLCAibl9ydW5zIjogWzFdfXx8H4sIAFb3aGoC/2NkYGBgZIAARSgNAJJTBvEUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzRdLCAibl9ydW5zIjogWzFdfXx8H4sIAFb3aGoC/2NkYGBgZIAARSgNAJJTBvEUAAAA",
+  "io_chrc_period": 88,
+  "provenance": "rtlsim",
+  "source": "cache:tfc-w2a2/Thresholding_rtl_0",
+  "spec": {
+   "attrs": {
+    "ActVal": -1,
+    "NumChannels": 784,
+    "PE": 49,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT8",
+    "mem_port": "",
+    "numInputVectors": [
+     1
+    ],
+    "numSteps": 2,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT2",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT9"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_0",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_4ad33b": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgODAyODIwXSwgIm5fcnVucyI6IFsxXX18fB+LCAD3J2lqAv9jZGBgYGSAAGYHHjANALuDnHkUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgODAyODIwXSwgIm5fcnVucyI6IFsxXX18fB+LCAD3J2lqAv9jZGBgYGSAAGYHHjANALuDnHkUAAAA",
+  "io_chrc_period": 2007052,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/Thresholding_rtl_4",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 256,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 38000,
+    "depth_trigger_uram": 38000,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     56,
+     56
+    ],
+    "numSteps": 14,
+    "outFIFODepths": [
+     7667
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT5"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_4",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_4e64bb": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAwNzA4XSwgIm5fcnVucyI6IFsxXX18fB+LCAC4FWlqAv9jZGBgYGSAAGYBZjANANnYH6sUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAwNzA4XSwgIm5fcnVucyI6IFsxXX18fB+LCAC4FWlqAv9jZGBgYGSAAGYBZjANANnYH6sUAAAA",
+  "io_chrc_period": 501772,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/Thresholding_rtl_19",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 1024,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 38000,
+    "depth_trigger_uram": 38000,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT5",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     14,
+     14
+    ],
+    "numSteps": 14,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT6"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_19",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_4fb764": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTYzODhdLCAibl9ydW5zIjogWzFdfXx8H4sIAHG4aGoC/2NkYGBgZIAAZgcIDQDAQ14OFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTYzODhdLCAibl9ydW5zIjogWzFdfXx8H4sIAHG4aGoC/2NkYGBgZIAAZgcIDQDAQ14OFAAAAA==",
+  "io_chrc_period": 40972,
+  "provenance": "rtlsim",
+  "source": "cache:vision/Thresholding_rtl_5",
+  "spec": {
+   "attrs": {
+    "ActVal": -8,
+    "NumChannels": 64,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT17",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT18"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_5",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_585ceb": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAxqxoagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAxqxoagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_period": 5132,
+  "provenance": "rtlsim",
+  "source": "cache:radioml/Thresholding_rtl_14",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 4,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT14",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     64
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT15"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_14",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_5b5cee": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAzaxoagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAzaxoagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_period": 5132,
+  "provenance": "rtlsim",
+  "source": "cache:radioml/Thresholding_rtl_4",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 4,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT8",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     64
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT9"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_4",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_5e13f9": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAWNtnagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAWNtnagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_period": 5132,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/Thresholding_rtl_5",
+  "spec": {
+   "attrs": {
+    "ActVal": -8,
+    "NumChannels": 32,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT13",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     32,
+     1
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT14"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_5",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_5ee361": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAWdtnagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAWdtnagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_period": 5132,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/Thresholding_rtl_2",
+  "spec": {
+   "attrs": {
+    "ActVal": -8,
+    "NumChannels": 32,
+    "PE": 8,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT13",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256,
+     1
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT14"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_2",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_5efcae": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTMxMDc2XSwgIm5fcnVucyI6IFsxXX18fB+LCAC+xGhqAv9jZGBgYGSAAGYGJjANALKXnQcUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTMxMDc2XSwgIm5fcnVucyI6IFsxXX18fB+LCAC+xGhqAv9jZGBgYGSAAGYGJjANALKXnQcUAAAA",
+  "io_chrc_period": 327692,
+  "provenance": "rtlsim",
+  "source": "cache:language/Thresholding_rtl_11",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 256,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 2147483647,
+    "depth_trigger_uram": 2147483647,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT13",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT14"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_11",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_5f2167": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgODAyODE4XSwgIm5fcnVucyI6IFsxXX18fB+LCADcJ2lqAv9jZGBgYGSAAEYHHjANAMaEuTsUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgODAyODE4XSwgIm5fcnVucyI6IFsxXX18fB+LCADcJ2lqAv9jZGBgYGSAAEYHHjANAMaEuTsUAAAA",
+  "io_chrc_period": 2007048,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/Thresholding_rtl_5",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 256,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 38000,
+    "depth_trigger_uram": 38000,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     56,
+     56
+    ],
+    "numSteps": 3,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT2",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT5"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_5",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_60b5fc": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzZdLCAibl9ydW5zIjogWzFdfXx8H4sIABHFaGoC/2NkYGBgZIAA9gYIDQCx0glGFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzZdLCAibl9ydW5zIjogWzFdfXx8H4sIABHFaGoC/2NkYGBgZIAA9gYIDQCx0glGFAAAAA==",
+  "io_chrc_period": 81940,
+  "provenance": "rtlsim",
+  "source": "cache:language/Thresholding_rtl_1",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 2147483647,
+    "depth_trigger_uram": 2147483647,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT10",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "numSteps": 255,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT8",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT11"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_1",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_624224": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDAxNDEyXSwgIm5fcnVucyI6IFsxXX18fB+LCACnIWlqAv9jZGBgYGSAAGYFNjANADjssVMUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDAxNDEyXSwgIm5fcnVucyI6IFsxXX18fB+LCACnIWlqAv9jZGBgYGSAAGYFNjANADjssVMUAAAA",
+  "io_chrc_period": 1003532,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/Thresholding_rtl_8",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 512,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 38000,
+    "depth_trigger_uram": 38000,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT5",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     28,
+     28
+    ],
+    "numSteps": 14,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT6"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_8",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_66aa8a": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgOTg4XSwgIm5fcnVucyI6IFsxXX18fB+LCACwCGhqAv9jZGBgYGSAgNvMEBoAjUFFrhQAAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgOTg4XSwgIm5fcnVucyI6IFsxXX18fB+LCACwCGhqAv9jZGBgYGSAgNvMEBoAjUFFrhQAAAA=",
+  "io_chrc_period": 2470,
+  "provenance": "rtlsim",
+  "source": "cache:kws/Thresholding_rtl_0",
+  "spec": {
+   "attrs": {
+    "ActVal": -127,
+    "NumChannels": 1,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "FLOAT32",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     10,
+     49
+    ],
+    "numSteps": 254,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT8",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "FLOAT32"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_0",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_693b8b": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAyOF0sICJuX3J1bnMiOiBbMV19fHwfiwgAWNtnagL/Y2RgYGBkgABmFggNAKoSGr4UAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAyOF0sICJuX3J1bnMiOiBbMV19fHwfiwgAWNtnagL/Y2RgYGBkgABmFggNAKoSGr4UAAAA",
+  "io_chrc_period": 2572,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/Thresholding_rtl_6",
+  "spec": {
+   "attrs": {
+    "ActVal": -8,
+    "NumChannels": 32,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT13",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     16,
+     1
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT14"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_6",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_6c15d8": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDAxNDEyXSwgIm5fcnVucyI6IFsxXX18fB+LCAAv4mdqAv9jZGBgYGSAAGYFNjANADjssVMUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDAxNDEyXSwgIm5fcnVucyI6IFsxXX18fB+LCAAv4mdqAv9jZGBgYGSAAGYFNjANADjssVMUAAAA",
+  "io_chrc_period": 1003532,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/Thresholding_rtl_10",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 256,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 4096,
+    "depth_trigger_uram": 8192,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT14",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     28,
+     28
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT15"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_10",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_6d3fa9": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAwMzU2XSwgIm5fcnVucyI6IFsxXX18fB+LCAAk3mdqAv9jZGBgYGSAAOYOCAsAiUHwOhQAAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAwMzU2XSwgIm5fcnVucyI6IFsxXX18fB+LCAAk3mdqAv9jZGBgYGSAAOYOCAsAiUHwOhQAAAA=",
+  "io_chrc_period": 250892,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/Thresholding_rtl_25",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 1024,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 16384,
+    "depth_trigger_uram": 32768,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT11",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     7,
+     7
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT12"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_25",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_6f91ef": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTYzODhdLCAibl9ydW5zIjogWzFdfXx8H4sIAIS4aGoC/2NkYGBgZIAAZgcIDQDAQ14OFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTYzODhdLCAibl9ydW5zIjogWzFdfXx8H4sIAIS4aGoC/2NkYGBgZIAAZgcIDQDAQ14OFAAAAA==",
+  "io_chrc_period": 40972,
+  "provenance": "rtlsim",
+  "source": "cache:vision/Thresholding_rtl_4",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT8",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT9"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_4",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_7087bd": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzZdLCAibl9ydW5zIjogWzFdfXx8H4sIAIi4aGoC/2NkYGBgZIAA9gYIDQCx0glGFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzZdLCAibl9ydW5zIjogWzFdfXx8H4sIAIi4aGoC/2NkYGBgZIAA9gYIDQCx0glGFAAAAA==",
+  "io_chrc_period": 81940,
+  "provenance": "rtlsim",
+  "source": "cache:vision/Thresholding_rtl_1",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT18",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     16,
+     16
+    ],
+    "numSteps": 255,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT8",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT19"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_1",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_72051d": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNjU1NDBdLCAibl9ydW5zIjogWzFdfXx8H4sIALO3aGoC/2NkYGBgZIAAZigLABzlCYEUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNjU1NDBdLCAibl9ydW5zIjogWzFdfXx8H4sIALO3aGoC/2NkYGBgZIAAZigLABzlCYEUAAAA",
+  "io_chrc_period": 163852,
+  "provenance": "rtlsim",
+  "source": "cache:vision/Thresholding_rtl_25",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 256,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT12",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT13"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_25",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_74573f": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDAxNDEyXSwgIm5fcnVucyI6IFsxXX18fB+LCABS5GdqAv9jZGBgYGSAAGYFNjANADjssVMUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDAxNDEyXSwgIm5fcnVucyI6IFsxXX18fB+LCABS5GdqAv9jZGBgYGSAAGYFNjANADjssVMUAAAA",
+  "io_chrc_period": 1003532,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/Thresholding_rtl_4",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 128,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 2048,
+    "depth_trigger_uram": 4096,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT13",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     56,
+     56
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT14"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_4",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_751c41": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAwNzA2XSwgIm5fcnVucyI6IFsxXX18fB+LCADnB2lqAv9jZGBgYGSAAEYBZjANAKTfOukUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAwNzA2XSwgIm5fcnVucyI6IFsxXX18fB+LCADnB2lqAv9jZGBgYGSAAEYBZjANAKTfOukUAAAA",
+  "io_chrc_period": 501768,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/Thresholding_rtl_35",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 1024,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 38000,
+    "depth_trigger_uram": 38000,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT5",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     14,
+     14
+    ],
+    "numSteps": 3,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT2",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT6"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_35",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_7682e1": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAWttnagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAWttnagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_period": 5132,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/Thresholding_rtl_1",
+  "spec": {
+   "attrs": {
+    "ActVal": -8,
+    "NumChannels": 32,
+    "PE": 16,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT13",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     512,
+     1
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT14"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_1",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_78423f": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAwNzA2XSwgIm5fcnVucyI6IFsxXX18fB+LCACVFWlqAv9jZGBgYGSAAEYBZjANAKTfOukUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAwNzA2XSwgIm5fcnVucyI6IFsxXX18fB+LCACVFWlqAv9jZGBgYGSAAEYBZjANAKTfOukUAAAA",
+  "io_chrc_period": 501768,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/Thresholding_rtl_21",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 1024,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 38000,
+    "depth_trigger_uram": 38000,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     14,
+     14
+    ],
+    "numSteps": 3,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT2",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT5"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_21",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_7bed44": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Nl0sICJuX3J1bnMiOiBbMV19fHwfiwgAzaxoagL/Y2RgYGBkgAB2DggNACR28P0UAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Nl0sICJuX3J1bnMiOiBbMV19fHwfiwgAzaxoagL/Y2RgYGBkgAB2DggNACR28P0UAAAA",
+  "io_chrc_period": 5140,
+  "provenance": "rtlsim",
+  "source": "cache:radioml/Thresholding_rtl_1",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 4,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT19",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     1,
+     64
+    ],
+    "numSteps": 255,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT8",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT20"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_1",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_7ca4fc": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDAxNDEyXSwgIm5fcnVucyI6IFsxXX18fB+LCACO5GdqAv9jZGBgYGSAAGYFNjANADjssVMUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDAxNDEyXSwgIm5fcnVucyI6IFsxXX18fB+LCACO5GdqAv9jZGBgYGSAAGYFNjANADjssVMUAAAA",
+  "io_chrc_period": 1003532,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/Thresholding_rtl_3",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 1024,
+    "depth_trigger_uram": 2048,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT11",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     56,
+     56
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT12"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_3",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_81b84f": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTMxMDc2XSwgIm5fcnVucyI6IFsxXX18fB+LCAAfuGhqAv9jZGBgYGSAAGYGJjANALKXnQcUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTMxMDc2XSwgIm5fcnVucyI6IFsxXX18fB+LCAAfuGhqAv9jZGBgYGSAAGYGJjANALKXnQcUAAAA",
+  "io_chrc_period": 327692,
+  "provenance": "rtlsim",
+  "source": "cache:vision/Thresholding_rtl_13",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 256,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT12",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT13"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_13",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_82d867": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAxqxoagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAxqxoagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_period": 5132,
+  "provenance": "rtlsim",
+  "source": "cache:radioml/Thresholding_rtl_13",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 256,
+    "PE": 16,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT12",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     64
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT13"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_13",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_845b13": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzJdLCAibl9ydW5zIjogWzJdfXx8H4sIAMWsaGoC/2NkYGBgZEAFMlCaGUoDAF+JlsEkAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzJdLCAibl9ydW5zIjogWzFdfXx8H4sIAMWsaGoC/2NkYGBgZIAAeSgNAN0SQWEUAAAA",
+  "io_chrc_period": 80,
+  "provenance": "rtlsim",
+  "source": "cache:radioml/Thresholding_rtl_15",
+  "spec": {
+   "attrs": {
+    "ActVal": -128,
+    "NumChannels": 24,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT50",
+    "mem_port": "",
+    "numInputVectors": [
+     1
+    ],
+    "numSteps": 255,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT8",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT51"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_15",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_873487": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAWNtnagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAWNtnagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_period": 5132,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/Thresholding_rtl_4",
+  "spec": {
+   "attrs": {
+    "ActVal": -8,
+    "NumChannels": 32,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT13",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     64,
+     1
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT14"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_4",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_8a5976": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjhdLCAibl9ydW5zIjogWzJdfXx8H4sIAKy3aGoC/2NkYGBgZEAFYlCaFUoDAPQ6SvMkAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjhdLCAibl9ydW5zIjogWzFdfXx8H4sIAKy3aGoC/2NkYGBgZIAAaSgNACccC+UUAAAA",
+  "io_chrc_period": 70,
+  "provenance": "rtlsim",
+  "source": "cache:vision/Thresholding_rtl_28",
+  "spec": {
+   "attrs": {
+    "ActVal": -128,
+    "NumChannels": 10,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT24",
+    "mem_port": "",
+    "numInputVectors": [
+     1
+    ],
+    "numSteps": 255,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT8",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT25"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_28",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_8a7bba": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjYwXSwgIm5fcnVucyI6IFsxXX18fB+LCABX22dqAv9jZGBgYGSAAGYoAwANPSLsFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjYwXSwgIm5fcnVucyI6IFsxXX18fB+LCABX22dqAv9jZGBgYGSAAGYoAwANPSLsFAAAAA==",
+  "io_chrc_period": 652,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/Thresholding_rtl_8",
+  "spec": {
+   "attrs": {
+    "ActVal": -8,
+    "NumChannels": 128,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT13",
+    "mem_port": "",
+    "numInputVectors": [
+     1
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT14"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_8",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_8c8cca": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDAxNDEyXSwgIm5fcnVucyI6IFsxXX18fB+LCACEIWlqAv9jZGBgYGSAAGYFNjANADjssVMUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDAxNDEyXSwgIm5fcnVucyI6IFsxXX18fB+LCACEIWlqAv9jZGBgYGSAAGYFNjANADjssVMUAAAA",
+  "io_chrc_period": 1003532,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/Thresholding_rtl_9",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 512,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 38000,
+    "depth_trigger_uram": 38000,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     28,
+     28
+    ],
+    "numSteps": 14,
+    "outFIFODepths": [
+     8156
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT5"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_9",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_8ce2c2": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDAxNDEwXSwgIm5fcnVucyI6IFsxXX18fB+LCAB0IWlqAv9jZGBgYGSAAEYFNjANAEXrlBEUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDAxNDEwXSwgIm5fcnVucyI6IFsxXX18fB+LCAB0IWlqAv9jZGBgYGSAAEYFNjANAEXrlBEUAAAA",
+  "io_chrc_period": 1003528,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/Thresholding_rtl_10",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 512,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 38000,
+    "depth_trigger_uram": 38000,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     28,
+     28
+    ],
+    "numSteps": 3,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT2",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT5"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_10",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_8cfb12": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNjE1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgA2fdoagL/Y2RgYGBkgAB2CQgNAOrqLpoUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNjE1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgA2fdoagL/Y2RgYGBkgAB2CQgNAOrqLpoUAAAA",
+  "io_chrc_period": 15380,
+  "provenance": "rtlsim",
+  "source": "cache:cnv-w1a1/Thresholding_rtl_0",
+  "spec": {
+   "attrs": {
+    "ActVal": -128,
+    "NumChannels": 3,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT8",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     32,
+     32
+    ],
+    "numSteps": 255,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT8",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT9"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_0",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_8e9cc7": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAwNzA4XSwgIm5fcnVucyI6IFsxXX18fB+LCADn4GdqAv9jZGBgYGSAAGYBZjANANnYH6sUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAwNzA4XSwgIm5fcnVucyI6IFsxXX18fB+LCADn4GdqAv9jZGBgYGSAAGYBZjANANnYH6sUAAAA",
+  "io_chrc_period": 501772,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/Thresholding_rtl_14",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 512,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 8192,
+    "depth_trigger_uram": 16384,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT15",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     14,
+     14
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT16"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_14",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_92ddaa": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIACm4aGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIACm4aGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_period": 81932,
+  "provenance": "rtlsim",
+  "source": "cache:vision/Thresholding_rtl_9",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT12",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT13"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_9",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_92e351": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAyOF0sICJuX3J1bnMiOiBbMV19fHwfiwgAzaxoagL/Y2RgYGBkgABmFggNAKoSGr4UAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAyOF0sICJuX3J1bnMiOiBbMV19fHwfiwgAzaxoagL/Y2RgYGBkgABmFggNAKoSGr4UAAAA",
+  "io_chrc_period": 2572,
+  "provenance": "rtlsim",
+  "source": "cache:radioml/Thresholding_rtl_5",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 8,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT8",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     64
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT9"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_5",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_96e080": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAwMzU2XSwgIm5fcnVucyI6IFsxXX18fB+LCADrBGlqAv9jZGBgYGSAAOYOCAsAiUHwOhQAAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAwMzU2XSwgIm5fcnVucyI6IFsxXX18fB+LCADrBGlqAv9jZGBgYGSAAOYOCAsAiUHwOhQAAAA=",
+  "io_chrc_period": 250892,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/Thresholding_rtl_36",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 2048,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 38000,
+    "depth_trigger_uram": 38000,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT5",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     7,
+     7
+    ],
+    "numSteps": 14,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT6"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_36",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_990d90": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAwMzU2XSwgIm5fcnVucyI6IFsxXX18fB+LCABE3mdqAv9jZGBgYGSAAOYOCAsAiUHwOhQAAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAwMzU2XSwgIm5fcnVucyI6IFsxXX18fB+LCABE3mdqAv9jZGBgYGSAAOYOCAsAiUHwOhQAAAA=",
+  "io_chrc_period": 250892,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/Thresholding_rtl_24",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 1024,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 16384,
+    "depth_trigger_uram": 32768,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT15",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     7,
+     7
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT16"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_24",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_9ec817": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDAxNDEyXSwgIm5fcnVucyI6IFsxXX18fB+LCADd42dqAv9jZGBgYGSAAGYFNjANADjssVMUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDAxNDEyXSwgIm5fcnVucyI6IFsxXX18fB+LCADd42dqAv9jZGBgYGSAAGYFNjANADjssVMUAAAA",
+  "io_chrc_period": 1003532,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/Thresholding_rtl_5",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 128,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 2048,
+    "depth_trigger_uram": 4096,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT10",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     56,
+     56
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT11"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_5",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_a32b09": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIAAW4aGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIAAW4aGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_period": 81932,
+  "provenance": "rtlsim",
+  "source": "cache:vision/Thresholding_rtl_17",
+  "spec": {
+   "attrs": {
+    "ActVal": -8,
+    "NumChannels": 64,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT13",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT14"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_17",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_a47f51": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAwNzA4XSwgIm5fcnVucyI6IFsxXX18fB+LCADq4mdqAv9jZGBgYGSAAGYBZjANANnYH6sUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAwNzA4XSwgIm5fcnVucyI6IFsxXX18fB+LCADq4mdqAv9jZGBgYGSAAGYBZjANANnYH6sUAAAA",
+  "io_chrc_period": 501772,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/Thresholding_rtl_7",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 128,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 2048,
+    "depth_trigger_uram": 4096,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT11",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     28,
+     28
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT12"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_7",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_a7ead8": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIAAPFaGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIAAPFaGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_period": 81932,
+  "provenance": "rtlsim",
+  "source": "cache:language/Thresholding_rtl_4",
+  "spec": {
+   "attrs": {
+    "ActVal": -8,
+    "NumChannels": 64,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 2147483647,
+    "depth_trigger_uram": 2147483647,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT12",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT13"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_4",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_a9343d": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIAAPFaGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIAAPFaGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_period": 81932,
+  "provenance": "rtlsim",
+  "source": "cache:language/Thresholding_rtl_6",
+  "spec": {
+   "attrs": {
+    "ActVal": -8,
+    "NumChannels": 64,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 2147483647,
+    "depth_trigger_uram": 2147483647,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT13",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT14"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_6",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_abcd20": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNjE1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAiLhoagL/Y2RgYGBkgAB2CQgNAOrqLpoUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNjE1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAiLhoagL/Y2RgYGBkgAB2CQgNAOrqLpoUAAAA",
+  "io_chrc_period": 15380,
+  "provenance": "rtlsim",
+  "source": "cache:vision/Thresholding_rtl_0",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 3,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "FLOAT32",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     32,
+     32
+    ],
+    "numSteps": 255,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT8",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "FLOAT32"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_0",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_b049d0": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIAL/EaGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIAL/EaGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_period": 81932,
+  "provenance": "rtlsim",
+  "source": "cache:language/Thresholding_rtl_9",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 2147483647,
+    "depth_trigger_uram": 2147483647,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT5",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT6"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_9",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_b52597": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAzKxoagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAzKxoagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_period": 5132,
+  "provenance": "rtlsim",
+  "source": "cache:radioml/Thresholding_rtl_6",
+  "spec": {
+   "attrs": {
+    "ActVal": -8,
+    "NumChannels": 64,
+    "PE": 4,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT12",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     64
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT13"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_6",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_bdc152": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Nl0sICJuX3J1bnMiOiBbMV19fHwfiwgAzaxoagL/Y2RgYGBkgAB2DggNACR28P0UAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Nl0sICJuX3J1bnMiOiBbMV19fHwfiwgAzaxoagL/Y2RgYGBkgAB2DggNACR28P0UAAAA",
+  "io_chrc_period": 5140,
+  "provenance": "rtlsim",
+  "source": "cache:radioml/Thresholding_rtl_2",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 4,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT8",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     1,
+     64
+    ],
+    "numSteps": 255,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT8",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT9"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_2",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_bf7909": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIAAS4aGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIAAS4aGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_period": 81932,
+  "provenance": "rtlsim",
+  "source": "cache:vision/Thresholding_rtl_18",
+  "spec": {
+   "attrs": {
+    "ActVal": -8,
+    "NumChannels": 64,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT12",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT13"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_18",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_c005c4": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIACa4aGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIACa4aGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_period": 81932,
+  "provenance": "rtlsim",
+  "source": "cache:vision/Thresholding_rtl_10",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT5",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT6"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_10",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_c04c8b": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIABW4aGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIABW4aGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_period": 81932,
+  "provenance": "rtlsim",
+  "source": "cache:vision/Thresholding_rtl_14",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT14",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT15"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_14",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_c7d50b": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAwMzU2XSwgIm5fcnVucyI6IFsxXX18fB+LCADjBGlqAv9jZGBgYGSAAOYOCAsAiUHwOhQAAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAwMzU2XSwgIm5fcnVucyI6IFsxXX18fB+LCADjBGlqAv9jZGBgYGSAAOYOCAsAiUHwOhQAAAA=",
+  "io_chrc_period": 250892,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/Thresholding_rtl_37",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 2048,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 38000,
+    "depth_trigger_uram": 38000,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     7,
+     7
+    ],
+    "numSteps": 14,
+    "outFIFODepths": [
+     11127
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT5"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_37",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_caa63c": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgODAyODIwXSwgIm5fcnVucyI6IFsxXX18fB+LCAD3K2lqAv9jZGBgYGSAAGYHHjANALuDnHkUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgODAyODIwXSwgIm5fcnVucyI6IFsxXX18fB+LCAD3K2lqAv9jZGBgYGSAAGYHHjANALuDnHkUAAAA",
+  "io_chrc_period": 2007052,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/Thresholding_rtl_0",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 256,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 38000,
+    "depth_trigger_uram": 38000,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT5",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     56,
+     56
+    ],
+    "numSteps": 14,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT6"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_0",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_d045b1": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAxqxoagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAxqxoagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_period": 5132,
+  "provenance": "rtlsim",
+  "source": "cache:radioml/Thresholding_rtl_11",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 4,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT5",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     64
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT6"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_11",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_d4b0f0": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAwNzA4XSwgIm5fcnVucyI6IFsxXX18fB+LCAAH4WdqAv9jZGBgYGSAAGYBZjANANnYH6sUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAwNzA4XSwgIm5fcnVucyI6IFsxXX18fB+LCAAH4WdqAv9jZGBgYGSAAGYBZjANANnYH6sUAAAA",
+  "io_chrc_period": 501772,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/Thresholding_rtl_13",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 512,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 8192,
+    "depth_trigger_uram": 16384,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT11",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     14,
+     14
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT12"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_13",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_d62603": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAWNtnagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAWNtnagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_period": 5132,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/Thresholding_rtl_3",
+  "spec": {
+   "attrs": {
+    "ActVal": -8,
+    "NumChannels": 32,
+    "PE": 4,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT13",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     128,
+     1
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT14"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_3",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_d6e16a": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgODAyODE4XSwgIm5fcnVucyI6IFsxXX18fB+LCABtK2lqAv9jZGBgYGSAAEYHHjANAMaEuTsUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgODAyODE4XSwgIm5fcnVucyI6IFsxXX18fB+LCABtK2lqAv9jZGBgYGSAAEYHHjANAMaEuTsUAAAA",
+  "io_chrc_period": 2007048,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/Thresholding_rtl_2",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 256,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 38000,
+    "depth_trigger_uram": 38000,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     56,
+     56
+    ],
+    "numSteps": 3,
+    "outFIFODepths": [
+     7666
+    ],
+    "outputDataType": "UINT2",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT5"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_2",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_d6f285": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNThdLCAibl9ydW5zIjogWzFdfXx8H4sIAM8HaGoC/2NkYGBgZIAASygNAAx5WF4UAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNThdLCAibl9ydW5zIjogWzFdfXx8H4sIAM8HaGoC/2NkYGBgZIAASygNAAx5WF4UAAAA",
+  "io_chrc_period": 146,
+  "provenance": "rtlsim",
+  "source": "cache:tfc-w1a1/Thresholding_rtl_0",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 784,
+    "PE": 28,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT8",
+    "mem_port": "",
+    "numInputVectors": [
+     1
+    ],
+    "numSteps": 1,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "BINARY",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT9"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_0",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_d94a00": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAwMzU0XSwgIm5fcnVucyI6IFsxXX18fB+LCADdBGlqAv9jZGBgYGSAAMYOCAsA9EbVeBQAAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAwMzU0XSwgIm5fcnVucyI6IFsxXX18fB+LCADdBGlqAv9jZGBgYGSAAMYOCAsA9EbVeBQAAAA=",
+  "io_chrc_period": 250888,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/Thresholding_rtl_38",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 2048,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 38000,
+    "depth_trigger_uram": 38000,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     7,
+     7
+    ],
+    "numSteps": 3,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT2",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT5"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_38",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_db6103": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTMxMDgwXSwgIm5fcnVucyI6IFsxXX18fB+LCABsxGhqAv9jZGBgYGSAAHYGJjANAEiZ14MUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTMxMDgwXSwgIm5fcnVucyI6IFsxXX18fB+LCABsxGhqAv9jZGBgYGSAAHYGJjANAEiZ14MUAAAA",
+  "io_chrc_period": 327700,
+  "provenance": "rtlsim",
+  "source": "cache:language/Thresholding_rtl_24",
+  "spec": {
+   "attrs": {
+    "ActVal": -128,
+    "NumChannels": 2048,
+    "PE": 8,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 2147483647,
+    "depth_trigger_uram": 2147483647,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT18",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "numSteps": 255,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT8",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT19"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_24",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_de5f51": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNzg4NTQ4XSwgIm5fcnVucyI6IFsxXX18fB+LCACz5WdqAv9jZGBgYGSAAGcOHjANAEh65ScUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNzg4NTQ4XSwgIm5fcnVucyI6IFsxXX18fB+LCACz5WdqAv9jZGBgYGSAAGcOHjANAEh65ScUAAAA",
+  "io_chrc_period": 1971372,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/Thresholding_rtl_2",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 1024,
+    "depth_trigger_uram": 2048,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT11",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     111,
+     111
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT12"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_2",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_e3e7b8": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAxqxoagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAxqxoagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_period": 5132,
+  "provenance": "rtlsim",
+  "source": "cache:radioml/Thresholding_rtl_10",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 4,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT12",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     64
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT13"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_10",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_ed6281": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIACq4aGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzJdLCAibl9ydW5zIjogWzFdfXx8H4sIACq4aGoC/2NkYGBgZIAA5gYIDQBL3EPCFAAAAA==",
+  "io_chrc_period": 81932,
+  "provenance": "rtlsim",
+  "source": "cache:vision/Thresholding_rtl_8",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT32",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT33"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_8",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_f0ece6": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDAxNDEyXSwgIm5fcnVucyI6IFsxXX18fB+LCADT4mdqAv9jZGBgYGSAAGYFNjANADjssVMUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDAxNDEyXSwgIm5fcnVucyI6IFsxXX18fB+LCADT4mdqAv9jZGBgYGSAAGYFNjANADjssVMUAAAA",
+  "io_chrc_period": 1003532,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/Thresholding_rtl_8",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 256,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 4096,
+    "depth_trigger_uram": 8192,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT13",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     28,
+     28
+    ],
+    "numSteps": 15,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT4",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT14"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_8",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_f410d1": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTYzOTJdLCAibl9ydW5zIjogWzFdfXx8H4sIAIa4aGoC/2NkYGBgZIAAdgcIDQA6TRSKFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTYzOTJdLCAibl9ydW5zIjogWzFdfXx8H4sIAIa4aGoC/2NkYGBgZIAAdgcIDQA6TRSKFAAAAA==",
+  "io_chrc_period": 40980,
+  "provenance": "rtlsim",
+  "source": "cache:vision/Thresholding_rtl_3",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT10",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     16,
+     16
+    ],
+    "numSteps": 255,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT8",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "INT11"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_3",
+   "op_type": "Thresholding_rtl"
+  }
+ },
+ "Thresholding_rtl_f913fe": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzZdLCAibl9ydW5zIjogWzFdfXx8H4sIAIe4aGoC/2NkYGBgZIAA9gYIDQCx0glGFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzZdLCAibl9ydW5zIjogWzFdfXx8H4sIAIe4aGoC/2NkYGBgZIAA9gYIDQCx0glGFAAAAA==",
+  "io_chrc_period": 81940,
+  "provenance": "rtlsim",
+  "source": "cache:vision/Thresholding_rtl_2",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "NumChannels": 64,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "deep_pipeline": 1,
+    "depth_trigger_bram": 0,
+    "depth_trigger_uram": 0,
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT8",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     16,
+     16
+    ],
+    "numSteps": 255,
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT8",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "uniform_thres": 0,
+    "weightDataType": "UINT9"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Thresholding_rtl_2",
+   "op_type": "Thresholding_rtl"
+  }
+ }
+}

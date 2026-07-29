@@ -1,0 +1,95 @@
+{
+ "Lookup_hls_7e8cfc": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNTE0XSwgIm5fcnVucyI6IFsxXX18fB+LCADKcWhqAv9jZGBgYGSAAEYmCA0A7SDvnxQAAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNTE0XSwgIm5fcnVucyI6IFsxXX18fB+LCADKcWhqAv9jZGBgYGSAAEYmCA0A7SDvnxQAAAA=",
+  "io_chrc_period": 257,
+  "provenance": "rtlsim-fallback",
+  "source": "size-tr-language/Lookup_hls_0",
+  "spec": {
+   "attrs": {
+    "EmbeddingDim": 64,
+    "EmbeddingType": "INT64",
+    "InputShape": [
+     1,
+     256
+    ],
+    "InputType": "UINT64",
+    "NumEmbeddings": 2048,
+    "backend": "fpgadataflow",
+    "cpp_interface": "packed",
+    "device_id": 0,
+    "exec_mode": "rtlsim",
+    "ext_mem_width": 32,
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     5
+    ],
+    "mem_mode": "internal_embedded",
+    "mem_port": "",
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Lookup_hls_0",
+   "op_type": "Lookup_hls"
+  }
+ },
+ "Lookup_hls_8ae69d": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNTE0XSwgIm5fcnVucyI6IFsxXX18fB+LCAARxWhqAv9jZGBgYGSAAEYmCA0A7SDvnxQAAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNTE0XSwgIm5fcnVucyI6IFsxXX18fB+LCAARxWhqAv9jZGBgYGSAAEYmCA0A7SDvnxQAAAA=",
+  "io_chrc_period": 257,
+  "provenance": "rtlsim-fallback",
+  "source": "size-tr-language-rtlsim/Lookup_hls_0",
+  "spec": {
+   "attrs": {
+    "EmbeddingDim": 64,
+    "EmbeddingType": "INT64",
+    "InputShape": [
+     1,
+     256
+    ],
+    "InputType": "UINT64",
+    "NumEmbeddings": 2048,
+    "backend": "fpgadataflow",
+    "cpp_interface": "packed",
+    "device_id": 0,
+    "exec_mode": "rtlsim",
+    "ext_mem_width": 32,
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     5,
+     2
+    ],
+    "mem_mode": "internal_embedded",
+    "mem_port": "",
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "Lookup_hls_0",
+   "op_type": "Lookup_hls"
+  }
+ }
+}

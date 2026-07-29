@@ -1,0 +1,238 @@
+{
+ "ChannelwiseOp_hls_0195b0": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNTBdLCAibl9ydW5zIjogWzFdfXx8H4sIAFfbZ2oC/2NkYGBgZIAAQygNALlivY0UAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNTBdLCAibl9ydW5zIjogWzFdfXx8H4sIAFfbZ2oC/2NkYGBgZIAAQygNALlivY0UAAAA",
+  "io_chrc_period": 126,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/ChannelwiseOp_hls_0",
+  "spec": {
+   "attrs": {
+    "Func": "add",
+    "NumChannels": 24,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "cpp_interface": "packed",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT13",
+    "mem_port": "",
+    "numInputVectors": [
+     1
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT14",
+    "output_hook": "",
+    "paramDataType": "INT9",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "ram_style": "distributed",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "ChannelwiseOp_hls_0",
+   "op_type": "ChannelwiseOp_hls"
+  }
+ },
+ "ChannelwiseOp_hls_1e7bfb": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAwNzA2XSwgIm5fcnVucyI6IFsxXX18fB+LCAD1B2lqAv9jZGBgYGSAAEYBZjANAKTfOukUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAwNzA2XSwgIm5fcnVucyI6IFsxXX18fB+LCAD1B2lqAv9jZGBgYGSAAEYBZjANAKTfOukUAAAA",
+  "io_chrc_period": 501766,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/ChannelwiseOp_hls_0",
+  "spec": {
+   "attrs": {
+    "Func": "mul",
+    "NumChannels": 1024,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "cpp_interface": "packed",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     14,
+     14
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT5",
+    "output_hook": "",
+    "paramDataType": "INT2",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "ram_style": "distributed",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "ChannelwiseOp_hls_0",
+   "op_type": "ChannelwiseOp_hls"
+  }
+ },
+ "ChannelwiseOp_hls_7fddc9": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAwMzU0XSwgIm5fcnVucyI6IFsxXX18fB+LCACxAGlqAv9jZGBgYGSAAMYOCAsA9EbVeBQAAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAwMzU0XSwgIm5fcnVucyI6IFsxXX18fB+LCACxAGlqAv9jZGBgYGSAAMYOCAsA9EbVeBQAAAA=",
+  "io_chrc_period": 250886,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/ChannelwiseOp_hls_1",
+  "spec": {
+   "attrs": {
+    "Func": "add",
+    "NumChannels": 2048,
+    "PE": 2,
+    "backend": "fpgadataflow",
+    "cpp_interface": "packed",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     7,
+     7
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT5",
+    "output_hook": "",
+    "paramDataType": "INT4",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "ram_style": "distributed",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "ChannelwiseOp_hls_1",
+   "op_type": "ChannelwiseOp_hls"
+  }
+ },
+ "ChannelwiseOp_hls_c5055c": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAwMl0sICJuX3J1bnMiOiBbMV19fHwfiwgAD95nagL/Y2RgYGBkgICL7BAaAFZ5yssUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAwMl0sICJuX3J1bnMiOiBbMV19fHwfiwgAD95nagL/Y2RgYGBkgICL7BAaAFZ5yssUAAAA",
+  "io_chrc_period": 5006,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/ChannelwiseOp_hls_0",
+  "spec": {
+   "attrs": {
+    "Func": "add",
+    "NumChannels": 1000,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "cpp_interface": "packed",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT14",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     1,
+     1
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT15",
+    "output_hook": "",
+    "paramDataType": "INT4",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "ram_style": "distributed",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "ChannelwiseOp_hls_0",
+   "op_type": "ChannelwiseOp_hls"
+  }
+ },
+ "ChannelwiseOp_hls_e18b85": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAwMl0sICJuX3J1bnMiOiBbMV19fHwfiwgApwBpagL/Y2RgYGBkgICL7BAaAFZ5yssUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAwMl0sICJuX3J1bnMiOiBbMV19fHwfiwgApwBpagL/Y2RgYGBkgICL7BAaAFZ5yssUAAAA",
+  "io_chrc_period": 5006,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/ChannelwiseOp_hls_2",
+  "spec": {
+   "attrs": {
+    "Func": "add",
+    "NumChannels": 1000,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "cpp_interface": "packed",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT20",
+    "mem_port": "",
+    "numInputVectors": [
+     1
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT21",
+    "output_hook": "",
+    "paramDataType": "INT10",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "ram_style": "distributed",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "ChannelwiseOp_hls_2",
+   "op_type": "ChannelwiseOp_hls"
+  }
+ }
+}

@@ -32,7 +32,7 @@ import warnings
 from qonnx.core.datatype import DataType
 
 from finn.custom_op.fpgadataflow.hwcustomop import HWCustomOp
-from finn.util.basic import Characteristic_Node
+from finn.util.basic import Characteristic_Node, flat_characteristic_leaf
 
 # does not do anything at the ONNX node-by-node level, and input-output
 # tensor shapes are the same. performs data width conversion at the rtlsim level
@@ -231,6 +231,22 @@ class StreamingDataWidthConverter(HWCustomOp):
                 return None  # no support for gcd partial conversion yet
 
             writes_per_read = inWidth // outWidth
+
+            # The packer writes one word every cycle and takes one word in every
+            # ``writes_per_read``, and its first read is at cycle 1, not 0 --
+            # measured on all 96 down-converting references. The period is
+            # exactly numReps * writes_per_read, so the wind-up is a rotation of
+            # the read train rather than an extra cycle: the last read of a
+            # period lands at cycle 0 of the next one. Expressing that as a flat
+            # leaf keeps the token count exact; the nested form below could only
+            # get the phase right by dropping or duplicating a read.
+            if writes_per_read > 1 and numReps >= 1:
+                period = numReps * writes_per_read
+                rd = np.zeros(period, dtype=np.int8)
+                wr = np.ones(period, dtype=np.int8)
+                rd[(1 + writes_per_read * np.arange(numReps)) % period] = 1
+                return flat_characteristic_leaf(rd, wr, "DWC down-conversion")
+
             # read 1, write many, repeats for in-word count
 
             read_input = Characteristic_Node("read 1 word", [(1, [1, 1])], True)

@@ -350,6 +350,54 @@ class Characteristic_Node:
         self.cycles_outputs = None
         self.leaf = leaf
         self.debug = False
+        self._deltas = None
+
+    def deltas(self):
+        """One period's per-cycle (input, output) token deltas, as an (n, 2) array.
+
+        The vectorised equivalent of ``traverse_phase_tree``, which walks one
+        Python loop iteration per cycle. That costs about a second per node on
+        mobilenetv1, whose periods run to 400k cycles, and the whole point of a
+        tree model is that it is cheap; ``np.repeat`` over the run lengths and a
+        single ``cumsum`` give a bit-identical answer in milliseconds.
+
+        Memoised per node, and shared by every repetition of a sub-tree, so a
+        tree that repeats one phase ``numVectors`` times builds it once.
+        """
+        if self._deltas is not None:
+            return self._deltas
+        if self.leaf:
+            lens = np.array([int(p[0]) for p in self.sub_phases], dtype=np.int64)
+            vals = np.array([[int(p[1][0]), int(p[1][1])] for p in self.sub_phases], dtype=np.int64)
+            out = (
+                np.repeat(vals, lens, axis=0)
+                if lens.size
+                else np.zeros((0, 2), dtype=np.int64)
+            )
+        else:
+            parts = []
+            for count, sub in self.sub_phases:
+                count = int(count)
+                if count <= 0:
+                    continue
+                d = sub.deltas()
+                if d.shape[0] == 0:
+                    continue
+                parts.append(np.tile(d, (count, 1)) if count > 1 else d)
+            out = np.concatenate(parts) if parts else np.zeros((0, 2), dtype=np.int64)
+        self._deltas = out
+        return out
+
+    def cumulative(self, periods=2):
+        """Cumulative token counts over ``periods`` back-to-back periods."""
+        d = self.deltas()
+        if d.shape[0] == 0:
+            return np.zeros((0, 2), dtype=np.int64)
+        one = np.cumsum(d, axis=0)
+        if periods == 1:
+            return one
+        total = one[-1]
+        return np.concatenate([one + i * total for i in range(periods)])
 
     def sum(self, op):
         if self.leaf:
@@ -694,3 +742,42 @@ def get_driver_shapes(model: ModelWrapper) -> Dict:
         "oshape_folded": oshape_folded,
         "oshape_packed": oshape_packed,
     }
+
+
+def flat_characteristic_leaf(rd, wr, label):
+    """One run-length encoded leaf from two per-cycle 0/1 schedules.
+
+    A nested tree is the natural way to write a schedule down when its phases
+    nest, and several measured schedules do not: the MVAU's reads are aligned to
+    the feature map and its writes are not, and both are shifted by a wind-up
+    that belongs to neither. Building the two arrays and run-length encoding
+    them once is simpler to read, and cheaper to traverse, than a tree that has
+    to express the interleaving structurally.
+
+    ``rd`` and ``wr`` are equal-length 0/1 arrays covering exactly one period.
+    """
+    pattern = np.stack([np.asarray(rd), np.asarray(wr)], axis=1)
+    change = np.flatnonzero(np.any(pattern[1:] != pattern[:-1], axis=1)) + 1
+    starts = np.concatenate(([0], change))
+    lengths = np.diff(np.concatenate((starts, [pattern.shape[0]])))
+    phases = [(int(n), [int(pattern[s, 0]), int(pattern[s, 1])]) for s, n in zip(starts, lengths)]
+    return Characteristic_Node(label, phases, True)
+
+
+def passthrough_characteristic(num_words, label):
+    """The characteristic tree of a node that moves one word per cycle, forever.
+
+    Several operators reduce to exactly one loop over the folded word count,
+    pipelined at II=1, reading one word and writing one word per iteration --
+    Vitis reports these with ``rewind``, so consecutive frames run back to back
+    with no wind-up and no gap. Their schedule has no free parameters at all:
+    it is a solid run of ``num_words`` read-and-write cycles.
+
+    This is a constructor for that fixed shape, not a base-class method: an
+    operator calls it because its loop has been read and found to have this
+    structure, and an operator later measured to differ simply stops calling it.
+    Nothing is inherited, so a correction to one operator's schedule cannot
+    reach another's.
+    """
+    step = Characteristic_Node(label, [(int(num_words), [1, 1])], True)
+    return Characteristic_Node(label + " frame", [(1, step)], False)

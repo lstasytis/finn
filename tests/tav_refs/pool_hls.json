@@ -1,0 +1,834 @@
+{
+ "Pool_hls_1eac9f": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAwMzU0XSwgIm5fcnVucyI6IFsxXX18fB+LCAAuoWdqAv9jZGBgYGSAAMYOCAsA9EbVeBQAAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAwMzU0XSwgIm5fcnVucyI6IFs1MDE3N119fHwfiwgALqFnagL/7cexDQAgDMCwIP7/uRMDL1TOErnq9MfMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz7/H6ZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZl5rQfv/Jb2FEAMAA==",
+  "io_chrc_period": 250885,
+  "provenance": "rtlsim",
+  "source": "cache:cnv-w2a2/Pool_hls_0",
+  "spec": {
+   "attrs": {
+    "AccumBits": 0,
+    "BatchSize": 1,
+    "Channels": 64,
+    "Function": "MaxPool",
+    "InputDataType": "INT2",
+    "KernelSize": [
+     2,
+     2
+    ],
+    "OutImgDims": [
+     14,
+     14
+    ],
+    "OutputDataType": "INT2",
+    "PE": 1,
+    "Size": 0,
+    "backend": "fpgadataflow",
+    "cpp_interface": "hls_vector",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "mem_port": "",
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "Pool_hls_0",
+   "op_type": "Pool_hls"
+  }
+ },
+ "Pool_hls_2c0691": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTMwXSwgIm5fcnVucyI6IFsxXX18fB+LCABY22dqAv9jZGBgYGSAgEYoDQAetEtbFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTMwXSwgIm5fcnVucyI6IFsxMjldfXx8H4sIAFjbZ2oC/2NgYGBgZEAFo/xR/ih/5PFH6VF6lB6lAZA2X5wUCAAA",
+  "io_chrc_period": 325,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/Pool_hls_4",
+  "spec": {
+   "attrs": {
+    "AccumBits": 0,
+    "BatchSize": 1,
+    "Channels": 32,
+    "Function": "MaxPool",
+    "InputDataType": "INT4",
+    "KernelSize": [
+     2,
+     1
+    ],
+    "OutImgDims": [
+     32,
+     1
+    ],
+    "OutputDataType": "INT4",
+    "PE": 32,
+    "Size": 0,
+    "backend": "fpgadataflow",
+    "cpp_interface": "hls_vector",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "mem_port": "",
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "Pool_hls_4",
+   "op_type": "Pool_hls"
+  }
+ },
+ "Pool_hls_2f7db4": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzBdLCAibl9ydW5zIjogWzVdfXx8H4sIAK23aGoC/2NkYGBgZEAFuPjoNIMDKv+fPYQGAGrfmsFUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NzBdLCAibl9ydW5zIjogWzI1N119fHwfiwgArbdoagL/7dOxDQAgEAJAfv+ZjTYaoyv80ZCjJ7mpvGFmZuY+rm84nmHmLvZ/5j4euxeIgRPNFBAAAA==",
+  "io_chrc_period": 81929,
+  "provenance": "rtlsim",
+  "source": "cache:vision/Pool_hls_0",
+  "spec": {
+   "attrs": {
+    "AccumBits": 12,
+    "BatchSize": 1,
+    "Channels": 64,
+    "Function": "AccPool",
+    "InputDataType": "UINT4",
+    "KernelSize": [
+     16,
+     16
+    ],
+    "OutImgDims": [
+     1,
+     1
+    ],
+    "OutputDataType": "UINT12",
+    "PE": 1,
+    "Size": 1,
+    "backend": "fpgadataflow",
+    "cpp_interface": "hls_vector",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "mem_port": "",
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "Pool_hls_0",
+   "op_type": "Pool_hls"
+  }
+ },
+ "Pool_hls_6404bb": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNjZdLCAibl9ydW5zIjogWzFdfXx8H4sIAFjbZ2oC/2NkYGBgZIAARygNACnz7SEUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNjZdLCAibl9ydW5zIjogWzY1XX18fB+LCABY22dqAv9jYGBgYGRABaP8kckfpUdpEAAALN0GIBQEAAA=",
+  "io_chrc_period": 165,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/Pool_hls_5",
+  "spec": {
+   "attrs": {
+    "AccumBits": 0,
+    "BatchSize": 1,
+    "Channels": 32,
+    "Function": "MaxPool",
+    "InputDataType": "INT4",
+    "KernelSize": [
+     2,
+     1
+    ],
+    "OutImgDims": [
+     16,
+     1
+    ],
+    "OutputDataType": "INT4",
+    "PE": 32,
+    "Size": 0,
+    "backend": "fpgadataflow",
+    "cpp_interface": "hls_vector",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "mem_port": "",
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "Pool_hls_5",
+   "op_type": "Pool_hls"
+  }
+ },
+ "Pool_hls_6759ec": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTU3MF0sICJuX3J1bnMiOiBbMV19fHwfiwgA0/doagL/Y2RgYGBkgABFNggNAKhm1pIUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTU3MF0sICJuX3J1bnMiOiBbNzg1XX18fB+LCADT92hqAv/tx6ENADAMwLBM+//nooHxQodErjr9MTMzMzMzMzMzMzMzb/n9MjMzMzMzMzMzMzMzL3sAqcYbTBQxAAA=",
+  "io_chrc_period": 3925,
+  "provenance": "rtlsim",
+  "source": "cache:cnv-w1a1/Pool_hls_0",
+  "spec": {
+   "attrs": {
+    "AccumBits": 0,
+    "BatchSize": 1,
+    "Channels": 64,
+    "Function": "MaxPool",
+    "InputDataType": "BINARY",
+    "KernelSize": [
+     2,
+     2
+    ],
+    "OutImgDims": [
+     14,
+     14
+    ],
+    "OutputDataType": "BINARY",
+    "PE": 64,
+    "Size": 0,
+    "backend": "fpgadataflow",
+    "cpp_interface": "hls_vector",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "mem_port": "",
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "Pool_hls_0",
+   "op_type": "Pool_hls"
+  }
+ },
+ "Pool_hls_7df0bb": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAwMzU0XSwgIm5fcnVucyI6IFsxXX18fB+LCAAU3mdqAv9jZGBgYGSAAMYOCAsA9EbVeBQAAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAwMzU0XSwgIm5fcnVucyI6IFs0MDk3XX18fB+LCAAU3mdqAv/txzERACAMwMDUEf7VMTFUA58l91XTjpmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZ+We/H2ZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZu4CDNy72xQAAQA=",
+  "io_chrc_period": 250885,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/Pool_hls_0",
+  "spec": {
+   "attrs": {
+    "AccumBits": 10,
+    "BatchSize": 1,
+    "Channels": 1024,
+    "Function": "QuantAvgPool",
+    "InputDataType": "UINT4",
+    "KernelSize": [
+     7,
+     7
+    ],
+    "OutImgDims": [
+     1,
+     1
+    ],
+    "OutputDataType": "UINT4",
+    "PE": 1,
+    "Size": 6,
+    "backend": "fpgadataflow",
+    "cpp_interface": "hls_vector",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "mem_port": "",
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "Pool_hls_0",
+   "op_type": "Pool_hls"
+  }
+ },
+ "Pool_hls_872b0b": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjU2MDJdLCAibl9ydW5zIjogWzFdfXx8H4sIAB6hZ2oC/2NkYGBgZIAAxhQIDQAyWYl3FAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjU2MDJdLCAibl9ydW5zIjogWzEyODAxXX18fB+LCAAeoWdqAv/tx7ENACAMwLAg/v+5EwMvgLNErlrdMTMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzv+7zzczMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM/IkHUbfSpBQgAwA=",
+  "io_chrc_period": 64005,
+  "provenance": "rtlsim",
+  "source": "cache:cnv-w2a2/Pool_hls_1",
+  "spec": {
+   "attrs": {
+    "AccumBits": 0,
+    "BatchSize": 1,
+    "Channels": 128,
+    "Function": "MaxPool",
+    "InputDataType": "INT2",
+    "KernelSize": [
+     2,
+     2
+    ],
+    "OutImgDims": [
+     5,
+     5
+    ],
+    "OutputDataType": "INT2",
+    "PE": 1,
+    "Size": 0,
+    "backend": "fpgadataflow",
+    "cpp_interface": "hls_vector",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "mem_port": "",
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "Pool_hls_1",
+   "op_type": "Pool_hls"
+  }
+ },
+ "Pool_hls_8fb6ae": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzRdLCAibl9ydW5zIjogWzFdfXx8H4sIAFjbZ2oC/2NkYGBgZIAARSgNAJJTBvEUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzRdLCAibl9ydW5zIjogWzMzXX18fB+LCABY22dqAv9jYGBgYGRABSOVP0pDAACEi2RTFAIAAA==",
+  "io_chrc_period": 85,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/Pool_hls_6",
+  "spec": {
+   "attrs": {
+    "AccumBits": 0,
+    "BatchSize": 1,
+    "Channels": 32,
+    "Function": "MaxPool",
+    "InputDataType": "INT4",
+    "KernelSize": [
+     2,
+     1
+    ],
+    "OutImgDims": [
+     8,
+     1
+    ],
+    "OutputDataType": "INT4",
+    "PE": 32,
+    "Size": 0,
+    "backend": "fpgadataflow",
+    "cpp_interface": "hls_vector",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "mem_port": "",
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "Pool_hls_6",
+   "op_type": "Pool_hls"
+  }
+ },
+ "Pool_hls_9aa206": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1MF0sICJuX3J1bnMiOiBbMV19fHwfiwgAWttnagL/Y2RgYGBkgABGDggNAKN/nzsUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1MF0sICJuX3J1bnMiOiBbMjA0OV19fHwfiwgAWttnagL/7cexDQAwCMCw8P/TnbmADs5ipWraee+9995777333nvvvffee++9995777333nvvvffee++999577733/u5JkiRJkiRJkiRJkiRJkiRJkiRJkiRJkuQ/PjX2gB8UgAAA",
+  "io_chrc_period": 5125,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/Pool_hls_0",
+  "spec": {
+   "attrs": {
+    "AccumBits": 0,
+    "BatchSize": 1,
+    "Channels": 32,
+    "Function": "MaxPool",
+    "InputDataType": "INT4",
+    "KernelSize": [
+     2,
+     1
+    ],
+    "OutImgDims": [
+     512,
+     1
+    ],
+    "OutputDataType": "INT4",
+    "PE": 32,
+    "Size": 0,
+    "backend": "fpgadataflow",
+    "cpp_interface": "hls_vector",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "mem_port": "",
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "Pool_hls_0",
+   "op_type": "Pool_hls"
+  }
+ },
+ "Pool_hls_b1c00b": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNTAxNzhdLCAibl9ydW5zIjogWzFdfXx8H4sIAKsAaWoC/2NkYGBgZIAAxiMQGgBciiIwFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNTAxNzhdLCAibl9ydW5zIjogWzIwNDldfXx8H4sIAKsAaWoC/+3HMREAIAzAwOAI/+o6MaCgy2fJfdXpj5mZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZn3/H6ZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZed0DPHdR4RSAAAA=",
+  "io_chrc_period": 125445,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/Pool_hls_1",
+  "spec": {
+   "attrs": {
+    "AccumBits": 10,
+    "BatchSize": 1,
+    "Channels": 2048,
+    "Function": "QuantAvgPool",
+    "InputDataType": "INT5",
+    "KernelSize": [
+     7,
+     7
+    ],
+    "OutImgDims": [
+     1,
+     1
+    ],
+    "OutputDataType": "INT4",
+    "PE": 4,
+    "Size": 6,
+    "backend": "fpgadataflow",
+    "cpp_interface": "hls_vector",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "mem_port": "",
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "Pool_hls_1",
+   "op_type": "Pool_hls"
+  }
+ },
+ "Pool_hls_b78e98": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgOTAzMTcwXSwgIm5fcnVucyI6IFsxXX18fB+LCAAnL2lqAv9jZGBgYGSAAMYTvGAaAPbzHEsUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgOTAzMTcwXSwgIm5fcnVucyI6IFsyMDA3MDVdfXx8H4sIACcvaWoC/+3HoREAIAzAwODYf+IqBAPUfUzuq05/zMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMvOf3y8zMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzOseTHCRghQAMQA=",
+  "io_chrc_period": 2257925,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/Pool_hls_0",
+  "spec": {
+   "attrs": {
+    "AccumBits": 0,
+    "BatchSize": 1,
+    "Channels": 64,
+    "Function": "MaxPool",
+    "InputDataType": "UINT2",
+    "KernelSize": [
+     3,
+     3
+    ],
+    "OutImgDims": [
+     56,
+     56
+    ],
+    "OutputDataType": "UINT2",
+    "PE": 4,
+    "Size": 0,
+    "backend": "fpgadataflow",
+    "cpp_interface": "hls_vector",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "mem_port": "",
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "Pool_hls_0",
+   "op_type": "Pool_hls"
+  }
+ },
+ "Pool_hls_bcd2d5": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjU4XSwgIm5fcnVucyI6IFsxXX18fB+LCABY22dqAv9jZGBgYGSAAEYoAwBwOgeuFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjU4XSwgIm5fcnVucyI6IFsyNTddfXx8H4sIAFjbZ2oC/+3HMQ0AAAjAsOHfNDca6J5mVdPNe++993+eJEn+dQH6p2rRFBAAAA==",
+  "io_chrc_period": 645,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/Pool_hls_3",
+  "spec": {
+   "attrs": {
+    "AccumBits": 0,
+    "BatchSize": 1,
+    "Channels": 32,
+    "Function": "MaxPool",
+    "InputDataType": "INT4",
+    "KernelSize": [
+     2,
+     1
+    ],
+    "OutImgDims": [
+     64,
+     1
+    ],
+    "OutputDataType": "INT4",
+    "PE": 32,
+    "Size": 0,
+    "backend": "fpgadataflow",
+    "cpp_interface": "hls_vector",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "mem_port": "",
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "Pool_hls_3",
+   "op_type": "Pool_hls"
+  }
+ },
+ "Pool_hls_c9b9fa": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAyNl0sICJuX3J1bnMiOiBbMV19fHwfiwgAWdtnagL/Y2RgYGBkgABGFggNANcVP/wUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAyNl0sICJuX3J1bnMiOiBbMTAyNV19fHwfiwgAWdtnagL/7cexDQAwCMCw8P/TnTmBylmsVE0777333nvvvffee++9995777333t99kiRJkiRJkiRJkiT5jw+HIE96FEAAAA==",
+  "io_chrc_period": 2565,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/Pool_hls_1",
+  "spec": {
+   "attrs": {
+    "AccumBits": 0,
+    "BatchSize": 1,
+    "Channels": 32,
+    "Function": "MaxPool",
+    "InputDataType": "INT4",
+    "KernelSize": [
+     2,
+     1
+    ],
+    "OutImgDims": [
+     256,
+     1
+    ],
+    "OutputDataType": "INT4",
+    "PE": 32,
+    "Size": 0,
+    "backend": "fpgadataflow",
+    "cpp_interface": "hls_vector",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "mem_port": "",
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "Pool_hls_1",
+   "op_type": "Pool_hls"
+  }
+ },
+ "Pool_hls_d593e2": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAyXSwgIm5fcnVucyI6IFsxXX18fB+LCADR92hqAv9jZGBgYGSAgJNQGgBGbTOhFAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAyXSwgIm5fcnVucyI6IFsxMDFdfXx8H4sIANH3aGoC/2NgYGBgZEAFo/xR/igfkw+jmUf5o/xRPk4+AJIk481UBgAA",
+  "io_chrc_period": 505,
+  "provenance": "rtlsim",
+  "source": "cache:cnv-w1a1/Pool_hls_1",
+  "spec": {
+   "attrs": {
+    "AccumBits": 0,
+    "BatchSize": 1,
+    "Channels": 128,
+    "Function": "MaxPool",
+    "InputDataType": "BINARY",
+    "KernelSize": [
+     2,
+     2
+    ],
+    "OutImgDims": [
+     5,
+     5
+    ],
+    "OutputDataType": "BINARY",
+    "PE": 128,
+    "Size": 0,
+    "backend": "fpgadataflow",
+    "cpp_interface": "hls_vector",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "mem_port": "",
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "Pool_hls_1",
+   "op_type": "Pool_hls"
+  }
+ },
+ "Pool_hls_eb771f": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1MF0sICJuX3J1bnMiOiBbMV19fHwfiwgAxaxoagL/Y2RgYGBkgABGDggNAKN/nzsUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1MF0sICJuX3J1bnMiOiBbNjVdfXx8H4sIAMWsaGoC/2NgYGBgZEAFo/yRyYfR9qP8Ec0HACMpF9AUBAAA",
+  "io_chrc_period": 5125,
+  "provenance": "rtlsim",
+  "source": "cache:radioml/Pool_hls_0",
+  "spec": {
+   "attrs": {
+    "AccumBits": 38,
+    "BatchSize": 1,
+    "Channels": 64,
+    "Function": "AccPool",
+    "InputDataType": "UINT32",
+    "KernelSize": [
+     1,
+     64
+    ],
+    "OutImgDims": [
+     1,
+     1
+    ],
+    "OutputDataType": "UINT38",
+    "PE": 4,
+    "Size": 1,
+    "backend": "fpgadataflow",
+    "cpp_interface": "hls_vector",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "mem_port": "",
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "Pool_hls_0",
+   "op_type": "Pool_hls"
+  }
+ },
+ "Pool_hls_f62976": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNTE0XSwgIm5fcnVucyI6IFsxXX18fB+LCABY22dqAv9jZGBgYGSAAEYmCA0A7SDvnxQAAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNTE0XSwgIm5fcnVucyI6IFs1MTNdfXx8H4sIAFjbZ2oC/+3HsQ0AMAjAsPD/0515gTqLlapp57333nvvvffe+7tPkiRJkiT/8QHiQY/HFCAAAA==",
+  "io_chrc_period": 1285,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/Pool_hls_2",
+  "spec": {
+   "attrs": {
+    "AccumBits": 0,
+    "BatchSize": 1,
+    "Channels": 32,
+    "Function": "MaxPool",
+    "InputDataType": "INT4",
+    "KernelSize": [
+     2,
+     1
+    ],
+    "OutImgDims": [
+     128,
+     1
+    ],
+    "OutputDataType": "INT4",
+    "PE": 32,
+    "Size": 0,
+    "backend": "fpgadataflow",
+    "cpp_interface": "hls_vector",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "mem_port": "",
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "Pool_hls_2",
+   "op_type": "Pool_hls"
+  }
+ }
+}

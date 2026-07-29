@@ -1,0 +1,506 @@
+{
+ "StreamingConcat_hls_20a5e6": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbNCwgMTYzODQwXSwgIm5fcnVucyI6IFsxNjM4NSwgMTYzODUsIDE2Mzg1LCAxNjM4NF19fHwfiwgAea9oagL/7dKxDYAgFEVRjLienevRsZ6VA9i8WBCZgGPzcuzuD6X8fxszMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzszswMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz88TuwMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzDMfw/+6mB/9+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vV/vrOXd6Bfv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv/5sy3bvQL9+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/dnTPfTr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr15/dsy8DfFgwQAAQAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTYzODQwXSwgIm5fcnVucyI6IFs2NTUzN119fHwfiwgAea9oagL/7cfBCQAgEASxVa7/mv0o4oEdZD5DktvIGzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzPzz+fFzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzNw89xdiC6uHFAAQAA==",
+  "io_chrc_period": 81920,
+  "provenance": "rtlsim-fallback",
+  "source": "size-tr-vision-deployed/StreamingConcat_hls_0",
+  "spec": {
+   "attrs": {
+    "ChannelsPerStream": [
+     16,
+     16,
+     16,
+     16
+    ],
+    "SIMD": 1,
+    "backend": "fpgadataflow",
+    "cpp_interface": "hls_vector",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "freerunning",
+    "inFIFODepths": [
+     816,
+     816,
+     816,
+     815
+    ],
+    "inputDataTypes": [
+     "INT32",
+     "INT32",
+     "INT32",
+     "INT32"
+    ],
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 4,
+   "n_outputs": 1,
+   "name": "StreamingConcat_hls_0",
+   "op_type": "StreamingConcat_hls"
+  }
+ },
+ "StreamingConcat_hls_20cfb5": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbNCwgMTYzODQwXSwgIm5fcnVucyI6IFsxNjM4NSwgMTYzODUsIDE2Mzg1LCAxNjM4NF19fHwfiwgAm3FoagL/7dKxDYAgFEVRjLienevRsZ6VA9i8WBCZgGPzcuzuD6X8fxszMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzszswMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz88TuwMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzDMfw/+6mB/9+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vV/vrOXd6Bfv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv/5sy3bvQL9+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/dnTPfTr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr15/dsy8DfFgwQAAQAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTYzODQwXSwgIm5fcnVucyI6IFs2NTUzN119fHwfiwgAm3FoagL/7cfBCQAgEASxVa7/mv0o4oEdZD5DktvIGzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzPzz+fFzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzNw89xdiC6uHFAAQAA==",
+  "io_chrc_period": 81920,
+  "provenance": "rtlsim-fallback",
+  "source": "size-tr-language/StreamingConcat_hls_0",
+  "spec": {
+   "attrs": {
+    "ChannelsPerStream": [
+     16,
+     16,
+     16,
+     16
+    ],
+    "SIMD": 1,
+    "backend": "fpgadataflow",
+    "cpp_interface": "hls_vector",
+    "device_id": 0,
+    "exec_mode": "rtlsim",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "freerunning",
+    "inFIFODepths": [
+     2,
+     2,
+     2,
+     2
+    ],
+    "inputDataTypes": [
+     "INT32",
+     "INT32",
+     "INT32",
+     "INT32"
+    ],
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 4,
+   "n_outputs": 1,
+   "name": "StreamingConcat_hls_0",
+   "op_type": "StreamingConcat_hls"
+  }
+ },
+ "StreamingConcat_hls_239de4": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbNCwgMTYzODQwXSwgIm5fcnVucyI6IFsxNjM4NSwgMTYzODUsIDE2Mzg1LCAxNjM4NF19fHwfiwgAdcRoagL/7dKxDYAgFEVRjLienevRsZ6VA9i8WBCZgGPzcuzuD6X8fxszMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzszswMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz88TuwMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzDMfw/+6mB/9+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vV/vrOXd6Bfv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv/5sy3bvQL9+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/dnTPfTr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr15/dsy8DfFgwQAAQAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTYzODQwXSwgIm5fcnVucyI6IFs2NTUzN119fHwfiwgAdcRoagL/7cfBCQAgEASxVa7/mv0o4oEdZD5DktvIGzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzPzz+fFzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzNw89xdiC6uHFAAQAA==",
+  "io_chrc_period": 81920,
+  "provenance": "rtlsim-fallback",
+  "source": "size-tr-language-rtlsim/StreamingConcat_hls_1",
+  "spec": {
+   "attrs": {
+    "ChannelsPerStream": [
+     16,
+     16,
+     16,
+     16
+    ],
+    "SIMD": 1,
+    "backend": "fpgadataflow",
+    "cpp_interface": "hls_vector",
+    "device_id": 0,
+    "exec_mode": "rtlsim",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "freerunning",
+    "inFIFODepths": [
+     801,
+     803,
+     803,
+     800
+    ],
+    "inputDataTypes": [
+     "INT32",
+     "INT32",
+     "INT32",
+     "INT32"
+    ],
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 4,
+   "n_outputs": 1,
+   "name": "StreamingConcat_hls_1",
+   "op_type": "StreamingConcat_hls"
+  }
+ },
+ "StreamingConcat_hls_5b676b": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbNCwgMTYzODQwXSwgIm5fcnVucyI6IFsxNjM4NSwgMTYzODUsIDE2Mzg1LCAxNjM4NF19fHwfiwgAQLhoagL/7dKxDYAgFEVRjLienevRsZ6VA9i8WBCZgGPzcuzuD6X8fxszMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzszswMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz88TuwMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzDMfw/+6mB/9+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vV/vrOXd6Bfv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv/5sy3bvQL9+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/dnTPfTr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr15/dsy8DfFgwQAAQAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTYzODQwXSwgIm5fcnVucyI6IFs2NTUzN119fHwfiwgAQLhoagL/7cfBCQAgEASxVa7/mv0o4oEdZD5DktvIGzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzPzz+fFzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzNw89xdiC6uHFAAQAA==",
+  "io_chrc_period": 81920,
+  "provenance": "rtlsim-fallback",
+  "source": "size-tr-vision-rtlsim/StreamingConcat_hls_0",
+  "spec": {
+   "attrs": {
+    "ChannelsPerStream": [
+     16,
+     16,
+     16,
+     16
+    ],
+    "SIMD": 1,
+    "backend": "fpgadataflow",
+    "cpp_interface": "hls_vector",
+    "device_id": 0,
+    "exec_mode": "rtlsim",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "freerunning",
+    "inFIFODepths": [
+     816,
+     816,
+     816,
+     815
+    ],
+    "inputDataTypes": [
+     "INT32",
+     "INT32",
+     "INT32",
+     "INT32"
+    ],
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 4,
+   "n_outputs": 1,
+   "name": "StreamingConcat_hls_0",
+   "op_type": "StreamingConcat_hls"
+  }
+ },
+ "StreamingConcat_hls_890cd6": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbNCwgNDA5NjBdLCAibl9ydW5zIjogWzQwOTcsIDQwOTcsIDQwOTcsIDQwOTZdfXx8H4sIAEt9aGoC/+3SsQ2AMAxFwY+A9ehYLx3rpcoAgOQKZQPOjXXpnpVkPgszMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzO7AzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz82TchZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmd/ZP+/bzzz069evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX7/+Z3rt0z/Qr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv3602pf/oF+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169efwz3069evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX7/+rLVvpkrShkAABAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDA5NjBdLCAibl9ydW5zIjogWzE2Mzg1XX18fB+LCABLfWhqAv/tx7ENACAMBLEPYv+ZaUBRZsDXnJx0lRkzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz8/tmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZm5m+97g9s5LZJFAAEAA==",
+  "io_chrc_period": 20480,
+  "provenance": "rtlsim-fallback",
+  "source": "size-tr-radioml-deployed/StreamingConcat_hls_0",
+  "spec": {
+   "attrs": {
+    "ChannelsPerStream": [
+     16,
+     16,
+     16,
+     16
+    ],
+    "SIMD": 1,
+    "backend": "fpgadataflow",
+    "cpp_interface": "hls_vector",
+    "device_id": 0,
+    "exec_mode": "rtlsim",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "freerunning",
+    "inFIFODepths": [
+     80,
+     80,
+     80,
+     80
+    ],
+    "inputDataTypes": [
+     "INT32",
+     "INT32",
+     "INT32",
+     "INT32"
+    ],
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     64
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 4,
+   "n_outputs": 1,
+   "name": "StreamingConcat_hls_0",
+   "op_type": "StreamingConcat_hls"
+  }
+ },
+ "StreamingConcat_hls_9956bb": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbNCwgNDA5NjBdLCAibl9ydW5zIjogWzQwOTcsIDQwOTcsIDQwOTcsIDQwOTZdfXx8H4sIAMmsaGoC/+3SsQ2AMAxFwY+A9ehYLx3rpcoAgOQKZQPOjXXpnpVkPgszMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzO7AzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz82TchZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmd/ZP+/bzzz069evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX7/+Z3rt0z/Qr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv3602pf/oF+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169efwz3069evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX7/+rLVvpkrShkAABAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDA5NjBdLCAibl9ydW5zIjogWzE2Mzg1XX18fB+LCADJrGhqAv/tx7ENACAMBLEPYv+ZaUBRZsDXnJx0lRkzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz8/tmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZm5m+97g9s5LZJFAAEAA==",
+  "io_chrc_period": 20480,
+  "provenance": "rtlsim-fallback",
+  "source": "size-tr-radioml-rtlsim/StreamingConcat_hls_0",
+  "spec": {
+   "attrs": {
+    "ChannelsPerStream": [
+     16,
+     16,
+     16,
+     16
+    ],
+    "SIMD": 1,
+    "backend": "fpgadataflow",
+    "cpp_interface": "hls_vector",
+    "device_id": 0,
+    "exec_mode": "rtlsim",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "freerunning",
+    "inFIFODepths": [
+     65,
+     65,
+     65,
+     65
+    ],
+    "inputDataTypes": [
+     "INT32",
+     "INT32",
+     "INT32",
+     "INT32"
+    ],
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     64
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 4,
+   "n_outputs": 1,
+   "name": "StreamingConcat_hls_0",
+   "op_type": "StreamingConcat_hls"
+  }
+ },
+ "StreamingConcat_hls_a7d971": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbNCwgMTYzODQwXSwgIm5fcnVucyI6IFsxNjM4NSwgMTYzODUsIDE2Mzg1LCAxNjM4NF19fHwfiwgAOa9oagL/7dKxDYAgFEVRjLienevRsZ6VA9i8WBCZgGPzcuzuD6X8fxszMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzszswMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz88TuwMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzDMfw/+6mB/9+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vV/vrOXd6Bfv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv/5sy3bvQL9+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/dnTPfTr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr15/dsy8DfFgwQAAQAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTYzODQwXSwgIm5fcnVucyI6IFs2NTUzN119fHwfiwgAOa9oagL/7cfBCQAgEASxVa7/mv0o4oEdZD5DktvIGzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzPzz+fFzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzNw89xdiC6uHFAAQAA==",
+  "io_chrc_period": 81920,
+  "provenance": "rtlsim-fallback",
+  "source": "size-tr-vision-deployed/StreamingConcat_hls_1",
+  "spec": {
+   "attrs": {
+    "ChannelsPerStream": [
+     16,
+     16,
+     16,
+     16
+    ],
+    "SIMD": 1,
+    "backend": "fpgadataflow",
+    "cpp_interface": "hls_vector",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "freerunning",
+    "inFIFODepths": [
+     826,
+     826,
+     816,
+     815
+    ],
+    "inputDataTypes": [
+     "INT32",
+     "INT32",
+     "INT32",
+     "INT32"
+    ],
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 4,
+   "n_outputs": 1,
+   "name": "StreamingConcat_hls_1",
+   "op_type": "StreamingConcat_hls"
+  }
+ },
+ "StreamingConcat_hls_c94b1c": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbNCwgNDA5NjBdLCAibl9ydW5zIjogWzQwOTcsIDQwOTcsIDQwOTcsIDQwOTZdfXx8H4sIADdyaGoC/+3SsQ2AMAxFwY+A9ehYLx3rpcoAgOQKZQPOjXXpnpVkPgszMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzO7AzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz82TchZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmd/ZP+/bzzz069evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX7/+Z3rt0z/Qr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv369evXr1+/fv3602pf/oF+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169efwz3069evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX7/+rLVvpkrShkAABAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDA5NjBdLCAibl9ydW5zIjogWzE2Mzg1XX18fB+LCAA3cmhqAv/tx7ENACAMBLEPYv+ZaUBRZsDXnJx0lRkzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz8/tmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZm5m+97g9s5LZJFAAEAA==",
+  "io_chrc_period": 20480,
+  "provenance": "rtlsim-fallback",
+  "source": "size-tr-radioml-paper/StreamingConcat_hls_0",
+  "spec": {
+   "attrs": {
+    "ChannelsPerStream": [
+     16,
+     16,
+     16,
+     16
+    ],
+    "SIMD": 1,
+    "backend": "fpgadataflow",
+    "cpp_interface": "hls_vector",
+    "device_id": 0,
+    "exec_mode": "rtlsim",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "freerunning",
+    "inFIFODepths": [
+     2,
+     2,
+     2,
+     2
+    ],
+    "inputDataTypes": [
+     "INT32",
+     "INT32",
+     "INT32",
+     "INT32"
+    ],
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     64
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 4,
+   "n_outputs": 1,
+   "name": "StreamingConcat_hls_0",
+   "op_type": "StreamingConcat_hls"
+  }
+ },
+ "StreamingConcat_hls_d2a279": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbNCwgMTYzODQwXSwgIm5fcnVucyI6IFsxNjM4NSwgMTYzODUsIDE2Mzg1LCAxNjM4NF19fHwfiwgA1cRoagL/7dKxDYAgFEVRjLienevRsZ6VA9i8WBCZgGPzcuzuD6X8fxszMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzszswMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz88TuwMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzDMfw/+6mB/9+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vV/vrOXd6Bfv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv/5sy3bvQL9+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/fr169evX79+/dnTPfTr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr169fv379+vXr15/dsy8DfFgwQAAQAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTYzODQwXSwgIm5fcnVucyI6IFs2NTUzN119fHwfiwgA1cRoagL/7cfBCQAgEASxVa7/mv0o4oEdZD5DktvIGzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzPzz+fFzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzNw89xdiC6uHFAAQAA==",
+  "io_chrc_period": 81920,
+  "provenance": "rtlsim-fallback",
+  "source": "size-tr-language-rtlsim/StreamingConcat_hls_0",
+  "spec": {
+   "attrs": {
+    "ChannelsPerStream": [
+     16,
+     16,
+     16,
+     16
+    ],
+    "SIMD": 1,
+    "backend": "fpgadataflow",
+    "cpp_interface": "hls_vector",
+    "device_id": 0,
+    "exec_mode": "rtlsim",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "freerunning",
+    "inFIFODepths": [
+     801,
+     802,
+     802,
+     800
+    ],
+    "inputDataTypes": [
+     "INT32",
+     "INT32",
+     "INT32",
+     "INT32"
+    ],
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     256
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 4,
+   "n_outputs": 1,
+   "name": "StreamingConcat_hls_0",
+   "op_type": "StreamingConcat_hls"
+  }
+ }
+}

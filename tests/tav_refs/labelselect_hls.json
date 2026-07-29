@@ -1,0 +1,356 @@
+{
+ "LabelSelect_hls_0766c0": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjhdLCAibl9ydW5zIjogWzVdfXx8H4sIAFb3aGoC/2NgQABGBlSAzmeC0lxQmgWND1MPAFaVZMhUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjhdLCAibl9ydW5zIjogWzRdfXx8H4sIAFb3aGoC/2NgQABGBlQA4/Og8XnR+ACj5l10RAAAAA==",
+  "io_chrc_period": 71,
+  "provenance": "rtlsim",
+  "source": "cache:tfc-w2a2/LabelSelect_hls_0",
+  "spec": {
+   "attrs": {
+    "K": 1,
+    "Labels": 10,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "cpp_interface": "packed",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT8",
+    "mem_port": "",
+    "numInputVectors": [
+     1
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT8",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "LabelSelect_hls_0",
+   "op_type": "LabelSelect_hls"
+  }
+ },
+ "LabelSelect_hls_3380c5": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAyNF0sICJuX3J1bnMiOiBbNV19fHwfiwgApgBpagL/Y2BAAEYGVIDOZ4HSL5ghNC8anw3KBwD3rmC5VAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAyNF0sICJuX3J1bnMiOiBbNF19fHwfiwgApgBpagL/Y2BAAEYGVADjv2eG0KxQ/gcoH0oxAAC+Kfm7RAAAAA==",
+  "io_chrc_period": 5064,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/LabelSelect_hls_0",
+  "spec": {
+   "attrs": {
+    "K": 5,
+    "Labels": 1000,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "cpp_interface": "packed",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT21",
+    "mem_port": "",
+    "numInputVectors": [
+     1
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT16",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "LabelSelect_hls_0",
+   "op_type": "LabelSelect_hls"
+  }
+ },
+ "LabelSelect_hls_42785b": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzJdLCAibl9ydW5zIjogWzVdfXx8H4sIAK8IaGoC/2NgQABGBlSAzmeC0jxQmgWND1MPAI3rutJUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzJdLCAibl9ydW5zIjogWzRdfXx8H4sIAK8IaGoC/2NgQABGBlQA4/Oh8fnR+ADVzjjLRAAAAA==",
+  "io_chrc_period": 81,
+  "provenance": "rtlsim",
+  "source": "cache:kws/LabelSelect_hls_0",
+  "spec": {
+   "attrs": {
+    "K": 1,
+    "Labels": 12,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "cpp_interface": "packed",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT14",
+    "mem_port": "",
+    "numInputVectors": [
+     1
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT8",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "LabelSelect_hls_0",
+   "op_type": "LabelSelect_hls"
+  }
+ },
+ "LabelSelect_hls_663a65": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNTZdLCAibl9ydW5zIjogWzVdfXx8H4sIAFjbZ2oC/2NgQABGBlSAzmeC0hJQmgWND1MPAFftf4xUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNTZdLCAibl9ydW5zIjogWzRdfXx8H4sIAFjbZ2oC/2NgQABGBlQA40uh8aXR+AAPyP2VRAAAAA==",
+  "io_chrc_period": 141,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/LabelSelect_hls_0",
+  "spec": {
+   "attrs": {
+    "K": 1,
+    "Labels": 24,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "cpp_interface": "packed",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT14",
+    "mem_port": "",
+    "numInputVectors": [
+     1
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT8",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "LabelSelect_hls_0",
+   "op_type": "LabelSelect_hls"
+  }
+ },
+ "LabelSelect_hls_7a243c": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAyNF0sICJuX3J1bnMiOiBbNV19fHwfiwgADt5nagL/Y2BAAEYGVIDOZ4HSL5ghNC8anw3KBwD3rmC5VAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjAyNF0sICJuX3J1bnMiOiBbNF19fHwfiwgADt5nagL/Y2BAAEYGVADjv2eG0KxQ/gcoH0oxAAC+Kfm7RAAAAA==",
+  "io_chrc_period": 5064,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/LabelSelect_hls_0",
+  "spec": {
+   "attrs": {
+    "K": 5,
+    "Labels": 1000,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "cpp_interface": "packed",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT15",
+    "mem_port": "",
+    "numInputVectors": [
+     1,
+     1,
+     1
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT16",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "LabelSelect_hls_0",
+   "op_type": "LabelSelect_hls"
+  }
+ },
+ "LabelSelect_hls_8b84fe": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjhdLCAibl9ydW5zIjogWzVdfXx8H4sIAM8HaGoC/2NgQABGBlSAzmeC0lxQmgWND1MPAFaVZMhUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjhdLCAibl9ydW5zIjogWzRdfXx8H4sIAM8HaGoC/2NgQABGBlQA4/Og8XnR+ACj5l10RAAAAA==",
+  "io_chrc_period": 71,
+  "provenance": "rtlsim",
+  "source": "cache:tfc-w1a1/LabelSelect_hls_0",
+  "spec": {
+   "attrs": {
+    "K": 1,
+    "Labels": 10,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "cpp_interface": "packed",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT7",
+    "mem_port": "",
+    "numInputVectors": [
+     1
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT8",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "LabelSelect_hls_0",
+   "op_type": "LabelSelect_hls"
+  }
+ },
+ "LabelSelect_hls_b2adb1": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjhdLCAibl9ydW5zIjogWzVdfXx8H4sIAM73aGoC/2NgQABGBlSAzmeC0lxQmgWND1MPAFaVZMhUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjhdLCAibl9ydW5zIjogWzRdfXx8H4sIAM73aGoC/2NgQABGBlQA4/Og8XnR+ACj5l10RAAAAA==",
+  "io_chrc_period": 71,
+  "provenance": "rtlsim",
+  "source": "cache:cnv-w1a1/LabelSelect_hls_0",
+  "spec": {
+   "attrs": {
+    "K": 1,
+    "Labels": 10,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "cpp_interface": "packed",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT10",
+    "mem_port": "",
+    "numInputVectors": [
+     1
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT8",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "LabelSelect_hls_0",
+   "op_type": "LabelSelect_hls"
+  }
+ },
+ "LabelSelect_hls_b9e9e2": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjhdLCAibl9ydW5zIjogWzVdfXx8H4sIABChZ2oC/2NgQABGBlSAzmeC0lxQmgWND1MPAFaVZMhUAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjhdLCAibl9ydW5zIjogWzRdfXx8H4sIABChZ2oC/2NgQABGBlQA4/Og8XnR+ACj5l10RAAAAA==",
+  "io_chrc_period": 71,
+  "provenance": "rtlsim",
+  "source": "cache:cnv-w2a2/LabelSelect_hls_0",
+  "spec": {
+   "attrs": {
+    "K": 1,
+    "Labels": 10,
+    "PE": 1,
+    "backend": "fpgadataflow",
+    "cpp_interface": "packed",
+    "device_id": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "hls_style": "ifm_aware",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT11",
+    "mem_port": "",
+    "numInputVectors": [
+     1
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "UINT8",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.hls",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "LabelSelect_hls_0",
+   "op_type": "LabelSelect_hls"
+  }
+ }
+}

@@ -1,0 +1,1152 @@
+{
+ "FMPadding_rtl_02604e": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNTc2MDBdLCAibl9ydW5zIjogWzExM119fHwfiwgA7yBpagL/Y2BAAEYGVDDKH+WP8unHf8AMoRugtAPDKH8o8Q+wj4bHUObfh9IAZfb3aRQHAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNTc2MDBdLCAibl9ydW5zIjogWzFdfXx8H4sIAO8gaWoC/2NkYGBgZICA/w8gNACrkTHhFAAAAA==",
+  "io_chrc_period": 144002,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/FMPadding_rtl_6",
+  "spec": {
+   "attrs": {
+    "ImgDim": [
+     28,
+     28
+    ],
+    "NumChannels": 128,
+    "Padding": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "SIMD": 4,
+    "backend": "fpgadataflow",
+    "device_id": 0,
+    "dynamic_mode": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     52
+    ],
+    "inputDataType": "UINT2",
+    "mem_port": "",
+    "numInputVectors": 1,
+    "outFIFODepths": [
+     1699
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "FMPadding_rtl_6",
+   "op_type": "FMPadding_rtl"
+  }
+ },
+ "FMPadding_rtl_055e2a": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzZdLCAibl9ydW5zIjogWzRdfXx8H4sIAFjbZ2oC/2NgQABGBlTAiEYLQGkmND4A4oGs10QAAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzZdLCAibl9ydW5zIjogWzFdfXx8H4sIAFjbZ2oC/2NkYGBgZIAAZSgNAO9UI7MUAAAA",
+  "io_chrc_period": 92,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/FMPadding_rtl_6",
+  "spec": {
+   "attrs": {
+    "ImgDim": [
+     16,
+     1
+    ],
+    "NumChannels": 32,
+    "Padding": [
+     1,
+     0,
+     1,
+     0
+    ],
+    "SIMD": 32,
+    "backend": "fpgadataflow",
+    "device_id": 0,
+    "dynamic_mode": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT4",
+    "mem_port": "",
+    "numInputVectors": 1,
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "FMPadding_rtl_6",
+   "op_type": "FMPadding_rtl"
+  }
+ },
+ "FMPadding_rtl_0c4f27": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTMyXSwgIm5fcnVucyI6IFs0XX18fB+LCABY22dqAv9jYEAARgZUwIhGO0BpJjQ+AKz3PdtEAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTMyXSwgIm5fcnVucyI6IFsxXX18fB+LCABY22dqAv9jZGBgYGSAgGYoDQBjs24ZFAAAAA==",
+  "io_chrc_period": 332,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/FMPadding_rtl_4",
+  "spec": {
+   "attrs": {
+    "ImgDim": [
+     64,
+     1
+    ],
+    "NumChannels": 32,
+    "Padding": [
+     1,
+     0,
+     1,
+     0
+    ],
+    "SIMD": 32,
+    "backend": "fpgadataflow",
+    "device_id": 0,
+    "dynamic_mode": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT4",
+    "mem_port": "",
+    "numInputVectors": 1,
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "FMPadding_rtl_4",
+   "op_type": "FMPadding_rtl"
+  }
+ },
+ "FMPadding_rtl_23daa7": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjE1Mjk2XSwgIm5fcnVucyI6IFsyMjVdfXx8H4sIAOMiaWoC/2NgQABGBlQwyh/lj/JH+aP8Uf5I4CewQxlQ2oFhlD/KH+XTi3+AbzQ8Rvmj/IHix0NpAAlwOEUUDgAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjE1Mjk2XSwgIm5fcnVucyI6IFsxXX18fB+LCADjImlqAv9jZGBgYGSAgP8ezGAaAAx+4RMUAAAA",
+  "io_chrc_period": 538242,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/FMPadding_rtl_5",
+  "spec": {
+   "attrs": {
+    "ImgDim": [
+     56,
+     56
+    ],
+    "NumChannels": 128,
+    "Padding": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "SIMD": 4,
+    "backend": "fpgadataflow",
+    "device_id": 0,
+    "dynamic_mode": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     415
+    ],
+    "inputDataType": "UINT2",
+    "mem_port": "",
+    "numInputVectors": 1,
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "FMPadding_rtl_5",
+   "op_type": "FMPadding_rtl"
+  }
+ },
+ "FMPadding_rtl_254fc1": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDE1ODcyXSwgIm5fcnVucyI6IFs0NDldfXx8H4sIAMYvaWoC/+3QMQ0AIBADwGdiQwMOQBL+VbB8QrAA16W9tREnJe4wMzMzMzPzm541R3YPZmbm972aP5iZ+T+P7A1w+qyIFBwAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDE1ODcyXSwgIm5fcnVucyI6IFsxXX18fB+LCADGL2lqAv9jZGBgYGSAgPoINjANAKv2yXcUAAAA",
+  "io_chrc_period": 1039682,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/FMPadding_rtl_1",
+  "spec": {
+   "attrs": {
+    "ImgDim": [
+     112,
+     112
+    ],
+    "NumChannels": 64,
+    "Padding": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "SIMD": 4,
+    "backend": "fpgadataflow",
+    "device_id": 0,
+    "dynamic_mode": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     756
+    ],
+    "inputDataType": "UINT2",
+    "mem_port": "",
+    "numInputVectors": 1,
+    "outFIFODepths": [
+     949
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "FMPadding_rtl_1",
+   "op_type": "FMPadding_rtl"
+  }
+ },
+ "FMPadding_rtl_2dd75c": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDMwNTkyXSwgIm5fcnVucyI6IFsyMjVdfXx8H4sIAEzkZ2oC/2NgQABGBlQwyh/lj/JH+aP8Uf5I4B/ggzKgdAPDKH+UP8qnG192NDxG+aP8geLvh9IAzUwpsBQOAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDMwNTkyXSwgIm5fcnVucyI6IFsxXX18fB+LCABM5GdqAv9jZGBgYGSAgP8T2cA0ACmpd30UAAAA",
+  "io_chrc_period": 1076482,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/FMPadding_rtl_2",
+  "spec": {
+   "attrs": {
+    "ImgDim": [
+     56,
+     56
+    ],
+    "NumChannels": 128,
+    "Padding": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "SIMD": 2,
+    "backend": "fpgadataflow",
+    "device_id": 0,
+    "dynamic_mode": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_port": "",
+    "numInputVectors": 1,
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "FMPadding_rtl_2",
+   "op_type": "FMPadding_rtl"
+  }
+ },
+ "FMPadding_rtl_32a647": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbNF19fHwfiwgAWttnagL/Y2BAAEYGVMCILs4CoZjQ+AB0Sm8gRAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAWttnagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_period": 5132,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/FMPadding_rtl_0",
+  "spec": {
+   "attrs": {
+    "ImgDim": [
+     1024,
+     1
+    ],
+    "NumChannels": 2,
+    "Padding": [
+     1,
+     0,
+     1,
+     0
+    ],
+    "SIMD": 2,
+    "backend": "fpgadataflow",
+    "device_id": 0,
+    "dynamic_mode": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT8",
+    "mem_port": "",
+    "numInputVectors": 1,
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "FMPadding_rtl_0",
+   "op_type": "FMPadding_rtl"
+  }
+ },
+ "FMPadding_rtl_4604bf": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDA4NjA4XSwgIm5fcnVucyI6IFs0NDVdfXx8H4sIAJvmZ2oC/+3XoQ1AIRQDwIf5OFbgj8L+0zACAhLCCJCrac7WNWInxRlmZmZmZma+03+e3b/lYGZmfs+t2IOZmd93Xf9uAH7qTmfUGwAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDA4NjA4XSwgIm5fcnVucyI6IFsxXX18fB+LCACb5mdqAv9jZGBgYGSAAHkbNjANAOY+29gUAAAA",
+  "io_chrc_period": 1021522,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/FMPadding_rtl_0",
+  "spec": {
+   "attrs": {
+    "ImgDim": [
+     111,
+     111
+    ],
+    "NumChannels": 32,
+    "Padding": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "SIMD": 2,
+    "backend": "fpgadataflow",
+    "device_id": 0,
+    "dynamic_mode": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_port": "",
+    "numInputVectors": 1,
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "FMPadding_rtl_0",
+   "op_type": "FMPadding_rtl"
+  }
+ },
+ "FMPadding_rtl_55fd8a": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNjhdLCAibl9ydW5zIjogWzRdfXx8H4sIAFjbZ2oC/2NgQABGBlTAiEYrQGkmND4A2FPc00QAAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNjhdLCAibl9ydW5zIjogWzFdfXx8H4sIAFjbZ2oC/2NkYGBgZIAAZygNAFT0yGMUAAAA",
+  "io_chrc_period": 172,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/FMPadding_rtl_5",
+  "spec": {
+   "attrs": {
+    "ImgDim": [
+     32,
+     1
+    ],
+    "NumChannels": 32,
+    "Padding": [
+     1,
+     0,
+     1,
+     0
+    ],
+    "SIMD": 32,
+    "backend": "fpgadataflow",
+    "device_id": 0,
+    "dynamic_mode": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT4",
+    "mem_port": "",
+    "numInputVectors": 1,
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "FMPadding_rtl_5",
+   "op_type": "FMPadding_rtl"
+  }
+ },
+ "FMPadding_rtl_58f2c1": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAyOF0sICJuX3J1bnMiOiBbNF19fHwfiwgAWttnagL/Y2BAAEYGVMCILs6EQsEZADQNda5EAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAyOF0sICJuX3J1bnMiOiBbMV19fHwfiwgAWttnagL/Y2RgYGBkgABmFggNAKoSGr4UAAAA",
+  "io_chrc_period": 2572,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/FMPadding_rtl_1",
+  "spec": {
+   "attrs": {
+    "ImgDim": [
+     512,
+     1
+    ],
+    "NumChannels": 32,
+    "Padding": [
+     1,
+     0,
+     1,
+     0
+    ],
+    "SIMD": 32,
+    "backend": "fpgadataflow",
+    "device_id": 0,
+    "dynamic_mode": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT4",
+    "mem_port": "",
+    "numInputVectors": 1,
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "FMPadding_rtl_1",
+   "op_type": "FMPadding_rtl"
+  }
+ },
+ "FMPadding_rtl_7263fe": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA3MzZdLCAibl9ydW5zIjogWzI5XX18fB+LCAAtBGlqAv9jYEAARgZUMNz4DKwQqoEZVQHN+Fz0te8/C4QGACTRj0XUAQAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA3MzZdLCAibl9ydW5zIjogWzFdfXx8H4sIAC0EaWoC/2NkYGBgZICA/wEQGgAL3kTBFAAAAA==",
+  "io_chrc_period": 51842,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/FMPadding_rtl_16",
+  "spec": {
+   "attrs": {
+    "ImgDim": [
+     7,
+     7
+    ],
+    "NumChannels": 512,
+    "Padding": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "SIMD": 4,
+    "backend": "fpgadataflow",
+    "device_id": 0,
+    "dynamic_mode": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT2",
+    "mem_port": "",
+    "numInputVectors": 1,
+    "outFIFODepths": [
+     1802
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "FMPadding_rtl_16",
+   "op_type": "FMPadding_rtl"
+  }
+ },
+ "FMPadding_rtl_8a60ad": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTA1ODAwXSwgIm5fcnVucyI6IFs4OTddfXx8H4sIAIUwaWoC/+3ZsQ3AIBADwCcSDJv5wj6MQgFSxAjAubGudeuIPynWMDMzMzMzMzMzMzMzM/O+rs/oNl2CmZmZmZmZT/Sb7cHMzMzMzHyDv/n/dZEav38UOAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTA1ODAwXSwgIm5fcnVucyI6IFsxXX18fB+LCACFMGlqAv9jZGBgYGSAAPe5EBYA9z7BohQAAAA=",
+  "io_chrc_period": 264502,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/FMPadding_rtl_0",
+  "spec": {
+   "attrs": {
+    "ImgDim": [
+     224,
+     224
+    ],
+    "NumChannels": 3,
+    "Padding": [
+     3,
+     3,
+     3,
+     3
+    ],
+    "SIMD": 3,
+    "backend": "fpgadataflow",
+    "device_id": 0,
+    "dynamic_mode": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     41243
+    ],
+    "inputDataType": "UINT8",
+    "mem_port": "",
+    "numInputVectors": 1,
+    "outFIFODepths": [
+     52900
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "FMPadding_rtl_0",
+   "op_type": "FMPadding_rtl"
+  }
+ },
+ "FMPadding_rtl_930c27": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTA3NjQ4XSwgIm5fcnVucyI6IFsyMjVdfXx8H4sIACgtaWoC/2NgQABGBlQwyh/lj/JH+aP8Uf5I4G9ghtANUFqBYZQ/yh/l04ufwD4aHqP8Uf5A8ddDaQBr7rA/FA4AAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTA3NjQ4XSwgIm5fcnVucyI6IFsxXX18fB+LCAAoLWlqAv9jZGBgYGSAgPolEBYAvpYSyRQAAAA=",
+  "io_chrc_period": 269122,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/FMPadding_rtl_2",
+  "spec": {
+   "attrs": {
+    "ImgDim": [
+     56,
+     56
+    ],
+    "NumChannels": 64,
+    "Padding": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "SIMD": 4,
+    "backend": "fpgadataflow",
+    "device_id": 0,
+    "dynamic_mode": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     116
+    ],
+    "inputDataType": "UINT2",
+    "mem_port": "",
+    "numInputVectors": 1,
+    "outFIFODepths": [
+     1741
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "FMPadding_rtl_2",
+   "op_type": "FMPadding_rtl"
+  }
+ },
+ "FMPadding_rtl_93e25f": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjYyMTQ0XSwgIm5fcnVucyI6IFs1N119fHwfiwgAa+FnagL/Y2BAAEYGVDDKH1p8BiUoLQOlWYYZ32V4+++/IoQGADM1T+mUAwAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjYyMTQ0XSwgIm5fcnVucyI6IFsxXX18fB+LCABr4WdqAv9jZGBgYGSAgP//mcE0ACIPM/YUAAAA",
+  "io_chrc_period": 655362,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/FMPadding_rtl_6",
+  "spec": {
+   "attrs": {
+    "ImgDim": [
+     14,
+     14
+    ],
+    "NumChannels": 512,
+    "Padding": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "SIMD": 1,
+    "backend": "fpgadataflow",
+    "device_id": 0,
+    "dynamic_mode": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_port": "",
+    "numInputVectors": 1,
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "FMPadding_rtl_6",
+   "op_type": "FMPadding_rtl"
+  }
+ },
+ "FMPadding_rtl_9a80d1": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNTE2XSwgIm5fcnVucyI6IFs0XX18fB+LCABZ22dqAv9jYEAARgZUwIguDmUwofEBlC546UQAAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNTE2XSwgIm5fcnVucyI6IFsxXX18fB+LCABZ22dqAv9jZGBgYGSAAGYmCA0AkCfK3RQAAAA=",
+  "io_chrc_period": 1292,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/FMPadding_rtl_2",
+  "spec": {
+   "attrs": {
+    "ImgDim": [
+     256,
+     1
+    ],
+    "NumChannels": 32,
+    "Padding": [
+     1,
+     0,
+     1,
+     0
+    ],
+    "SIMD": 32,
+    "backend": "fpgadataflow",
+    "device_id": 0,
+    "dynamic_mode": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT4",
+    "mem_port": "",
+    "numInputVectors": 1,
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "FMPadding_rtl_2",
+   "op_type": "FMPadding_rtl"
+  }
+ },
+ "FMPadding_rtl_a5ea72": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDYwODAwXSwgIm5fcnVucyI6IFsxMTNdfXx8H4sIANTiZ2oC/2NgQABGBlQwyh/lj/Lpx2eQh9IyUJpplD+k+Haj4TGU+f/lIDQAom4KehQHAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDYwODAwXSwgIm5fcnVucyI6IFsxXX18fB+LCADU4mdqAv9jZGBgYGSAgP/s7GAaAIo5MzoUAAAA",
+  "io_chrc_period": 1152002,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/FMPadding_rtl_4",
+  "spec": {
+   "attrs": {
+    "ImgDim": [
+     28,
+     28
+    ],
+    "NumChannels": 256,
+    "Padding": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "SIMD": 1,
+    "backend": "fpgadataflow",
+    "device_id": 0,
+    "dynamic_mode": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_port": "",
+    "numInputVectors": 1,
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "FMPadding_rtl_4",
+   "op_type": "FMPadding_rtl"
+  }
+ },
+ "FMPadding_rtl_b8b6d8": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTE1MjAwXSwgIm5fcnVucyI6IFsxMTNdfXx8H4sIAKMXaWoC/2NgQABGBlQwyh/lj/Lpxz/ADmVA6QaGUf6Q4vOPhsdQ5u+H0gAJq46gFAcAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTE1MjAwXSwgIm5fcnVucyI6IFsxXX18fB+LCACjF2lqAv9jZGBgYGSAgP8HISwAJnCnQxQAAAA=",
+  "io_chrc_period": 288002,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/FMPadding_rtl_9",
+  "spec": {
+   "attrs": {
+    "ImgDim": [
+     28,
+     28
+    ],
+    "NumChannels": 256,
+    "Padding": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "SIMD": 4,
+    "backend": "fpgadataflow",
+    "device_id": 0,
+    "dynamic_mode": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     214
+    ],
+    "inputDataType": "UINT2",
+    "mem_port": "",
+    "numInputVectors": 1,
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "FMPadding_rtl_9",
+   "op_type": "FMPadding_rtl"
+  }
+ },
+ "FMPadding_rtl_bdc052": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjYwXSwgIm5fcnVucyI6IFs0XX18fB+LCABY22dqAv9jYEAARgZUwIhGN0BpJjQ+AES//spEAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjYwXSwgIm5fcnVucyI6IFsxXX18fB+LCABY22dqAv9jZGBgYGSAAGYoAwANPSLsFAAAAA==",
+  "io_chrc_period": 652,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/FMPadding_rtl_3",
+  "spec": {
+   "attrs": {
+    "ImgDim": [
+     128,
+     1
+    ],
+    "NumChannels": 32,
+    "Padding": [
+     1,
+     0,
+     1,
+     0
+    ],
+    "SIMD": 32,
+    "backend": "fpgadataflow",
+    "device_id": 0,
+    "dynamic_mode": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT4",
+    "mem_port": "",
+    "numInputVectors": 1,
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "FMPadding_rtl_3",
+   "op_type": "FMPadding_rtl"
+  }
+ },
+ "FMPadding_rtl_be5ecb": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDA4NjA4XSwgIm5fcnVucyI6IFs0NDVdfXx8H4sIABzlZ2oC/+3XoQ1AIRQDwIf5OFbgj8L+0zACAhLCCJCrac7WNWInxRlmZmZmZma+03+e3b/lYGZmfs+t2IOZmd93Xf9uAH7qTmfUGwAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDA4NjA4XSwgIm5fcnVucyI6IFsxXX18fB+LCAAc5WdqAv9jZGBgYGSAAHkbNjANAOY+29gUAAAA",
+  "io_chrc_period": 1021522,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/FMPadding_rtl_1",
+  "spec": {
+   "attrs": {
+    "ImgDim": [
+     111,
+     111
+    ],
+    "NumChannels": 64,
+    "Padding": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "SIMD": 4,
+    "backend": "fpgadataflow",
+    "device_id": 0,
+    "dynamic_mode": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_port": "",
+    "numInputVectors": 1,
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "FMPadding_rtl_1",
+   "op_type": "FMPadding_rtl"
+  }
+ },
+ "FMPadding_rtl_e0ee9b": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTA3NjQ4XSwgIm5fcnVucyI6IFsyMjVdfXx8H4sIADcqaWoC/2NgQABGBlQwyh/lj/JH+aP8Uf5I4G9ghtANUFqBYZQ/yh/l04ufwD4aHqP8Uf5A8ddDaQBr7rA/FA4AAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTA3NjQ4XSwgIm5fcnVucyI6IFsxXX18fB+LCAA3KmlqAv9jZGBgYGSAgPolEBYAvpYSyRQAAAA=",
+  "io_chrc_period": 269122,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/FMPadding_rtl_3",
+  "spec": {
+   "attrs": {
+    "ImgDim": [
+     56,
+     56
+    ],
+    "NumChannels": 64,
+    "Padding": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "SIMD": 4,
+    "backend": "fpgadataflow",
+    "device_id": 0,
+    "dynamic_mode": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     102
+    ],
+    "inputDataType": "UINT2",
+    "mem_port": "",
+    "numInputVectors": 1,
+    "outFIFODepths": [
+     1727
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "FMPadding_rtl_3",
+   "op_type": "FMPadding_rtl"
+  }
+ },
+ "FMPadding_rtl_e1b86a": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NjhdLCAibl9ydW5zIjogWzU3XX18fB+LCAD4FGlqAv9jYEAARgZUMMofWnwHFgjdwAylGYYZn2N4+88eGn8A0xZpspQDAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMzI3NjhdLCAibl9ydW5zIjogWzFdfXx8H4sIAPgUaWoC/2NkYGBgZICA//UQGgB+l7H4FAAAAA==",
+  "io_chrc_period": 81922,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/FMPadding_rtl_10",
+  "spec": {
+   "attrs": {
+    "ImgDim": [
+     14,
+     14
+    ],
+    "NumChannels": 256,
+    "Padding": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "SIMD": 4,
+    "backend": "fpgadataflow",
+    "device_id": 0,
+    "dynamic_mode": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     32
+    ],
+    "inputDataType": "UINT2",
+    "mem_port": "",
+    "numInputVectors": 1,
+    "outFIFODepths": [
+     1755
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "FMPadding_rtl_10",
+   "op_type": "FMPadding_rtl"
+  }
+ },
+ "FMPadding_rtl_f79414": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTY1ODg4XSwgIm5fcnVucyI6IFsyOV19fHwfiwgAPd5nagL/Y2BAAEYGVDDc+AwaUFoGSnPQmB9AX/v+q0NoAEOFco/UAQAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTY1ODg4XSwgIm5fcnVucyI6IFsxXX18fB+LCAA93mdqAv9jZGBgYGSAgP/tTGAaAMtC6OIUAAAA",
+  "io_chrc_period": 414722,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/FMPadding_rtl_12",
+  "spec": {
+   "attrs": {
+    "ImgDim": [
+     7,
+     7
+    ],
+    "NumChannels": 1024,
+    "Padding": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "SIMD": 1,
+    "backend": "fpgadataflow",
+    "device_id": 0,
+    "dynamic_mode": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_port": "",
+    "numInputVectors": 1,
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "FMPadding_rtl_12",
+   "op_type": "FMPadding_rtl"
+  }
+ },
+ "FMPadding_rtl_f8424d": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNjU1MzZdLCAibl9ydW5zIjogWzU3XX18fB+LCABxB2lqAv9jYEAARgZUMMofWvwGDiiDHU3BcOELDm//1UPjDwDFrygmlAMAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNjU1MzZdLCAibl9ydW5zIjogWzFdfXx8H4sIAHEHaWoC/2NkYGBgZICA//8hNACMfadwFAAAAA==",
+  "io_chrc_period": 163842,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/FMPadding_rtl_15",
+  "spec": {
+   "attrs": {
+    "ImgDim": [
+     14,
+     14
+    ],
+    "NumChannels": 512,
+    "Padding": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "SIMD": 4,
+    "backend": "fpgadataflow",
+    "device_id": 0,
+    "dynamic_mode": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     118
+    ],
+    "inputDataType": "UINT2",
+    "mem_port": "",
+    "numInputVectors": 1,
+    "outFIFODepths": [
+     2
+    ],
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "slr": -1
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 1,
+   "n_outputs": 1,
+   "name": "FMPadding_rtl_15",
+   "op_type": "FMPadding_rtl"
+  }
+ }
+}

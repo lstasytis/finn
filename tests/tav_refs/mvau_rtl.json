@@ -1,0 +1,1292 @@
+{
+ "MVAU_rtl_036bf7": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMiwgMjA1NF0sICJuX3J1bnMiOiBbMTAyNywgMV19fHwfiwgAW9tnagL/7cfBCQAgEAPBHCLYf8U+RLSGY/LZTCWpvP2fmZmZmZmZmZmZmZmZmZmZe3kwMzMzMzMzMzMzMzMzMzNzO9/OdboBgrHfREhAAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1NF0sICJuX3J1bnMiOiBbMV19fHwfiwgAW9tnagL/Y2RgYGBkgABWDggNAFlx1b8UAAAA",
+  "io_chrc_period": 5137,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/MVAU_rtl_2",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "MH": 32,
+    "MW": 96,
+    "PE": 8,
+    "SIMD": 96,
+    "accDataType": "INT13",
+    "backend": "fpgadataflow",
+    "binaryXnorMode": 0,
+    "device_id": 0,
+    "dynamic_input": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT4",
+    "mem_mode": "internal_decoupled",
+    "mem_port": "",
+    "noActivation": 1,
+    "numInputVectors": [
+     1,
+     256,
+     1
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT13",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "pumpedCompute": 0,
+    "pumpedMemory": 0,
+    "ram_style": "auto",
+    "ram_style_thresholds": "auto",
+    "resType": "auto",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "weightDataType": "INT4"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "MVAU_rtl_2",
+   "op_type": "MVAU_rtl"
+  }
+ },
+ "MVAU_rtl_0d8ec3": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMiwgMTAzMF0sICJuX3J1bnMiOiBbNjUsIDFdfXx8H4sIAFjbZ2oC/2NgYGBgZEAAZPYof+TypdH48qP8EcXnhNKsLBAaAFrc80goBAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAzMF0sICJuX3J1bnMiOiBbMV19fHwfiwgAWNtnagL/Y2RgYGBkgABWFggNAC0bdXgUAAAA",
+  "io_chrc_period": 2577,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/MVAU_rtl_6",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "MH": 32,
+    "MW": 96,
+    "PE": 1,
+    "SIMD": 96,
+    "accDataType": "INT13",
+    "backend": "fpgadataflow",
+    "binaryXnorMode": 0,
+    "device_id": 0,
+    "dynamic_input": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT4",
+    "mem_mode": "internal_decoupled",
+    "mem_port": "",
+    "noActivation": 1,
+    "numInputVectors": [
+     1,
+     16,
+     1
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT13",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "pumpedCompute": 0,
+    "pumpedMemory": 0,
+    "ram_style": "auto",
+    "ram_style_thresholds": "auto",
+    "resType": "auto",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "weightDataType": "INT4"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "MVAU_rtl_6",
+   "op_type": "MVAU_rtl"
+  }
+ },
+ "MVAU_rtl_11eb99": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMiwgNDAxNDEyXSwgIm5fcnVucyI6IFsxMjU0NSwgMV19fHwfiwgAP+VnagL/7cfBCcAgFETBFTGkDKsI6b8yIXwwPTh7eTtJ0rL3/8zMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMJ/qp3tWXmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmfkQj2qf19cFPmdScCgQAwA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDAxNDEyXSwgIm5fcnVucyI6IFsxMDAzNTNdfXx8H4sIAD/lZ2oC/+3IwQkAIBADwQii/XfsRzi0gnvMfsIkqUbemJmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmbm/1/dvZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZm7vefcA/1ys0hSAGAA=",
+  "io_chrc_period": 1003533,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/MVAU_rtl_2",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "MH": 128,
+    "MW": 64,
+    "PE": 16,
+    "SIMD": 8,
+    "accDataType": "INT13",
+    "backend": "fpgadataflow",
+    "binaryXnorMode": 0,
+    "device_id": 0,
+    "dynamic_input": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_mode": "internal_decoupled",
+    "mem_port": "",
+    "noActivation": 1,
+    "numInputVectors": [
+     1,
+     56,
+     56
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT13",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "pumpedCompute": 0,
+    "pumpedMemory": 0,
+    "ram_style": "auto",
+    "ram_style_thresholds": "auto",
+    "resType": "dsp",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "weightDataType": "INT4"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "MVAU_rtl_2",
+   "op_type": "MVAU_rtl"
+  }
+ },
+ "MVAU_rtl_22e298": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMiwgNDAxNDEyXSwgIm5fcnVucyI6IFs3ODUsIDFdfXx8H4sIAAPiZ2oC/+3HwQ2AIAAEwTNE6rAUKjeWZoIk8Jfn3GdvkuTI3PqZmZmZmZmZmZmZmZl3+i5f2/DDzMzMzMzMzMzMzMz80+douWrvCxZHYWkoMQAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDAxNDEyXSwgIm5fcnVucyI6IFsxMjU0NV19fHwfiwgAA+JnagL/7cjBCQAgEAPB+LEqwf678iMc2sLNfsIkqUbemJmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZm7eH7/ZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZu4nX3ACt0/R8UEAMA",
+  "io_chrc_period": 1003533,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/MVAU_rtl_7",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "MH": 512,
+    "MW": 512,
+    "PE": 32,
+    "SIMD": 8,
+    "accDataType": "INT15",
+    "backend": "fpgadataflow",
+    "binaryXnorMode": 0,
+    "device_id": 0,
+    "dynamic_input": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_mode": "internal_decoupled",
+    "mem_port": "",
+    "noActivation": 1,
+    "numInputVectors": [
+     1,
+     14,
+     14
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT15",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "pumpedCompute": 0,
+    "pumpedMemory": 0,
+    "ram_style": "auto",
+    "ram_style_thresholds": "auto",
+    "resType": "dsp",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "weightDataType": "INT4"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "MVAU_rtl_7",
+   "op_type": "MVAU_rtl"
+  }
+ },
+ "MVAU_rtl_25df79": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMiwgMTAzMF0sICJuX3J1bnMiOiBbNSwgMV19fHwfiwgAWNtnagL/Y2BgYGBkQABkNj7+FyiDA8r/gcbnhNKsLBAaAFoI+kZoAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAzMF0sICJuX3J1bnMiOiBbMjU3XX18fB+LCABY22dqAv/t1bENACAMA0HTkP03ToUQjBDdd+cFnNxW3piZmXm+97cXMzMzj/f5/wZVsNQjFBAAAA==",
+  "io_chrc_period": 2575,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/MVAU_rtl_7",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "MH": 128,
+    "MW": 256,
+    "PE": 2,
+    "SIMD": 32,
+    "accDataType": "INT14",
+    "backend": "fpgadataflow",
+    "binaryXnorMode": 0,
+    "device_id": 0,
+    "dynamic_input": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT4",
+    "mem_mode": "internal_decoupled",
+    "mem_port": "",
+    "noActivation": 1,
+    "numInputVectors": [
+     1
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT14",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "pumpedCompute": 0,
+    "pumpedMemory": 0,
+    "ram_style": "auto",
+    "ram_style_thresholds": "auto",
+    "resType": "auto",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "weightDataType": "INT4"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "MVAU_rtl_7",
+   "op_type": "MVAU_rtl"
+  }
+ },
+ "MVAU_rtl_277365": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMiwgNDQzNTYwXSwgIm5fcnVucyI6IFs0OTI4NSwgMV19fHwfiwgAludnagL/7cexDcAgAANBpyCI/YdgEQaLhJBCCf25OX+SPPm3f6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXWWuubrstGkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiR5aFn28U4/NlDB4WgIDAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDQzNTYwXSwgIm5fcnVucyI6IFs5ODU2OV19fHwfiwgAludnagL/7cghDgAgEAPBIiD8/8UYkgvok7OmmSbVyBszMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzNzt+f3b2ZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZuZmr7sHpTF/gpQQGAA=",
+  "io_chrc_period": 1108902,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/MVAU_rtl_0",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "MH": 32,
+    "MW": 27,
+    "PE": 16,
+    "SIMD": 3,
+    "accDataType": "INT20",
+    "backend": "fpgadataflow",
+    "binaryXnorMode": 0,
+    "device_id": 0,
+    "dynamic_input": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT8",
+    "mem_mode": "internal_decoupled",
+    "mem_port": "",
+    "noActivation": 1,
+    "numInputVectors": [
+     1,
+     111,
+     111
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT20",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "pumpedCompute": 0,
+    "pumpedMemory": 0,
+    "ram_style": "auto",
+    "ram_style_thresholds": "auto",
+    "resType": "dsp",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "weightDataType": "INT8"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "MVAU_rtl_0",
+   "op_type": "MVAU_rtl"
+  }
+ },
+ "MVAU_rtl_34bb94": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMiwgMjA1NF0sICJuX3J1bnMiOiBbNTE1LCAxXX18fB+LCABZ22dqAv/tx8EJACEAA8HIIdp/xfcQUSxBJ5/NJEnJ2v6ZmZmZmZmZ+S1/hxszMzMzMzMzX+/Z2kd/wquTjEggAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1NF0sICJuX3J1bnMiOiBbMV19fHwfiwgAWdtnagL/Y2RgYGBkgABWDggNAFlx1b8UAAAA",
+  "io_chrc_period": 5137,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/MVAU_rtl_3",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "MH": 32,
+    "MW": 96,
+    "PE": 4,
+    "SIMD": 96,
+    "accDataType": "INT13",
+    "backend": "fpgadataflow",
+    "binaryXnorMode": 0,
+    "device_id": 0,
+    "dynamic_input": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT4",
+    "mem_mode": "internal_decoupled",
+    "mem_port": "",
+    "noActivation": 1,
+    "numInputVectors": [
+     1,
+     128,
+     1
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT13",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "pumpedCompute": 0,
+    "pumpedMemory": 0,
+    "ram_style": "auto",
+    "ram_style_thresholds": "auto",
+    "resType": "auto",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "weightDataType": "INT4"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "MVAU_rtl_3",
+   "op_type": "MVAU_rtl"
+  }
+ },
+ "MVAU_rtl_3d8ce0": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMiwgMTAyNDAwNF0sICJuX3J1bnMiOiBbNSwgMV19fHwfiwgADAJpagL/Y2BgYGBkQABkNj7+v7PsEAYTVOAcKp8VKsy8gB9MAwBmcskhaAAAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAyNDAwNF0sICJuX3J1bnMiOiBbNDAwMV19fHwfiwgADAJpagL/7cixDQAgDANBp2D/iRE0SAhWyH3lc3KrvDEzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzNzX4/vX8XMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMXT3P2Ej1hLgU+gAA",
+  "io_chrc_period": 2560012,
+  "provenance": "rtlsim",
+  "source": "cache:resnet50/MVAU_rtl_0",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "MH": 1000,
+    "MW": 2048,
+    "PE": 1,
+    "SIMD": 4,
+    "accDataType": "INT20",
+    "backend": "fpgadataflow",
+    "binaryXnorMode": 0,
+    "device_id": 0,
+    "dynamic_input": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT4",
+    "mem_mode": "internal_decoupled",
+    "mem_port": "",
+    "noActivation": 1,
+    "numInputVectors": [
+     1
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT20",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "pumpedCompute": 0,
+    "pumpedMemory": 0,
+    "ram_style": "block",
+    "ram_style_thresholds": "auto",
+    "resType": "dsp",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "weightDataType": "INT8"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "MVAU_rtl_0",
+   "op_type": "MVAU_rtl"
+  }
+ },
+ "MVAU_rtl_4dc250": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMiwgNzcyXSwgIm5fcnVucyI6IFs1LCAxXX18fB+LCABX22dqAv9jYGBgYGRAAGQ2Pn4elCEA5Reg8VmhNDMzhAYAzBBYMWgAAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNzcyXSwgIm5fcnVucyI6IFs5N119fHwfiwgAV9tnagL/Y2BAAEYGVDDKH+WPJD4bmjj/KH+UP4L4PFAaAHKn1ooUBgAA",
+  "io_chrc_period": 1933,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/MVAU_rtl_9",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "MH": 24,
+    "MW": 128,
+    "PE": 1,
+    "SIMD": 8,
+    "accDataType": "INT13",
+    "backend": "fpgadataflow",
+    "binaryXnorMode": 0,
+    "device_id": 0,
+    "dynamic_input": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT4",
+    "mem_mode": "internal_decoupled",
+    "mem_port": "",
+    "noActivation": 1,
+    "numInputVectors": [
+     1
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT13",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "pumpedCompute": 0,
+    "pumpedMemory": 0,
+    "ram_style": "auto",
+    "ram_style_thresholds": "auto",
+    "resType": "auto",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "weightDataType": "INT4"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "MVAU_rtl_9",
+   "op_type": "MVAU_rtl"
+  }
+ },
+ "MVAU_rtl_4ebbc2": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMiwgMTI4MDA0XSwgIm5fcnVucyI6IFs1LCAxXX18fB+LCAAn3mdqAv9jYGBgYGRAAGQ2Pv6+nxDaAco/gMZnhdLMXyA6AE+awsFoAAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTI4MDA0XSwgIm5fcnVucyI6IFs0MDAxXX18fB+LCAAn3mdqAv/tyLENACAMA0FTMRQF+29FgxTBCrlvrHNSjbwxMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzc1/P79/MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM3Nbr7gGYDsMIFPoAAA==",
+  "io_chrc_period": 320014,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/MVAU_rtl_14",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "MH": 1000,
+    "MW": 1024,
+    "PE": 1,
+    "SIMD": 16,
+    "accDataType": "INT14",
+    "backend": "fpgadataflow",
+    "binaryXnorMode": 0,
+    "device_id": 0,
+    "dynamic_input": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_mode": "internal_decoupled",
+    "mem_port": "",
+    "noActivation": 1,
+    "numInputVectors": [
+     1,
+     1,
+     1
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT14",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "pumpedCompute": 0,
+    "pumpedMemory": 0,
+    "ram_style": "block",
+    "ram_style_thresholds": "auto",
+    "resType": "dsp",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "weightDataType": "INT4"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "MVAU_rtl_14",
+   "op_type": "MVAU_rtl"
+  }
+ },
+ "MVAU_rtl_595cd9": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMiwgNDAxNDEyXSwgIm5fcnVucyI6IFszMTM3LCAxXX18fB+LCAC942dqAv/txzEKgDAURMENEmuP4P0PJx4hIB9im9SzzdtJkpa5/2dmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZuZ9P9Wr+jIzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM/OSe/W4z68DPJ3kfCjEAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDAxNDEyXSwgIm5fcnVucyI6IFs1MDE3N119fHwfiwgAveNnagL/7cgxCgAgEAPB2FgJ/v+3NsKhTzhmmzBJqpE3ZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZm7uP5/ZuZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZnbeN09tDBykRRADAA=",
+  "io_chrc_period": 1003533,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/MVAU_rtl_4",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "MH": 256,
+    "MW": 128,
+    "PE": 16,
+    "SIMD": 8,
+    "accDataType": "INT13",
+    "backend": "fpgadataflow",
+    "binaryXnorMode": 0,
+    "device_id": 0,
+    "dynamic_input": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_mode": "internal_decoupled",
+    "mem_port": "",
+    "noActivation": 1,
+    "numInputVectors": [
+     1,
+     28,
+     28
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT13",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "pumpedCompute": 0,
+    "pumpedMemory": 0,
+    "ram_style": "auto",
+    "ram_style_thresholds": "auto",
+    "resType": "dsp",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "weightDataType": "INT4"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "MVAU_rtl_4",
+   "op_type": "MVAU_rtl"
+  }
+ },
+ "MVAU_rtl_78e88a": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMiwgNzg4NTQ4XSwgIm5fcnVucyI6IFs0OTI4NSwgMV19fHwfiwgA3uZnagL/7ccxCoAwFETBDRiw8ATibbz/nQLyIXYh/WzzdpKkZe7/mZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZl3fFeP6sPMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMvHCvvuf1dQDYaBnmaAgMAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNzg4NTQ4XSwgIm5fcnVucyI6IFszOTQyNzRdfXx8H4sIAN7mZ2oC/+zHsREAIAgEsEf339mSkwVoki5Jq/zc3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3dfedn/Lq7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u/9uOQAAAAAEDQ/9fOsEDD3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d1wcxtsmuJEJgAA==",
+  "io_chrc_period": 1971373,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/MVAU_rtl_1",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "MH": 64,
+    "MW": 32,
+    "PE": 8,
+    "SIMD": 8,
+    "accDataType": "INT11",
+    "backend": "fpgadataflow",
+    "binaryXnorMode": 0,
+    "device_id": 0,
+    "dynamic_input": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_mode": "internal_decoupled",
+    "mem_port": "",
+    "noActivation": 1,
+    "numInputVectors": [
+     1,
+     111,
+     111
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT11",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "pumpedCompute": 0,
+    "pumpedMemory": 0,
+    "ram_style": "auto",
+    "ram_style_thresholds": "auto",
+    "resType": "dsp",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "weightDataType": "INT4"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "MVAU_rtl_1",
+   "op_type": "MVAU_rtl"
+  }
+ },
+ "MVAU_rtl_9a8548": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMiwgMTAzMF0sICJuX3J1bnMiOiBbNSwgMV19fHwfiwgAWNtnagL/Y2BgYGBkQABkNj7+DyiDBcr/g8bnhNKsUAEAYKGw5mgAAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMTAzMF0sICJuX3J1bnMiOiBbNTE1XX18fB+LCABY22dqAv/t2MENACAMA7FA99+5L4RghMr3c0ZIclt5Y2ZmZmZmZub53t9ezMzMzMzMzDze5w9oxwMY1TQgAAA=",
+  "io_chrc_period": 2575,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/MVAU_rtl_8",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "MH": 128,
+    "MW": 128,
+    "PE": 1,
+    "SIMD": 32,
+    "accDataType": "INT13",
+    "backend": "fpgadataflow",
+    "binaryXnorMode": 0,
+    "device_id": 0,
+    "dynamic_input": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT4",
+    "mem_mode": "internal_decoupled",
+    "mem_port": "",
+    "noActivation": 1,
+    "numInputVectors": [
+     1
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT13",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "pumpedCompute": 0,
+    "pumpedMemory": 0,
+    "ram_style": "auto",
+    "ram_style_thresholds": "auto",
+    "resType": "auto",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "weightDataType": "INT4"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "MVAU_rtl_8",
+   "op_type": "MVAU_rtl"
+  }
+ },
+ "MVAU_rtl_9c7c69": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMiwgMjA1NF0sICJuX3J1bnMiOiBbMjU3LCAxXX18fB+LCABZ22dqAv/tx7ENwCAAA0FTRAKlyP7bUoAEyghwbt6XJCVr+2dmZua7/P78MTMz8/Fus08d7Y7N9ScoEAAA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1NF0sICJuX3J1bnMiOiBbMV19fHwfiwgAWdtnagL/Y2RgYGBkgABWDggNAFlx1b8UAAAA",
+  "io_chrc_period": 5137,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/MVAU_rtl_4",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "MH": 32,
+    "MW": 96,
+    "PE": 2,
+    "SIMD": 96,
+    "accDataType": "INT13",
+    "backend": "fpgadataflow",
+    "binaryXnorMode": 0,
+    "device_id": 0,
+    "dynamic_input": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT4",
+    "mem_mode": "internal_decoupled",
+    "mem_port": "",
+    "noActivation": 1,
+    "numInputVectors": [
+     1,
+     64,
+     1
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT13",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "pumpedCompute": 0,
+    "pumpedMemory": 0,
+    "ram_style": "auto",
+    "ram_style_thresholds": "auto",
+    "resType": "auto",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "weightDataType": "INT4"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "MVAU_rtl_4",
+   "op_type": "MVAU_rtl"
+  }
+ },
+ "MVAU_rtl_a1095e": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMiwgNDAxNDEyXSwgIm5fcnVucyI6IFs3ODUsIDFdfXx8H4sIADPiZ2oC/+3HwQnAIAAEwQsS67D/osRShCgkf/Oc++xNklx59/3MzMzMzMzMzMzMzMx/upfVtj2YmZmZmZmZmZmZmZkPfe+WVp9O5Kbn8ygxAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDAxNDEyXSwgIm5fcnVucyI6IFsyNTA4OV19fHwfiwgAM+JnagL/7cjBCQAgEAPB+LEKwf679CMcWsIx+wmTpBp5Y2ZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZubent+/mZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmbm1190DwD7KtRQgBgA=",
+  "io_chrc_period": 1003533,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/MVAU_rtl_6",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "MH": 512,
+    "MW": 256,
+    "PE": 16,
+    "SIMD": 8,
+    "accDataType": "INT14",
+    "backend": "fpgadataflow",
+    "binaryXnorMode": 0,
+    "device_id": 0,
+    "dynamic_input": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_mode": "internal_decoupled",
+    "mem_port": "",
+    "noActivation": 1,
+    "numInputVectors": [
+     1,
+     14,
+     14
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT14",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "pumpedCompute": 0,
+    "pumpedMemory": 0,
+    "ram_style": "auto",
+    "ram_style_thresholds": "auto",
+    "resType": "dsp",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "weightDataType": "INT4"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "MVAU_rtl_6",
+   "op_type": "MVAU_rtl"
+  }
+ },
+ "MVAU_rtl_c83676": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMiwgMjA1Ml0sICJuX3J1bnMiOiBbMSwgMV19fHwfiwgAW9tnagL/Y2RgYGCEYgYkmpkDlQYAHyoG+CgAAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1Ml0sICJuX3J1bnMiOiBbMV19fHwfiwgAW9tnagL/Y2RgYGBkgABmDggNAN54unkUAAAA",
+  "io_chrc_period": 5131,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/MVAU_rtl_0",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "MH": 32,
+    "MW": 6,
+    "PE": 32,
+    "SIMD": 6,
+    "accDataType": "INT14",
+    "backend": "fpgadataflow",
+    "binaryXnorMode": 0,
+    "device_id": 0,
+    "dynamic_input": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT8",
+    "mem_mode": "internal_decoupled",
+    "mem_port": "",
+    "noActivation": 1,
+    "numInputVectors": [
+     1,
+     1024,
+     1
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT14",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "pumpedCompute": 0,
+    "pumpedMemory": 0,
+    "ram_style": "auto",
+    "ram_style_thresholds": "auto",
+    "resType": "auto",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "weightDataType": "INT4"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "MVAU_rtl_0",
+   "op_type": "MVAU_rtl"
+  }
+ },
+ "MVAU_rtl_caa6a1": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMiwgNDAxNDEyXSwgIm5fcnVucyI6IFsxOTcsIDFdfXx8H4sIAAXfZ2oC/+3HwQ0AEBBE0ZENVy1sKSoXpRE2IWr4c/nzJCnp7v0YY4zx715PW3hgjDHGazlqXnYnSbiveWgMAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDAxNDEyXSwgIm5fcnVucyI6IFsxMjU0NV19fHwfiwgABd9nagL/7cjBCQAgEAPB+LEqwf678iMc2sLNfsIkqUbemJmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZm7eH7/ZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZu4nX3ACt0/R8UEAMA",
+  "io_chrc_period": 1003533,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/MVAU_rtl_12",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "MH": 1024,
+    "MW": 512,
+    "PE": 16,
+    "SIMD": 8,
+    "accDataType": "INT15",
+    "backend": "fpgadataflow",
+    "binaryXnorMode": 0,
+    "device_id": 0,
+    "dynamic_input": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_mode": "internal_decoupled",
+    "mem_port": "",
+    "noActivation": 1,
+    "numInputVectors": [
+     1,
+     7,
+     7
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT15",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "pumpedCompute": 0,
+    "pumpedMemory": 0,
+    "ram_style": "auto",
+    "ram_style_thresholds": "auto",
+    "resType": "dsp",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "weightDataType": "INT4"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "MVAU_rtl_12",
+   "op_type": "MVAU_rtl"
+  }
+ },
+ "MVAU_rtl_d39d78": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMiwgNDAxNDEyXSwgIm5fcnVucyI6IFszMTM3LCAxXX18fB+LCABC42dqAv/tx8EJwCAURMENwdRh/0WFlBKQD3rV8+zl7STJlbn1MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz87nfaq9+zMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMvOVWvfsz+gMgdQChKMQAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDAxNDEyXSwgIm5fcnVucyI6IFsyNTA4OV19fHwfiwgAQuNnagL/7cjBCQAgEAPB+LEKwf679CMcWsIx+wmTpBp5Y2ZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZubent+/mZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmbm1190DwD7KtRQgBgA=",
+  "io_chrc_period": 1003533,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/MVAU_rtl_5",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "MH": 256,
+    "MW": 256,
+    "PE": 32,
+    "SIMD": 8,
+    "accDataType": "INT14",
+    "backend": "fpgadataflow",
+    "binaryXnorMode": 0,
+    "device_id": 0,
+    "dynamic_input": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_mode": "internal_decoupled",
+    "mem_port": "",
+    "noActivation": 1,
+    "numInputVectors": [
+     1,
+     28,
+     28
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT14",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "pumpedCompute": 0,
+    "pumpedMemory": 0,
+    "ram_style": "auto",
+    "ram_style_thresholds": "auto",
+    "resType": "dsp",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "weightDataType": "INT4"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "MVAU_rtl_5",
+   "op_type": "MVAU_rtl"
+  }
+ },
+ "MVAU_rtl_d64081": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMiwgMjA1NF0sICJuX3J1bnMiOiBbMTI5LCAxXX18fB+LCABZ22dqAv9jYGBgYGRAAGT2KH+UP8ofmXxpNL78KH+UP8ofMXxOKM3KAaEBNCrMPSgIAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1NF0sICJuX3J1bnMiOiBbMV19fHwfiwgAWdtnagL/Y2RgYGBkgABWDggNAFlx1b8UAAAA",
+  "io_chrc_period": 5137,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/MVAU_rtl_5",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "MH": 32,
+    "MW": 96,
+    "PE": 1,
+    "SIMD": 96,
+    "accDataType": "INT13",
+    "backend": "fpgadataflow",
+    "binaryXnorMode": 0,
+    "device_id": 0,
+    "dynamic_input": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT4",
+    "mem_mode": "internal_decoupled",
+    "mem_port": "",
+    "noActivation": 1,
+    "numInputVectors": [
+     1,
+     32,
+     1
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT13",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "pumpedCompute": 0,
+    "pumpedMemory": 0,
+    "ram_style": "auto",
+    "ram_style_thresholds": "auto",
+    "resType": "auto",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "weightDataType": "INT4"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "MVAU_rtl_5",
+   "op_type": "MVAU_rtl"
+  }
+ },
+ "MVAU_rtl_dd07c6": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMiwgMjA1NF0sICJuX3J1bnMiOiBbMjA1MywgMV19fHwfiwgAXdtnagL/7cexDQAgDANBp0DK/hNTUMAIRDo3568klbv3a6211lprrbXWWmuttdZaa6211lprrbXWWmuttdZaa6211lprrbXW+u8mSZIkSZIkSZIkSZIkSZIkSZIkSZIkSZJzXH3cY3zcPGiAAAA=",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgMjA1NF0sICJuX3J1bnMiOiBbMV19fHwfiwgAXdtnagL/Y2RgYGBkgABWDggNAFlx1b8UAAAA",
+  "io_chrc_period": 5137,
+  "provenance": "rtlsim",
+  "source": "cache:vgg10/MVAU_rtl_1",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "MH": 32,
+    "MW": 96,
+    "PE": 16,
+    "SIMD": 96,
+    "accDataType": "INT13",
+    "backend": "fpgadataflow",
+    "binaryXnorMode": 0,
+    "device_id": 0,
+    "dynamic_input": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "INT4",
+    "mem_mode": "internal_decoupled",
+    "mem_port": "",
+    "noActivation": 1,
+    "numInputVectors": [
+     1,
+     512,
+     1
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT13",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "pumpedCompute": 0,
+    "pumpedMemory": 0,
+    "ram_style": "auto",
+    "ram_style_thresholds": "auto",
+    "resType": "auto",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "weightDataType": "INT4"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "MVAU_rtl_1",
+   "op_type": "MVAU_rtl"
+  }
+ },
+ "MVAU_rtl_f5d71c": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMiwgNDAxNDEyXSwgIm5fcnVucyI6IFsxOTcsIDFdfXx8H4sIADHfZ2oC/+3HwQkAIAwEwZOgX1tIpZLSFQ0o1rD32RtJKrp7P8YYY/x79NNIB8YYY7xWs+ZtdwJfqIiXaAwAAA==",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDAxNDEyXSwgIm5fcnVucyI6IFs2MjczXX18fB+LCAAx32dqAv/tyDEKACAQA8HY+GrBr9sIhz7gqtkmTJJq5I2ZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZm50/P7NzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM3Oj190DbzPeexSIAQA=",
+  "io_chrc_period": 1003533,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/MVAU_rtl_13",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "MH": 1024,
+    "MW": 1024,
+    "PE": 32,
+    "SIMD": 8,
+    "accDataType": "INT16",
+    "backend": "fpgadataflow",
+    "binaryXnorMode": 0,
+    "device_id": 0,
+    "dynamic_input": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_mode": "internal_decoupled",
+    "mem_port": "",
+    "noActivation": 1,
+    "numInputVectors": [
+     1,
+     7,
+     7
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT16",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "pumpedCompute": 0,
+    "pumpedMemory": 0,
+    "ram_style": "block",
+    "ram_style_thresholds": "auto",
+    "resType": "dsp",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "weightDataType": "INT4"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "MVAU_rtl_13",
+   "op_type": "MVAU_rtl"
+  }
+ },
+ "MVAU_rtl_f64e3d": {
+  "io_chrc_in": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMiwgNDAxNDEyXSwgIm5fcnVucyI6IFsxMjU0NSwgMV19fHwfiwgA2uRnagL/7cfBCcAgFETBFTHnlGAFIf1XJ4QPpgdnL28nSVr2/p+ZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZ+UQ/1bv6MjMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMf4lHt8/q6AG+WagwoEAMA",
+  "io_chrc_out": "eyJmbXQiOiAiZ2FwczEiLCAiZHR5cGUiOiAiaW50MzIiLCAic2hhcGUiOiBbMSwgNDAxNDEyXSwgIm5fcnVucyI6IFs1MDE3N119fHwfiwgA2uRnagL/7cgxCgAgEAPB2FgJ/v+3NsKhTzhmmzBJqpE3ZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZm7uP5/ZuZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZnbeN09tDBykRRADAA=",
+  "io_chrc_period": 1003533,
+  "provenance": "rtlsim",
+  "source": "cache:mobilenetv1/MVAU_rtl_3",
+  "spec": {
+   "attrs": {
+    "ActVal": 0,
+    "MH": 128,
+    "MW": 128,
+    "PE": 32,
+    "SIMD": 8,
+    "accDataType": "INT13",
+    "backend": "fpgadataflow",
+    "binaryXnorMode": 0,
+    "device_id": 0,
+    "dynamic_input": 0,
+    "exec_mode": "",
+    "extra_branch_fifos": [
+     0,
+     0
+    ],
+    "gen_top_module": "",
+    "inFIFODepths": [
+     2
+    ],
+    "inputDataType": "UINT4",
+    "mem_mode": "internal_decoupled",
+    "mem_port": "",
+    "noActivation": 1,
+    "numInputVectors": [
+     1,
+     56,
+     56
+    ],
+    "outFIFODepths": [
+     2
+    ],
+    "outputDataType": "INT13",
+    "output_hook": "",
+    "partition_id": 0,
+    "preferred_impl_style": "",
+    "pumpedCompute": 0,
+    "pumpedMemory": 0,
+    "ram_style": "auto",
+    "ram_style_thresholds": "auto",
+    "resType": "dsp",
+    "runtime_writeable_weights": 0,
+    "slr": -1,
+    "weightDataType": "INT4"
+   },
+   "domain": "finn.custom_op.fpgadataflow.rtl",
+   "n_inputs": 2,
+   "n_outputs": 1,
+   "name": "MVAU_rtl_3",
+   "op_type": "MVAU_rtl"
+  }
+ }
+}

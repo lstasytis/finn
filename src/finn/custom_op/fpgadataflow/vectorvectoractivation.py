@@ -41,7 +41,7 @@ from qonnx.util.basic import (
 )
 
 from finn.custom_op.fpgadataflow.hwcustomop import HWCustomOp
-from finn.util.basic import Characteristic_Node
+from finn.util.basic import Characteristic_Node, flat_characteristic_leaf
 from finn.util.data_packing import numpy_to_hls_code, pack_innermost_dim_as_hex_string
 
 
@@ -916,6 +916,37 @@ class VVAU(HWCustomOp):
         # after the feature map?
         # alternative is to construct a split of first, middle and last sf,
         # with the first having a longer read phase (sf+windup-1) and the last (sf-windup-1)
+
+        if IMPL_STYLE == "hls":
+            # The HLS VVAU reads one folded word per cycle, back to back, and
+            # emits one every SF, with a fixed five-cycle wind-up in front of
+            # both. Measured on all nine of mobilenetv1's VVAU_hls nodes -- the
+            # only VVAU_hls instances in any model here: reads start at cycle 5,
+            # the first write is at cycle SF + 4, and the recorded period is
+            # n_in + 4. The nested tree below had the shape right and the phase
+            # at zero, so every read and every write sat five cycles early.
+            #
+            # A separate flat leaf rather than another branch in the nested tree,
+            # because the wind-up sits *outside* the SF loop: expressing it
+            # structurally means special-casing the first and the last SF.
+            n_in = int(numReps) * NF * SF
+            n_out = int(numReps) * NF
+            if SF >= 1 and n_out >= 1 and n_in > 8:
+                # Period n_in + 5, not the n_in + 4 the reference reports. The
+                # recorded period is cycles_rtlsim // periods_to_simulate and
+                # rounds down; n_in + 5 is the value that puts the wind-up and
+                # every read and write on the cycle the reference has them, with
+                # no wrap-around, which is what the sizer reads. Measured: row-0
+                # error 10 -> 0 on the six nodes with PE >= 4. The three with
+                # PE <= 2 record a saturated window (period n_in + 1, no gap)
+                # and keep an error of ~8; there is no attribute that separates
+                # them beyond PE, on three points, so no rule is fitted for it.
+                period = n_in + 5
+                rd = np.zeros(period, dtype=np.int8)
+                wr = np.zeros(period, dtype=np.int8)
+                rd[5:] = 1
+                wr[(SF + 4) + SF * np.arange(n_out)] = 1
+                return flat_characteristic_leaf(rd, wr, "VVAU_hls schedule")
 
         write_out = Characteristic_Node("write out simd (1 for hls)", [(1, [1, 1])], True)
 

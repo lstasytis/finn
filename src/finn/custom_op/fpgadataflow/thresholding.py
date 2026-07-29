@@ -313,6 +313,19 @@ class Thresholding(HWCustomOp):
             else:
                 output_delay = 0
 
+        # Recorded, and deliberately NOT modelled: every one of the 91 harvested
+        # rtlsim references reports a period `e` cycles longer than the folded
+        # word count, with e = max(1, ceil(log2(numSteps + 1)) // 2) -- 1 for
+        # numSteps 1 or 3, 2 for 14 or 15, 4 for 255, no exceptions. That looks
+        # like the depth of the pipelined binary search over the threshold
+        # table. Reproducing it was tried and reverted: the reference is
+        # *saturated*, moving one token in every one of its `n + e` cycles, so
+        # it carries n + e tokens per period where the node physically has n.
+        # Adding the e idle cycles made the period match and pushed the row-0
+        # value error from 0 to e on all 91. The shape below -- period n, one
+        # token per cycle -- is exact on values and on token count, which is
+        # what the sizer's occupancy sum uses; the period is short by <= 4
+        # cycles out of 1024 to 401408.
         if total_iterations > output_delay:
             read = Characteristic_Node("read", [(output_delay, [1, 0])], True)
 
