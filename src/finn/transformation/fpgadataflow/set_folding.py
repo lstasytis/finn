@@ -28,18 +28,19 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import copy
-import time
 import functools
 
 # Inspect information on Python objects like modules
 import inspect
 import numpy as np
 import scipy
+import time
 import warnings
 from onnx import TensorProto, helper
 from qonnx.custom_op.registry import getCustomOp
 from qonnx.transformation.base import Transformation
 from qonnx.transformation.general import GiveUniqueNodeNames
+from qonnx.transformation.infer_datatypes import InferDataTypes
 from qonnx.util.basic import gen_finn_dt_tensor
 
 # Import the elementwise binary operation module to extract names of all
@@ -50,10 +51,18 @@ from finn.analysis.fpgadataflow.op_and_param_counts import aggregate_dict_keys
 from finn.builder.build_dataflow_config import DataflowBuildConfig
 from finn.transformation.fpgadataflow.annotate_cycles import AnnotateCycles
 from finn.transformation.fpgadataflow.insert_dwc import InsertDWC
+from finn.transformation.fpgadataflow.minimize_accumulator_width import (
+    MinimizeAccumulatorWidth,
+)
+from finn.transformation.fpgadataflow.minimize_weight_bit_width import (
+    MinimizeWeightBitWidth,
+)
 from finn.transformation.fpgadataflow.specialize_layers import SpecializeLayers
+from finn.transformation.streamline.round_thresholds import RoundAndClipThresholds
 from finn.util.basic import part_map
 from finn.util.fpgadataflow import is_hls_node, is_rtl_node
 from finn.util.platforms import DEFAULT_RES_LIMITS, platforms
+
 
 def divisors(num):
     for x in range(1, num + 1):
@@ -1355,8 +1364,9 @@ def insert_and_size_fifos(
     performed using tree-based TAV generation. Otherwise,
     it will take an extremely long amount of time.
     """
-    from finn.builder.build_dataflow_steps import step_set_fifo_depths
-    from finn.transformation.streamline.round_thresholds import RoundAndClipThresholds
+    # deferred: build_dataflow_steps imports SetFolding, so a top-level import
+    # here would be circular
+    from finn.builder.build_dataflow_steps import step_set_fifo_depths  # noqa: PLC0415
 
     if not consider_dwc_costs:
         model = model.transform(InsertDWC())
@@ -1372,7 +1382,9 @@ def insert_and_size_fifos(
     # TAV knobs only exist on trees that carry the analytic FIFO sizer.
     tav_kwargs = {}
     try:
-        from finn.builder.build_dataflow_config import (
+        # deferred on purpose: these enums only exist on trees that carry the
+        # analytic FIFO sizer, so this is a feature probe rather than a dependency
+        from finn.builder.build_dataflow_config import (  # noqa: PLC0415
             TAVGenerationMethod,
             TAVUtilizationMethod,
         )
@@ -1725,16 +1737,7 @@ class SetFolding(Transformation):
         Used for the *verdict* only, not inside the search loop, so it costs one
         extra pass per SetFolding call rather than one per candidate.
         """
-        from finn.transformation.fpgadataflow.minimize_accumulator_width import (
-            MinimizeAccumulatorWidth,
-        )
-        from finn.transformation.fpgadataflow.minimize_weight_bit_width import (
-            MinimizeWeightBitWidth,
-        )
-        from qonnx.transformation.general import GiveUniqueNodeNames as _GUNN
-        from qonnx.transformation.infer_datatypes import InferDataTypes
-
-        m = copy.deepcopy(model).transform(_GUNN())
+        m = copy.deepcopy(model).transform(GiveUniqueNodeNames())
         m = m.transform(MinimizeWeightBitWidth())
         m = m.transform(MinimizeAccumulatorWidth())
         m = m.transform(InferDataTypes())
@@ -1759,7 +1762,9 @@ class SetFolding(Transformation):
         fastest_cycles = self._probe_fastest_throughput(model)
         budgets = self._resource_budgets()
 
-        attempts = max(self.max_attempts, self.MAXIMIZE_SEARCH_STEPS) if maximize else self.max_attempts
+        attempts = (
+            max(self.max_attempts, self.MAXIMIZE_SEARCH_STEPS) if maximize else self.max_attempts
+        )
 
         # max_cycles is a placeholder here; _fold_at sets it per candidate target
         targets = {"max_cycles": fastest_cycles, **budgets}
@@ -1839,7 +1844,12 @@ class SetFolding(Transformation):
                 opt_template, targets, self.target_cycles_per_frame
             )
             self._record_search_result(
-                fits, metrics, targets, achieved, feasible_found=fits, searched=False,
+                fits,
+                metrics,
+                targets,
+                achieved,
+                feasible_found=fits,
+                searched=False,
                 as_built=self._as_built_if_useful(model, metrics, targets),
             )
             return model
@@ -1856,9 +1866,7 @@ class SetFolding(Transformation):
         best = None  # (achieved_cycles, model, metrics) -- verified feasible
         fallback = None  # (achieved_cycles, model, metrics) at the slow end
         infeasible_below = None  # fastest probed target known NOT to fit
-        deadline = (
-            None if self.search_timeout_s is None else time.time() + self.search_timeout_s
-        )
+        deadline = None if self.search_timeout_s is None else time.time() + self.search_timeout_s
         self._search_truncated = False
 
         def out_of_time():
@@ -1907,7 +1915,11 @@ class SetFolding(Transformation):
 
         if best is not None:
             self._record_search_result(
-                True, best[2], targets, best[0], feasible_found=True,
+                True,
+                best[2],
+                targets,
+                best[0],
+                feasible_found=True,
                 as_built=self._as_built_if_useful(best[1], best[2], targets),
             )
             return best[1]
@@ -1916,13 +1928,23 @@ class SetFolding(Transformation):
         # we saw, but say so loudly -- this is not a solution to the problem
         # that was asked.
         self._record_search_result(
-            False, fallback[2], targets, fallback[0], feasible_found=False,
+            False,
+            fallback[2],
+            targets,
+            fallback[0],
+            feasible_found=False,
             as_built=self._as_built_if_useful(fallback[1], fallback[2], targets),
         )
         return fallback[1]
 
     def _record_search_result(
-        self, fits, metrics, targets, achieved_cycles, feasible_found, searched=True,
+        self,
+        fits,
+        metrics,
+        targets,
+        achieved_cycles,
+        feasible_found,
+        searched=True,
         as_built=None,
     ):
         """Publish the budget verdict instead of leaving the caller to guess.
