@@ -219,6 +219,7 @@ def test_experiment_knobs_default_to_the_shipped_behaviour():
     assert D.CHAINED_TAV_FLOOR_RATE == "graph"
     assert D.CHAINED_TAV_SMALL_PEAK == 0.0
     assert D.CHAINED_TAV_FRAMES == "both"
+    assert D.CHAINED_TAV_CAP_GUARD == "down_chain"
     # and the shipped three, which older log entries quote by value
     assert D.CHAINED_TAV_SLACK_RELAXATION == 1.0
     assert D.CHAINED_TAV_FLOOR == "burst"

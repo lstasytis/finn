@@ -1430,6 +1430,7 @@ def derive_chained_tav_depths(
     floor_rate="graph",
     small_peak=0.0,
     frames="both",
+    cap_guard="down_chain",
 ):
     """Per-edge FIFO depths from token arrival times on the dataflow DAG.
 
@@ -1765,11 +1766,22 @@ def derive_chained_tav_depths(
                 floor = _longest_read_run(read_times)
             floor = min(peak, floor)
         capped = False
+        #: What has to be true for the cap's trade -- less depth, more producer
+        #: blocking -- to be free. ``down_chain`` is the shipped test: the
+        #: producer's segment must be the slacker of the two. ``pacer`` is the
+        #: narrower and, on every board-measured edge, the correct one: the
+        #: producer must simply be blockable at all, i.e. its chain must not run
+        #: at the pacer's period. See ``CHAINED_TAV_CAP_GUARD``.
+        guard = (
+            t_up < pacer_period
+            if cap_guard == "pacer"
+            else t_up <= down_chain.get(consumer, global_period)
+        )
         if (
             throttled_cap
             and consumer is not None
             and not drives_pacer.get(consumer, True)
-            and t_up <= down_chain.get(consumer, global_period)
+            and guard
         ):
             # The cap says a throttleable consumer needs only short-timescale
             # smoothing. It bounds the *floor*, not the slack result: if the
@@ -1994,6 +2006,23 @@ class DeriveFIFOSizes(Transformation):
     #: rejected as a global rule -- costs mobilenetv1 30.5% (sizing-log 47).
     CHAINED_TAV_SMALL_PEAK = 0.0
 
+    #: What the throttled cap requires of the producer before it will fire.
+    #:
+    #: ``down_chain`` (shipped) demands ``t_up <= down_chain[consumer]`` -- the
+    #: producer's segment must have at least as much slack as the consumer's. It
+    #: was introduced for tr-vision's ``Reshape_rtl_2 -> ConvolutionInputGenerator_rtl_1``
+    #: on the reading that its producer sits "at 0.80 of the pacer". The trace
+    #: says otherwise: that producer's chain period is 65544 against a pacer
+    #: period of 65540, i.e. it *is* the pacer, and what actually protects the
+    #: edge is that a pacer-rate producer cannot be blocked at all.
+    #:
+    #: ``pacer`` is that narrower condition, ``t_up < pacer_period``. Capping
+    #: trades depth for producer blocking, so the thing that has to hold is that
+    #: the producer can be blocked -- not that it is slacker than its consumer.
+    #: The two differ on exactly the edges where both sides have slack, which is
+    #: where mobilenetv1 keeps 8.65 kB it does not need.
+    CHAINED_TAV_CAP_GUARD = "down_chain"
+
     #: Which of a token access vector's two stored frames the chain-edge peak is
     #: taken from. ``both`` (shipped) takes the larger, ``True`` being the same
     #: thing; ``False`` the fill frame alone, which is what join and
@@ -2065,6 +2094,7 @@ class DeriveFIFOSizes(Transformation):
                 floor_rate=self.CHAINED_TAV_FLOOR_RATE,
                 small_peak=self.CHAINED_TAV_SMALL_PEAK,
                 frames=self.CHAINED_TAV_FRAMES,
+                cap_guard=self.CHAINED_TAV_CAP_GUARD,
             )
             phased = derive_chained_tav_depths(
                 model, causal=False, trace=self.chained_tav_trace, **common
