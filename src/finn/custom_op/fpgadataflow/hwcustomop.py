@@ -366,154 +366,38 @@ class HWCustomOp(CustomOp):
         chr_node = self.get_tree_model()
         top_level_phase = chr_node
 
-        # Fast path: the schedule is a run-length structure, so both periods can
-        # be produced with one np.repeat and one cumsum instead of one Python
-        # loop iteration per cycle. Bit-identical to the traversal below (that
-        # equivalence is asserted for every stored reference by
-        # tests/fpgadataflow/test_tav_tree_models.py), and it is what makes a
-        # 400k-cycle period cost milliseconds rather than a second. Only the op
-        # types that still take a micro-buffer correction need the list form.
-        needs_correction = ("FMPadding" in self.onnx_node.name) or (
-            "Pool" in self.onnx_node.name and "_rtl" in self.__class__.__name__
-        ) or (
-            "StreamingDataWidthConverter" in self.onnx_node.name
-            and "_rtl" not in self.__class__.__name__
-        )
-        if not needs_correction:
-            cum = chr_node.cumulative(periods=2)
-            period = cum.shape[0] // 2
-            self.set_nodeattr("io_chrc_period", period)
-            for name, col in (("io_chrc_in", 0), ("io_chrc_out", 1)):
-                arr = np.empty((1, cum.shape[0]), dtype=np.int32)
-                arr[0, :] = cum[:, col]
-                path = save_tav_npy(self, name, arr)
-                self.set_nodeattr(name, path)
-                self.set_nodeattr(name + "_original", path)
-            return
-
-        period, in_clocks, _ = chr_node.get_total_cycles(0)
-
+        # The schedule is a run-length structure, so both periods are produced
+        # with one np.repeat and one cumsum rather than one Python loop
+        # iteration per cycle -- which is what makes a 400k-cycle period cost
+        # milliseconds rather than a second. Equivalence with the phase-tree
+        # traversal is asserted for every stored reference by
+        # tests/fpgadataflow/test_tav_tree_models.py.
+        #
+        # There is deliberately no micro-buffer correction here any more. It
+        # existed because a node can buffer its first one or two inputs before
+        # it starts properly consuming, and that "is extremely difficult to
+        # model in a characterization tree" -- so the shift was applied to
+        # FMPadding, Pool, MVAU and the DWCs after the fact. The tree models now
+        # express that wind-up themselves, and the two together double-counted:
+        # the correction adds a read at the head and deducts one from the tail,
+        # so a node that already modelled its own wind-up delivered one token
+        # per period fewer than it consumed. 96 of 165 harvested DWC references
+        # had the wrong token count for that reason alone, and the sizer's
+        # steady-state occupancy accumulates that deficit every frame.
+        #
+        # Trees alone, therefore. If a tree model is ever reverted to a shape
+        # without its own wind-up, fix the tree -- do not reintroduce a
+        # post-hoc shift that no longer knows what the tree already did.
+        cum = chr_node.cumulative(periods=2)
+        period = cum.shape[0] // 2
         self.set_nodeattr("io_chrc_period", period)
-
-        txn_in = []
-        txn_out = []
-        counter = 0
-
-        # first period
-        cycles = 0
-
-        counter, cycles, txn_in = top_level_phase.traverse_phase_tree(0, counter, cycles, txn_in)
-
-        def apply_micro_buffer_correction(start, txn_in, period):
-            """There are cases where a node can buffer up the very first 1-2 inputs
-            immediately, even if it has not started properly consuming inputs yet
-            This behavior is extremely difficult to model in a characterization tree
-            and so we perform a manual correction by incrementing the number of
-            inputs read by 1 and detracting 1 read from the tail of the period
-
-            Which node types & configurations this applies for is yet to be
-            fully determined, but the corrections should happen here.
-            This correction is not critical for buffer sizing, as it will only
-            lead to two extra fifos in the absolute worst case, which should be very
-            rare regardless. However it is necessary if attempting to perfectly model
-            the rtlsim result."""
-
-            buffer = 0
-
-            if "FMPadding" in self.onnx_node.name:
-                if "_rtl" in (self.__class__.__name__):
-                    buffer = 1
-                else:
-                    buffer = 2
-
-            if "StreamingDataWidthConverter" in self.onnx_node.name:
-                if "_rtl" in (self.__class__.__name__):
-                    # No correction: the RTL DWC tree model now emits its own
-                    # one-cycle wind-up. Applying this on top of it added a
-                    # second read in the first cycle and deducted one from the
-                    # tail, so the node delivered one token per period fewer
-                    # than it consumes -- 96 of 165 harvested references had the
-                    # wrong token count for that reason alone, and the sizer's
-                    # steady-state occupancy accumulates a per-frame deficit.
-                    # Restore the shift if the DWC tree model is reverted.
-                    buffer = 0
-                else:
-                    buffer = 2
-
-            if "Pool" in self.onnx_node.name:
-                if "_rtl" in (self.__class__.__name__):
-                    buffer = 1
-                else:
-                    # No correction: the Pool_hls tree model now emits its own
-                    # one-cycle wind-up. On top of it the shift deducted a read
-                    # from the tail of every period, so the node consumed one
-                    # token per frame fewer than it is given -- caught by the
-                    # token-count invariant in
-                    # tests/fpgadataflow/test_tav_tree_models.py.
-                    buffer = 0
-
-            if buffer > 0:
-                # buffering does not happen in nodes with short wind-ups
-                if period < 14:
-                    return txn_in
-
-                # main routine
-                if buffer == 2:
-                    if txn_in[start + 1] - txn_in[start] >= 1:
-                        buffer = 1
-                    else:
-                        txn_in[start + 1] += 1
-
-                idx = start + buffer
-                while idx < len(txn_in):
-                    if txn_in[idx] - txn_in[idx - 1] < buffer:
-                        txn_in[idx] += buffer
-                    idx += 1
-
-                idx = len(txn_in) - 1
-                last = txn_in[idx]
-
-                # deduct 1 read from the tail
-                while last == txn_in[idx]:
-                    txn_in[idx] -= buffer
-                    idx -= 1
-
-                # one extra element to deduct in case of 2 buffers
-                if buffer == 2:
-                    txn_in[idx] -= 1
-
-            return txn_in
-
-        txn_in = apply_micro_buffer_correction(0, txn_in, period)
-
-        # second period
-        cycles = len(txn_in)
-
-        counter, cycles, txn_in = top_level_phase.traverse_phase_tree(0, counter, cycles, txn_in)
-        txn_in = apply_micro_buffer_correction(period, txn_in, period)
-
-        # final assignments
-
-        all_txns_in = np.empty((len(txns_in.keys()), cycles), dtype=np.int32)
-        all_txns_in[0, :] = np.array(txn_in[:])
-        tav_path_in = save_tav_npy(self, "io_chrc_in", all_txns_in)
-        self.set_nodeattr("io_chrc_in", tav_path_in)
-        self.set_nodeattr("io_chrc_in_original", tav_path_in)
-
-        counter = 0
-        cycles = 0
-
-        counter, cycles, txn_out = top_level_phase.traverse_phase_tree(1, counter, cycles, txn_out)
-
-        cycles = period
-
-        counter, cycles, txn_out = top_level_phase.traverse_phase_tree(1, counter, cycles, txn_out)
-
-        all_txns_out = np.empty((len(txns_out.keys()), cycles), dtype=np.int32)
-        all_txns_out[0, :] = np.array(txn_out[:])
-        tav_path_out = save_tav_npy(self, "io_chrc_out", all_txns_out)
-        self.set_nodeattr("io_chrc_out", tav_path_out)
-        self.set_nodeattr("io_chrc_out_original", tav_path_out)
+        for name, col in (("io_chrc_in", 0), ("io_chrc_out", 1)):
+            arr = np.empty((1, cum.shape[0]), dtype=np.int32)
+            arr[0, :] = cum[:, col]
+            path = save_tav_npy(self, name, arr)
+            self.set_nodeattr(name, path)
+            self.set_nodeattr(name + "_original", path)
+        return
 
     def generate_hdl_memstream(self, fpgapart, pumped_memory=0):
         """Helper function to generate verilog code for memstream component.
