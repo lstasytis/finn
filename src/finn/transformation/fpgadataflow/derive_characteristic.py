@@ -1259,12 +1259,13 @@ def _peak_occupancy_periodic(write_times, read_times, period, per_frame=0, both_
     # quantity that matters there -- so measuring it alone loses nothing on
     # those edges and is verified on the board not to.
     if per_frame and 2 * per_frame <= n:
+        fill = _peak_occupancy_periodic(w[:per_frame], r[:per_frame], period)
         if not both_frames:
-            return _peak_occupancy_periodic(w[:per_frame], r[:per_frame], period)
-        return max(
-            _peak_occupancy_periodic(w[:per_frame], r[:per_frame], period),
-            _peak_occupancy_periodic(w[n - per_frame : n], r[n - per_frame : n], period),
-        )
+            return fill
+        steady = _peak_occupancy_periodic(w[n - per_frame : n], r[n - per_frame : n], period)
+        if both_frames == "steady":
+            return steady
+        return max(fill, steady)
     lo = int(min(w[0], r[0]))
     hi = int(max(w[-1], r[-1]))
     # how many periods of history can still be in flight
@@ -1409,6 +1410,13 @@ def _warn_if_streams_differ(model, node):
             )
 
 
+#: Diagnostics opt-in: when true the per-edge trace also carries the raw
+#: (write, read, native-read) schedules the depth was derived from, so an
+#: experiment can test a candidate rule against real schedules instead of
+#: against summary statistics. Off by default -- these are per-token arrays.
+_TRACE_SCHEDULES = False
+
+
 def derive_chained_tav_depths(
     model,
     global_period=None,
@@ -1417,6 +1425,11 @@ def derive_chained_tav_depths(
     throttled_cap=256,
     causal=True,
     trace=None,
+    slack_side="chain",
+    slack_scale=1.0,
+    floor_rate="graph",
+    small_peak=0.0,
+    frames="both",
 ):
     """Per-edge FIFO depths from token arrival times on the dataflow DAG.
 
@@ -1636,7 +1649,40 @@ def derive_chained_tav_depths(
             want = min(want, throttled_cap)
         return want
 
-    def relaxed(tensor, peak, read_times=None, consumer=None, join=False, burst_floor=0):
+    def _supply_deficit(write_times, read_times, local_reads, hold=0):
+        """Tokens the consumer must find already buffered to never wait.
+
+        ``read_times`` is the *stretched* schedule the arrival propagation
+        produced: every read has already been pushed back to whenever its token
+        turned up, so on that schedule the buffer is never short by
+        construction. The consumer's own token access vector says when it *wants*
+        each token -- ``local_reads``, its native offsets -- and anchoring that
+        pattern at the earliest feasible frame start gives the demand curve the
+        supply actually has to meet.
+
+        The deficit is then the largest gap between that demand and the arrivals,
+
+            max over j of  j - #{writes at or before r0 + local(j) - local(1) + hold}
+
+        which is the same running-maximum the peak occupancy is, with the roles
+        of the two schedules exchanged. Unlike ``_burst_above_rate`` it needs no
+        rate line: it compares the consumer against the producer's real arrival
+        times rather than against the graph's frame average, which on an
+        ``FMPadding -> ConvolutionInputGenerator`` edge is two orders of
+        magnitude apart.
+
+        ``hold`` is how long the consumer may be started late -- its own slack.
+        A consumer nothing at the pacer's period depends on can simply begin its
+        frame later instead of buffering the head of it.
+        """
+        if write_times is None or local_reads is None or len(local_reads) == 0:
+            return 0
+        demand = read_times[0] + (local_reads - local_reads[0]) + int(hold)
+        supplied = np.searchsorted(write_times, demand, side="right")
+        return int(max(0, np.max(np.arange(1, len(local_reads) + 1) - supplied)))
+
+    def relaxed(tensor, peak, read_times=None, consumer=None, join=False, burst_floor=0,
+                write_times=None, local_reads=None):
         if slack_relaxation <= 0 or tensor not in supply or join:
             # ``join``: an edge feeding a node with more than one dynamic input is
             # never relaxed. Every term the relaxation trades away assumes the
@@ -1675,15 +1721,44 @@ def derive_chained_tav_depths(
         # (32451). Taking the consumer's side allowed 9894 tokens away from a
         # peak of 3132, leaving the throttled floor of 256 where the board needs
         # 3201 -- and that one edge was the whole of tr-vision's +15.7%.
+        t_down = down_chain.get(consumer, global_period)
         t_side = t_up
-        if t_up < pacer_period:
-            t_side = min(t_up, down_chain.get(consumer, global_period))
+        if slack_side == "down":
+            #: The relaxation depends on the *consumer's* segment only. Reducing
+            #: an edge below its peak makes the producer block, and what that
+            #: costs is paid by the consumer, which finds its tokens arriving
+            #: late; the budget for that is the consumer's own slack. See
+            #: ``CHAINED_TAV_SLACK_SIDE``.
+            t_side = t_down
+        elif slack_side == "max":
+            t_side = max(t_up, t_down)
+        elif t_up < pacer_period:
+            t_side = min(t_up, t_down)
+        t_side *= slack_scale
         allowance = per_frame * (1.0 - min(t_side, global_period) / float(global_period))
         after_slack = int(round(peak - slack_relaxation * allowance))
+        #: The rate the burst floor charges demand against. ``graph`` is the
+        #: edge's frame average, ``supply`` the producer's native rate (it
+        #: delivers ``per_frame`` tokens in ``t_up`` cycles, then idles), and
+        #: ``deficit`` abandons the rate line altogether for the producer's
+        #: measured arrival times.
+        rate = per_frame / float(global_period)
+        if floor_rate == "supply":
+            rate = per_frame / float(max(t_up, 1))
+        cons_period = (
+            len(tavs[consumer][0]) // 2
+            if consumer in tavs and tavs[consumer][0] is not None
+            else global_period
+        )
         floor = 0
         if read_times is not None and floor_mode != "none":
             if floor_mode == "burst":
-                floor = _burst_above_rate(read_times, per_frame / float(global_period))
+                floor = _burst_above_rate(read_times, rate)
+            elif floor_mode == "deficit":
+                hold = max(0, global_period - t_down) if not drives_pacer.get(
+                    consumer, True
+                ) else 0
+                floor = _supply_deficit(write_times, read_times, local_reads, hold)
             elif floor_mode.startswith("const:"):
                 floor = int(floor_mode.split(":", 1)[1])
             else:
@@ -1713,6 +1788,8 @@ def derive_chained_tav_depths(
             floor = min(floor, throttled_cap)
             capped = True
         depth = max(after_slack, floor)
+        if small_peak and peak < small_peak * per_frame and not capped:
+            depth = 0
         _record(
             tensor=tensor, consumer=consumer, peak=int(peak), per_frame=int(per_frame),
             t_up=int(t_up), allowance=round(allowance, 1), after_slack=after_slack,
@@ -1720,11 +1797,19 @@ def derive_chained_tav_depths(
             if read_times is not None else 0,
             burst=int(_burst_above_rate(read_times, per_frame / float(global_period)))
             if read_times is not None else 0,
+            burst_supply=int(_burst_above_rate(read_times, per_frame / float(max(t_up, 1))))
+            if read_times is not None else 0,
+            deficit=_supply_deficit(write_times, read_times, local_reads, 0)
+            if read_times is not None else 0,
+            deficit_slack=_supply_deficit(
+                write_times, read_times, local_reads, max(0, global_period - t_down)
+            ) if read_times is not None else 0,
             cons_period=int(len(tavs[consumer][0]) // 2)
             if consumer in tavs and tavs[consumer][0] is not None else 0,
             down_chain=int(down_chain.get(consumer, 0)),
             drives_pacer=bool(drives_pacer.get(consumer, True)),
             depth=int(depth),
+            schedules=(write_times, read_times, local_reads) if _TRACE_SCHEDULES else None,
         )
         return depth
 
@@ -1754,7 +1839,9 @@ def derive_chained_tav_depths(
                 if t in arrival and read_sched is not None:
                     peak = _peak_occupancy_periodic(
                         arrival[t], read_sched, global_period, supply.get(t, (0,))[0],
-                        both_frames=not (is_join or node.name in in_branch),
+                        both_frames=False
+                        if (is_join or node.name in in_branch)
+                        else frames,
                     )
                     depths[t] = relaxed(
                         t,
@@ -1762,6 +1849,8 @@ def derive_chained_tav_depths(
                         read_sched,
                         node.name,
                         join=is_join or node.name in in_branch,
+                        write_times=arrival[t],
+                        local_reads=None,  # a transparent node has no schedule
                     )
             for t in node.output:
                 if out_sched is not None:
@@ -1809,9 +1898,15 @@ def derive_chained_tav_depths(
             read_times = _times(curve_t)
             curve = in_curves[t]
             n_frame = int(curve[len(curve) // 2 - 1]) if len(curve) >= 2 else 0
+            #: where the consumer *wants* each token, on its own unstretched
+            #: clock -- the demand curve ``read_times`` is the stretched image of
+            local_reads = np.minimum(
+                np.searchsorted(curve_t, np.arange(1, int(curve_t[-1]) + 1), side="left"),
+                span - 1,
+            )
             peak = _peak_occupancy_periodic(
                 sched, read_times, global_period, n_frame,
-                both_frames=not (is_join or node.name in in_branch),
+                both_frames=False if (is_join or node.name in in_branch) else frames,
             )
             depths[t] = relaxed(
                 t,
@@ -1820,6 +1915,8 @@ def derive_chained_tav_depths(
                 node.name,
                 join=is_join or node.name in in_branch,
                 burst_floor=idle_window_floor(t, curve, node.name),
+                write_times=sched,
+                local_reads=local_reads,
             )
 
         t_up, t_prop = chain_period(node, tin)
@@ -1876,6 +1973,32 @@ class DeriveFIFOSizes(Transformation):
     #: FIFO stops fitting in SRLs, and is also the measured knee: 128 costs
     #: cnv-w2a2 2.8%, 512 costs mobilenetv1 6.8 kB.
     CHAINED_TAV_THROTTLED_CAP = 256
+
+    #: Which side's slack the relaxation spends. ``chain`` is the shipped rule,
+    #: ``min(t_up, down_chain)`` where the producer has slack of its own;
+    #: ``down`` uses the consumer's segment alone and ``max`` the slower of the
+    #: two. Back-solving the allowance from board-measured per-edge minimums
+    #: says ``t_up`` should not appear -- see docs/fifo-sizing-workbench.md 6.2.
+    CHAINED_TAV_SLACK_SIDE = "chain"
+
+    #: Multiplier on whatever period the relaxation charges. An experiment knob:
+    #: 1.0 is the shipped behaviour and anything else is a fitted constant, which
+    #: is what this sizer is not allowed to ship.
+    CHAINED_TAV_SLACK_SCALE = 1.0
+
+    #: Rate reference for the burst floor: ``graph`` (the frame average, shipped)
+    #: or ``supply`` (the producer's native rate).
+    CHAINED_TAV_FLOOR_RATE = "graph"
+
+    #: Zero any edge whose peak is below this fraction of a frame. Measured and
+    #: rejected as a global rule -- costs mobilenetv1 30.5% (sizing-log 47).
+    CHAINED_TAV_SMALL_PEAK = 0.0
+
+    #: Which of a token access vector's two stored frames the chain-edge peak is
+    #: taken from. ``both`` (shipped) takes the larger, ``True`` being the same
+    #: thing; ``False`` the fill frame alone, which is what join and
+    #: reconvergent-branch edges always get; ``steady`` the second frame alone.
+    CHAINED_TAV_FRAMES = "both"
 
     def __init__(
         self,
@@ -1937,6 +2060,11 @@ class DeriveFIFOSizes(Transformation):
                 slack_relaxation=self.CHAINED_TAV_SLACK_RELAXATION,
                 floor_mode=self.CHAINED_TAV_FLOOR,
                 throttled_cap=self.CHAINED_TAV_THROTTLED_CAP,
+                slack_side=self.CHAINED_TAV_SLACK_SIDE,
+                slack_scale=self.CHAINED_TAV_SLACK_SCALE,
+                floor_rate=self.CHAINED_TAV_FLOOR_RATE,
+                small_peak=self.CHAINED_TAV_SMALL_PEAK,
+                frames=self.CHAINED_TAV_FRAMES,
             )
             phased = derive_chained_tav_depths(
                 model, causal=False, trace=self.chained_tav_trace, **common

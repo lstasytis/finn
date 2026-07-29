@@ -202,3 +202,48 @@ def test_stream_curves_binds_every_output_row():
     _, out_curves, bound = _stream_curves(node, inst, rows_in, rows_out)
     assert bound
     assert [out_curves["o%d" % i][1] for i in range(4)] == [1, 2, 3, 4]
+
+
+def test_experiment_knobs_default_to_the_shipped_behaviour():
+    """Every ``CHAINED_TAV_*`` experiment knob must be a no-op out of the box.
+
+    They exist so a sweep can subclass ``DeriveFIFOSizes`` and so the numbers in
+    the sizing log are reproducible, not so anybody's build drifts. A knob whose
+    default silently changed the pass would invalidate every board measurement
+    recorded against it, and that is exactly the failure this asserts away.
+    """
+    from finn.transformation.fpgadataflow.derive_characteristic import DeriveFIFOSizes as D
+
+    assert D.CHAINED_TAV_SLACK_SIDE == "chain"
+    assert D.CHAINED_TAV_SLACK_SCALE == 1.0
+    assert D.CHAINED_TAV_FLOOR_RATE == "graph"
+    assert D.CHAINED_TAV_SMALL_PEAK == 0.0
+    assert D.CHAINED_TAV_FRAMES == "both"
+    # and the shipped three, which older log entries quote by value
+    assert D.CHAINED_TAV_SLACK_RELAXATION == 1.0
+    assert D.CHAINED_TAV_FLOOR == "burst"
+    assert D.CHAINED_TAV_THROTTLED_CAP == 256
+
+
+def test_peak_occupancy_frames_selects_the_stored_frame():
+    """``frames`` picks which of a TAV's two stored frames the peak comes from.
+
+    Frame 0 is the one that fills the pipeline and frame 1 the first fully
+    pipelined one; the shipped rule takes the larger. Build a two-frame edge
+    whose run-ahead exists only in the second frame and check all three
+    selections see what they should.
+    """
+    from finn.transformation.fpgadataflow.derive_characteristic import (
+        _peak_occupancy_periodic,
+    )
+
+    period = 100
+    # frame 0: writes and reads interleave, occupancy 1. frame 1: the producer
+    # delivers all four up front, so occupancy reaches 4.
+    w = np.array([0, 25, 50, 75, 100, 101, 102, 103])
+    r = np.array([1, 26, 51, 76, 180, 181, 182, 183])
+    fill = _peak_occupancy_periodic(w, r, period, per_frame=4, both_frames=False)
+    steady = _peak_occupancy_periodic(w, r, period, per_frame=4, both_frames="steady")
+    both = _peak_occupancy_periodic(w, r, period, per_frame=4, both_frames=True)
+    assert steady > fill
+    assert both == max(fill, steady)
