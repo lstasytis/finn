@@ -55,6 +55,10 @@ from finn.util.basic import part_map
 from finn.util.fpgadataflow import is_hls_node, is_rtl_node
 from finn.util.platforms import DEFAULT_RES_LIMITS, platforms
 
+# The folders SetFolding can dispatch to. Also the accepted values of the build
+# config's `folding_style`; keep the two in step.
+STYLES = ("optimizer", "naive")
+
 # --- simulated-annealing / cost-model defaults (dual_annealing driver) ---
 # scipy dual_annealing global iteration cap (maxfun = effort*N is usually binding first)
 SA_MAXITER = 200
@@ -963,6 +967,55 @@ class Optimizer:
     # ------------------------------------------------------------------
     # Generic node: fold whichever of PE / SIMD the node declares
     # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Parameter construction. Every rule below builds the same two objects, and
+    # spelling out a ten-keyword constructor each time buried what actually
+    # differs between the rules in boilerplate. These two helpers hold the
+    # invariants -- the model, and the fact that a folding change on a
+    # weight-bearing layer must reshape its weight/threshold tensors -- so each
+    # rule reads as the rule and nothing else.
+    # ------------------------------------------------------------------
+
+    def _param(
+        self,
+        name,
+        attr,
+        value,
+        node,
+        node_index,
+        op_type,
+        bound_name=None,
+        bound_value=None,
+        update_weights=False,
+        update_thresholds=False,
+        reshapes_io=True,
+    ):
+        return Parameter(
+            name=name,
+            target_value_name=attr,
+            target_value=value,
+            bound_name=bound_name,
+            bound_value=bound_value,
+            update_threshold_input=update_thresholds,
+            update_weights_input=update_weights,
+            update_input_tensor_shape=reshapes_io,
+            update_output_tensor_shape=reshapes_io,
+            node=node,
+            node_index=node_index,
+            op_type=op_type,
+            model=self.model,
+        )
+
+    def _meta(self, name, values, real_values, node_index):
+        return MetaParameter(
+            name=name,
+            meta_value=values[0],
+            possible_values=list(values),
+            real_values=real_values,
+            model=self.model,
+            node_index=node_index,
+        )
+
     def _extract_node(self, node, node_index, max_padding):
         inst = getCustomOp(node)
         op_type = node.op_type
@@ -1016,30 +1069,22 @@ class Optimizer:
             kept_values.append(value)
             real_values.append(
                 [
-                    Parameter(
-                        name=f"{op_type}_{param}",
-                        target_value_name=param,
-                        target_value=value,
+                    self._param(
+                        f"{op_type}_{param}",
+                        param,
+                        value,
+                        inst,
+                        node_index,
+                        op_type,
                         bound_name=bound_attr,
                         bound_value=bounding_value,
-                        update_threshold_input=update_thresholds,
-                        update_weights_input=update_weights,
-                        node=inst,
-                        node_index=node_index,
-                        op_type=op_type,
-                        model=self.model,
+                        update_weights=update_weights,
+                        update_thresholds=update_thresholds,
                     )
                 ]
             )
 
-        return MetaParameter(
-            name=param,
-            meta_value=kept_values[0],
-            possible_values=kept_values,
-            real_values=real_values,
-            model=self.model,
-            node_index=node_index,
-        )
+        return self._meta(param, kept_values, real_values, node_index)
 
     def _make_resource_type_meta(self, inst, node_index, op_type, param):
         """Build the MetaParameter that lets the optimizer pick a node's
@@ -1062,30 +1107,10 @@ class Optimizer:
         if not self._estimator_distinguishes(inst, param, allowed):
             return None
         real_values = [
-            [
-                Parameter(
-                    name=param,
-                    target_value_name=param,
-                    target_value=choice,
-                    bound_name=None,
-                    node=inst,
-                    node_index=node_index,
-                    op_type=op_type,
-                    model=self.model,
-                    update_input_tensor_shape=False,
-                    update_output_tensor_shape=False,
-                )
-            ]
+            [self._param(param, param, choice, inst, node_index, op_type, reshapes_io=False)]
             for choice in allowed
         ]
-        return MetaParameter(
-            name=param,
-            meta_value=allowed[0],
-            possible_values=allowed,
-            real_values=real_values,
-            model=self.model,
-            node_index=node_index,
-        )
+        return self._meta(param, allowed, real_values, node_index)
 
     def _estimator_distinguishes(self, inst, param, allowed):
         """Whether node_res_estimation reacts to ``param`` for this node, i.e. at
@@ -1143,48 +1168,59 @@ class Optimizer:
         simd_values, ifm_values = allowed_divisors(ifm_channels, 1, max_padding)
         return list(simd_values), list(ifm_values), kernel_size
 
+    def _swg_params(self, swg, swg_node, node_index, simd, ifm_channels, parallel_window=None):
+        """The SWG side of every pairing rule: its SIMD, bounded by the (possibly
+        padded) channel count, and -- for the MVAU/VVAU rules -- whether it emits
+        the whole kernel window at once. Order matters: the consumer's parameters
+        are appended after these."""
+        params = [
+            self._param(
+                "SWU_SIMD",
+                "SIMD",
+                simd,
+                swg,
+                node_index,
+                swg_node.op_type,
+                bound_name="IFMChannels",
+                bound_value=ifm_channels,
+            )
+        ]
+        if parallel_window is not None:
+            params.append(
+                self._param(
+                    "SWU_parallel_window",
+                    "parallel_window",
+                    parallel_window,
+                    swg,
+                    node_index,
+                    swg_node.op_type,
+                )
+            )
+        return params
+
     def _pair_swg_with_pool(self, swg, swg_node, pool, pool_node, node_index, max_padding):
         """SWG -> Pool (max pooling): SWG SIMD and Pool PE move together and share
         the same (padded) channel count."""
         assert swg.get_nodeattr("depthwise") == 1
         simd_values, ifm_values, _ = self._swg_simd_choices(swg, max_padding)
 
-        real_values = []
-        for simd, ifm_channels in zip(simd_values, ifm_values):
-            swg_simd = Parameter(
-                name="SWU_SIMD",
-                target_value_name="SIMD",
-                target_value=simd,
-                bound_name="IFMChannels",
-                bound_value=ifm_channels,
-                node=swg,
-                node_index=node_index,
-                op_type=swg_node.op_type,
-                model=self.model,
-            )
-            pool_pe = Parameter(
-                name="Pool_PE",
-                target_value_name="PE",
-                target_value=simd,
-                bound_name="Channels",
-                bound_value=ifm_channels,
-                node=pool,
-                node_index=node_index + 1,
-                op_type=pool_node.op_type,
-                model=self.model,
-            )
-            real_values.append([swg_simd, pool_pe])
-
-        return [
-            MetaParameter(
-                name="SIMD",
-                meta_value=simd_values[0],
-                possible_values=simd_values,
-                real_values=real_values,
-                model=self.model,
-                node_index=node_index,
-            )
+        real_values = [
+            self._swg_params(swg, swg_node, node_index, simd, ifm)
+            + [
+                self._param(
+                    "Pool_PE",
+                    "PE",
+                    simd,
+                    pool,
+                    node_index + 1,
+                    pool_node.op_type,
+                    bound_name="Channels",
+                    bound_value=ifm,
+                )
+            ]
+            for simd, ifm in zip(simd_values, ifm_values)
         ]
+        return [self._meta("SIMD", simd_values, real_values, node_index)]
 
     def _pair_swg_with_mvau(self, swg, swg_node, mvau, mvau_node, node_index, max_padding):
         """SWG -> MVAU (dense convolution): optimize SWG SIMD together with the
@@ -1207,67 +1243,40 @@ class Optimizer:
                 # the SWG to emit the full window (parallel_window=1), which lets
                 # the MVAU fold over the whole MW (up to kernel*IFMChannels).
                 channels_ok = (ifm_channels % mvau_simd == 0) or (mvau_simd % ifm_channels == 0)
-                if (
+                if not (
                     channels_ok
                     and mvau_simd not in simd_meta_values
                     and mw_value // mvau_simd not in seen_factors
                     and (weight_bits * mvau_simd) < self.mvau_wwidth_max
                     and mvau_simd > (mw_value / 1024)
                 ):
-                    simd_meta_values.append(mvau_simd)
-                    seen_factors.append(mw_value // mvau_simd)
-                    if mvau_simd < ifm_channels:
-                        swg_simd_value = mvau_simd
-                        parallel_window = 0
-                    else:
-                        swg_simd_value = ifm_channels
-                        parallel_window = 1
+                    continue
+                simd_meta_values.append(mvau_simd)
+                seen_factors.append(mw_value // mvau_simd)
 
-                    swg_parallel_window = Parameter(
-                        name="SWU_parallel_window",
-                        target_value_name="parallel_window",
-                        target_value=parallel_window,
-                        bound_name=None,
-                        bound_value=None,
-                        node=swg,
-                        node_index=node_index,
-                        op_type=swg_node.op_type,
-                        model=self.model,
+                parallel_window = int(mvau_simd >= ifm_channels)
+                swg_simd_value = ifm_channels if parallel_window else mvau_simd
+                simd_real_values.append(
+                    self._swg_params(
+                        swg, swg_node, node_index, swg_simd_value, ifm_channels, parallel_window
                     )
-                    swg_simd = Parameter(
-                        name="SWU_SIMD",
-                        target_value_name="SIMD",
-                        target_value=swg_simd_value,
-                        bound_name="IFMChannels",
-                        bound_value=ifm_channels,
-                        node=swg,
-                        node_index=node_index,
-                        op_type=swg_node.op_type,
-                        model=self.model,
-                    )
-                    mvau_simd_param = Parameter(
-                        name="MVAU_SIMD",
-                        target_value_name="SIMD",
-                        target_value=mvau_simd,
-                        bound_name="MW",
-                        bound_value=mw_value,
-                        update_threshold_input=True,
-                        update_weights_input=True,
-                        node=mvau,
-                        node_index=node_index + 1,
-                        op_type=mvau_node.op_type,
-                        model=self.model,
-                    )
-                    simd_real_values.append([swg_simd, swg_parallel_window, mvau_simd_param])
+                    + [
+                        self._param(
+                            "MVAU_SIMD",
+                            "SIMD",
+                            mvau_simd,
+                            mvau,
+                            node_index + 1,
+                            mvau_node.op_type,
+                            bound_name="MW",
+                            bound_value=mw_value,
+                            update_weights=True,
+                            update_thresholds=True,
+                        )
+                    ]
+                )
 
-        simd_meta = MetaParameter(
-            name="SIMD",
-            meta_value=simd_meta_values[0],
-            possible_values=simd_meta_values,
-            real_values=simd_real_values,
-            model=self.model,
-            node_index=node_index,
-        )
+        simd_meta = self._meta("SIMD", simd_meta_values, simd_real_values, node_index)
 
         # --- independent MVAU PE (over MH); a conv MVAU's MH is never padded ---
         # allowed_divisors already returns one value per distinct folding
@@ -1276,32 +1285,22 @@ class Optimizer:
         pe_values, mh_values = allowed_divisors(mh, 1, 0)
         pe_real_values = [
             [
-                Parameter(
-                    name="MVAU_PE",
-                    target_value_name="PE",
-                    target_value=pe,
+                self._param(
+                    "MVAU_PE",
+                    "PE",
+                    pe,
+                    mvau,
+                    node_index + 1,
+                    mvau_node.op_type,
                     bound_name="MH",
                     bound_value=mh_value,
-                    update_threshold_input=True,
-                    update_weights_input=True,
-                    node=mvau,
-                    node_index=node_index + 1,
-                    op_type=mvau_node.op_type,
-                    model=self.model,
+                    update_weights=True,
+                    update_thresholds=True,
                 )
             ]
             for pe, mh_value in zip(pe_values, mh_values)
         ]
-        pe_meta = MetaParameter(
-            name="PE",
-            meta_value=pe_values[0],
-            possible_values=list(pe_values),
-            real_values=pe_real_values,
-            model=self.model,
-            node_index=node_index,
-        )
-
-        return [simd_meta, pe_meta]
+        return [simd_meta, self._meta("PE", pe_values, pe_real_values, node_index)]
 
     def _pair_swg_with_vvau(self, swg, swg_node, vvau, vvau_node, node_index, max_padding):
         """SWG -> VVAU (depthwise convolution): a single meta parameter drives
@@ -1341,68 +1340,39 @@ class Optimizer:
                     meta_values.append(vvau_simd * pe)
                     seen_simd_factors.append(int(np.prod(kernel_dim)) // vvau_simd)
 
-                    swg_parallel_window = Parameter(
-                        name="SWU_parallel_window",
-                        target_value_name="parallel_window",
-                        target_value=parallel_window,
-                        bound_name=None,
-                        bound_value=None,
-                        node=swg,
-                        node_index=node_index,
-                        op_type=swg_node.op_type,
-                        model=self.model,
-                    )
-                    swg_simd = Parameter(
-                        name="SWU_SIMD",
-                        target_value_name="SIMD",
-                        target_value=pe,
-                        bound_name="IFMChannels",
-                        bound_value=ifm_channels,
-                        node=swg,
-                        node_index=node_index,
-                        op_type=swg_node.op_type,
-                        model=self.model,
-                    )
-                    vvau_simd_param = Parameter(
-                        name="VVAU_SIMD",
-                        target_value_name="SIMD",
-                        target_value=vvau_simd,
-                        bound_name="Kernel",
-                        bound_value=[kernel_dim[0], kernel_dim[1]],
-                        update_threshold_input=True,
-                        update_weights_input=True,
-                        node=vvau,
-                        node_index=node_index + 1,
-                        op_type=vvau_node.op_type,
-                        model=self.model,
-                    )
-                    vvau_pe_param = Parameter(
-                        name="VVAU_PE",
-                        target_value_name="PE",
-                        target_value=pe,
-                        bound_name="Channels",
-                        bound_value=pe_bound,
-                        update_threshold_input=True,
-                        update_weights_input=True,
-                        node=vvau,
-                        node_index=node_index + 1,
-                        op_type=vvau_node.op_type,
-                        model=self.model,
-                    )
                     real_values.append(
-                        [swg_simd, swg_parallel_window, vvau_simd_param, vvau_pe_param]
+                        self._swg_params(
+                            swg, swg_node, node_index, pe, ifm_channels, parallel_window
+                        )
+                        + [
+                            self._param(
+                                "VVAU_SIMD",
+                                "SIMD",
+                                vvau_simd,
+                                vvau,
+                                node_index + 1,
+                                vvau_node.op_type,
+                                bound_name="Kernel",
+                                bound_value=[kernel_dim[0], kernel_dim[1]],
+                                update_weights=True,
+                                update_thresholds=True,
+                            ),
+                            self._param(
+                                "VVAU_PE",
+                                "PE",
+                                pe,
+                                vvau,
+                                node_index + 1,
+                                vvau_node.op_type,
+                                bound_name="Channels",
+                                bound_value=pe_bound,
+                                update_weights=True,
+                                update_thresholds=True,
+                            ),
+                        ]
                     )
 
-        return [
-            MetaParameter(
-                name="SIMD",
-                meta_value=meta_values[0],
-                possible_values=meta_values,
-                real_values=real_values,
-                model=self.model,
-                node_index=node_index,
-            )
-        ]
+        return [self._meta("SIMD", meta_values, real_values, node_index)]
 
 
 def insert_and_size_fifos(
@@ -1510,6 +1480,24 @@ class SetFolding(Transformation):
     estimated number of cycles.
     """
 
+    # Invariants, not knobs. They were instance attributes assigned in __init__,
+    # which read as configuration and invited callers to flip them; nothing in
+    # the flow ever did, and two of them cannot be flipped safely.
+
+    # the throughput target is always the cost model's hard constraint
+    hard_constraint_target = "max_cycles"
+    target_resources = ["LUT", "BRAM_18K", "DSP", "URAM"]
+    # Always tune each node's ram_style/resType so the search can trade
+    # BRAM<->URAM and LUT<->DSP to fit a higher-throughput folding in budget.
+    # These attributes do not enter any cycle formula, so this can only change
+    # how resources are realized, never the achieved throughput.
+    optimize_resource_types = True
+    resource_type_params = list(RESOURCE_TYPE_ATTRS)
+    optimize_folding = True
+    # DWCs are inserted by a later build step; folding only accounts for them
+    insert_dwcs = False
+    consider_dwc_costs = True
+
     def __init__(
         self,
         target_cycles_per_frame=None,
@@ -1542,60 +1530,46 @@ class SetFolding(Transformation):
         verbose=False,
     ):
         """
-        Parameters (the ones a user typically touches):
-
-        target_cycles_per_frame:
-            If set, the optimizer treats it as a hard throughput ceiling and
-            minimizes resources while meeting it ("hit a target"). If left as
-            ``None``, the optimizer instead MAXIMIZES throughput as far as the
-            device resource budget allows.
-        platform / devices:
+        target_cycles_per_frame
+            A throughput ceiling to meet at minimum resource cost. ``None``
+            switches the objective: maximize throughput within the budget.
+        platform / devices
             Board (and device count) whose resource budget bounds the search.
-        prefer_memory ("bram" | "uram" | None):
-            The optimizer always tunes ram_style to trade BRAM<->URAM to fit the
-            folding within the budget; when set, this biases it toward realizing
-            on-chip memory in the named resource (leaving the other one freer).
-        prefer_compute ("lut" | "dsp" | None):
-            Likewise for compute: the optimizer always tunes resType to trade
-            LUT<->DSP; when set, this biases it toward the named resource.
-        resource_weights:
-            Optional dict of explicit per-resource cost multipliers (keys among
-            LUT/BRAM_18K/DSP/URAM) that overrides the prefer_* shorthands.
-        folding_effort:
-            Simulated-annealing effort (function evaluations per parameter);
-            50-100 is a good range, higher costs runtime for little gain.
-        folding_maximum_padding / folding_pad_io_nodes:
-            Allow channel padding for finer folding factors (and whether the
-            model's IO layers may be padded too).
-        style ("optimizer" | "naive"):
-            "optimizer" uses the resource-aware simulated-annealing search;
-            "naive" uses the legacy greedy per-node folder.
-        folding_search_timeout_s:
-            Wall-clock budget for the maximize-mode throughput search. Probing a
-            very fast target is far more expensive than probing a slow one --
-            every parameter evaluation reshapes the (padded) weight tensors, so
-            on a large graph a single fast probe can cost minutes. The search
-            probes cheapest-first and stops when this budget is spent, keeping
-            the best feasible point found so far; ``None`` means no limit.
-            Truncation is recorded as ``search_truncated`` in
-            ``last_search_report``, never hidden.
-        allow_uram_weights:
-            Let the optimizer place *weight* memories in URAM (ram_style
-            "ultra"), setting ``runtime_writeable_weights=1`` on those nodes as
-            the HDL generation requires. Off by default because it changes the
-            deployment contract: runtime-writeable weights must be loaded by the
-            driver rather than baked into the bitstream. With it off, the
-            optimizer can never spend the device's URAM on weights, so on a part
-            whose BRAM budget is the binding constraint it may be unable to
-            reach any feasible solution at all even where one exists -- see
-            MobileNet on ZCU104, where the committed hand tuning fits only by
-            moving three MVAUs to URAM in exactly this way.
-        strict_budget:
-            If the folding the optimizer returns exceeds the platform resource
-            budget, raise instead of warning. The default (False) always warns
-            and always records the verdict in ``last_search_report``; it never
-            returns an over-budget folding silently, which is what it used to
-            do. Set True where an over-budget folding should stop the build.
+        style
+            ``"optimizer"`` (resource-aware search) or ``"naive"`` (the legacy
+            greedy per-node folder in ``set_folding_naive``).
+        prefer_memory / prefer_compute / resource_weights
+            Bias, not permission: ram_style and resType are always tuned so the
+            search can trade BRAM<->URAM and LUT<->DSP. ``"bram"``/``"uram"``
+            and ``"lut"``/``"dsp"`` penalize the resource NOT named;
+            ``resource_weights`` overrides both with explicit multipliers.
+        folding_effort
+            Annealing evaluations per parameter; 50-100 is the useful range.
+        folding_maximum_padding / folding_pad_io_nodes
+            Opt-in channel padding for finer folding factors, and whether the
+            IO layers may be padded too (if so, the host must pad its input and
+            crop its output to match). Both off by default.
+
+        Three that are easy to get wrong:
+
+        allow_uram_weights
+            Lets *weight* memories go to URAM, which requires
+            ``runtime_writeable_weights=1``. Off by default because that changes
+            the deployment contract -- the driver must load those weights rather
+            than the bitstream carrying them. The cost of leaving it off is real:
+            on a part where BRAM is the binding constraint there may be no
+            feasible folding without it (MobileNet on ZCU104 fits only by moving
+            three MVAUs to URAM this way).
+        strict_budget
+            Raise rather than warn when the returned folding exceeds the budget.
+            Either way the verdict is recorded in ``last_search_report``; an
+            over-budget folding is never returned silently.
+        folding_search_timeout_s
+            Wall-clock budget for the maximize-mode search. Fast targets cost far
+            more to probe than slow ones (every evaluation reshapes the weight
+            tensors), so the search goes cheapest-first and keeps the best
+            feasible point found when the budget runs out. Truncation is reported
+            as ``search_truncated``, never hidden. ``None`` means no limit.
 
         In the returned model each node's cycles_estimate attribute is set to
         its estimated number of cycles.
@@ -1631,27 +1605,11 @@ class SetFolding(Transformation):
         # naive-style only
         self.two_pass_relaxation = two_pass_relaxation
 
-        # the throughput target is always the hard constraint of the cost model
-        self.hard_constraint_target = "max_cycles"
-        self.target_resources = ["LUT", "BRAM_18K", "DSP", "URAM"]
-
-        # The optimizer ALWAYS tunes each node's resource-type attributes
-        # (ram_style, resType) so it can trade BRAM<->URAM and LUT<->DSP to fit a
-        # higher-throughput folding within the device budget. These attributes do
-        # not affect cycle counts, so this can only change resource realization,
-        # never the achieved throughput. prefer_memory / prefer_compute only bias
-        # that choice via cost-model weights (neutral when left as None).
+        # prefer_memory / prefer_compute only bias the resource-type choice via
+        # cost-model weights; they are neutral when left as None.
         self.resource_weights = self._build_resource_weights(
             prefer_memory, prefer_compute, resource_weights
         )
-        self.optimize_resource_types = True
-        self.resource_type_params = list(RESOURCE_TYPE_ATTRS)
-
-        # fold parallelism and resource types
-        self.optimize_folding = True
-        # let downstream build steps insert DWCs; folding only accounts for them
-        self.insert_dwcs = False
-        self.consider_dwc_costs = True
 
     @staticmethod
     def _build_resource_weights(prefer_memory, prefer_compute, overrides):
@@ -2360,6 +2318,15 @@ class SetFolding(Transformation):
         return (model, False)
 
     def apply(self, model):
+        # Checked rather than treated as "anything that is not naive": this used
+        # to fall through to the optimizer for any unrecognized string, so a
+        # misspelled style silently selected a folder the caller did not ask for
+        # and the build looked fine.
+        if self.style not in STYLES:
+            raise ValueError(
+                f"unknown SetFolding style {self.style!r}; expected one of "
+                + ", ".join(repr(s) for s in STYLES)
+            )
         if self.style == "naive":
             # the naive folder has no maximize-throughput mode: it needs a
             # concrete cycles-per-frame target to fold against
@@ -2370,5 +2337,4 @@ class SetFolding(Transformation):
                     "style='optimizer'"
                 )
             return self.apply_naive_folding(model)
-        else:
-            return self.apply_optimized_folding(model)
+        return self.apply_optimized_folding(model)

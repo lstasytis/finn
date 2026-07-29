@@ -186,6 +186,17 @@ def test_set_folding_naive_requires_target():
         model.transform(SetFolding(target_cycles_per_frame=None, style="naive"))
 
 
+@pytest.mark.parametrize("style", ["optimized", "Optimizer", "greedy", ""])
+def test_set_folding_rejects_unknown_style(style):
+    # An unrecognized style used to fall through to the optimizer, so a
+    # misspelling ("optimized" for "optimizer") silently ran a folder the caller
+    # never asked for and the build still succeeded.
+    model = make_multi_fclayer_model(128, DataType["INT4"], DataType["INT2"], DataType["INT16"], 2)
+    model = model.transform(GiveUniqueNodeNames())
+    with pytest.raises(ValueError, match="unknown SetFolding style"):
+        model.transform(SetFolding(target_cycles_per_frame=1000, style=style))
+
+
 @pytest.mark.parametrize("prefer_memory", ["bram", "uram"])
 @pytest.mark.fpgadataflow
 def test_set_folding_prefer_memory(prefer_memory):
