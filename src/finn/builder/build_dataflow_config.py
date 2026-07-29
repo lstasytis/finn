@@ -186,7 +186,7 @@ class DataflowBuildConfig:
     #: very high performance.
     mvau_wwidth_max: Optional[int] = 1024
 
-    # (Optional) which SetFolding optimizer to use (naive, optimized)
+    # (Optional) which SetFolding optimizer to use (naive, optimizer)
     folding_style: Optional[str] = "naive"
 
     # (Optional) How much padding to allow for enabling more fine-grain folding
@@ -232,6 +232,19 @@ class DataflowBuildConfig:
     # 2 attempts: at worst half of the maximum throughput
     # 6 attempts: at worst 93.75% of maximum throughput
     folding_max_attempts: Optional[int] = 1
+
+    #: (Optional) Let the folding optimizer place weight memories in URAM
+    #: (ram_style "ultra"), marking those layers runtime_writeable_weights=1 as
+    #: the HDL generation requires. Off by default because it changes the
+    #: deployment contract (weights must be loaded by the driver). On parts whose
+    #: BRAM is the binding constraint this can be the difference between a
+    #: feasible folding and none at all.
+    folding_allow_uram_weights: Optional[bool] = False
+
+    #: (Optional) Fail the build if the folding the optimizer returns exceeds
+    #: the target device's resource budget, instead of only warning. Only
+    #: relevant for folding_style="optimizer".
+    folding_strict_budget: Optional[bool] = False
 
     #: (Optional) At which steps the generated intermediate output model
     #: will be verified. See documentation of VerificationStepType for

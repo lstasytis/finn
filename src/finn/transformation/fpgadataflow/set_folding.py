@@ -28,6 +28,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import copy
+import time
 import functools
 
 # Inspect information on Python objects like modules
@@ -590,6 +591,9 @@ class Optimizer:
         resource_type_params=[],
         # per-resource multipliers in the cost function (see cost_model)
         resource_weights=None,
+        # may weight memories be placed in URAM? (requires making them
+        # runtime-writeable, so it is opt-in at the SetFolding level)
+        allow_uram_weights=False,
     ):
         self.params = None
         self.targets = targets
@@ -618,6 +622,7 @@ class Optimizer:
         self.verbose = verbose
         self.resource_type_params = resource_type_params
         self.resource_weights = resource_weights or {}
+        self.allow_uram_weights = allow_uram_weights
 
     def compute_hls_dwc_cost(
         self, model, nodes, lut_capacity, hls_dwc_cost_penalty=HLS_DWC_COST_PENALTY
@@ -1049,7 +1054,7 @@ class Optimizer:
         # pick "ultra" for a weight ram_style unless the user opted in. Nodes
         # without the attr (e.g. SWG line buffers) are unaffected.
         if param == "ram_style" and "runtime_writeable_weights" in inst.get_nodeattr_types():
-            if inst.get_nodeattr("runtime_writeable_weights") != 1:
+            if inst.get_nodeattr("runtime_writeable_weights") != 1 and not self.allow_uram_weights:
                 excluded = excluded | {"ultra"}
         allowed = sorted(set(inst.get_nodeattr_types()[param][3]) - excluded)
         if len(allowed) < 2:
@@ -1520,6 +1525,9 @@ class SetFolding(Transformation):
         folding_maximum_padding=0,
         folding_pad_io_nodes=False,
         folding_max_attempts=1,
+        strict_budget=False,
+        allow_uram_weights=False,
+        folding_search_timeout_s=None,
         mvau_wwidth_max=1024,
         enable_folding_dwc_heuristic=True,
         enable_folding_fifo_heuristic=False,
@@ -1562,6 +1570,32 @@ class SetFolding(Transformation):
         style ("optimizer" | "naive"):
             "optimizer" uses the resource-aware simulated-annealing search;
             "naive" uses the legacy greedy per-node folder.
+        folding_search_timeout_s:
+            Wall-clock budget for the maximize-mode throughput search. Probing a
+            very fast target is far more expensive than probing a slow one --
+            every parameter evaluation reshapes the (padded) weight tensors, so
+            on a large graph a single fast probe can cost minutes. The search
+            probes cheapest-first and stops when this budget is spent, keeping
+            the best feasible point found so far; ``None`` means no limit.
+            Truncation is recorded as ``search_truncated`` in
+            ``last_search_report``, never hidden.
+        allow_uram_weights:
+            Let the optimizer place *weight* memories in URAM (ram_style
+            "ultra"), setting ``runtime_writeable_weights=1`` on those nodes as
+            the HDL generation requires. Off by default because it changes the
+            deployment contract: runtime-writeable weights must be loaded by the
+            driver rather than baked into the bitstream. With it off, the
+            optimizer can never spend the device's URAM on weights, so on a part
+            whose BRAM budget is the binding constraint it may be unable to
+            reach any feasible solution at all even where one exists -- see
+            MobileNet on ZCU104, where the committed hand tuning fits only by
+            moving three MVAUs to URAM in exactly this way.
+        strict_budget:
+            If the folding the optimizer returns exceeds the platform resource
+            budget, raise instead of warning. The default (False) always warns
+            and always records the verdict in ``last_search_report``; it never
+            returns an over-budget folding silently, which is what it used to
+            do. Set True where an over-budget folding should stop the build.
 
         In the returned model each node's cycles_estimate attribute is set to
         its estimated number of cycles.
@@ -1577,7 +1611,12 @@ class SetFolding(Transformation):
         self.padding = folding_maximum_padding
         self.pad_io_nodes = folding_pad_io_nodes
         self.max_attempts = folding_max_attempts
+        self.strict_budget = strict_budget
+        self.allow_uram_weights = allow_uram_weights
+        self.search_timeout_s = folding_search_timeout_s
         self.effort = folding_effort
+        # populated by the throughput search; see _record_search_result
+        self.last_search_report = None
         self.enable_folding_dwc_heuristic = enable_folding_dwc_heuristic
         self.enable_folding_fifo_heuristic = enable_folding_fifo_heuristic
         self.auto_fifo_strategy = auto_fifo_strategy
@@ -1654,6 +1693,7 @@ class SetFolding(Transformation):
             pad_io_nodes=self.pad_io_nodes,
             resource_type_params=self.resource_type_params,
             resource_weights=self.resource_weights,
+            allow_uram_weights=self.allow_uram_weights,
             maxiter=self.maxiter,
             accept=self.accept,
             visit=self.visit,
@@ -1695,6 +1735,58 @@ class SetFolding(Transformation):
             estimates[inst] = inst.node_res_estimation(self.fpgapart)
         return aggregate_dict_keys(estimates)
 
+    def _as_built_if_useful(self, model, metrics, targets):
+        """Re-score on the as-built graph only when it can change the verdict.
+
+        If the search's own scoring already exceeds the budget, the as-built
+        graph cannot rescue it -- the verdict is "does not fit" either way -- so
+        the extra minimisation pass is pure cost. It is precisely the infeasible
+        fallback (minimal folding, deepest/narrowest weight memories) on which
+        MinimizeAccumulatorWidth is slowest, so skipping it there matters.
+        """
+        if any(metrics.get(r, 0.0) > targets[r] for r in self.target_resources):
+            return None
+        try:
+            return self._resources_as_built(model)
+        except Exception as e:  # noqa: BLE001 - never lose the result over a verdict
+            warnings.warn(
+                f"SetFolding: could not re-score the folding on the as-built graph "
+                f"({type(e).__name__}: {e}); the budget verdict is the search's own "
+                f"scoring, which does not include step_minimize_bit_width.",
+                stacklevel=2,
+            )
+            return None
+
+    def _resources_as_built(self, model):
+        """Resources of the graph the *build* will actually carry.
+
+        The search scores candidates on the freshly folded graph, but every real
+        flow runs step_minimize_bit_width immediately after folding, and that
+        step does not only shrink things: MinimizeAccumulatorWidth and
+        RoundAndClipThresholds can widen accumulators and thresholds. Measured on
+        cnv-w1a2 (Pynq-Z1), a folding SetFolding scored at 33428 LUT / 142 BRAM
+        -- comfortably inside a 37240 / 224 budget -- becomes 40025 LUT / 278
+        BRAM once those run, i.e. over budget on both. Reporting the pre-step
+        numbers would therefore certify designs that do not fit.
+
+        Used for the *verdict* only, not inside the search loop, so it costs one
+        extra pass per SetFolding call rather than one per candidate.
+        """
+        from finn.transformation.fpgadataflow.minimize_accumulator_width import (
+            MinimizeAccumulatorWidth,
+        )
+        from finn.transformation.fpgadataflow.minimize_weight_bit_width import (
+            MinimizeWeightBitWidth,
+        )
+        from qonnx.transformation.general import GiveUniqueNodeNames as _GUNN
+        from qonnx.transformation.infer_datatypes import InferDataTypes
+
+        m = copy.deepcopy(model).transform(_GUNN())
+        m = m.transform(MinimizeWeightBitWidth())
+        m = m.transform(MinimizeAccumulatorWidth())
+        m = m.transform(InferDataTypes())
+        return self._aggregate_resources(m)
+
     def apply_optimized_folding(self, model):
         """
         Resource-aware folding using simulated annealing.
@@ -1731,56 +1823,229 @@ class SetFolding(Transformation):
         model = model.transform(GiveUniqueNodeNames())
         model = model.transform(AnnotateCycles())
 
+        if self.allow_uram_weights:
+            self._enable_runtime_writeable_for_uram(model)
+
         if self.pad_io_nodes:
             model = self._retype_padded_io(model)
 
         return (model, False)
+
+    @staticmethod
+    def _sweep_targets(lo, hi, n):
+        """``n`` cycles-per-frame probes spread geometrically over [lo, hi].
+
+        Geometric, not linear: the two ends routinely differ by four or five
+        orders of magnitude (a maximally folded MobileNet is ~1e5 cycles/frame,
+        the minimally folded one ~5e7), so linear spacing would put every probe
+        at the slow end and never look at the interesting region.
+        """
+        lo, hi = max(int(lo), 1), max(int(hi), 1)
+        if hi <= lo or n <= 1:
+            return [hi]
+        ratio = (hi / lo) ** (1.0 / (n - 1))
+        out = []
+        for i in range(n):
+            t = int(round(lo * (ratio**i)))
+            t = min(max(t, lo), hi)
+            if t not in out:
+                out.append(t)
+        if hi not in out:
+            out.append(hi)
+        return sorted(out)
 
     def _search_folding(self, opt_template, targets, fastest_cycles, attempts, maximize):
         """Fold the model, choosing the throughput target.
 
         * meet-target mode (a target was given, single attempt): fold once to meet
           the target with minimal resources.
-        * otherwise: binary-search the fastest throughput (fewest cycles per
-          frame) whose folding still fits the device resource budget. This is what
-          lets the optimizer trade folding depth against LUT/BRAM/DSP/URAM to push
-          throughput as high as the device allows.
+        * otherwise: find the fastest throughput (fewest cycles per frame) whose
+          folding still fits the device resource budget.
+
+        The search does NOT assume that resource use is monotonic in the
+        throughput target, because it is not. BRAM in particular is
+        non-monotonic: at minimal folding each weight memory is deep and narrow
+        and therefore packs into BRAM badly, so *more* parallelism can cost
+        *less* BRAM. MobileNet on a ZCU104 is the worked example -- it needs
+        990-1040 BRAM_18K at minimum folding against a 488 budget, but only ~530
+        at the far more parallel hand-tuned folding.
+
+        A plain bisection on "fits -> go faster, else go slower" silently breaks
+        on that shape: the slow end is infeasible, so the invariant it relies on
+        never holds, no feasible point is ever recorded, and it falls through to
+        the slowest folding -- an answer that is both slow *and* over budget.
+
+        So instead: sample feasibility across the whole range first (phase A),
+        then refine around the best feasible point found (phase B). Only a
+        candidate that was *verified* feasible can ever be returned as the
+        answer, so a wrong monotonicity guess can cost search efficiency but
+        cannot produce a wrong result.
         """
         if not maximize and attempts <= 1:
-            model, _, _ = self._fold_at(opt_template, targets, self.target_cycles_per_frame)
+            model, fits, metrics, achieved = self._fold_at(
+                opt_template, targets, self.target_cycles_per_frame
+            )
+            self._record_search_result(
+                fits, metrics, targets, achieved, feasible_found=fits, searched=False,
+                as_built=self._as_built_if_useful(model, metrics, targets),
+            )
             return model
 
-        # search bounds in cycles-per-frame: lo = fastest (most folding, most
-        # resources, may not fit); hi = the slowest we'd accept -- the given
-        # target, or minimal folding when maximizing (fewest resources, best fit)
         slowest = (
             self.target_cycles_per_frame if not maximize else self._slowest_cycles(opt_template)
         )
-        lo, hi = fastest_cycles, max(slowest, fastest_cycles)
+        lo, hi = max(int(fastest_cycles), 1), max(int(slowest), int(fastest_cycles), 1)
 
-        # secure a feasible fallback at the slow (least-resource) end
-        slow_model, slow_fits, _ = self._fold_at(opt_template, targets, hi)
-        best_model = slow_model if slow_fits else None
+        # split the budget between sampling and refinement
+        n_sweep = max(4, (attempts + 1) // 2)
+        n_refine = max(0, attempts - n_sweep)
 
-        # binary-search the smallest (fastest) target that still fits the budget
-        for _ in range(attempts):
-            if hi - lo <= 1:
+        best = None  # (achieved_cycles, model, metrics) -- verified feasible
+        fallback = None  # (achieved_cycles, model, metrics) at the slow end
+        infeasible_below = None  # fastest probed target known NOT to fit
+        deadline = (
+            None if self.search_timeout_s is None else time.time() + self.search_timeout_s
+        )
+        self._search_truncated = False
+
+        def out_of_time():
+            if deadline is not None and time.time() > deadline:
+                self._search_truncated = True
+                return True
+            return False
+
+        # ---- phase A: sample feasibility across the range ------------------
+        # Slowest (cheapest to evaluate) first: a fast target drives every node
+        # to maximum parallelism, and each cost-model evaluation then reshapes
+        # the full weight tensors. Cheapest-first means that if the budget runs
+        # out we still hold the feasible points, rather than having spent it all
+        # on the expensive end.
+        for t in reversed(self._sweep_targets(lo, hi, n_sweep)):
+            if out_of_time():
                 break
-            mid = (lo + hi) // 2
-            model, fits, _ = self._fold_at(opt_template, targets, mid)
+            model, fits, metrics, achieved = self._fold_at(opt_template, targets, t)
             if fits:
-                best_model = model
-                hi = mid  # fits -> try to go faster
+                if best is None or achieved < best[0]:
+                    best = (achieved, model, metrics)
             else:
-                lo = mid + 1  # too big -> must go slower
+                if infeasible_below is None or t > infeasible_below:
+                    # the slowest target that still failed: nothing at or below
+                    # it is worth refining into
+                    infeasible_below = t
+            if fallback is None or achieved > fallback[0]:
+                fallback = (achieved, model, metrics)
 
-        # if nothing fit the budget, return the least-resource (slowest) folding
-        return best_model if best_model is not None else slow_model
+        # ---- phase B: refine between the best feasible point and the ------
+        # fastest infeasible one below it
+        if best is not None and n_refine:
+            fast_bound = 1 if infeasible_below is None else infeasible_below + 1
+            slow_bound = best[0]
+            for _ in range(n_refine):
+                if slow_bound - fast_bound <= 1 or out_of_time():
+                    break
+                mid = (fast_bound + slow_bound) // 2
+                model, fits, metrics, achieved = self._fold_at(opt_template, targets, mid)
+                if fits:
+                    if achieved < best[0]:
+                        best = (achieved, model, metrics)
+                    slow_bound = min(mid, achieved)
+                else:
+                    fast_bound = mid + 1
+
+        if best is not None:
+            self._record_search_result(
+                True, best[2], targets, best[0], feasible_found=True,
+                as_built=self._as_built_if_useful(best[1], best[2], targets),
+            )
+            return best[1]
+
+        # Nothing in the sampled range fits. Return the least-resource folding
+        # we saw, but say so loudly -- this is not a solution to the problem
+        # that was asked.
+        self._record_search_result(
+            False, fallback[2], targets, fallback[0], feasible_found=False,
+            as_built=self._as_built_if_useful(fallback[1], fallback[2], targets),
+        )
+        return fallback[1]
+
+    def _record_search_result(
+        self, fits, metrics, targets, achieved_cycles, feasible_found, searched=True,
+        as_built=None,
+    ):
+        """Publish the budget verdict instead of leaving the caller to guess.
+
+        Before this, maximize mode could return a folding that exceeded the
+        device budget with no signal whatsoever: the transformation looked like
+        it had succeeded. Anyone using SetFolding outside a harness that
+        re-derives the resource estimate itself had no way to tell.
+        """
+        as_built = metrics if as_built is None else as_built
+        # judge on the as-built graph: what the search scored is not what the
+        # build ships (see _resources_as_built)
+        over = {
+            r: (as_built.get(r, 0.0), targets[r])
+            for r in self.target_resources
+            if as_built.get(r, 0.0) > targets[r]
+        }
+        scored_over = {
+            r: metrics.get(r, 0.0)
+            for r in self.target_resources
+            if metrics.get(r, 0.0) > targets[r]
+        }
+        fits = fits and not over
+        self.last_search_report = {
+            "fits_budget": bool(fits and not over),
+            "resources_as_built": {r: as_built.get(r, 0.0) for r in self.target_resources},
+            "feasible_solution_found": bool(feasible_found),
+            "achieved_cycles_per_frame": achieved_cycles,
+            "resources": {r: metrics.get(r, 0.0) for r in self.target_resources},
+            "budget": {r: targets[r] for r in self.target_resources},
+            "over_budget": {r: {"used": u, "budget": b} for r, (u, b) in over.items()},
+            # True when the search's own scoring thought it fitted but the
+            # as-built graph does not -- the blind spot, made visible
+            "missed_by_search_scoring": bool(over and not scored_over),
+            "search_truncated": bool(getattr(self, "_search_truncated", False)),
+        }
+        if over:
+            detail = ", ".join(
+                f"{r}: {u:.0f} > {b:.0f} ({100 * u / b:.0f}% of budget)"
+                for r, (u, b) in sorted(over.items())
+            )
+            msg = (
+                f"SetFolding: the returned folding does NOT fit the {self.platform} "
+                f"resource budget ({detail}). "
+                + (
+                    "This solution was expected to fit and does not."
+                    if feasible_found
+                    else (
+                        "No folding in the searched throughput range fitted the budget, so the "
+                        "least-resource folding was returned; it is not a solution."
+                        if searched
+                        else "Meeting the requested target_cycles_per_frame costs more than "
+                        "the device has; relax the target or the folding will not fit."
+                    )
+                )
+            )
+            if over and not scored_over:
+                msg += (
+                    " NOTE: the folding search scored this as fitting; it only exceeds the "
+                    "budget once step_minimize_bit_width (MinimizeAccumulatorWidth / "
+                    "RoundAndClipThresholds) has run, which the search does not model."
+                )
+            if self.strict_budget:
+                raise RuntimeError(msg + " (strict_budget=True)")
+            warnings.warn(msg, stacklevel=2)
 
     def _fold_at(self, opt_template, targets, target_cycles):
         """Fold a fresh copy of the model to meet ``target_cycles`` (minimizing
         resources and honoring resource-type preferences). Returns
-        ``(model, fits_budget, metrics)``."""
+        ``(model, fits_budget, metrics, achieved_cycles)``.
+
+        ``achieved_cycles`` is what the folded graph actually reaches, which is
+        not the same as ``target_cycles``: discrete folding factors mean the
+        solver usually lands somewhere near the target rather than on it. The
+        search compares candidates on what they achieved, never on what they
+        were asked for."""
         targets["max_cycles"] = target_cycles
         opt = copy.deepcopy(opt_template)
         opt.targets = targets
@@ -1818,7 +2083,13 @@ class SetFolding(Transformation):
 
         metrics = self._aggregate_resources(scored_model)
         fits = all(metrics[r] <= targets[r] for r in self.target_resources)
-        return opt.model, fits, metrics
+        # in place, no deepcopy and no cleanup pass: this runs once per search
+        # probe (~15 per call) and opt.model is already a private copy, so the
+        # default make_deepcopy=True/cleanup=True would copy and re-clean a
+        # whole graph per probe -- on MobileNet that dominated the search.
+        opt.model = opt.model.transform(AnnotateCycles(), make_deepcopy=False, cleanup=False)
+        achieved = opt.model.analysis(dataflow_performance)["max_cycles"]
+        return opt.model, fits, metrics, achieved
 
     def _slowest_cycles(self, opt_template):
         """Cycles per frame at minimal folding -- the least-resource
@@ -1830,6 +2101,18 @@ class SetFolding(Transformation):
         opt.params.apply_updates(final=True, filter=["SIMD", "PE", "parallel_window"])
         model = opt.model.transform(AnnotateCycles())
         return model.analysis(dataflow_performance)["max_cycles"]
+
+    def _enable_runtime_writeable_for_uram(self, model):
+        """MVAU/VVAU assert that URAM weight memories are runtime-writeable, so a
+        node the optimizer put in URAM must carry the flag or HDL generation
+        fails later. Only touches nodes the optimizer actually moved to URAM."""
+        for node in model.graph.node:
+            inst = getCustomOp(node)
+            types = inst.get_nodeattr_types()
+            if "ram_style" not in types or "runtime_writeable_weights" not in types:
+                continue
+            if inst.get_nodeattr("ram_style") == "ultra":
+                inst.set_nodeattr("runtime_writeable_weights", 1)
 
     def _retype_padded_io(self, model):
         """Rewrite the graph input/output tensor shapes to the padded shapes.
