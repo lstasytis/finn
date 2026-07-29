@@ -55,148 +55,6 @@ from finn.util.basic import part_map
 from finn.util.fpgadataflow import is_hls_node, is_rtl_node
 from finn.util.platforms import DEFAULT_RES_LIMITS, platforms
 
-# The folders SetFolding can dispatch to. Also the accepted values of the build
-# config's `folding_style`; keep the two in step.
-STYLES = ("optimizer", "naive")
-
-# --- simulated-annealing / cost-model defaults (dual_annealing driver) ---
-# scipy dual_annealing global iteration cap (maxfun = effort*N is usually binding first)
-SA_MAXITER = 200
-# acceptance-distribution parameter (scipy range (-1e4, -5]); less negative = more accepting
-SA_ACCEPT = -0.5
-# visiting-distribution shape parameter (scipy range (1, 3])
-SA_VISIT = 2.0
-# slack on the hard (max_cycles) constraint: violated only if metric*this > target
-CONSTRAINT_RELAXATION = 0.98
-# large FINITE cost for a hard-constraint violation so dual_annealing can climb out
-# of an infeasible region instead of aborting on an inf/nan energy
-INFEASIBLE_PENALTY = 1e6
-# rough LUT cost of an HLS DWC relative to an RTL one (DWC-avoidance heuristic)
-HLS_DWC_COST_PENALTY = 8
-# nodes grouped per local optimization partition in the folding pass
-NODES_PER_PARTITION = 3
-# nodes grouped per partition in the (larger) resource-type tuning pass
-RESOURCE_PARTITION_SIZE = 8
-
-# --- throughput/resource search (maximize-throughput mode) ---
-# default number of binary-search steps when maximizing throughput within a
-# resource budget (target_cycles_per_frame=None)
-MAXIMIZE_SEARCH_STEPS = 15
-
-# cost-model weight applied to the resource the user asked to spare via
-# prefer_memory / prefer_compute (higher = avoided more strongly)
-PREFERENCE_PENALTY = 8.0
-
-
-# ============================================================================
-# How the optimizer decides what to fold
-# ============================================================================
-# The optimizer folds EVERY hardware node generically: for each node it reads
-# whichever of PE / SIMD the node declares in its attribute list and sweeps the
-# legal folding factors of that parameter. The maximum useful value of a folding
-# parameter is read straight off the tensor shapes:
-#
-#     max PE   = number of output channels = get_normal_output_shape()[-1]
-#     max SIMD = number of input channels  = get_normal_input_shape()[-1]
-#
-# Only a handful of things are genuinely op-specific. Each is kept below as a
-# short, explicit rule so it is easy to see -- and easy to add to or remove:
-#
-#   1. SIMD_MAX_OVERRIDE   - ops whose max SIMD is NOT the input-channel count.
-#   2. DO_NOT_FOLD         - (op_type, param) pairs we deliberately never fold.
-#   3. PADDING_BOUND_ATTR  - ops that may be channel-padded for finer folding,
-#                            and which attribute carries that channel count.
-#   4. the SWG pairing rules (Optimizer._pair_*) - a ConvolutionInputGenerator
-#      must be folded in lockstep with the layer it feeds.
-
-# A VVAU folds SIMD over its kernel window, not its input channels, so the
-# input-shape rule above does not apply.
-SIMD_MAX_OVERRIDE = {
-    "VVAU_hls": lambda inst: int(np.prod(inst.get_nodeattr("Kernel"))),
-    "VVAU_rtl": lambda inst: int(np.prod(inst.get_nodeattr("Kernel"))),
-}
-
-# Parameters we deliberately keep unfolded (fixed at 1).
-DO_NOT_FOLD = {
-    # Folding LabelSelect can ruin fmax; revisit once an RTL LabelSelect / a safe
-    # topk-to-label heuristic exists.
-    ("LabelSelect_hls", "PE"),
-    # A VVAU_hls only supports SIMD (kernel-window) folding in its RTL sibling.
-    ("VVAU_hls", "SIMD"),
-    # Multi-stream concat/split fold their SIMD over per-stream channel counts,
-    # which needs the dedicated handling in the naive folder; the optimizer does
-    # not model that yet, so leave them unfolded rather than fold them wrongly.
-    ("StreamingConcat_hls", "SIMD"),
-    ("StreamingSplit_hls", "SIMD"),
-}
-
-# Ops that may be channel-padded to unlock finer folding factors, mapping
-# (op_type, param) -> the node attribute that carries the padded channel count.
-# Nodes absent here are still folded, just never padded. VVAU/SWG SIMD are
-# omitted on purpose: their SIMD tracks a kernel size that must not be padded.
-PADDING_BOUND_ATTR = {
-    ("MVAU_hls", "SIMD"): "MW",
-    ("MVAU_rtl", "SIMD"): "MW",
-    ("MVAU_hls", "PE"): "MH",
-    ("MVAU_rtl", "PE"): "MH",
-    ("VVAU_hls", "PE"): "Channels",
-    ("VVAU_rtl", "PE"): "Channels",
-    ("Thresholding_hls", "PE"): "NumChannels",
-    ("Thresholding_rtl", "PE"): "NumChannels",
-    ("AddStreams_hls", "PE"): "NumChannels",
-    ("ChannelwiseOp_hls", "PE"): "NumChannels",
-    ("DuplicateStreams_hls", "PE"): "NumChannels",
-    ("StreamingMaxPool_hls", "PE"): "NumChannels",
-    ("StreamingMaxPool_rtl", "PE"): "NumChannels",
-    ("FMPadding_hls", "SIMD"): "NumChannels",
-    ("FMPadding_rtl", "SIMD"): "NumChannels",
-    ("FMPadding_Pixel_hls", "SIMD"): "NumChannels",
-    ("DownSampler_hls", "SIMD"): "NumChannels",
-}
-
-# Ops whose weight / threshold initializers must be resized when their folding
-# (and therefore channel count, under padding) changes.
-OPS_WITH_WEIGHTS = {"MVAU_hls", "MVAU_rtl", "VVAU_hls", "VVAU_rtl"}
-OPS_WITH_THRESHOLDS = {
-    "MVAU_hls",
-    "MVAU_rtl",
-    "VVAU_hls",
-    "VVAU_rtl",
-    "Thresholding_hls",
-    "Thresholding_rtl",
-}
-
-# ConvolutionInputGenerator (sliding-window generator, "SWG") op types. An SWG
-# is always fused to the layer it feeds and is folded by a pairing rule, never
-# on its own.
-SWG_OPS = {"ConvolutionInputGenerator_hls", "ConvolutionInputGenerator_rtl"}
-
-# Categorical resource-selection attributes the optimizer can tune to trade one
-# resource for another (BRAM<->URAM via ram_style, LUT<->DSP via resType).
-RESOURCE_TYPE_ATTRS = ["ram_style", "resType", "ram_style_thresholds"]
-
-# Resource-type values the optimizer must NOT choose, because the resource
-# estimator (node_res_estimation) does not account for their real cost and would
-# treat them as "free": "distributed" maps memory to LUTRAM but is estimated as
-# 0 LUT/BRAM/URAM, so an unconstrained search would hide all memory there instead
-# of making a real BRAM<->URAM trade. Excluding it keeps the accounting honest.
-RESOURCE_TYPE_EXCLUDED_VALUES = {
-    "ram_style": {"distributed"},
-    "ram_style_thresholds": {"distributed"},
-}
-
-
-def max_folding_factor(node_inst, op_type, param):
-    """Largest useful value for a folding parameter (``PE`` or ``SIMD``) on a
-    node, read from the tensor shapes with the documented per-op exceptions."""
-    if param == "PE":
-        return int(node_inst.get_normal_output_shape()[-1])
-    # param == "SIMD"
-    if op_type in SIMD_MAX_OVERRIDE:
-        return SIMD_MAX_OVERRIDE[op_type](node_inst)
-    return int(node_inst.get_normal_input_shape()[-1])
-
-
 def divisors(num):
     for x in range(1, num + 1):
         if (num % x) == 0:
@@ -566,7 +424,111 @@ class Optimizer:
     node & parameter partitioning, minimizer instantation,
     cost model function and the overarching loop of minimizing the
     partitions are performed in this class.
+
+    How the optimizer decides what to fold
+    --------------------------------------
+    EVERY hardware node is folded generically: for each node it reads whichever
+    of PE / SIMD the node declares and sweeps the legal folding factors of that
+    parameter. The maximum useful value comes straight off the tensor shapes::
+
+        max PE   = output channels = get_normal_output_shape()[-1]
+        max SIMD = input channels  = get_normal_input_shape()[-1]
+
+    Only a handful of things are genuinely op-specific, and each is one of the
+    short tables below -- easy to see, and easy to add to or remove. The fifth
+    exception is the SWG pairing rules (``_pair_*``): a
+    ConvolutionInputGenerator must be folded in lockstep with the layer it feeds.
     """
+
+    # A VVAU folds SIMD over its kernel window, not its input channels, so the
+    # input-shape rule above does not apply.
+    SIMD_MAX_OVERRIDE = {
+        "VVAU_hls": lambda inst: int(np.prod(inst.get_nodeattr("Kernel"))),
+        "VVAU_rtl": lambda inst: int(np.prod(inst.get_nodeattr("Kernel"))),
+    }
+
+    # Parameters we deliberately keep unfolded (fixed at 1).
+    DO_NOT_FOLD = {
+        # Folding LabelSelect can ruin fmax; revisit once an RTL LabelSelect / a
+        # safe topk-to-label heuristic exists.
+        ("LabelSelect_hls", "PE"),
+        # A VVAU_hls only supports SIMD (kernel-window) folding in its RTL sibling.
+        ("VVAU_hls", "SIMD"),
+        # Multi-stream concat/split fold their SIMD over per-stream channel
+        # counts, which needs the dedicated handling in the naive folder; the
+        # optimizer does not model that yet, so leave them unfolded rather than
+        # fold them wrongly.
+        ("StreamingConcat_hls", "SIMD"),
+        ("StreamingSplit_hls", "SIMD"),
+    }
+
+    # Ops that may be channel-padded to unlock finer folding factors, mapping
+    # (op_type, param) -> the node attribute carrying the padded channel count.
+    # Nodes absent here are still folded, just never padded. VVAU/SWG SIMD are
+    # omitted on purpose: their SIMD tracks a kernel size that must not be padded.
+    PADDING_BOUND_ATTR = {
+        ("MVAU_hls", "SIMD"): "MW",
+        ("MVAU_rtl", "SIMD"): "MW",
+        ("MVAU_hls", "PE"): "MH",
+        ("MVAU_rtl", "PE"): "MH",
+        ("VVAU_hls", "PE"): "Channels",
+        ("VVAU_rtl", "PE"): "Channels",
+        ("Thresholding_hls", "PE"): "NumChannels",
+        ("Thresholding_rtl", "PE"): "NumChannels",
+        ("AddStreams_hls", "PE"): "NumChannels",
+        ("ChannelwiseOp_hls", "PE"): "NumChannels",
+        ("DuplicateStreams_hls", "PE"): "NumChannels",
+        ("StreamingMaxPool_hls", "PE"): "NumChannels",
+        ("StreamingMaxPool_rtl", "PE"): "NumChannels",
+        ("FMPadding_hls", "SIMD"): "NumChannels",
+        ("FMPadding_rtl", "SIMD"): "NumChannels",
+        ("FMPadding_Pixel_hls", "SIMD"): "NumChannels",
+        ("DownSampler_hls", "SIMD"): "NumChannels",
+    }
+
+    # Ops whose weight / threshold initializers must be resized when their
+    # folding (and therefore channel count, under padding) changes.
+    OPS_WITH_WEIGHTS = {"MVAU_hls", "MVAU_rtl", "VVAU_hls", "VVAU_rtl"}
+    OPS_WITH_THRESHOLDS = {
+        "MVAU_hls",
+        "MVAU_rtl",
+        "VVAU_hls",
+        "VVAU_rtl",
+        "Thresholding_hls",
+        "Thresholding_rtl",
+    }
+
+    # ConvolutionInputGenerator ("SWG") op types. An SWG is always fused to the
+    # layer it feeds and is folded by a pairing rule, never on its own.
+    SWG_OPS = {"ConvolutionInputGenerator_hls", "ConvolutionInputGenerator_rtl"}
+
+    # Categorical resource-selection attributes the optimizer can tune to trade
+    # one resource for another (BRAM<->URAM via ram_style, LUT<->DSP via resType).
+    RESOURCE_TYPE_ATTRS = ["ram_style", "resType", "ram_style_thresholds"]
+
+    # Resource-type values the optimizer must NOT choose, because
+    # node_res_estimation does not account for their real cost and would treat
+    # them as "free": "distributed" maps memory to LUTRAM but is estimated as
+    # 0 LUT/BRAM/URAM, so an unconstrained search would hide all memory there
+    # instead of making a real BRAM<->URAM trade.
+    RESOURCE_TYPE_EXCLUDED_VALUES = {
+        "ram_style": {"distributed"},
+        "ram_style_thresholds": {"distributed"},
+    }
+
+    # rough LUT cost of an HLS DWC relative to an RTL one (DWC-avoidance heuristic)
+    HLS_DWC_COST_PENALTY = 8
+
+    @staticmethod
+    def max_folding_factor(node_inst, op_type, param):
+        """Largest useful value for a folding parameter (``PE`` or ``SIMD``) on a
+        node, read from the tensor shapes with the documented per-op exceptions."""
+        if param == "PE":
+            return int(node_inst.get_normal_output_shape()[-1])
+        # param == "SIMD"
+        if op_type in Optimizer.SIMD_MAX_OVERRIDE:
+            return Optimizer.SIMD_MAX_OVERRIDE[op_type](node_inst)
+        return int(node_inst.get_normal_input_shape()[-1])
 
     def __init__(
         self,
@@ -582,13 +544,22 @@ class Optimizer:
         enable_folding_dwc_heuristic=True,
         verbose=False,
         mvau_wwidth_max=1024,
-        value_to_minimize_relaxation=CONSTRAINT_RELAXATION,
+        # slack on the hard (max_cycles) constraint: violated only if
+        # metric*this > target
+        value_to_minimize_relaxation=0.98,
         init_run=False,
-        maxiter=SA_MAXITER,
-        accept=SA_ACCEPT,
-        visit=SA_VISIT,
+        # --- scipy dual_annealing driver ---
+        # global iteration cap (maxfun = effort*N is usually binding first)
+        maxiter=200,
+        # acceptance-distribution parameter (scipy range (-1e4, -5]);
+        # less negative = more accepting
+        accept=-0.5,
+        # visiting-distribution shape parameter (scipy range (1, 3])
+        visit=2.0,
         seed=None,
-        infeasible_penalty=INFEASIBLE_PENALTY,
+        # large FINITE cost for a hard-constraint violation, so dual_annealing
+        # can climb out of an infeasible region instead of aborting on inf/nan
+        infeasible_penalty=1e6,
         pad_io_nodes=False,
         # resource-type attributes (ram_style/resType) the optimizer may tune to
         # trade BRAM<->URAM and LUT<->DSP; empty means "fold only, don't retune".
@@ -946,7 +917,7 @@ class Optimizer:
 
             max_padding = self._max_padding_for_node(node_index)
 
-            if node.op_type in SWG_OPS:
+            if node.op_type in self.SWG_OPS:
                 metas, consumed = self._extract_swg_pair(node, node_index, max_padding)
                 skip_next = consumed
             else:
@@ -1023,7 +994,7 @@ class Optimizer:
         metas = []
 
         for param in ("SIMD", "PE"):
-            if param not in declared or (op_type, param) in DO_NOT_FOLD:
+            if param not in declared or (op_type, param) in self.DO_NOT_FOLD:
                 continue
             try:
                 metas.append(self._make_folding_meta(inst, node_index, op_type, param, max_padding))
@@ -1047,20 +1018,20 @@ class Optimizer:
     def _make_folding_meta(self, inst, node_index, op_type, param, max_padding):
         """Build the MetaParameter that sweeps ``param`` (PE or SIMD) of a node
         over its legal folding factors, padding the channel count when allowed."""
-        max_value = max_folding_factor(inst, op_type, param)
-        bound_attr = PADDING_BOUND_ATTR.get((op_type, param))
+        max_value = self.max_folding_factor(inst, op_type, param)
+        bound_attr = self.PADDING_BOUND_ATTR.get((op_type, param))
         padding = max_padding if bound_attr is not None else 0
 
         possible_values, bounding_values = allowed_divisors(max_value, 1, padding)
-        update_weights = op_type in OPS_WITH_WEIGHTS
-        update_thresholds = op_type in OPS_WITH_THRESHOLDS
+        update_weights = op_type in self.OPS_WITH_WEIGHTS
+        update_thresholds = op_type in self.OPS_WITH_THRESHOLDS
 
         seen_factors = []
         kept_values = []
         real_values = []
         for value, bounding_value in zip(possible_values, bounding_values):
             # a VVAU folds SIMD over its (unpaddable) kernel window
-            if param == "SIMD" and op_type in SIMD_MAX_OVERRIDE:
+            if param == "SIMD" and op_type in self.SIMD_MAX_OVERRIDE:
                 bounding_value = inst.get_nodeattr("Kernel")
             factor = int(np.prod(bounding_value)) // value
             if factor in seen_factors:
@@ -1089,11 +1060,11 @@ class Optimizer:
     def _make_resource_type_meta(self, inst, node_index, op_type, param):
         """Build the MetaParameter that lets the optimizer pick a node's
         ram_style / resType (used to trade BRAM<->URAM and LUT<->DSP). Values the
-        estimator cannot cost (see RESOURCE_TYPE_EXCLUDED_VALUES) are dropped, and
+        estimator cannot cost (see self.RESOURCE_TYPE_EXCLUDED_VALUES) are dropped, and
         the attribute is skipped entirely if the resource estimator is blind to it
         (all choices give the same estimate) -- optimizing such a lever would only
         waste search time and pick an estimator-unjustified value."""
-        excluded = set(RESOURCE_TYPE_EXCLUDED_VALUES.get(param, set()))
+        excluded = set(self.RESOURCE_TYPE_EXCLUDED_VALUES.get(param, set()))
         # URAM weight memories require runtime_writeable_weights=1 on Ultrascale
         # (asserted in MVAU/VVAU generate_infra_hdl); don't let the optimizer
         # pick "ultra" for a weight ram_style unless the user opted in. Nodes
@@ -1484,15 +1455,30 @@ class SetFolding(Transformation):
     # which read as configuration and invited callers to flip them; nothing in
     # the flow ever did, and two of them cannot be flipped safely.
 
+    # the folders apply() can dispatch to; also the accepted values of the build
+    # config's `folding_style`, so keep the two in step
+    STYLES = ("optimizer", "naive")
+
     # the throughput target is always the cost model's hard constraint
     hard_constraint_target = "max_cycles"
     target_resources = ["LUT", "BRAM_18K", "DSP", "URAM"]
+
+    # binary-search steps when maximizing throughput within a resource budget
+    # (target_cycles_per_frame=None)
+    MAXIMIZE_SEARCH_STEPS = 15
+    # cost-model weight applied to the resource the caller asked to spare via
+    # prefer_memory / prefer_compute (higher = avoided more strongly)
+    PREFERENCE_PENALTY = 8.0
+    # nodes grouped per local optimization partition in the folding pass
+    NODES_PER_PARTITION = 3
+    # nodes grouped per partition in the (larger) resource-type tuning pass
+    RESOURCE_PARTITION_SIZE = 8
     # Always tune each node's ram_style/resType so the search can trade
     # BRAM<->URAM and LUT<->DSP to fit a higher-throughput folding in budget.
     # These attributes do not enter any cycle formula, so this can only change
     # how resources are realized, never the achieved throughput.
     optimize_resource_types = True
-    resource_type_params = list(RESOURCE_TYPE_ATTRS)
+    resource_type_params = list(Optimizer.RESOURCE_TYPE_ATTRS)
     optimize_folding = True
     # DWCs are inserted by a later build step; folding only accounts for them
     insert_dwcs = False
@@ -1523,9 +1509,11 @@ class SetFolding(Transformation):
         # --- naive-style knobs (style="naive" only) -------------------------
         two_pass_relaxation=True,
         # --- simulated-annealing internals (optimizer style only) -----------
-        maxiter=SA_MAXITER,
-        accept=SA_ACCEPT,
-        visit=SA_VISIT,
+        # None means "use Optimizer's own default"; the values live there, in the
+        # class that consumes them, rather than being restated here
+        maxiter=None,
+        accept=None,
+        visit=None,
         seed=None,
         verbose=False,
     ):
@@ -1619,15 +1607,15 @@ class SetFolding(Transformation):
         user did NOT prefer."""
         weights = {"LUT": 1.0, "BRAM_18K": 1.0, "DSP": 1.0, "URAM": 1.0}
         if prefer_memory == "bram":
-            weights["URAM"] = PREFERENCE_PENALTY
+            weights["URAM"] = SetFolding.PREFERENCE_PENALTY
         elif prefer_memory == "uram":
-            weights["BRAM_18K"] = PREFERENCE_PENALTY
+            weights["BRAM_18K"] = SetFolding.PREFERENCE_PENALTY
         elif prefer_memory is not None:
             raise ValueError("prefer_memory must be 'bram', 'uram' or None")
         if prefer_compute == "lut":
-            weights["DSP"] = PREFERENCE_PENALTY
+            weights["DSP"] = SetFolding.PREFERENCE_PENALTY
         elif prefer_compute == "dsp":
-            weights["LUT"] = PREFERENCE_PENALTY
+            weights["LUT"] = SetFolding.PREFERENCE_PENALTY
         elif prefer_compute is not None:
             raise ValueError("prefer_compute must be 'lut', 'dsp' or None")
         if overrides:
@@ -1652,10 +1640,17 @@ class SetFolding(Transformation):
             resource_type_params=self.resource_type_params,
             resource_weights=self.resource_weights,
             allow_uram_weights=self.allow_uram_weights,
-            maxiter=self.maxiter,
-            accept=self.accept,
-            visit=self.visit,
             seed=self.seed,
+            # only override what the caller actually set
+            **{
+                k: v
+                for k, v in (
+                    ("maxiter", self.maxiter),
+                    ("accept", self.accept),
+                    ("visit", self.visit),
+                )
+                if v is not None
+            },
         )
 
     def _probe_fastest_throughput(self, model):
@@ -1764,7 +1759,7 @@ class SetFolding(Transformation):
         fastest_cycles = self._probe_fastest_throughput(model)
         budgets = self._resource_budgets()
 
-        attempts = max(self.max_attempts, MAXIMIZE_SEARCH_STEPS) if maximize else self.max_attempts
+        attempts = max(self.max_attempts, self.MAXIMIZE_SEARCH_STEPS) if maximize else self.max_attempts
 
         # max_cycles is a placeholder here; _fold_at sets it per candidate target
         targets = {"max_cycles": fastest_cycles, **budgets}
@@ -2013,14 +2008,14 @@ class SetFolding(Transformation):
         # first pass: fold parallelism (PE/SIMD) to meet the target
         if self.optimize_folding:
             opt.optimize(
-                max_nodes_in_partition=NODES_PER_PARTITION,
+                max_nodes_in_partition=self.NODES_PER_PARTITION,
                 target_parameters=["SIMD", "PE"],
             )
         # second pass: trade BRAM<->URAM / LUT<->DSP via ram_style/resType
         if self.optimize_resource_types:
             opt.optimize(
-                max_nodes_in_partition=min(len(opt.model.graph.node), RESOURCE_PARTITION_SIZE),
-                target_parameters=list(RESOURCE_TYPE_ATTRS),
+                max_nodes_in_partition=min(len(opt.model.graph.node), self.RESOURCE_PARTITION_SIZE),
+                target_parameters=list(Optimizer.RESOURCE_TYPE_ATTRS),
             )
 
         # score the fit on the folded model, optionally including the resources of
@@ -2322,10 +2317,10 @@ class SetFolding(Transformation):
         # to fall through to the optimizer for any unrecognized string, so a
         # misspelled style silently selected a folder the caller did not ask for
         # and the build looked fine.
-        if self.style not in STYLES:
+        if self.style not in self.STYLES:
             raise ValueError(
                 f"unknown SetFolding style {self.style!r}; expected one of "
-                + ", ".join(repr(s) for s in STYLES)
+                + ", ".join(repr(s) for s in self.STYLES)
             )
         if self.style == "naive":
             # the naive folder has no maximize-throughput mode: it needs a
