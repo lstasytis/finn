@@ -1,0 +1,212 @@
+{
+  "total_kb": 12.4559326171875,
+  "total_bits": 102039,
+  "fifos": {
+    "StreamingFIFO_rtl_0": {
+      "depth": 5,
+      "width": 8,
+      "kb": 0.0048828125,
+      "edge": "- -> Thresholding_rtl"
+    },
+    "StreamingFIFO_rtl_1": {
+      "depth": 2,
+      "width": 8,
+      "kb": 0.001953125,
+      "edge": "Thresholding_rtl -> StreamingDataWidthConverter_rtl"
+    },
+    "StreamingFIFO_rtl_2": {
+      "depth": 2,
+      "width": 24,
+      "kb": 0.005859375,
+      "edge": "StreamingDataWidthConverter_rtl -> ConvolutionInputGenerator_rtl"
+    },
+    "StreamingFIFO_rtl_3": {
+      "depth": 10,
+      "width": 24,
+      "kb": 0.029296875,
+      "edge": "ConvolutionInputGenerator_rtl -> MVAU_hls"
+    },
+    "StreamingFIFO_rtl_4": {
+      "depth": 2,
+      "width": 16,
+      "kb": 0.00390625,
+      "edge": "MVAU_hls -> StreamingDataWidthConverter_rtl"
+    },
+    "StreamingFIFO_rtl_5": {
+      "depth": 2,
+      "width": 32,
+      "kb": 0.0078125,
+      "edge": "StreamingDataWidthConverter_rtl -> ConvolutionInputGenerator_rtl"
+    },
+    "StreamingFIFO_rtl_6": {
+      "depth": 591,
+      "width": 32,
+      "kb": 2.30859375,
+      "edge": "ConvolutionInputGenerator_rtl -> MVAU_hls"
+    },
+    "StreamingFIFO_rtl_7": {
+      "depth": 2,
+      "width": 32,
+      "kb": 0.0078125,
+      "edge": "MVAU_hls -> StreamingDataWidthConverter_rtl"
+    },
+    "StreamingFIFO_rtl_8": {
+      "depth": 37,
+      "width": 2,
+      "kb": 0.009033203125,
+      "edge": "StreamingDataWidthConverter_rtl -> ConvolutionInputGenerator_rtl"
+    },
+    "StreamingFIFO_rtl_9": {
+      "depth": 2,
+      "width": 2,
+      "kb": 0.00048828125,
+      "edge": "ConvolutionInputGenerator_rtl -> Pool_hls"
+    },
+    "StreamingFIFO_rtl_10": {
+      "depth": 2,
+      "width": 2,
+      "kb": 0.00048828125,
+      "edge": "Pool_hls -> StreamingDataWidthConverter_rtl"
+    },
+    "StreamingFIFO_rtl_11": {
+      "depth": 2,
+      "width": 32,
+      "kb": 0.0078125,
+      "edge": "StreamingDataWidthConverter_rtl -> ConvolutionInputGenerator_rtl"
+    },
+    "StreamingFIFO_rtl_12": {
+      "depth": 181,
+      "width": 32,
+      "kb": 0.70703125,
+      "edge": "ConvolutionInputGenerator_rtl -> MVAU_hls"
+    },
+    "StreamingFIFO_rtl_13": {
+      "depth": 2,
+      "width": 16,
+      "kb": 0.00390625,
+      "edge": "MVAU_hls -> StreamingDataWidthConverter_rtl"
+    },
+    "StreamingFIFO_rtl_14": {
+      "depth": 2,
+      "width": 32,
+      "kb": 0.0078125,
+      "edge": "StreamingDataWidthConverter_rtl -> ConvolutionInputGenerator_rtl"
+    },
+    "StreamingFIFO_rtl_15": {
+      "depth": 2161,
+      "width": 32,
+      "kb": 8.44140625,
+      "edge": "ConvolutionInputGenerator_rtl -> MVAU_hls"
+    },
+    "StreamingFIFO_rtl_16": {
+      "depth": 2,
+      "width": 16,
+      "kb": 0.00390625,
+      "edge": "MVAU_hls -> StreamingDataWidthConverter_rtl"
+    },
+    "StreamingFIFO_rtl_17": {
+      "depth": 153,
+      "width": 2,
+      "kb": 0.037353515625,
+      "edge": "StreamingDataWidthConverter_rtl -> ConvolutionInputGenerator_rtl"
+    },
+    "StreamingFIFO_rtl_18": {
+      "depth": 2,
+      "width": 2,
+      "kb": 0.00048828125,
+      "edge": "ConvolutionInputGenerator_rtl -> Pool_hls"
+    },
+    "StreamingFIFO_rtl_19": {
+      "depth": 2,
+      "width": 2,
+      "kb": 0.00048828125,
+      "edge": "Pool_hls -> StreamingDataWidthConverter_rtl"
+    },
+    "StreamingFIFO_rtl_20": {
+      "depth": 4,
+      "width": 16,
+      "kb": 0.0078125,
+      "edge": "StreamingDataWidthConverter_rtl -> ConvolutionInputGenerator_rtl"
+    },
+    "StreamingFIFO_rtl_21": {
+      "depth": 256,
+      "width": 16,
+      "kb": 0.5,
+      "edge": "ConvolutionInputGenerator_rtl -> MVAU_hls"
+    },
+    "StreamingFIFO_rtl_22": {
+      "depth": 2,
+      "width": 8,
+      "kb": 0.001953125,
+      "edge": "MVAU_hls -> StreamingDataWidthConverter_rtl"
+    },
+    "StreamingFIFO_rtl_23": {
+      "depth": 2,
+      "width": 16,
+      "kb": 0.00390625,
+      "edge": "StreamingDataWidthConverter_rtl -> ConvolutionInputGenerator_rtl"
+    },
+    "StreamingFIFO_rtl_24": {
+      "depth": 142,
+      "width": 16,
+      "kb": 0.27734375,
+      "edge": "ConvolutionInputGenerator_rtl -> MVAU_hls"
+    },
+    "StreamingFIFO_rtl_25": {
+      "depth": 2,
+      "width": 2,
+      "kb": 0.00048828125,
+      "edge": "MVAU_hls -> StreamingDataWidthConverter_rtl"
+    },
+    "StreamingFIFO_rtl_26": {
+      "depth": 41,
+      "width": 4,
+      "kb": 0.02001953125,
+      "edge": "StreamingDataWidthConverter_rtl -> MVAU_hls"
+    },
+    "StreamingFIFO_rtl_27": {
+      "depth": 2,
+      "width": 2,
+      "kb": 0.00048828125,
+      "edge": "MVAU_hls -> StreamingDataWidthConverter_rtl"
+    },
+    "StreamingFIFO_rtl_28": {
+      "depth": 61,
+      "width": 4,
+      "kb": 0.02978515625,
+      "edge": "StreamingDataWidthConverter_rtl -> MVAU_hls"
+    },
+    "StreamingFIFO_rtl_29": {
+      "depth": 2,
+      "width": 4,
+      "kb": 0.0009765625,
+      "edge": "MVAU_hls -> StreamingDataWidthConverter_rtl"
+    },
+    "StreamingFIFO_rtl_30": {
+      "depth": 2,
+      "width": 2,
+      "kb": 0.00048828125,
+      "edge": "StreamingDataWidthConverter_rtl -> MVAU_hls"
+    },
+    "StreamingFIFO_rtl_31": {
+      "depth": 2,
+      "width": 55,
+      "kb": 0.013427734375,
+      "edge": "MVAU_hls -> StreamingDataWidthConverter_rtl"
+    },
+    "StreamingFIFO_rtl_32": {
+      "depth": 3,
+      "width": 11,
+      "kb": 0.0040283203125,
+      "edge": "StreamingDataWidthConverter_rtl -> LabelSelect_hls"
+    },
+    "StreamingFIFO_rtl_33": {
+      "depth": 5,
+      "width": 8,
+      "kb": 0.0048828125,
+      "edge": "LabelSelect_hls -> -"
+    }
+  },
+  "model": "cnv-w2a2",
+  "seconds": 2.7
+}
