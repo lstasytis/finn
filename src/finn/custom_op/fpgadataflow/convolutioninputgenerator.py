@@ -26,7 +26,6 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import math
 import warnings
 from onnx import TensorProto, helper
 from qonnx.core.datatype import DataType
@@ -42,544 +41,6 @@ from finn.util.basic import Characteristic_Node
 # input 0 is the input tensor, shape NHWC = (1, IFMDim, IFMDim, IFMChannels)
 # output 0 is the output tensor, shape NHWC:
 #     = (1, OFMDim, OFMDim, (ConvKernelDim^2)*IFMChannels)
-
-
-# ---------------------------------------------------------------------------
-# Exact schedule of the RTL sliding-window generator, "default" impl style.
-#
-# The analytical trees further down approximate this hardware with a handful of
-# closed-form special cases, and the commonest of them mispredicts by exactly
-# k_y * (IFMChannels/SIMD) tokens. That is unnecessary: the hardware is
-# swg_controller (finn-rtllib/swg/swg_common.sv) plus the counter block of
-# swg_template_default.sv, a small finite state machine with no data dependence.
-# The characterisation stimulus holds the input stream valid and the output
-# stream ready for the whole run, which removes the only external influence on
-# it, so the schedule is a pure function of the generated parameters.
-#
-# Executing that FSM in Python costs one loop iteration per cycle -- no IP
-# synthesis, no simulator -- and reproduces the rtlsim token access vector
-# exactly, bit for bit, over the configurations covered by
-# test_fpgadataflow_convinputgenerator.py's tree-model test.
-# ---------------------------------------------------------------------------
-
-
-def swg_default_params(ifm_ch, simd, k, ifm_dim, stride, dilation, depthwise, buffer_actual_size):
-    """The parameters that prepare_codegen_default() substitutes into the RTL.
-
-    Deliberately a function of plain numbers rather than of the node: it has to
-    stay diffable against prepare_codegen_default, which is where these
-    expressions come from, and it must be callable without a ModelWrapper.
-    """
-    k_h, k_w = k
-    h, w = ifm_dim
-    stride_h, stride_w = stride
-    dilation_h, dilation_w = dilation
-    channel_factor = ifm_ch // simd
-
-    out_dim_h = compute_conv_output_dim(h, k_h, stride_h, 0, dilation_h)
-    out_dim_w = compute_conv_output_dim(w, k_w, stride_w, 0, dilation_w)
-
-    buffer_min_size = ((k_h - 1) * dilation_h * w + (k_w - 1) * dilation_w + 1) * channel_factor
-
-    kernel_width = (k_w - 1) * dilation_w + 1
-    kernel_height = (k_h - 1) * dilation_h + 1
-    skip_columns = w % (kernel_width + (out_dim_w - 1) * stride_w)
-    skip_rows = h % (kernel_height + (out_dim_h - 1) * stride_h)
-
-    addr_incr_end_simd = 1
-    addr_incr_end_window_elem = (dilation_w - 1) * channel_factor + 1
-    addr_incr_end_window_row = (
-        ((w - kernel_width) * channel_factor) + ((dilation_h - 1) * w * channel_factor) + 1
-    )
-    addr_incr_end_window = -buffer_min_size + stride_w * channel_factor + 1
-    addr_incr_end_row = (
-        -buffer_min_size
-        + ((skip_columns + kernel_width) * channel_factor)
-        + ((stride_h - 1) * w * channel_factor)
-        + 1
-    )
-
-    if depthwise:
-        addr_incr_end_window_elem = dilation_w * channel_factor
-        addr_incr_end_window_row = (
-            channel_factor
-            + (w - kernel_width) * channel_factor
-            + (dilation_h - 1) * w * channel_factor
-        )
-        addr_incr_end_simd = -buffer_min_size + (channel_factor + 1)
-
-    loop_h_iterations = out_dim_h
-    loop_w_iterations = out_dim_w
-    loop_kh_iterations = k_h
-    loop_kw_iterations = k_w
-    loop_simd_iterations = channel_factor
-
-    if depthwise and channel_factor > 1:
-        loop_kh_iterations = channel_factor
-        loop_kw_iterations = k_h
-        loop_simd_iterations = k_w
-        addr_incr_end_simd_ = addr_incr_end_simd
-        addr_incr_end_simd = addr_incr_end_window_elem
-        addr_incr_end_window_elem = addr_incr_end_window_row
-        addr_incr_end_window_row = addr_incr_end_simd_
-        elem_per_window = k_h * k_w
-        tail_incr_w = addr_incr_end_window + buffer_min_size - channel_factor
-        tail_incr_h = addr_incr_end_row + buffer_min_size - channel_factor
-        is_depthwise = 1
-    else:
-        elem_per_window = k_h * k_w * channel_factor
-        tail_incr_w = addr_incr_end_window + buffer_min_size - 1
-        tail_incr_h = addr_incr_end_row + buffer_min_size - 1
-        is_depthwise = 0
-    tail_incr_last_window = buffer_min_size - 1
-
-    if loop_simd_iterations == 1:
-        # the innermost loop always executes at least once, so the state it
-        # starts in is skipped and its counter loses an iteration
-        if loop_kw_iterations == 1:
-            innermost = "KH"
-            loop_kh_iterations -= 1
-        else:
-            innermost = "KW"
-            loop_kw_iterations -= 1
-    else:
-        innermost = "SIMD"
-        loop_simd_iterations -= 1
-
-    return {
-        "LOOP_H_ITERATIONS": loop_h_iterations - 2,
-        "LOOP_W_ITERATIONS": loop_w_iterations - 2,
-        "LOOP_KH_ITERATIONS": loop_kh_iterations - 2,
-        "LOOP_KW_ITERATIONS": loop_kw_iterations - 2,
-        "LOOP_SIMD_ITERATIONS": loop_simd_iterations - 2,
-        "HEAD_INCR_SIMD": addr_incr_end_simd,
-        "HEAD_INCR_KW": addr_incr_end_window_elem,
-        "HEAD_INCR_KH": addr_incr_end_window_row,
-        "HEAD_INCR_W": addr_incr_end_window,
-        "HEAD_INCR_H": addr_incr_end_row,
-        "TAIL_INCR_W": tail_incr_w,
-        "TAIL_INCR_H": tail_incr_h,
-        "TAIL_INCR_LAST": tail_incr_last_window,
-        "IS_DEPTHWISE": is_depthwise,
-        "INNERMOST_STATE": innermost,
-        "LAST_READ_ELEM": h * w * channel_factor - 1,
-        "LAST_WRITE_ELEM": ((h - skip_rows - 1) * w + (w - skip_columns)) * channel_factor - 1,
-        "BUF_ELEM_TOTAL": buffer_actual_size,
-        "ELEM_PER_WINDOW": elem_per_window,
-    }
-
-
-def swg_default_schedule(p, n_feature_maps=4, hard_limit=None):
-    """Per-cycle (input transaction, output transaction) of the default-style SWG.
-
-    Runs the FSM from reset with in0_V_V_TVALID and out_V_V_TREADY tied high.
-    Returns ``(schedule, restarts)`` where ``restarts`` holds the cycle indices
-    at which the generator wrapped round to the next feature map -- the period is
-    the spacing between two of those, once the start-up transient is past.
-    """
-    LAST_READ = p["LAST_READ_ELEM"]
-    LAST_WRITE = p["LAST_WRITE_ELEM"]
-    BUF = p["BUF_ELEM_TOTAL"]
-    EPW = p["ELEM_PER_WINDOW"]
-    IS_DW = p["IS_DEPTHWISE"]
-    INNER = p["INNERMOST_STATE"]
-    TAIL_W = p["TAIL_INCR_W"]
-    TAIL_H = p["TAIL_INCR_H"]
-    TAIL_LAST = p["TAIL_INCR_LAST"]
-    HEAD = {
-        "START": 0,
-        "SIMD": p["HEAD_INCR_SIMD"],
-        "KW": p["HEAD_INCR_KW"],
-        "KH": p["HEAD_INCR_KH"],
-        "W": p["HEAD_INCR_W"],
-        "H": p["HEAD_INCR_H"],
-    }
-    IT_H = p["LOOP_H_ITERATIONS"]
-    IT_W = p["LOOP_W_ITERATIONS"]
-    IT_KH = p["LOOP_KH_ITERATIONS"]
-    IT_KW = p["LOOP_KW_ITERATIONS"]
-    IT_SIMD = p["LOOP_SIMD_ITERATIONS"]
-
-    state = INNER
-    c_h, c_w, c_kh, c_kw, c_simd = IT_H, IT_W, IT_KH, IT_KW, IT_SIMD
-    newest, current, first_next, pos_in_window = -1, 0, 0, 0
-    fetching_done = write_cmd = writing_done = 0
-
-    # a cycle bound that cannot be hit in a healthy configuration, so a bug in
-    # the FSM transcription shows up as a bounded run rather than a hang
-    if hard_limit is None:
-        hard_limit = 64 * (LAST_READ + 1) * (EPW + 4) + 4096
-
-    sched = []
-    restarts = []
-    cycle = 0
-    while cycle < hard_limit and len(restarts) < n_feature_maps:
-        write_ok = write_cmd  # out_V_V_TREADY tied high
-        fetch_cmd = (current <= newest) and not fetching_done
-        reading_done = newest == LAST_READ
-        oldest = newest - (BUF - 1)
-        read_ok = (not reading_done) and (
-            fetching_done or (oldest < first_next and oldest < current)
-        )
-
-        addr_incr = HEAD[state]
-        if IS_DW and c_kh >= 0:
-            tail_incr = 1
-        elif c_w >= 0:
-            tail_incr = TAIL_W
-        elif c_h >= 0:
-            tail_incr = TAIL_H
-        else:
-            tail_incr = TAIL_LAST
-
-        if state != INNER:
-            state_next = INNER
-        elif c_simd < 0:
-            state_next = (
-                "KW"
-                if c_kw >= 0
-                else "KH"
-                if c_kh >= 0
-                else "W"
-                if c_w >= 0
-                else "H"
-                if c_h >= 0
-                else "START"
-            )
-        else:
-            state_next = state
-
-        sched.append((int(read_ok), int(write_ok)))
-
-        # sequential block, in source order so that a later assignment to the
-        # same register wins, as it does in the always_ff
-        n_newest, n_current, n_first, n_pos = newest, current, first_next, pos_in_window
-        n_fetching, n_write_cmd, n_writing = fetching_done, write_cmd, writing_done
-        restarted = False
-
-        if read_ok:
-            n_newest = newest + 1
-            if newest == LAST_READ - 1 and writing_done:
-                n_newest, n_current, n_first = -1, 0, 0
-                n_writing = n_fetching = 0
-                restarted = True
-
-        if fetch_cmd:
-            n_pos = pos_in_window + 1 if pos_in_window != EPW - 1 else 0
-            if pos_in_window == 0:
-                n_first = first_next + tail_incr
-            if current == LAST_WRITE:
-                n_fetching = 1
-            else:
-                n_current = current + addr_incr
-            n_write_cmd = 1
-
-        if write_ok:
-            n_write_cmd = 1 if fetch_cmd else 0
-
-        if write_ok and fetching_done:
-            if reading_done or (read_ok and newest == LAST_READ - 1):
-                n_newest, n_current, n_first, n_fetching = -1, 0, 0, 0
-                restarted = True
-            else:
-                n_writing = 1
-
-        newest, current, first_next, pos_in_window = n_newest, n_current, n_first, n_pos
-        fetching_done, write_cmd, writing_done = n_fetching, n_write_cmd, n_writing
-
-        if fetch_cmd:
-            # the counter cascade is gated on the state *before* the update
-            if state == INNER:
-                if c_simd >= 0:
-                    c_simd -= 1
-                else:
-                    c_simd = IT_SIMD
-                    if c_kw >= 0:
-                        c_kw -= 1
-                    else:
-                        c_kw = IT_KW
-                        if c_kh >= 0:
-                            c_kh -= 1
-                        else:
-                            c_kh = IT_KH
-                            if c_w >= 0:
-                                c_w -= 1
-                            else:
-                                c_w = IT_W
-                                if c_h >= 0:
-                                    c_h -= 1
-                                else:
-                                    c_h = IT_H
-            state = state_next
-
-        if restarted:
-            restarts.append(cycle)
-        cycle += 1
-
-    return sched, restarts
-
-
-def swg_parallel_params(ifm_ch, simd, k, ifm_dim, stride, dilation):
-    """The parameters that prepare_codegen_parallel() substitutes into the RTL."""
-    k_h, k_w = k
-    h, w = ifm_dim
-    stride_h, stride_w = stride
-    dilation_h, dilation_w = dilation
-    channel_factor = ifm_ch // simd
-
-    out_dim_h = compute_conv_output_dim(h, k_h, stride_h, 0, dilation_h)
-    out_dim_w = compute_conv_output_dim(w, k_w, stride_w, 0, dilation_w)
-
-    buffer_min_size = ((k_h - 1) * dilation_h * w + (k_w - 1) * dilation_w) * channel_factor + 1
-    kernel_width = (k_w - 1) * dilation_w + 1
-    kernel_height = (k_h - 1) * dilation_h + 1
-    skip_columns = w % (kernel_width + (out_dim_w - 1) * stride_w)
-    skip_rows = h % (kernel_height + (out_dim_h - 1) * stride_h)
-
-    loop_h_iterations = out_dim_h
-    loop_w_iterations = out_dim_w
-    loop_kh_iterations = channel_factor
-    loop_kw_iterations = 1
-    loop_simd_iterations = 1
-
-    if loop_kh_iterations == 1:
-        if loop_w_iterations == 1:
-            innermost = "H"
-            loop_h_iterations -= 1
-        else:
-            innermost = "W"
-            loop_w_iterations -= 1
-    else:
-        innermost = "KH"
-        loop_kh_iterations -= 1
-
-    addr_incr_end_window = (stride_w - 1) * channel_factor + 1
-    addr_incr_end_row = ((skip_columns + (kernel_width - 1)) * channel_factor + 1) + (
-        (stride_h - 1) * w * channel_factor
-    )
-
-    return {
-        "LOOP_H_ITERATIONS": loop_h_iterations - 2,
-        "LOOP_W_ITERATIONS": loop_w_iterations - 2,
-        "LOOP_KH_ITERATIONS": loop_kh_iterations - 2,
-        "LOOP_KW_ITERATIONS": loop_kw_iterations - 2,
-        "LOOP_SIMD_ITERATIONS": loop_simd_iterations - 2,
-        "HEAD_INCR_SIMD": 1,
-        "HEAD_INCR_KW": 1,
-        "HEAD_INCR_KH": 1,
-        "HEAD_INCR_W": addr_incr_end_window,
-        "HEAD_INCR_H": addr_incr_end_row,
-        "TAIL_INCR_W": 0,
-        "TAIL_INCR_H": 0,
-        "TAIL_INCR_LAST": 0,
-        "IS_DEPTHWISE": 0,
-        "INNERMOST_STATE": innermost,
-        "LAST_READ_ELEM": h * w * channel_factor - 1,
-        "LAST_WRITE_ELEM": ((h - skip_rows - 1) * w + (w - skip_columns)) * channel_factor - 1,
-        "FIRST_WRITE_ELEM": buffer_min_size - 1,
-    }
-
-
-def swg_parallel_schedule(p, n_feature_maps=4, hard_limit=None):
-    """Per-cycle (input transaction, output transaction) of the parallel-style SWG.
-
-    Same convention as swg_default_schedule. With out_V_V_TREADY tied high the
-    ``Write_done`` register can never set -- ``advance`` is asserted in every
-    cycle in which ``write_ok`` is -- so the output transaction is simply
-    ``write_cmd``.
-    """
-    LAST_READ = p["LAST_READ_ELEM"]
-    LAST_WRITE = p["LAST_WRITE_ELEM"]
-    FIRST_WRITE = p["FIRST_WRITE_ELEM"]
-    INNER = p["INNERMOST_STATE"]
-    HEAD = {
-        "START": 0,
-        "SIMD": p["HEAD_INCR_SIMD"],
-        "KW": p["HEAD_INCR_KW"],
-        "KH": p["HEAD_INCR_KH"],
-        "W": p["HEAD_INCR_W"],
-        "H": p["HEAD_INCR_H"],
-    }
-    IT_H = p["LOOP_H_ITERATIONS"]
-    IT_W = p["LOOP_W_ITERATIONS"]
-    IT_KH = p["LOOP_KH_ITERATIONS"]
-    IT_KW = p["LOOP_KW_ITERATIONS"]
-    IT_SIMD = p["LOOP_SIMD_ITERATIONS"]
-
-    state = INNER
-    c_h, c_w, c_kh, c_kw, c_simd = IT_H, IT_W, IT_KH, IT_KW, IT_SIMD
-    newest, current, writing_done = -1, FIRST_WRITE, 0
-
-    if hard_limit is None:
-        hard_limit = 64 * (LAST_READ + 1) + 4096
-
-    sched = []
-    restarts = []
-    cycle = 0
-    while cycle < hard_limit and len(restarts) < n_feature_maps:
-        write_cmd = (current <= newest) and not writing_done
-        write_ok = write_cmd  # out_V_V_TREADY tied high, Write_done never sets
-        reading_done = newest == LAST_READ
-        read_ok = (not reading_done) and (writing_done or newest <= current)
-
-        addr_incr = HEAD[state]
-
-        if state != INNER:
-            state_next = INNER
-        elif c_simd < 0:
-            state_next = (
-                "KW"
-                if c_kw >= 0
-                else "KH"
-                if c_kh >= 0
-                else "W"
-                if c_w >= 0
-                else "H"
-                if c_h >= 0
-                else "START"
-            )
-        else:
-            state_next = state
-
-        sched.append((int(read_ok), int(write_cmd)))
-
-        n_newest, n_current, n_writing = newest, current, writing_done
-        restarted = False
-
-        if read_ok:
-            n_newest = newest + 1
-            if newest == LAST_READ - 1 and writing_done:
-                n_newest, n_current, n_writing = -1, FIRST_WRITE, 0
-                restarted = True
-
-        if write_ok:
-            if current == LAST_WRITE:
-                n_writing = 1
-                if reading_done or (read_ok and newest == LAST_READ - 1):
-                    n_newest, n_current, n_writing = -1, FIRST_WRITE, 0
-                    restarted = True
-            else:
-                n_current = current + addr_incr
-
-        newest, current, writing_done = n_newest, n_current, n_writing
-
-        # advance_controller is write_ok for the parallel style
-        if write_ok:
-            if state == INNER:
-                if c_simd >= 0:
-                    c_simd -= 1
-                else:
-                    c_simd = IT_SIMD
-                    if c_kw >= 0:
-                        c_kw -= 1
-                    else:
-                        c_kw = IT_KW
-                        if c_kh >= 0:
-                            c_kh -= 1
-                        else:
-                            c_kh = IT_KH
-                            if c_w >= 0:
-                                c_w -= 1
-                            else:
-                                c_w = IT_W
-                                if c_h >= 0:
-                                    c_h -= 1
-                                else:
-                                    c_h = IT_H
-            state = state_next
-
-        if restarted:
-            restarts.append(cycle)
-        cycle += 1
-
-    return sched, restarts
-
-
-def swg_default_tree(inst):
-    """Exact Characteristic_Node for this node, or None if the fast path does not apply.
-
-    Applies to the RTL ConvolutionInputGenerator, in either implementation
-    style. The HLS variant is left to the approximations below: its schedule is
-    generated by Vitis and is not this FSM.
-    """
-    if "_rtl" not in type(inst).__name__:
-        return None
-    if inst.get_nodeattr("dynamic_mode"):
-        # the dynamic template takes its loop bounds from AXI-lite at runtime
-        return None
-    try:
-        impl_style = inst.select_impl_style()
-    except (AttributeError, AssertionError):
-        return None
-    if impl_style not in ("default", "parallel"):
-        return None
-
-    ifm_ch = inst.get_nodeattr("IFMChannels")
-    simd = inst.get_nodeattr("SIMD")
-    if simd <= 0 or ifm_ch % simd != 0:
-        return None
-
-    cache_key = (
-        impl_style,
-        ifm_ch,
-        simd,
-        tuple(inst.get_nodeattr("ConvKernelDim")),
-        tuple(inst.get_nodeattr("IFMDim")),
-        tuple(inst.get_nodeattr("Stride")),
-        tuple(inst.get_nodeattr("Dilation")),
-        int(inst.get_nodeattr("depthwise")),
-    )
-    cached = getattr(inst, "_swg_tree_cache", None)
-    if cached is not None and cached[0] == cache_key:
-        return cached[1]
-
-    if impl_style == "default":
-        p = swg_default_params(
-            ifm_ch,
-            simd,
-            inst.get_nodeattr("ConvKernelDim"),
-            inst.get_nodeattr("IFMDim"),
-            inst.get_nodeattr("Stride"),
-            inst.get_nodeattr("Dilation"),
-            inst.get_nodeattr("depthwise"),
-            inst.get_buffer_depth(),
-        )
-        sched, restarts = swg_default_schedule(p, n_feature_maps=4)
-    else:
-        p = swg_parallel_params(
-            ifm_ch,
-            simd,
-            inst.get_nodeattr("ConvKernelDim"),
-            inst.get_nodeattr("IFMDim"),
-            inst.get_nodeattr("Stride"),
-            inst.get_nodeattr("Dilation"),
-        )
-        sched, restarts = swg_parallel_schedule(p, n_feature_maps=4)
-    if len(restarts) < 4:
-        # the FSM did not settle into a repeating schedule; fall back rather
-        # than emit a vector of the wrong length
-        return None
-    period = restarts[3] - restarts[2]
-
-    # rtlsim characterises a node by running several feature maps back to back
-    # and keeping two whole periods out of the middle; the window it keeps
-    # starts one cycle before a period boundary. Reproduce that phase exactly,
-    # otherwise the vector is a correct schedule at the wrong offset, which
-    # reads to the FIFO sizer as a delay that is not there.
-    start = 2 * period - 1
-    if start + period > len(sched):
-        return None
-    window = sched[start : start + period]
-
-    phases = []
-    for rw in window:
-        if phases and phases[-1][1] == rw:
-            phases[-1][0] += 1
-        else:
-            phases.append([1, rw])
-    node = Characteristic_Node("swg_default_exact", [(cnt, list(rw)) for cnt, rw in phases], True)
-    inst._swg_tree_cache = (cache_key, node)
-    return node
 
 
 class ConvolutionInputGenerator(HWCustomOp):
@@ -801,505 +262,675 @@ class ConvolutionInputGenerator(HWCustomOp):
         inst.execute_node(context, model_im2col.graph)
 
     def get_tree_model(self):
-        """Execute the sliding-window FSM where possible; approximate where not.
+        """The sliding-window generator as a loop nest, or None if not covered.
 
-        Two tiers, in the order they are tried:
+        ``swg_controller`` (finn-rtllib/swg/swg_common.sv) is a five-deep
+        counter nest -- H, W, then the kernel and channel loops -- and the
+        buffer around it is driven entirely by that nest. One output beat
+        leaves per innermost iteration, and the free pointer releases a *draw*
+        of input slots each time a level completes: ``TAIL_INCR_W`` at the end
+        of a window, ``TAIL_INCR_H`` at the end of a row, ``TAIL_INCR_LAST`` at
+        the end of the frame. Input words are taken back to back as each draw
+        lands.
 
-        1. ``swg_default_tree`` -- the RTL generator's "default" style is a small
-           deterministic state machine, and with the input always valid and the
-           output always ready its schedule follows entirely from the generated
-           parameters. Running that FSM reproduces the rtlsim token access vector
-           exactly, so nothing below can improve on it and it is tried first.
-        2. hand-derived closed forms for the shapes the FSM path does not cover
-           (1x1, and the depthwise k=2 s=2 case).
+        So the schedule is the nest, and the tree states it as one: a frame of
+        rows, a row of windows, a window of free-pointer steps. Nothing here
+        walks a cycle. The three places the nest is not the whole story -- the
+        buffer fill before the first beat, a row whose draw is too big to take
+        inside the beats it has, and the drain of whatever is left when
+        fetching finishes -- are the three extra blocks, one leaf each.
 
-        The layering is necessary because the SWG is the one operator here whose
-        schedule is genuinely irregular -- output tokens come in bursts whose
-        spacing depends on where the window sits in the row -- so no single closed
-        form covers every folding. A folding that neither tier describes returns
-        the generic ``swg`` shape built at the end of this method.
+        Covers either RTL implementation style, ``dynamic_mode`` included: the
+        dynamic template only makes the loop bounds writable over AXI-lite, and
+        it powers up holding the same compile-time values this reads. Declines
+        an HLS variant, whose schedule Vitis generates rather than this
+        controller, and any shape code generation refuses.
+
+        The ``claude-tools`` branch holds the FSM this replaced, kept as an
+        oracle, and the harness that scores the nest against it.
         """
-        exact = swg_default_tree(self)
-        if exact is not None:
-            return exact
+        if "_rtl" not in type(self).__name__:
+            return None
+        try:
+            impl_style = self.select_impl_style()
+        except (AttributeError, AssertionError):
+            return None
+        if impl_style not in ("default", "parallel"):
+            return None
+        ifm_ch, simd = self.get_nodeattr("IFMChannels"), self.get_nodeattr("SIMD")
+        if simd <= 0 or ifm_ch % simd != 0:
+            return None
 
-        ifm_dim_y, ifm_dim_x = self.get_nodeattr("IFMDim")
-        ifm_ch = self.get_nodeattr("IFMChannels")
-        simd = self.get_nodeattr("SIMD")
-        k_y, k_x = self.get_nodeattr("ConvKernelDim")
-        stride_y, stride_x = self.get_nodeattr("Stride")
-        dilation_y, dilation_x = self.get_nodeattr("Dilation")
-        parallel_window = self.get_nodeattr("parallel_window")
-        depthwise = self.get_nodeattr("depthwise")
-        SF = ifm_ch // simd
+        def leaf(name, runs):
+            return Characteristic_Node(name, [(int(n), list(v)) for n, v in runs if n > 0], True)
 
-        def mkleaf(name, phases):
-            return Characteristic_Node(name, [(cnt, vals) for cnt, vals in phases if cnt > 0], True)
+        def comp(name, kids):
+            return Characteristic_Node(name, [(int(n), c) for n, c in kids if n > 0 and c], False)
 
-        # 1x1 pass-through / depthwise-equivalent
-        if k_y == 1 and k_x == 1:
-            n_tok = SF * ifm_dim_y * ifm_dim_x
-            return Characteristic_Node(
-                "k1_pass",
-                [(1, [0, 1]), (1, [1, 0]), (n_tok - 1, [1, 1])],
-                True,
+        def clip(v, lo, hi):
+            return max(lo, min(v, hi))
+
+        def params():
+            # read back from the code generator rather than recomputed: these
+            # are what parameterise the Verilog, so the model cannot drift
+            try:
+                _, cg = getattr(self, "prepare_codegen_" + impl_style)()
+            except (AssertionError, AttributeError, KeyError, ValueError, ZeroDivisionError):
+                return None
+            p = {
+                key.strip("$"): int(val[0])
+                for key, val in cg.items()
+                if len(val) == 1 and val[0].lstrip("-").isdigit()
+            }
+            p["INNERMOST_STATE"] = cg["$INNERMOST_STATE$"][0].replace("STATE_LOOP_", "")
+            return p
+
+        def dims(p):
+            # LOOP_x_ITERATIONS is the counter's reload value, trips - 2; the
+            # innermost level loses one more, the FSM starting in its state
+            inner = p["INNERMOST_STATE"]
+            return [
+                p["LOOP_%s_ITERATIONS" % s] + 2 + (1 if s == inner else 0)
+                for s in ("H", "W", "KH", "KW", "SIMD")
+            ]
+
+        def demand_lead(p):
+            """How far the input must run ahead of the beats, in cycles.
+
+            Beat ``j`` reads word ``addr[j]``, and ``addr`` is the nest at
+            ``j``, so the frame runs ``max_j (addr[j] - j)`` longer than its
+            beats alone would. That maximum takes every level as far as it
+            goes, which makes it a sum rather than a search.
+
+            Known short, and the only seam a better term has to fit: reads are
+            throttled by the free pointer, so word ``addr[j]`` is not there at
+            cycle ``addr[j]`` and the two waits compound instead of adding.
+            """
+            lead, inner = 0, 1
+            for name, trips in zip(("SIMD", "KW", "KH", "W", "H"), reversed(dims(p))):
+                lead += (trips - 1) * max(0, p["HEAD_INCR_" + name] - inner)
+                inner *= trips
+            return lead
+
+        def default_nest(p):
+            h, w, kh, kw, sd = dims(p)
+            epw = p["ELEM_PER_WINDOW"]  # beats between two free-pointer steps
+            beats = kh * kw * sd  # output beats per window
+            if epw <= 0 or beats % epw or h < 1 or w < 1:
+                return None
+            steps = beats // epw  # steps per window: one, or the channel factor
+            draw_w = (steps - 1) + p["TAIL_INCR_W"]
+            draw_h = (steps - 1) + p["TAIL_INCR_H"]
+            n_read = p["LAST_READ_ELEM"] + 1
+            cap = w * beats
+
+            def step(reads):
+                return leaf("step", [(reads, [1, 1]), (epw - reads, [0, 1])])
+
+            def window(name, reads):
+                # one slot freed per channel step and the whole draw on the
+                # last, so a bigger draw spreads back over the earlier steps
+                reads = clip(reads, 0, beats)
+                if steps == 1:
+                    return step(reads)
+                last = clip(reads - (steps - 1), 0, epw)
+                q, r = divmod(reads - last, steps - 1)
+                return comp(name, [(r, step(q + 1)), (steps - 1 - r, step(q)), (1, step(last))])
+
+            def row(name, total, debt=0):
+                total = max(0, total)
+                inside = min(total, cap)
+                a = clip(draw_w if per_row < cap else beats, 0, beats)
+                if w > 1:
+                    if (w - 1) * a + beats < inside:
+                        a = clip(-(-(inside - beats) // (w - 1)), 0, beats)
+                    elif (w - 1) * a > inside:
+                        a = inside // (w - 1)
+                end = clip(inside - (w - 1) * a, 0, beats)
+                placed = (w - 1) * a + end
+                spill = clip(total - placed, 0, stall)
+                d = clip(debt, 0, beats - end)
+                tail = window("win_h", end)
+                if d:
+                    # beats this window gives back to the lead-in, which fired
+                    # them early while waiting for their words
+                    tail = leaf(
+                        "win_h_debt", [(end, [1, 1]), (beats - end - d, [0, 1]), (d, [0, 0])]
+                    )
+                node = comp(
+                    name,
+                    [
+                        (w - 1, window("win", a)),
+                        (1, tail),
+                        (1, leaf("stall", [(spill, [1, 0]), (stall - spill, [0, 0])])),
+                    ],
+                )
+                return node, placed + spill, d
+
+            per_row = min((w - 1) * draw_w + draw_h, cap)
+            # a row whose draw does not fit inside its beats stays one
+            # free-pointer step behind for the whole row
+            stall = beats - epw if (per_row + beats - epw > cap or draw_h > beats) else 0
+            # the frame waits for whichever comes later: a whole window in the
+            # buffer, or the read pointer far enough ahead that the first
+            # window's last beat has its word
+            windup = max(demand_lead(p), p["TAIL_INCR_LAST"] + 3 - beats)
+            lead = max(0, p["BUF_ELEM_TOTAL"] - 1 - windup)
+            budget = max(0, n_read - windup)
+            # the lead-in is not idle: the beats whose words it waits for fire
+            # inside it, borrowed from the last window so the writes balance
+            paced = clip(epw - 1, 0, min(windup, beats - 1))
+            # a single-row frame has no later row to carry what its draws leave
+            first, n_first, _ = row(
+                "row_first",
+                budget if h == 1 else min(per_row + lead, budget),
+                debt=paced if h == 1 else 0,
             )
-
-        # depthwise, default impl, k=2 s=2, channel_factor > 1
-        if (
-            parallel_window == 0
-            and depthwise == 1
-            and simd != ifm_ch
-            and k_y == 2
-            and k_x == 2
-            and stride_y == 2
-            and stride_x == 2
-            and dilation_y == 1
-            and dilation_x == 1
-        ):
-            ofm_dim_y = math.floor((ifm_dim_y - k_y) / stride_y) + 1
-            n = ifm_dim_x * SF
-            pair_cnt = (SF - 2) // 2
-            w = ifm_dim_x
-            c = SF + 2 - (w - 2) * pair_cnt
-
-            prefix = mkleaf(
-                "dw_prefix",
+            mid, n_mid, _ = row("row", per_row)
+            left = max(0, budget - n_first - max(0, h - 2) * n_mid)
+            last, n_last, debt = (
+                row("row_last", left, debt=paced) if h > 1 else (None, 0, min(paced, n_first))
+            )
+            if h == 1:
+                debt = paced
+            gap = (windup // debt - 1) if debt else 0
+            return comp(
+                "swg_nest",
                 [
-                    (1, [0, 1]),
-                    (2, [1, 0]),
-                    (1, [1, 1]),
-                    (SF - 1, [1, 0]),
-                    (1, [1, 1]),
-                    (n - SF - 1, [1, 0]),
-                    (1, [1, 1]),
-                    (SF - 1, [1, 0]),
-                    (n - (w - 2) * pair_cnt, [1, 1]),
+                    (
+                        1,
+                        comp(
+                            "lead_in",
+                            [
+                                (debt, leaf("wait", [(gap, [1, 0]), (1, [1, 1])])),
+                                (
+                                    1,
+                                    leaf(
+                                        "wait_end",
+                                        [(max(0, windup - debt * (gap + 1)), [1, 0])],
+                                    ),
+                                ),
+                            ],
+                        ),
+                    ),
+                    (1, first),
+                    (h - 2, mid),
+                    (1 if h > 1 else 0, last),
+                    # the frame reads its feature map exactly once: what the
+                    # draws left drains at one word per cycle
+                    (1, leaf("drain", [(max(0, left - n_last), [1, 0])])),
                 ],
             )
 
-            a_base = mkleaf(
-                "dw_row_start_base",
+        def parallel_nest(p):
+            # one beat carries the whole kernel, so the input stream paces the
+            # frame and the nest shows in the gaps between beats: the head
+            # increment of the level that ended is how far the pointer jumps
+            h, w, kh, _, _ = dims(p)
+            if h < 1 or w < 2:
+                return None
+            n_read = p["LAST_READ_ELEM"] + 1
+            gap_w, gap_h = max(0, p["HEAD_INCR_W"] - 1), max(0, p["HEAD_INCR_H"] - 1)
+            row_len = (w - 1) * (kh + gap_w) + kh + gap_h
+            if row_len <= 0:
+                return None
+            fill = clip(n_read - h * row_len, 0, p["FIRST_WRITE_ELEM"] + 1)
+
+            def rows(reading):
+                beat = [1, 1] if reading else [0, 1]
+                gap = [1, 0] if reading else [0, 0]
+                return comp(
+                    "row",
+                    [
+                        (w - 1, leaf("win", [(kh, beat), (gap_w, gap)])),
+                        (1, leaf("win_h", [(kh, beat), (gap_h, gap)])),
+                    ],
+                )
+
+            dense = min(h, (n_read - fill) // row_len)
+            return comp(
+                "swg_nest",
                 [
-                    (1, [0, 1]),
-                    (1, [1, 1]),
-                    (3, [0, 1]),
-                    (w, [1, 1]),
-                ],
-            )
-            a_pair = mkleaf(
-                "dw_row_start_pair",
-                [
-                    (2, [0, 1]),
-                    (1, [1, 1]),
-                    (3, [0, 1]),
-                    (1, [1, 1]),
-                    (3, [0, 1]),
-                    (w, [1, 1]),
-                ],
-            )
-            tail_mid_both = 2 * n - (1 + w) - pair_cnt * (w + 2) - (4 * SF - 3)
-            tail_mid = mkleaf(
-                "dw_row_tail_mid",
-                [
-                    (3 * SF - 3, [1, 0]),
-                    (1, [1, 1]),
-                    (SF - 1, [1, 0]),
-                    (tail_mid_both, [1, 1]),
-                ],
-            )
-            tail_last = mkleaf(
-                "dw_row_tail_last",
-                [
-                    (3 * SF - 3, [1, 0]),
-                    (1, [1, 1]),
-                    (SF - 1, [1, 0]),
-                    (tail_mid_both - c, [1, 1]),
-                    (n + 2 * pair_cnt, [0, 1]),
+                    (1, leaf("carry", [(1, [0, 0])])),
+                    (1, leaf("fill", [(fill, [1, 0])])),
+                    (dense, rows(True)),
+                    (h - dense, rows(False)),
+                    (1, leaf("pad", [(max(0, n_read - fill - h * row_len), [1, 0])])),
                 ],
             )
 
-            middle = Characteristic_Node(
-                "dw_middle_row",
-                [
-                    (1, a_base),
-                    (pair_cnt, a_pair),
-                    (1, tail_mid),
-                ],
-                False,
-            )
-            last = Characteristic_Node(
-                "dw_last_row",
-                [
-                    (1, a_base),
-                    (pair_cnt, a_pair),
-                    (1, tail_last),
-                ],
-                False,
-            )
+        p = params()
+        if p is None:
+            return None
+        return (default_nest if impl_style == "default" else parallel_nest)(p)
 
-            return Characteristic_Node(
-                "dw_pw0_k2s2",
-                [
-                    (1, prefix),
-                    (ofm_dim_y - 2, middle),
-                    (1, last),
-                ],
-                False,
-            )
 
-        # Special stride-3 pw=1 non-depthwise branch.
-        if (
-            parallel_window == 1
-            and depthwise == 0
-            and k_y == 2
-            and k_x == 2
-            and stride_y == 3
-            and stride_x == 3
-            and dilation_y == 1
-            and dilation_x == 1
-            and SF == 1
-        ):
-            ofm_dim_y = math.floor((ifm_dim_y - k_y) / stride_y) + 1
-            ofm_dim_x = math.floor((ifm_dim_x - k_x) / stride_x) + 1
-            first_valid_read = (k_y - 1) * ifm_dim_x + (k_x - 1) + 1
-            prefix = first_valid_read
-            gap_x = stride_x - 1
-            row_gap = stride_y * ifm_dim_x - (ofm_dim_x - 1) * stride_x - 1
-
-            ch_both = mkleaf("both", [(1, [1, 1])])
-            ch_read = mkleaf("read", [(1, [1, 0])])
-            step = Characteristic_Node("step", [(1, ch_both), (gap_x, ch_read)], False)
-            full_row = Characteristic_Node(
-                "full_row",
-                [(ofm_dim_x - 1, step), (1, ch_both), (row_gap, ch_read)],
-                False,
-            )
-            last_row = Characteristic_Node(
-                "last_row",
-                [(ofm_dim_x - 1, step)],
-                False,
-            )
-            return Characteristic_Node(
-                "pw1_k2_s3",
-                [(1, ch_both), (prefix, ch_read), (ofm_dim_y - 1, full_row), (1, last_row)],
-                False,
-            )
-
-        # Generic parallel_window=1 model for remaining multi-tap cases.
-        if parallel_window == 1:
-            eff_k_y = k_y + (k_y - 1) * (dilation_y - 1)
-            eff_k_x = k_x + (k_x - 1) * (dilation_x - 1)
-            ofm_dim_y = math.floor((ifm_dim_y - eff_k_y) / stride_y) + 1
-            ofm_dim_x = math.floor((ifm_dim_x - eff_k_x) / stride_x) + 1
-
-            start_y = eff_k_y - 1
-            start_x = eff_k_x - 1
-            top_zero = start_y * ifm_dim_x * SF
-            left_zero = start_x * SF
-            burst = SF
-            gap_x = (stride_x - 1) * SF
-            last_valid_x = start_x + (ofm_dim_x - 1) * stride_x
-            tail_x = (ifm_dim_x - 1 - last_valid_x) * SF
-            between_rows_zero = (stride_y - 1) * ifm_dim_x * SF
-            trailing_rows_zero = (
-                (ifm_dim_y - 1 - (start_y + (ofm_dim_y - 1) * stride_y)) * ifm_dim_x * SF
-            )
-            carry_write = 1 if (tail_x == 0 and trailing_rows_zero == 0) else 0
-
-            def build_row(trim_last):
-                phases = []
-                if left_zero > 0:
-                    phases.append((left_zero, [1, 0]))
-                for ox in range(ofm_dim_x):
-                    burst_cnt = burst
-                    if (
-                        trim_last
-                        and trailing_rows_zero == 0
-                        and tail_x == 0
-                        and ox == ofm_dim_x - 1
-                    ):
-                        burst_cnt -= 1
-                    if burst_cnt > 0:
-                        phases.append((burst_cnt, [1, 1]))
-                    if ox < ofm_dim_x - 1 and gap_x > 0:
-                        phases.append((gap_x, [1, 0]))
-                tail_cnt = tail_x
-                if trim_last and trailing_rows_zero == 0 and tail_x > 0:
-                    tail_cnt -= 1
-                if tail_cnt > 0:
-                    phases.append((tail_cnt, [1, 0]))
-                return mkleaf("row", phases)
-
-            row_full = build_row(False)
-            row_short = build_row(True)
-            top_zero_leaf = mkleaf("top_zero", [(top_zero, [1, 0])])
-            between_rows_leaf = mkleaf("between_rows", [(between_rows_zero, [1, 0])])
-            trailing_rows_leaf = mkleaf("trailing_rows", [(trailing_rows_zero - 1, [1, 0])])
-            carry_leaf = mkleaf("carry", [(1, [0, carry_write])])
-            bubble_leaf = mkleaf("bubble", [(1, [1, 0])])
-
-            common_row_parts = [(1, row_full)]
-            if between_rows_zero > 0:
-                common_row_parts.append((1, between_rows_leaf))
-            common_row = Characteristic_Node("common_row", common_row_parts, False)
-
-            if trailing_rows_zero > 0:
-                last_part_children = [(1, row_full)]
-                if trailing_rows_zero - 1 > 0:
-                    last_part_children.append((1, trailing_rows_leaf))
-                last_part = Characteristic_Node("last_part", last_part_children, False)
-            else:
-                last_part = row_short
-
-            scan_children = []
-            if top_zero > 0:
-                scan_children.append((1, top_zero_leaf))
-            if ofm_dim_y > 1:
-                scan_children.append((ofm_dim_y - 1, common_row))
-            scan_children.append((1, last_part))
-            scan_prefix = Characteristic_Node("scan_prefix", scan_children, False)
-
-            return Characteristic_Node(
-                "pw1_generic",
-                [(1, carry_leaf), (1, bubble_leaf), (1, scan_prefix)],
-                False,
-            )
-
-        # k=[2,2] pw=0 stride=[2,2] dw=0
-        if (
-            k_y == 2
-            and k_x == 2
-            and parallel_window == 0
-            and depthwise == 0
-            and stride_y == 2
-            and stride_x == 2
-        ):
-            n_pix = ifm_dim_y * ifm_dim_x
-            kernel_lines = math.ceil((ifm_dim_y - k_y + 1) / stride_y)
-
-            main_both = SF * n_pix - 2 - 2 * SF - 4 * SF
-            trailing_writes = SF * (kernel_lines - 1) + 1
-
-            swg = Characteristic_Node(
-                "k=2x2 pw=0 s=2x2",
-                [
-                    (1, [0, 1]),
-                    (2, [1, 0]),
-                    (2 * SF, [1, 1]),
-                    (4 * SF, [1, 0]),
-                    (main_both, [1, 1]),
-                    (trailing_writes, [0, 1]),
-                ],
-                True,
-            )
-            return swg
-
-        # Baseline branch for remaining pw=0 / other special cases
-        stride_y_skips = (stride_y - 1) * ifm_dim_x
-
-        kernels_in_line = math.ceil(
-            (ifm_dim_x - (k_x - 1 + (k_x - 1) * (dilation_x - 1))) / stride_x
-        )
-        kernel_lines = math.ceil(
-            (ifm_dim_y - ((k_y - 1) + (k_y - 1) * (dilation_y - 1))) / stride_y
-        )
-
-        shifts_x = (kernels_in_line - 1) * stride_x
-        starting_index_x = k_x + (k_x - 1) * (dilation_x - 1)
-        remainder_x = ifm_dim_x - (starting_index_x + shifts_x)
-
-        shifts_y = (kernel_lines - 1) * stride_y
-        starting_index_y = k_y + (k_y - 1) * (dilation_y - 1)
-        remainder_y = (ifm_dim_y - (starting_index_y + shifts_y)) * ifm_dim_x
-
-        reads_to_prepare_line = (k_x - 1) + (k_x - 1) * (dilation_x - 1)
-        reads_to_prepare_first_line = ((k_y - 1) + (k_y - 1) * (dilation_y - 1)) * ifm_dim_x
-        total_kernel_y = k_y + (k_y - 1) * (dilation_y - 1)
-        first_line_kernel_buffer = k_x + (k_x - 1) * (dilation_x - 1)
-        first_line_buffer = (total_kernel_y - 1) * ifm_dim_x
-
-        if parallel_window == 1:
-            writes_per_kernel = 1
-        else:
-            writes_per_kernel = k_y * k_x
-
-        inner_line_buffer_reads = (stride_y - 1) * ifm_dim_x
-
-        single_move_dif = writes_per_kernel - stride_x
-        if single_move_dif > 0:
-            do_both = stride_x
-            writes_only = single_move_dif
-            reads_only = 0
-        else:
-            do_both = writes_per_kernel
-            reads_only = -single_move_dif
-            writes_only = 0
-
-        first_do_both = 0
-        first_writes_only = writes_per_kernel
-        first_reads_only = first_line_kernel_buffer
-
-        absorbing_kernels = 0
-
-        remaining_buffer_reads = inner_line_buffer_reads
-        if inner_line_buffer_reads > 0 and ((kernels_in_line - 1) * writes_only) > 0:
-            absorbing_kernels = min(
-                math.floor((inner_line_buffer_reads) // writes_only), kernels_in_line - 1
-            )
-            absorbed_reads = absorbing_kernels * writes_only
-            inner_line_buffer_reads -= absorbed_reads
-            remaining_buffer_reads -= absorbed_reads
-
-        first_reads = first_line_kernel_buffer + remaining_buffer_reads
-        first_single_move_dif = writes_per_kernel - first_reads
-        if first_single_move_dif > 0:
-            first_do_both = first_reads
-            first_writes_only = first_single_move_dif
-            first_reads_only = 0
-        else:
-            first_do_both = writes_per_kernel
-            first_reads_only = -first_single_move_dif
-            first_writes_only = 0
-
-        absolute_first_reads = first_line_kernel_buffer + first_line_buffer
-        absolute_first_single_move_dif = writes_per_kernel - absolute_first_reads
-
-        absolute_first_do_both = 0
-        absolute_first_writes_only = writes_per_kernel
-        absolute_first_reads_only = absolute_first_reads
-
-        if depthwise == 0:
-            if absolute_first_single_move_dif > 0:
-                absolute_first_do_both = absolute_first_reads
-                absolute_first_writes_only = absolute_first_single_move_dif
-                absolute_first_reads_only = 0
-            else:
-                absolute_first_do_both = writes_per_kernel
-                absolute_first_reads_only = -absolute_first_single_move_dif
-                absolute_first_writes_only = 0
-
-        ch_idle = Characteristic_Node("Output Write", [(SF, [0, 0])], True)
-        ch_write = Characteristic_Node("Output Write", [(SF, [0, 1])], True)
-
-        ch_read = Characteristic_Node("Streamed Read", [(SF, [1, 0])], True)
-        ch_both = Characteristic_Node("Streamed Read+Write", [(SF, [1, 1])], True)
-
-        if parallel_window == 2:
-            ch_handle = Characteristic_Node("write out", [(1, ch_both)], False)
-
-            handle_kernel = Characteristic_Node(
-                "handle one kernel", [(1, ch_handle), (stride_x - 1, ch_read)], False
-            )
-
-            handle_last_kernel = Characteristic_Node(
-                "handle last kernel",
-                [
-                    (1, ch_handle),
-                    (remainder_x, ch_read),
-                ],
-                False,
-            )
-
-            handle_line = Characteristic_Node(
-                "write_one_line",
-                [
-                    (reads_to_prepare_line, ch_read),
-                    (kernels_in_line - 1, handle_kernel),
-                    (1, handle_last_kernel),
-                    (stride_y_skips, ch_read),
-                ],
-                False,
-            )
-            handle_last_line = Characteristic_Node(
-                "write line without stride at end",
-                [
-                    (reads_to_prepare_line, ch_read),
-                    (kernels_in_line, handle_kernel),
-                    (remainder_y, ch_read),
-                ],
-                False,
-            )
-            swg = Characteristic_Node(
-                "SlidingWindowGenerator",
-                [
-                    (1, ch_idle),
-                    (reads_to_prepare_first_line, ch_read),
-                    (kernel_lines - 1, handle_line),
-                    (1, handle_last_line),
-                ],
-                False,
-            )
-
-        else:
-            handle_absolute_kernel = Characteristic_Node(
-                "handle one kernel",
-                [
-                    (absolute_first_do_both, ch_both),
-                    (absolute_first_reads_only, ch_read),
-                    (absolute_first_writes_only, ch_write),
-                ],
-                False,
-            )
-
-            handle_first_kernel = Characteristic_Node(
-                "handle one kernel",
-                [
-                    (first_do_both, ch_both),
-                    (first_reads_only, ch_read),
-                    (first_writes_only, ch_write),
-                ],
-                False,
-            )
-
-            handle_kernel = Characteristic_Node(
-                "handle one kernel",
-                [
-                    (do_both, ch_both),
-                    (reads_only, ch_read),
-                    (writes_only, ch_write),
-                ],
-                False,
-            )
-
-            handle_kernel_absorbed = Characteristic_Node(
-                "handle one kernel with fused writes",
-                [
-                    (do_both + writes_only, ch_both),
-                    (reads_only, ch_read),
-                ],
-                False,
-            )
-
-            handle_first_line = Characteristic_Node(
-                "write first line",
-                [
-                    (1, handle_absolute_kernel),
-                    (kernels_in_line - 1, handle_kernel),
-                    (remainder_x, ch_read),
-                ],
-                False,
-            )
-
-            handle_line = Characteristic_Node(
-                "write one inner line",
-                [
-                    (1, handle_first_kernel),
-                    (absorbing_kernels, handle_kernel_absorbed),
-                    (kernels_in_line - 1 - absorbing_kernels, handle_kernel),
-                    (remainder_x, ch_read),
-                ],
-                False,
-            )
-
-            swg = Characteristic_Node(
-                "SlidingWindowGenerator",
-                [
-                    (1, handle_first_line),
-                    (kernel_lines - 1, handle_line),
-                    (remainder_y, ch_read),
-                ],
-                False,
-            )
-
-        return swg
+# ---------------------------------------------------------------------------
+# A tree model for finn-rtllib/mvu_tiled/input_gen.sv, parked.
+#
+# input_gen is a generic loop-nest input generator and the intended replacement
+# for this operator. The model below is complete and was validated cycle-exact
+# against a Python transliteration of the RTL on the whole sliding-window
+# configuration matrix, on the 192 nests mvu_tiled_axi actually instantiates,
+# and on 6000 random nests -- 0 wrong, 0 declined. It is commented out because
+# no FINN custom op instantiates input_gen as a standalone sliding-window
+# operator yet: there is no node for it to hang off. When one exists, this
+# becomes its get_tree_model with the conv -> (DIMS, COEFS, FM_SIZE) mapping in
+# front of it.
+#
+# What it does not cover: parallel_window. That style's output word is k*k
+# times its input word and the module has one DATA_WIDTH for both ports, so the
+# hardware cannot express it -- 41% of the matrix. That, and a 14-33%
+# throughput loss on strided depthwise windows, is why the CIG is still here.
+#
+# Driven the way FIFO characterisation drives it (ivld and ordy both tied
+# high), the module is two coupled max-plus recurrences:
+#
+#     advance(k) = max(advance(k-1) + 1, accept(A[k]) + 2)
+#     accept(m)  = max(accept(m-1)  + 1, advance(gate[m]) + 1)
+#
+# advance(k) is the cycle the read pointer steps to output beat k, the beat
+# itself leaving one cycle later because the output stage is registered; A[k]
+# is the word that beat reads and the +2 is Wp then WpZ. accept(m) is the cycle
+# input word m is taken; gate[m] is the beat whose level completion releases
+# the slot m will occupy, and the +1 is the registered Cap. The sliding window
+# itself lives in A and in the free-pointer staircase behind gate, both of
+# which come out of the module's own elaboration functions.
+#
+# The pair is solved one loop iteration at a time rather than over a frame, so
+# a 330 000-cycle frame costs about a dozen block solves and the period never
+# exists as an array.
+#
+# The reference it was scored against, the RTL check that found the ptr_t
+# deadlock, and the harnesses are on the claude-tools branch.
+# ---------------------------------------------------------------------------
+#
+# import collections
+# import math
+# import numpy as np
+#
+# from finn.util.basic import Characteristic_Node
+#
+# # The module's pipeline, in cycles. An accepted word is visible to the read side
+# # two cycles later (``Wp``, then ``WpZ``); a released slot is visible to the
+# # write side one cycle later (``Cap``); a beat leaves one cycle after the
+# # advance that fetched it (``OVld``/``OBuf``). This is the whole wind-up and the
+# # tree carries it itself -- there is no shift applied on top.
+# _ACCEPT_TO_VISIBLE = 2
+# _FREE_TO_VISIBLE = 1
+# _ADVANCE_TO_BEAT = 1
+#
+# _MAX_PASSES = 8000
+# _MAX_FRAMES = 96
+#
+#
+# def nest_params(dims, coefs, fm_size):
+#     """``W``, ``R_FLAG``, ``TERMINAL_FP_INC`` and ``BUF_SIZE``, as elaborated.
+#
+#     A transliteration of ``INIT_W``, ``INIT_R_FLAG``, ``INIT_RP_INC``,
+#     ``INIT_FP_INC`` and ``INIT_MAX_OCCUPANCY``. ``R_FLAG`` clears from the
+#     outside in: once a level fails ``COEFS[i-1]*DIMS[i-1] <= W[i-1]`` no inner
+#     level releases slots either, and ``TERMINAL_FP_INC`` is zero there.
+#     ``BUF_SIZE`` rounds up to a power of two, so the buffer is usually larger
+#     than the working set and that slack is what decouples the two sides.
+#     """
+#     d = len(dims)
+#     w = [fm_size] + list(coefs)
+#     r_flag = [True] + [False] * d
+#     for i in range(1, d + 1):
+#         r_flag[i] = r_flag[i - 1] and coefs[i - 1] > 0 and coefs[i - 1] * dims[i - 1] <= w[i - 1]
+#     rp_inc = [0] * (d + 1)
+#     fp_inc = [0] * (d + 1)
+#     rewind = free_rewind = 0
+#     for i in range(d, -1, -1):
+#         if i < d:
+#             rewind += (dims[i] - 1) * coefs[i]
+#             free_rewind = (dims[i] - 1) * coefs[i] + free_rewind if r_flag[i + 1] else 0
+#         rp_inc[i] = w[i] - rewind
+#         fp_inc[i] = (free_rewind - w[i]) if r_flag[i] else 0
+#     occupancy = max([0] + [-rp_inc[i] for i in range(d)])
+#     rewind = free_rewind = 0
+#     for i in range(d - 1, -1, -1):
+#         rewind += (dims[i] - 1) * coefs[i]
+#         free_rewind = (dims[i] - 1) * coefs[i] + free_rewind if r_flag[i + 1] else 0
+#         occupancy = max(occupancy, rewind - free_rewind)
+#     return w, r_flag, fp_inc, 1 << max(1, math.ceil(math.log2(occupancy + 3)))
+#
+#
+# def outer_level(dims):
+#     """The outermost level that is a loop. Levels above it run once."""
+#     for i, n in enumerate(dims):
+#         if n > 1:
+#             return i
+#     return len(dims) - 1
+#
+#
+# def block_pattern(dims, coefs, fp_inc, level):
+#     """One iteration of ``level``: its beats' addresses and slot releases.
+#
+#     Straight off the nest, and the same for every iteration: block ``b`` of
+#     frame ``f`` reads ``addr + b*COEFS[level] + f*FM_SIZE``. Only the release on
+#     the block's last beat varies -- it completes ``level+1`` normally, and level
+#     0 on the frame's last block, since every level outside ``level`` runs once.
+#     """
+#     inner, icoef = list(dims[level + 1 :]), list(coefs[level + 1 :])
+#     beats = int(np.prod(inner)) if inner else 1
+#     beat = np.arange(beats, dtype=np.int64)
+#     addr = np.zeros(beats, dtype=np.int64)
+#     ends = np.full(beats, len(dims), dtype=np.int64)
+#     step = 1
+#     for j in range(len(inner) - 1, -1, -1):
+#         addr += icoef[j] * ((beat // step) % inner[j])
+#         step *= inner[j]
+#         ends[(beat + 1) % step == 0] = level + 1 + j
+#     freed = -np.array(fp_inc, dtype=np.int64)[ends]
+#     closing = freed.copy()
+#     closing[-1] = -fp_inc[0]
+#     return addr, freed, closing
+#
+#
+# class Walk:
+#     """One iteration of the outermost loop at a time, carrying only its state.
+#
+#     The state between two blocks is small and bounded by the nest: the accept
+#     times of the words a later block can still read -- a window the width of the
+#     module's own buffer -- plus the last advance, the last accept, and how many
+#     slots have been released. Everything else is recomputed from ``dims`` and
+#     ``coefs``.
+#     """
+#
+#     def __init__(self, dims, coefs, fm_size):
+#         _, _, fp_inc, self.buf = nest_params(dims, coefs, fm_size)
+#         self.level = outer_level(dims)
+#         self.addr, self.freed, self.closing = block_pattern(dims, coefs, fp_inc, self.level)
+#         self.blocks, self.coef, self.fm = dims[self.level], coefs[self.level], fm_size
+#         # the words the reset already leaves room for: taken back to back from
+#         # cycle 0, gated by nothing
+#         self.acc = np.arange(max(0, self.buf - 1), dtype=np.int64)
+#         self.base = 0  # word index ``acc[0]`` stands for
+#         self.last_adv = -1
+#         self.last_acc = self.acc.size - 1
+#         self.released = 0
+#         self.pending = self.acc.copy()  # accept cycles not yet inside a block
+#         self.index = 0
+#         self.end = -1  # cycle of the previous block's last output beat
+#         self.peak = self.acc.size
+#
+#     def step(self):
+#         """Solve the next block, as a ``Block``, or ``None``.
+#
+#         ``None`` is the decline. It covers a block that reads a word the free
+#         pointer has not released -- the module would deadlock -- and a block
+#         whose recurrences do not settle.
+#         """
+#         j, f = self.index % self.blocks, self.index // self.blocks
+#         freed = self.closing if j == self.blocks - 1 else self.freed
+#         addr = self.addr + j * self.coef + f * self.fm - self.base
+#         cumulative = np.cumsum(freed)
+#         first = max(self.released + self.buf - 1, self.base + self.acc.size)
+#         count = max(0, self.released + int(cumulative[-1]) + self.buf - 1 - first)
+#         gate = np.clip(
+#             np.searchsorted(
+#                 cumulative, np.arange(count) + first - self.buf + 2 - self.released, "left"
+#             ),
+#             0,
+#             freed.size - 1,
+#         )
+#         times = np.concatenate((self.acc, np.zeros(count, dtype=np.int64)))
+#         if addr.min() < 0 or addr.max() >= times.size:
+#             return None  # reads a word no block has released: the module deadlocks
+#         self.peak = max(self.peak, times.size + freed.size + count)
+#         beat = np.arange(freed.size, dtype=np.int64)
+#         word = np.arange(count, dtype=np.int64)
+#         for _ in range(_MAX_PASSES):
+#             advance = beat + np.maximum.accumulate(
+#                 np.maximum(times[addr] + _ACCEPT_TO_VISIBLE - beat, self.last_adv + 1 - beat)
+#             )
+#             if count == 0:
+#                 break
+#             accept = word + np.maximum.accumulate(
+#                 np.maximum(advance[gate] + _FREE_TO_VISIBLE - word, self.last_acc + 1 - word)
+#             )
+#             if np.array_equal(accept, times[times.size - count :]):
+#                 break
+#             times[times.size - count :] = accept
+#         else:
+#             return None
+#         return self.close(times, advance, count, int(cumulative[-1]))
+#
+#     def close(self, times, advance, count, frees):
+#         """Bank a solved block and roll the state on to the next one."""
+#         start = self.end + 1
+#         self.end = int(advance[-1]) + _ADVANCE_TO_BEAT
+#         queue = np.concatenate((self.pending, times[times.size - count :]))
+#         taken = queue <= self.end
+#         inside = queue[taken] - start
+#         self.pending = queue[~taken]
+#         self.acc = times
+#         self.last_adv = int(advance[-1])
+#         if count:
+#             self.last_acc = int(times[-1])
+#         self.released += frees
+#         self.index += 1
+#         drop = min(self.lowest_future_read() - self.base, self.acc.size - 1)
+#         if drop > 0:
+#             self.acc = self.acc[drop:]
+#             self.base += drop
+#         return Block(
+#             self.end - start + 1,
+#             tuple(inside.tolist()),
+#             tuple((advance + _ADVANCE_TO_BEAT - start).tolist()),
+#         )
+#
+#     def lowest_future_read(self):
+#         """The lowest word index any block from here on will read.
+#
+#         Accept times below it can be forgotten, and that is what bounds the
+#         carried state. Block ``b`` reads from ``(b % blocks)*COEFS[level] +
+#         (b // blocks)*FM_SIZE + min(addr)``, which is *not* monotone in ``b``:
+#         where ``(blocks-1)*COEFS[level]`` exceeds ``FM_SIZE`` -- a nest whose
+#         outer loop strides further than a feature map, so it reads into the next
+#         one -- the first block of the next frame reaches back behind the last
+#         block of this one. One frame of look-ahead settles it, because a whole
+#         frame later every read is exactly ``FM_SIZE`` higher.
+#         """
+#         span = range(self.index, self.index + self.blocks)
+#         return int(self.addr.min()) + min(
+#             (b % self.blocks) * self.coef + (b // self.blocks) * self.fm for b in span
+#         )
+#
+#     def signature(self):
+#         """The state the next block will start from, relative to the last one.
+#
+#         Everything the next ``step`` reads: where its addresses land in the
+#         accept window, how far the free pointer is ahead of that window, and the
+#         accept times themselves relative to the cycle the last block ended at.
+#         Two equal signatures mean two identical blocks, whatever their index.
+#         """
+#         j, f = self.index % self.blocks, self.index // self.blocks
+#         return (
+#             j * self.coef + f * self.fm - self.base,
+#             self.released - self.base,
+#             (self.acc - self.end).tobytes(),
+#             (self.pending - self.end).tobytes(),
+#             self.last_adv - self.end,
+#             self.last_acc - self.end,
+#         )
+#
+#     def repeat(self, block, count, admitted, grew):
+#         """Take ``count`` more identical blocks in one step, by shifting the state."""
+#         duration = block.duration * count
+#         self.end += duration
+#         self.last_adv += duration
+#         self.last_acc += duration
+#         self.acc = self.acc + duration
+#         self.pending = self.pending + duration
+#         self.released += count * admitted
+#         self.base += count * grew
+#         self.index += count
+#
+#
+# def frame_blocks(dims, coefs, fm_size):
+#     """One settled period as ``[(count, block), ...]``, or ``None``.
+#
+#     Walks blocks until the *state* at a frame boundary repeats one it has been
+#     in before; everything between the two is then the period. Matching on the
+#     state rather than on the blocks buys two things. It does not mistake the
+#     writer draining the credit the reset gave it for a steady state -- those
+#     frames are bit-identical while the accept queue behind them is still
+#     shortening. And it finds periods that span **several frames**: a two-beat
+#     nest on a four-entry buffer settles at five cycles covering two frames, the
+#     frames alternating three and two, which is a perfectly good steady state and
+#     not something to decline.
+#
+#     Interior blocks stop changing long before any of that, so the walk
+#     fast-forwards over them by the same signature: what gets *solved* is a
+#     handful of blocks per frame rather than ``DIMS[level]`` of them, the period
+#     is only ever held run-length encoded, and no cycle array is ever assembled.
+#     """
+#     walk = Walk(dims, coefs, fm_size)
+#     frame, frames, seen, solved, previous = [], [], {}, 0, None
+#     while walk.index < _MAX_FRAMES * walk.blocks:
+#         was = (walk.released, walk.base)
+#         block = walk.step()
+#         if block is None:
+#             return None
+#         solved += 1
+#         admitted, grew = walk.released - was[0], walk.base - was[1]
+#         _append(frame, block, 1)
+#         here = walk.signature()
+#         j = walk.index % walk.blocks
+#         if 0 < j < walk.blocks - 1 and here == previous:
+#             ahead = walk.blocks - 1 - j
+#             walk.repeat(block, ahead, admitted, grew)
+#             frame[-1][0] += ahead
+#         previous = here
+#         if j == 0:
+#             frames.append(frame)
+#             frame = []
+#             if here in seen:
+#                 period = []
+#                 for one in frames[seen[here] + 1 :]:
+#                     for count, blk in one:
+#                         _append(period, blk, count)
+#                 return [(n, b) for n, b in period], walk.peak, solved
+#             seen[here] = len(frames) - 1
+#     return None
+#
+#
+# def _append(runs, block, count):
+#     """Add ``count`` copies of a block to a run-length list."""
+#     if runs and runs[-1][1] == block:
+#         runs[-1][0] += count
+#     else:
+#         runs.append([count, block])
+#
+#
+# # One iteration of the derived loop: how many cycles it lasts, and which of them
+# # take an input word and which produce an output beat. Plain tuples, so two
+# # blocks compare equal when they are the same schedule.
+# Block = collections.namedtuple("Block", "duration reads writes")
+#
+#
+# def block_delta(block):
+#     """A block's cycles, as a ``(duration, 2)`` array of per-cycle read/write."""
+#     out = np.zeros((block.duration, 2), dtype=np.int64)
+#     out[list(block.reads), 0] = 1
+#     out[list(block.writes), 1] = 1
+#     return out
+#
+#
+# def _runs(delta, name):
+#     """A run-length leaf: the cycles of a block that has no loop left in it."""
+#     if delta.shape[0] == 0:
+#         return Characteristic_Node(name, [], True)
+#     cut = np.flatnonzero(np.any(np.diff(delta, axis=0) != 0, axis=1)) + 1
+#     start = np.concatenate(([0], cut))
+#     length = np.diff(np.concatenate((start, [delta.shape[0]])))
+#     return Characteristic_Node(
+#         name, [(int(a), [int(v[0]), int(v[1])]) for a, v in zip(length, delta[start])], True
+#     )
+#
+#
+# def _split(delta, n):
+#     """``n`` blocks, one per iteration of a level, or ``None`` if they do not cut.
+#
+#     An iteration of level ``i`` emits the same number of beats as every other,
+#     so the cuts are at equal shares of the writes -- closed one cycle after the
+#     last write of the share, since that write is what ends it.
+#     """
+#     total = np.cumsum(delta[:, 1])
+#     if total[-1] == 0 or total[-1] % n:
+#         return None
+#     share = total[-1] // n
+#     end = np.searchsorted(total, share * np.arange(1, n + 1), side="left") + 1
+#     if end[-1] != delta.shape[0]:
+#         return None
+#     return [delta[(0 if j == 0 else end[j - 1]) : end[j]] for j in range(n)]
+#
+#
+# def _fold(delta, dims, level, name):
+#     """The nest's own loop structure inside one block, or a leaf where it stops.
+#
+#     The outermost loop is derived, not folded -- ``frame_blocks`` builds it from
+#     ``dims`` without a period ever existing. **The levels inside a block are
+#     folded from that block's cycles**, which is the one place this model still
+#     cuts up a materialised trace. It is bounded: a block is one iteration of the
+#     outer loop, so the array is ``period / DIMS[level]`` cycles, not ``period``.
+#     Deriving these too would need the same carried state one level down, and the
+#     blocks there are small enough that the bookkeeping would cost more than the
+#     array does.
+#
+#     Only the first iteration of a level differs, and only because the pipeline
+#     crosses the block boundary carrying the previous one's lead; every later one
+#     is bit-identical. So a level becomes ``[(1, head), (n-1, body)]``.
+#     """
+#     if level >= len(dims):
+#         return _runs(delta, name)
+#     if dims[level] < 2:
+#         return _fold(delta, dims, level + 1, name)  # a one-trip level is not a loop
+#     blocks = _split(delta, dims[level])
+#     if blocks is None or not all(np.array_equal(b, blocks[1]) for b in blocks[2:]):
+#         return _runs(delta, name)
+#     body = _fold(blocks[1], dims, level + 1, name)
+#     if np.array_equal(blocks[0], blocks[1]):
+#         return Characteristic_Node(name, [(dims[level], body)], False)
+#     head = _fold(blocks[0], dims, level + 1, name)
+#     return Characteristic_Node(name, [(1, head), (dims[level] - 1, body)], False)
+#
+#
+# def tree_model(dims, coefs, fm_size, name="input_gen nest"):
+#     """The steady-state schedule of one ``input_gen`` instance, or ``None``.
+#
+#     ``None`` is reserved for nests that **cannot be built**, and it is meant to
+#     stay unreachable. Nothing in the sliding-window matrix, the ``mvu_tiled``
+#     instantiations, or 6000 random nests reaches it. What is left:
+#
+#     * the free pointer not handing back exactly one frame of slots per frame.
+#       ``INIT_FP_INC`` telescopes to exactly that, so this is an invariant the
+#       elaboration guarantees rather than one it checks -- 40 000 random nests
+#       never reached it. It is kept so that a future change to ``INIT_FP_INC``
+#       that broke the invariant would decline rather than emit nonsense;
+#     * a block that reads a word the free pointer never releases, and recurrences
+#       or frames that do not settle inside ``_MAX_PASSES`` / ``_MAX_FRAMES``.
+#
+#     Where it does fire the node falls back to rtlsim characterisation, which is
+#     ground truth: the conservative direction, since a wrong tree can undersize a
+#     FIFO and rtlsim cannot.
+#     """
+#     if len(dims) == 0 or any(x < 1 for x in dims) or fm_size < 1:
+#         return None
+#     _, _, fp_inc, _ = nest_params(dims, coefs, fm_size)
+#     level = outer_level(dims)
+#     _, freed, closing = block_pattern(dims, coefs, fp_inc, level)
+#     if (dims[level] - 1) * int(freed.sum()) + int(closing.sum()) != fm_size:
+#         return None  # the free pointer does not hand back a frame of slots
+#     settled = frame_blocks(dims, coefs, fm_size)
+#     if settled is None:
+#         return None
+#     inner = list(dims[outer_level(dims) + 1 :])
+#     return Characteristic_Node(
+#         name,
+#         [(count, _fold(block_delta(block), inner, 0, name)) for count, block in settled[0]],
+#         False,
+#     )

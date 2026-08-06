@@ -139,9 +139,6 @@ module input_gen #(
 	localparam int unsigned  ADDR_BITS = $clog2(MAX_OCCUPANCY + WP_DELAY + 2);
 	localparam int unsigned  BUF_SIZE  = 1 << ADDR_BITS;
 
-	// Pointer type: one extra bit for signed wrap-around detection.
-	typedef logic signed [ADDR_BITS:0]  ptr_t;
-
 	// Pointer increment type: must accommodate the largest absolute increment.
 	function automatic int unsigned  INIT_MAX_ABS_INC();
 		automatic int unsigned  m = 0;
@@ -153,8 +150,30 @@ module input_gen #(
 		end
 		return  m;
 	endfunction : INIT_MAX_ABS_INC
-	localparam int unsigned  INC_BITS = 1 + $clog2(INIT_MAX_ABS_INC() + 1);
+	localparam int unsigned  MAX_ABS_INC = INIT_MAX_ABS_INC();
+	localparam int unsigned  INC_BITS = 1 + $clog2(MAX_ABS_INC + 1);
 	typedef logic signed [INC_BITS-1:0]  inc_t;
+
+	// Pointer type: the buffer, plus a terminal increment, plus a sign bit.
+	//
+	// The buffer alone is not enough. A nest that does not read all of its
+	// feature map -- a strided window whose last rows fall outside the last
+	// window, the common case for a stride-2 kernel on an odd input -- has to
+	// release the unread part in one lump when the frame completes, and that
+	// lump can be larger than BUF_SIZE. The free pointer then legitimately
+	// overtakes the write pointer, and two things go with it:
+	//
+	//   * Cap is a *counter*, not a wrapping pointer -- irdy is its sign bit --
+	//     and it swings to -(BUF_SIZE-1) - TERMINAL_FP_INC. Sized for the buffer
+	//     alone it wraps positive, irdy reads back low, and the module never
+	//     accepts another input word: it delivers exactly one frame and hangs.
+	//   * Rp - WpZ swings the same way and drives has_data, so a wrap there
+	//     reads unwritten data instead.
+	//
+	// The pointers still address the buffer with their low ADDR_BITS, so the
+	// memory is unchanged; only the registers are wider.
+	localparam int unsigned  PTR_BITS = 1 + $clog2(BUF_SIZE + MAX_ABS_INC + 1);
+	typedef logic signed [PTR_BITS-1:0]  ptr_t;
 
 	//=== Nest Counters =====================================================
 	// done[i]: level i has exhausted its iterations (sign-bit of Cnt).
