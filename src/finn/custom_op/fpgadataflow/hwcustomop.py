@@ -92,24 +92,10 @@ class HWCustomOp(CustomOp):
             # attrs hold a path to the sidecar rather than the array itself.
             "io_chrc_in": ("s", False, ""),
             "io_chrc_out": ("s", False, ""),
-            "io_chrc_in_stretch": ("s", False, ""),
-            "io_chrc_out_stretch": ("s", False, ""),
-            "io_chrc_in_original": ("s", False, ""),
-            "io_chrc_out_original": ("s", False, ""),
-            # chain-composed event-time schedules (input-arrival-constrained)
-            "io_chrc_in_composed": ("s", False, ""),
-            "io_chrc_out_composed": ("s", False, ""),
             # the period for which the characterization was run
             "io_chrc_period": ("i", False, 0),
-            # amount of zero padding inserted during chrc.
-            "io_chrc_pads_in": ("ints", False, []),
-            "io_chrc_pads_out": ("ints", False, []),
             # MLO max iterations
             "mlo_max_iter": ("i", False, 0),
-            # extra buffers added to a branch, needed for coupling
-            # token access vectors at the end of
-            # branches during analytical FIFO sizing
-            "extra_branch_fifos": ("ints", False, [0, 0]),
             "address_offset": ("i", False, 0),
         }
 
@@ -397,7 +383,6 @@ class HWCustomOp(CustomOp):
             arr[0, :] = cum[:, col]
             path = save_tav_npy(self, name, arr)
             self.set_nodeattr(name, path)
-            self.set_nodeattr(name + "_original", path)
         return
 
     def generate_hdl_memstream(
@@ -716,11 +701,9 @@ class HWCustomOp(CustomOp):
 
         tav_path_in = save_tav_npy(self, "io_chrc_in", all_txns_in)
         self.set_nodeattr("io_chrc_in", tav_path_in)
-        self.set_nodeattr("io_chrc_in_original", tav_path_in)
 
         tav_path_out = save_tav_npy(self, "io_chrc_out", all_txns_out)
         self.set_nodeattr("io_chrc_out", tav_path_out)
-        self.set_nodeattr("io_chrc_out_original", tav_path_out)
 
     def adapt_for_loop_body(self, input_types):
         """

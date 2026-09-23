@@ -235,12 +235,6 @@ def cleanup_characterization(model):
     tav_attrs = [
         "io_chrc_in",
         "io_chrc_out",
-        "io_chrc_in_stretch",
-        "io_chrc_out_stretch",
-        "io_chrc_in_original",
-        "io_chrc_out_original",
-        "io_chrc_in_composed",
-        "io_chrc_out_composed",
     ]
 
     for node in model.graph.node:

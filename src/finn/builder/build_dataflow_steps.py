@@ -109,13 +109,9 @@ from finn.transformation.fpgadataflow.create_dataflow_partition import (
 )
 from finn.transformation.fpgadataflow.create_stitched_ip import CreateStitchedIP
 from finn.transformation.fpgadataflow.derive_characteristic import (
-    ChainComposeTAVs,
-    DelayCharacteristicFunctions,
     DeriveFIFOSizes,
     DeriveTokenAccessVectors,
-    HandleBranches,
     JustInTimeSynthesize,
-    ProducerDelayCharacteristicFunctions,
 )
 from finn.transformation.fpgadataflow.hlssynth_ip import HLSSynthIP
 from finn.transformation.fpgadataflow.insert_dwc import InsertDWC
@@ -993,19 +989,10 @@ def step_set_fifo_depths(model: ModelWrapper, cfg: DataflowBuildConfig):
             if cfg.fifosim_save_waveform:
                 for node in model.graph.node:
                     getCustomOp(node).set_nodeattr("rtlsim_trace", "")
-            # Size with the same method as the non-MLO path. Both arguments are
-            # needed: without the method the configured one is ignored, and
-            # without a period the pairwise methods have no global period to
-            # relax against.
             period = int(
                 model.analysis(partial(dataflow_performance, use_characterized=True))["max_cycles"]
             )
-            model = model.transform(
-                DeriveFIFOSizes(
-                    period=period,
-                    heuristic_fifo_sizing_method=cfg.heuristic_fifo_sizing_method,
-                )
-            )
+            model = model.transform(DeriveFIFOSizes(period=period))
             model = model.transform(
                 InsertFIFO(
                     create_shallow_fifos=True,
@@ -1047,44 +1034,10 @@ def step_set_fifo_depths(model: ModelWrapper, cfg: DataflowBuildConfig):
                 )
             )
 
-            period = int(model.analysis(dataflow_performance)["max_cycles"])
-
-            model = model.transform(HandleBranches(model, period))
-
-            period = int(model.analysis(dataflow_performance)["max_cycles"])
-            model = model.transform(
-                DelayCharacteristicFunctions(
-                    1,
-                    period,
-                    nodes_to_ignore=[],
-                )
-            )
-
-            period = int(model.analysis(dataflow_performance)["max_cycles"])
-
-            model = model.transform(
-                ProducerDelayCharacteristicFunctions(
-                    1,
-                    period,
-                    nodes_to_ignore=[],
-                )
-            )
-
             period = int(
                 model.analysis(partial(dataflow_performance, use_characterized=True))["max_cycles"]
             )
-
-            if cfg.heuristic_fifo_sizing_method == "chain_composed":
-                model = model.transform(ChainComposeTAVs())
-
-            model = model.transform(
-                DeriveFIFOSizes(
-                    period=period,
-                    nodes_to_ignore=[],
-                    global_offset_correction=True,
-                    heuristic_fifo_sizing_method=cfg.heuristic_fifo_sizing_method,
-                )
-            )
+            model = model.transform(DeriveFIFOSizes(period=period))
 
             model = model.transform(
                 InsertFIFO(
