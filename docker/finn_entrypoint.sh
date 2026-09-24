@@ -165,6 +165,30 @@ fi
 
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$VITIS_PATH/lnx64/tools/fpo_v7_1:$HLS_PATH/lnx64/tools/fpo_v7_1"
 
+# DynaRapid (RapidWright-based rapid place & route)
+export DYNARAPID_ROOT="${FINN_ROOT}/deps/DynaRapid"
+if [ -d "$DYNARAPID_ROOT" ]; then
+  # $HOME is wiped per container, so keep RapidWright device data and the
+  # Gradle caches on the host mount (GRADLE_USER_HOME may come from run-docker.sh)
+  export RAPIDWRIGHT_PATH="${DYNARAPID_ROOT}/RapidWright"
+  export GRADLE_USER_HOME="${GRADLE_USER_HOME:-${FINN_ROOT}/deps/.gradle}"
+  if ! command -v java > /dev/null 2>&1; then
+    yecho "java not found, DynaRapid will be unavailable (rebuild the FINN Docker image)"
+  elif [ -d "${DYNARAPID_ROOT}/build/classes/java/main" ]; then
+    gecho "Found existing DynaRapid build at ${DYNARAPID_ROOT}"
+  else
+    gecho "Building DynaRapid..."
+    # DynaRapid is optional, so a failed build is non-fatal
+    if (cd "$DYNARAPID_ROOT" && ./gradlew --no-daemon -q compileJava); then
+      gecho "DynaRapid built successfully"
+    else
+      recho "Failed to build DynaRapid"
+    fi
+  fi
+else
+  yecho "Unable to find DynaRapid at ${DYNARAPID_ROOT}, run fetch-repos.sh"
+fi
+
 export PATH=$PATH:$HOME/.local/bin
 
 # execute the provided command(s) as root

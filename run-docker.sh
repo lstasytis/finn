@@ -314,10 +314,11 @@ DOCKER_EXEC+="-e XILINX_LOCAL_USER_DATA=no "
 # creates bind parents as root and that would break pip install --user).
 : ${FINN_DOCKER_CACHE_DIR=""}
 if [ -n "$FINN_DOCKER_CACHE_DIR" ]; then
-  mkdir -p "$FINN_DOCKER_CACHE_DIR/torch" "$FINN_DOCKER_CACHE_DIR/huggingface"
+  mkdir -p "$FINN_DOCKER_CACHE_DIR/torch" "$FINN_DOCKER_CACHE_DIR/huggingface" "$FINN_DOCKER_CACHE_DIR/gradle"
   DOCKER_EXEC+="-v $FINN_DOCKER_CACHE_DIR:/finn_cache "
   DOCKER_EXEC+="-e TORCH_HOME=/finn_cache/torch "
   DOCKER_EXEC+="-e HF_HOME=/finn_cache/huggingface "
+  DOCKER_EXEC+="-e GRADLE_USER_HOME=/finn_cache/gradle "
 fi
 if [ "$FINN_DOCKER_RUN_AS_ROOT" = "0" ] && [ -z "$FINN_SINGULARITY" ];then
   DOCKER_EXEC+="-v $FINN_SSH_KEY_DIR:$HOME/.ssh "
