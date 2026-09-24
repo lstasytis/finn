@@ -42,6 +42,7 @@ from finn.transformation.fpgadataflow.create_dataflow_partition import (
     CreateDataflowPartition,
 )
 from finn.transformation.fpgadataflow.create_stitched_ip import CreateStitchedIP
+from finn.transformation.fpgadataflow.dynarapid_pnr import DynaRapidPnR
 from finn.transformation.fpgadataflow.floorplan import Floorplan
 from finn.transformation.fpgadataflow.hlssynth_ip import HLSSynthIP
 from finn.transformation.fpgadataflow.insert_dwc import InsertDWC
@@ -55,6 +56,7 @@ from finn.util.basic import (
     pynq_part_map,
     resolve_xilinx_tool,
 )
+from finn.util.dynarapid.graph import external_ports, kernel_wrapper_verilog
 
 from . import templates
 
@@ -116,11 +118,51 @@ class MakeZYNQProject(Transformation):
         aximm_idx = 0
         axilite_idx = 0
         instance_names = {}
+        dr_hooks = []
         for node in model.graph.node:
             assert node.op_type == "StreamingDataflowPartition", "Invalid link graph"
             sdp_node = getCustomOp(node)
             dataflow_model_filename = sdp_node.get_nodeattr("model")
             kernel_model = ModelWrapper(dataflow_model_filename)
+
+            dr_dcp = kernel_model.get_metadata_prop("dynarapid_routed_dcp")
+            if dr_dcp is not None:
+                # kernel pre-implemented by DynaRapid: instantiate its interface wrapper
+                # (black-box core) and fill the core with the routed checkpoint before
+                # opt_design, locking its placement and routing
+                instance_names[node.name] = node.name
+                wrapper_file = kernel_model.get_metadata_prop("dynarapid_wrapper_file")
+                wrapper_name = kernel_model.get_metadata_prop("dynarapid_wrapper_name")
+                core_name = kernel_model.get_metadata_prop("dynarapid_core_name")
+                config.append("add_files -norecurse %s" % wrapper_file)
+                config.append("update_compile_order -fileset sources_1")
+                config.append(
+                    "create_bd_cell -type module -reference %s %s" % (wrapper_name, node.name)
+                )
+                dr_hooks.append(
+                    "set c [get_cells -hier -filter {ORIG_REF_NAME == %s || REF_NAME == %s}]\n"
+                    "read_checkpoint -cell $c %s\n"
+                    "lock_design -level routing $c" % (core_name, core_name, dr_dcp)
+                )
+                sdp_node.set_nodeattr("instance_name", instance_names[node.name])
+                config.append(
+                    "connect_bd_net [get_bd_pins %s/ap_clk] "
+                    "[get_bd_pins smartconnect_0/aclk]" % node.name
+                )
+                config.append(
+                    "connect_bd_net [get_bd_pins %s/ap_rst_n] "
+                    "[get_bd_pins smartconnect_0/aresetn]" % node.name
+                )
+                for i in range(len(node.input)):
+                    producer = model.find_producer(node.input[i])
+                    if producer is not None:
+                        j = list(producer.output).index(node.input[i])
+                        config.append(
+                            "connect_bd_intf_net [get_bd_intf_pins %s/s_axis_%d] "
+                            "[get_bd_intf_pins %s/m_axis_%d]"
+                            % (node.name, i, instance_names[producer.name], j)
+                        )
+                continue
 
             ipstitch_path = kernel_model.get_metadata_prop("vivado_stitch_proj")
             if ipstitch_path is None or (not os.path.isdir(ipstitch_path)):
@@ -250,6 +292,16 @@ class MakeZYNQProject(Transformation):
         assert num_workers >= 0, "Number of workers must be nonnegative."
         if num_workers == 0:
             num_workers = mp.cpu_count()
+        run_settings = ""
+        if dr_hooks:
+            hook_file = vivado_pynq_proj_dir + "/dynarapid_insert_kernels.tcl"
+            with open(hook_file, "w") as f:
+                f.write("\n".join(dr_hooks) + "\n")
+            model.set_metadata_prop("dynarapid_hook", hook_file)
+            # the added wrapper sources must not become the design top
+            run_settings = "set_property top top_wrapper [current_fileset]\n"
+            run_settings += "update_compile_order -fileset sources_1\n"
+            run_settings += "set_property STEPS.OPT_DESIGN.TCL.PRE %s [get_runs impl_1]" % hook_file
         with open(ipcfg, "w") as f:
             f.write(
                 templates.custom_zynq_shell_template
@@ -261,6 +313,7 @@ class MakeZYNQProject(Transformation):
                     pynq_part_map[self.platform],
                     config,
                     self.enable_debug,
+                    run_settings,
                     num_workers,
                 )
             )
@@ -321,14 +374,44 @@ class ZynqBuild(Transformation):
         period_ns,
         enable_debug=False,
         partition_model_dir=None,
+        dynarapid=None,
     ):
         super().__init__()
+        # dynarapid: None (regular Vivado implementation) or a dict of DynaRapidPnR
+        # options; the compute kernels are then placed and routed by DynaRapid and
+        # inserted into the shell as locked, pre-routed cells
+        self.dynarapid = dynarapid
         self.fpga_part = pynq_part_map[platform]
         self.axi_port_width = pynq_native_port_width[platform]
         self.period_ns = period_ns
         self.platform = platform
         self.enable_debug = enable_debug
         self.partition_model_dir = partition_model_dir
+
+    def dynarapid_kernel(self, kernel_model, name):
+        """Place and route a kernel with DynaRapid and generate its interface wrapper."""
+        opts = dict(self.dynarapid)
+        out_dir = opts.pop("out_dir", None) or make_build_dir("dynarapid_%s_" % name)
+        kernel_model = kernel_model.transform(
+            DynaRapidPnR(
+                self.fpga_part,
+                self.period_ns,
+                out_dir=out_dir,
+                no_clock=True,
+                check=False,
+                **opts,
+            )
+        )
+        ins, outs = external_ports(kernel_model)
+        core_name = "%s_dynarapid_core" % name
+        wrapper_name = "%s_dynarapid" % name
+        wrapper_file = os.path.join(out_dir, wrapper_name + ".v")
+        with open(wrapper_file, "w") as f:
+            f.write(kernel_wrapper_verilog(wrapper_name, core_name, ins, outs))
+        kernel_model.set_metadata_prop("dynarapid_wrapper_file", wrapper_file)
+        kernel_model.set_metadata_prop("dynarapid_wrapper_name", wrapper_name)
+        kernel_model.set_metadata_prop("dynarapid_core_name", core_name)
+        return kernel_model
 
     def apply(self, model):
         # first infer layouts
@@ -358,9 +441,13 @@ class ZynqBuild(Transformation):
             kernel_model.save(dataflow_model_filename)
             kernel_model = kernel_model.transform(PrepareIP(self.fpga_part, self.period_ns))
             kernel_model = kernel_model.transform(HLSSynthIP())
-            kernel_model = kernel_model.transform(
-                CreateStitchedIP(self.fpga_part, self.period_ns, sdp_node.onnx_node.name)
-            )
+            is_dma = any(n.op_type.startswith("IODMA") for n in kernel_model.graph.node)
+            if self.dynarapid is not None and not is_dma:
+                kernel_model = self.dynarapid_kernel(kernel_model, sdp_node.onnx_node.name)
+            else:
+                kernel_model = kernel_model.transform(
+                    CreateStitchedIP(self.fpga_part, self.period_ns, sdp_node.onnx_node.name)
+                )
             kernel_model.set_metadata_prop("platform", "zynq-iodma")
             kernel_model.save(dataflow_model_filename)
         # Assemble design from IPs

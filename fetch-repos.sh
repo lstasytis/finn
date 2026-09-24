@@ -166,6 +166,19 @@ fetch_repo $AUPZU3_BDF_URL $AUPZU3_BDF_COMMIT $AUPZU3_BDF_DIR
 fetch_repo $DYNARAPID_URL $DYNARAPID_COMMIT $DYNARAPID_DIR
 # DynaRapid pins its RapidWright fork as a (recursive) submodule
 retry git -C "$SCRIPTPATH/deps/$DYNARAPID_DIR" submodule update --init --recursive
+# FINN integration changes to DynaRapid and its RapidWright submodule (applied once)
+apply_patch() {
+    local REPO=$1
+    local PATCH=$2
+    if git -C "$REPO" apply --reverse --check "$PATCH" >/dev/null 2>&1; then
+        echo "Patch $(basename "$PATCH") already applied"
+    else
+        git -C "$REPO" apply "$PATCH"
+        echo "Applied patch $(basename "$PATCH")"
+    fi
+}
+apply_patch "$SCRIPTPATH/deps/$DYNARAPID_DIR/RapidWright" "$SCRIPTPATH/docker/dynarapid/rapidwright-finn.patch"
+apply_patch "$SCRIPTPATH/deps/$DYNARAPID_DIR" "$SCRIPTPATH/docker/dynarapid/dynarapid-finn.patch"
 
 # Can skip downloading of board files entirely if desired
 if [ "$FINN_SKIP_BOARD_FILES" = "1" ]; then

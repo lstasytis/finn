@@ -218,6 +218,9 @@ set_property STEPS.POST_ROUTE_PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore [
 set_property STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore [get_runs impl_1]
 set_property STEPS.POST_ROUTE_PHYS_OPT_DESIGN.IS_ENABLED true [get_runs impl_1]
 
+# additional run settings (e.g. hooks inserting pre-implemented kernels)
+%s
+
 # out-of-context synth can't be used for bitstream generation
 # set_property -name {STEPS.SYNTH_DESIGN.ARGS.MORE OPTIONS} -value {-mode out_of_context} -objects [get_runs synth_1]
 launch_runs -to_step write_bitstream impl_1 -jobs %d

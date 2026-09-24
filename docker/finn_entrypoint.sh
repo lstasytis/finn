@@ -174,12 +174,15 @@ if [ -d "$DYNARAPID_ROOT" ]; then
   export GRADLE_USER_HOME="${GRADLE_USER_HOME:-${FINN_ROOT}/deps/.gradle}"
   if ! command -v java > /dev/null 2>&1; then
     yecho "java not found, DynaRapid will be unavailable (rebuild the FINN Docker image)"
-  elif [ -d "${DYNARAPID_ROOT}/build/classes/java/main" ]; then
+  elif [ -d "${DYNARAPID_ROOT}/build/classes/java/main" ] && \
+       [ -z "$(find "${FINN_ROOT}/docker/dynarapid" -name '*.patch' -newer "${DYNARAPID_ROOT}/build/classes/java/main" 2>/dev/null)" ]; then
     gecho "Found existing DynaRapid build at ${DYNARAPID_ROOT}"
   else
     gecho "Building DynaRapid..."
     # DynaRapid is optional, so a failed build is non-fatal
     if (cd "$DYNARAPID_ROOT" && ./gradlew --no-daemon -q compileJava); then
+      # marks the build as newer than the FINN patches it was built with
+      touch "${DYNARAPID_ROOT}/build/classes/java/main"
       gecho "DynaRapid built successfully"
     else
       recho "Failed to build DynaRapid"

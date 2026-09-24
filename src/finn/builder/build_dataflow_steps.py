@@ -1322,12 +1322,20 @@ def step_synthesize_bitfile(model: ModelWrapper, cfg: DataflowBuildConfig):
         os.makedirs(report_dir, exist_ok=True)
         partition_model_dir = cfg.output_dir + "/intermediate_models/kernel_partitions"
         if cfg.shell_flow_type == ShellFlowType.VIVADO_ZYNQ:
+            dynarapid = None
+            if cfg.dynarapid_pnr:
+                dynarapid = {
+                    "library_dir": cfg.dynarapid_library_dir,
+                    "workers": cfg.dynarapid_workers,
+                    "out_dir": cfg.output_dir + "/dynarapid_pnr",
+                }
             model = model.transform(
                 ZynqBuild(
                     cfg.board,
                     cfg.synth_clk_period_ns,
                     cfg.enable_hw_debug,
                     partition_model_dir=partition_model_dir,
+                    dynarapid=dynarapid,
                 )
             )
             copy(model.get_metadata_prop("bitfile"), bitfile_dir + "/finn-accel.bit")

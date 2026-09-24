@@ -1,0 +1,33 @@
+diff --git a/src/com/xilinx/rapidwright/design/DesignTools.java b/src/com/xilinx/rapidwright/design/DesignTools.java
+index 81809bed..4ef0eece 100644
+--- a/src/com/xilinx/rapidwright/design/DesignTools.java
++++ b/src/com/xilinx/rapidwright/design/DesignTools.java
+@@ -3589,6 +3589,13 @@ public class DesignTools {
+                     Pair<String, String> sitePinNames = pinMapping.get(bel.getBELType());
+                     for (String belPinName : belPinNames) {
+                         BELPin belPin = cell.getBEL().getPin(belPinName);
++                        if (belPin == null) {
++                            // e.g. a flip-flop cell placed on a BEL without this pin
++                            System.err.println("WARNING: createCeSrRstPinsToVCC: " + cell.getName() + " ("
++                                    + cell.getType() + ") on " + si.getSiteName() + "/" + bel.getName()
++                                    + " has no BEL pin " + belPinName);
++                            continue;
++                        }
+                         Net net = si.getNetFromSiteWire(belPin.getSiteWireName());
+                         if (net == null || (belPinName == SR && net.isGNDNet())) {
+                             String sitePinName;
+diff --git a/src/com/xilinx/rapidwright/rwroute/GlobalSignalRouting.java b/src/com/xilinx/rapidwright/rwroute/GlobalSignalRouting.java
+index 3ee91a7b..dfccf680 100644
+--- a/src/com/xilinx/rapidwright/rwroute/GlobalSignalRouting.java
++++ b/src/com/xilinx/rapidwright/rwroute/GlobalSignalRouting.java
+@@ -397,6 +397,10 @@ public class GlobalSignalRouting {
+         for (SitePinInst spi : clk.getPins()) {
+             if (spi.isOutPin()) continue;
+             ClockRegion c = spi.getTile().getClockRegion();
++            if (c == null) {
++                System.err.println("WARNING: findCentroid: clock pin " + spi + " (tile " + spi.getTile() + ") has no clock region");
++                continue;
++            }
+             sitePinInstTilePoints.add(new Point(c.getColumn(),c.getRow()));
+         }
+         Point center = SmallestEnclosingCircle.getCenterPoint(sitePinInstTilePoints);

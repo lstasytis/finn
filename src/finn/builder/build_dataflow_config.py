@@ -231,6 +231,22 @@ class DataflowBuildConfig:
     #: the full list of layer IP build directories. By default, synthesis will not run.
     stitched_ip_gen_dcp: Optional[bool] = False
 
+    #: (Optional) In step_synthesize_bitfile (Zynq shell flow), place and route the compute
+    #: kernels with DynaRapid instead of Vivado: every layer becomes a pre-implemented
+    #: component (built in parallel and cached in a library), DynaRapid places, stitches and
+    #: routes them according to the graph, and the routed kernel is inserted into the shell
+    #: as a locked cell so that Vivado only implements the shell around it.
+    dynarapid_pnr: Optional[bool] = False
+
+    #: (Optional) Component library for dynarapid_pnr. Components are content-addressed,
+    #: so a library can be shared between builds and models.
+    #: Defaults to $FINN_BUILD_DIR/dynarapid_library/<fpga_part>/lib
+    dynarapid_library_dir: Optional[str] = None
+
+    #: (Optional) Number of parallel component-generation jobs for dynarapid_pnr.
+    #: Defaults to NUM_DEFAULT_WORKERS (or the number of CPUs).
+    dynarapid_workers: Optional[int] = None
+
     #: Insert a signature node to the stitched-IP to read/write information
     #: to the design: e.g. Customer signature, application signature, version
     signature: Optional[List[int]] = None
