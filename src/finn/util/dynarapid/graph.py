@@ -16,12 +16,46 @@ from names and special-cases names containing e.g. "cst", "sink" or "MC");
 the mapping to FINN node names is returned alongside.
 """
 
-from finn.util.dynarapid.components import stream_interfaces
+from qonnx.custom_op.registry import getCustomOp
+
+from finn.util.dynarapid.components import (
+    axi_channels,
+    channels,
+    is_iodma,
+    stream_interfaces,
+)
 
 
 def streaming_inputs(model, node):
-    """ONNX input tensor names of the node that are AXI streams (not initializers)."""
+    """ONNX input tensor names of the node that are AXI streams (not initializers).
+    The input of a reading IODMA is its memory, not a stream."""
+    if is_iodma(node) and getCustomOp(node).get_nodeattr("direction") == "in":
+        return []
     return [t for t in node.input if model.get_initializer(t) is None]
+
+
+def streaming_outputs(node):
+    """ONNX output tensor names of the node that are AXI streams."""
+    if is_iodma(node) and getCustomOp(node).get_nodeattr("direction") == "out":
+        return []
+    return list(node.output)
+
+
+def node_ids(model):
+    """DynaRapid node names: idma<i> / odma<j> for IODMA nodes (so that the top-level
+    ports of their memory-mapped channels have fixed names), n<k> otherwise."""
+    ids, n_in, n_out = {}, 0, 0
+    for k, n in enumerate(model.graph.node):
+        if is_iodma(n):
+            if getCustomOp(n).get_nodeattr("direction") == "in":
+                ids[n.name] = "idma%d" % n_in
+                n_in += 1
+            else:
+                ids[n.name] = "odma%d" % n_out
+                n_out += 1
+        else:
+            ids[n.name] = "n%d" % k
+    return ids
 
 
 def onnx_to_dot(model, dcp_names, graph_name="finn_design"):
@@ -30,18 +64,22 @@ def onnx_to_dot(model, dcp_names, graph_name="finn_design"):
     dcp_names: dict FINN node name -> component name.
     Returns (dot_text, {dot id: FINN node name}).
     """
-    ids = {n.name: "n%d" % i for i, n in enumerate(model.graph.node)}
+    ids = node_ids(model)
     lines = ["Digraph %s {" % graph_name]
     widths = {}
     for node in model.graph.node:
-        ins, outs = stream_interfaces(node)
+        s_ins, s_outs = stream_interfaces(node)
         s_in = streaming_inputs(model, node)
-        assert len(s_in) == len(ins), "%s: %d streaming inputs but %d s_axis" % (
+        assert len(s_in) == len(s_ins), "%s: %d streaming inputs but %d s_axis" % (
             node.name,
             len(s_in),
-            len(ins),
+            len(s_ins),
         )
-        assert len(node.output) == len(outs), "%s: output count mismatch" % node.name
+        assert len(streaming_outputs(node)) == len(s_outs), (
+            "%s: output count mismatch" % node.name
+        )
+        # all channels (streams first, then the memory-mapped channels of IODMAs)
+        ins, outs = channels(node)
         widths[node.name] = ([w for _, w in ins], [w for _, w in outs])
         in_str = " ".join("in%d:%d" % (i + 1, w) for i, (_, w) in enumerate(ins))
         out_str = " ".join("out%d:%d" % (j + 1, w) for j, (_, w) in enumerate(outs))
@@ -50,7 +88,7 @@ def onnx_to_dot(model, dcp_names, graph_name="finn_design"):
             % (ids[node.name], dcp_names[node.name], in_str, out_str)
         )
     for node in model.graph.node:
-        for j, t in enumerate(node.output):
+        for j, t in enumerate(streaming_outputs(node)):
             for cons in model.find_consumers(t) or []:
                 i = streaming_inputs(model, cons).index(t)
                 w_out = widths[node.name][1][j]
@@ -79,7 +117,7 @@ def external_ports(model):
     <node>_ready_in_<j> (outputs), with node = n<k> and 0-based channel indices.
     Returns (inputs, outputs), each a list of dicts with the port names and width.
     """
-    ids = {n.name: "n%d" % i for i, n in enumerate(model.graph.node)}
+    ids = node_ids(model)
     ins, outs = [], []
     for t in model.graph.input:
         for cons in model.find_consumers(t.name):
@@ -108,6 +146,45 @@ def external_ports(model):
             }
         )
     return ins, outs
+
+
+def mm_ports(model):
+    """Memory-mapped interfaces of the IODMA nodes as DynaRapid top-level ports.
+
+    Returns a list (reading IODMAs first, then writing ones, each in graph order) of
+    {"id": idma<i>/odma<j>, "node": FINN node name, "in": [...], "out": [...]}, where each
+    channel is {"name", "width", "data", "valid", "ready", "signals": [(port, width)]}
+    with the DynaRapid port names of the channel and the HLS signals packed into it
+    (LSB first)."""
+    ids = node_ids(model)
+    res = []
+    for node in model.graph.node:
+        if not is_iodma(node):
+            continue
+        nid = ids[node.name]
+        s_in, s_out = stream_interfaces(node)
+        a_in, a_out = axi_channels(node)
+        entry = {"id": nid, "node": node.name, "in": [], "out": []}
+        for k, c in enumerate(a_in, start=len(s_in)):
+            entry["in"].append(
+                dict(
+                    c,
+                    data="%s_din_%d" % (nid, k),
+                    valid="%s_valid_in_%d" % (nid, k),
+                    ready="%s_ready_out_%d" % (nid, k),
+                )
+            )
+        for k, c in enumerate(a_out, start=len(s_out)):
+            entry["out"].append(
+                dict(
+                    c,
+                    data="%s_dout_%d" % (nid, k),
+                    valid="%s_valid_out_%d" % (nid, k),
+                    ready="%s_ready_in_%d" % (nid, k),
+                )
+            )
+        res.append(entry)
+    return sorted(res, key=lambda e: (e["id"][0] != "i", int(e["id"][4:])))
 
 
 def kernel_wrapper_verilog(wrapper_name, core_name, ins, outs, black_box=True):

@@ -22,9 +22,51 @@ from qonnx.custom_op.registry import getCustomOp
 from finn.transformation.fpgadataflow.make_zynq_proj import ZynqBuild
 
 
+STAGE_TIMES = []
+
+
+def instrument():
+    """Record the wall-clock time of every FINN transformation ZynqBuild applies."""
+    import finn.transformation.fpgadataflow.make_zynq_proj as mzp
+
+    for cls_name in (
+        "PrepareIP",
+        "HLSSynthIP",
+        "CreateStitchedIP",
+        "MakeZYNQProject",
+        "DynaRapidPnR",
+        "InsertIODMA",
+        "CreateDataflowPartition",
+    ):
+        cls = getattr(mzp, cls_name)
+        orig = cls.apply
+
+        def timed(self, model, _orig=orig, _name=cls_name):
+            t0 = time.time()
+            ret = _orig(self, model)
+            names = ",".join(n.op_type for n in model.graph.node)[:60]
+            STAGE_TIMES.append({"stage": _name, "s": round(time.time() - t0, 1), "nodes": names})
+            return ret
+
+        cls.apply = timed
+
+
 def run_times(proj):
-    """Elapsed seconds of the synth_1 and impl_1 runs (from their runme logs)."""
+    """Elapsed seconds of the synth_1 and impl_1 runs (from their runme logs), and of the
+    out-of-context IP synthesis runs of the block design (run in parallel before synth_1)."""
     res = {}
+    runs_dir = os.path.join(proj, "finn_zynq_link.runs")
+    ooc = {}
+    for run in sorted(os.listdir(runs_dir)) if os.path.isdir(runs_dir) else []:
+        log = os.path.join(runs_dir, run, "runme.log")
+        if run in ("synth_1", "impl_1") or not os.path.isfile(log):
+            continue
+        m = re.findall(r"^synth_design: Time \(s\):.*elapsed = (\d+):(\d+):(\d+)", open(log, errors="ignore").read(), re.M)
+        if m:
+            h, mi, se = m[-1]
+            ooc[run] = int(h) * 3600 + int(mi) * 60 + int(se)
+    if ooc:
+        res["ooc_ip_synth_s"] = ooc
     for run in ("synth_1", "impl_1"):
         log = os.path.join(proj, "finn_zynq_link.runs", run, "runme.log")
         if not os.path.isfile(log):
@@ -54,22 +96,32 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True)
     ap.add_argument("--out", required=True)
-    ap.add_argument("--mode", choices=["vivado", "dynarapid"], required=True)
+    ap.add_argument(
+        "--mode",
+        choices=["vivado", "dynarapid", "dynarapid-kernel"],
+        required=True,
+        help="dynarapid: whole accelerator by DynaRapid in a pre-implemented shell; "
+        "dynarapid-kernel: only the compute kernel by DynaRapid, shell implemented by Vivado",
+    )
+    ap.add_argument("--shell-lib", default=None)
     ap.add_argument("--library", default=None)
     ap.add_argument("--workers", type=int, default=28)
-    ap.add_argument("--board", default="KV260_SOM")
+    ap.add_argument("--board", default="ZCU104")
     args = ap.parse_args()
 
     os.environ["NUM_DEFAULT_WORKERS"] = str(args.workers)
+    instrument()
     os.makedirs(args.out, exist_ok=True)
     model = ModelWrapper(args.model)
     clk_ns = float(model.get_metadata_prop("dynarapid_clk_ns"))
     dr = None
-    if args.mode == "dynarapid":
+    if args.mode.startswith("dynarapid"):
         dr = {
             "library_dir": args.library,
             "workers": args.workers,
             "out_dir": os.path.join(args.out, "dynarapid"),
+            "shell": args.mode == "dynarapid",
+            "shell_lib": args.shell_lib,
         }
     t0 = time.time()
     model = model.transform(
@@ -84,8 +136,17 @@ def main():
     proj = model.get_metadata_prop("vivado_pynq_proj")
     res["project"] = proj
     res["bitfile"] = model.get_metadata_prop("bitfile")
+    if args.mode == "dynarapid":
+        res["dynarapid_zynq"] = json.loads(model.get_metadata_prop("dynarapid_result"))
+        res["wns_ns"] = res["dynarapid_zynq"].get("wns_ns")
+        res["stages"] = STAGE_TIMES
+        with open(os.path.join(args.out, "bitfile_experiment.json"), "w") as f:
+            json.dump(res, f, indent=2)
+        print(json.dumps(res, indent=2))
+        return
     res["wns_ns"] = wns(proj)
     res.update(run_times(proj))
+    res["stages"] = STAGE_TIMES
     for n in model.graph.node:
         k = ModelWrapper(getCustomOp(n).get_nodeattr("model"))
         r = k.get_metadata_prop("dynarapid_result")

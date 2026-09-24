@@ -179,8 +179,12 @@ def dynarapid_pnr(
     work_dir=None,
     no_clock=False,
     pblock_mode="fast",
+    place_region=None,
 ):
     """Run the full DynaRapid flow on a FINN dataflow model; returns a result dict.
+
+    place_region: "top,bottom,left,right" DynaRapid map rows/columns the components are
+    placed in (clipped to the map), default the whole map.
 
     no_clock: leave clk as a plain port (for embedding into a shell), otherwise DynaRapid
     drives it through a BUFGCE and routes the clock itself."""
@@ -228,6 +232,8 @@ def dynarapid_pnr(
 
     # 3. DynaRapid placement, stitching and routing
     env = dynarapid_env(work_dir, library_dir, part, clk_ns, vivado_threads or 1)
+    if place_region is not None:
+        env["DYNARAPID_PLACE_REGION"] = place_region
     args = ["-f", dot_file, "-part", PART_TO_DYNARAPID[part], "-placer", placer]
     args += ["-threads", str(max(1, workers))]
     if no_clock:

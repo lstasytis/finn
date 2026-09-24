@@ -1,0 +1,412 @@
+# Copyright (C) 2026, Advanced Micro Devices, Inc.
+# All rights reserved.
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+"""Pre-implemented Zynq shell for the DynaRapid bitfile flow.
+
+The regular ZynqBuild implements the shell (PS, AXI interconnect, SmartConnect, IODMAs)
+together with the accelerator in one global Vivado run. Here the shell is implemented on
+its own, once, and cached:
+
+  * the whole accelerator (IODMAs and compute layers, placed and routed by DynaRapid) is
+    one reconfigurable partition (DFX) of the shell: during the shell implementation it
+    is a grey box, afterwards a black box;
+  * the IODMAs keep their block-design names (idma0, odma0, ...) as thin pass-through
+    modules between the interconnects and the black box, so that the hardware handoff
+    (.hwh) of the shell has the address map the FINN driver expects;
+  * the shell logic lives next to the PS (below it and in a narrow strip beside its
+    fabric interface), the partition covers the rest of the device, i.e. the region
+    DynaRapid places the components in.
+
+The shell only depends on the board, the clock and the widths of the IODMA memory-mapped
+interfaces, so it is shared by all models with the same interfaces.
+
+Filling it (read_checkpoint -cell with the DynaRapid-routed accelerator), routing the
+boundary and clock nets and writing the bitstream is assemble_tcl().
+"""
+
+import hashlib
+import json
+import os
+import shutil
+
+from finn.util.dynarapid.tools import run_vivado
+
+CORE_MODULE = "finn_accel_core"
+CORE_CELL = "accel"
+
+# AXI signals exposed on the bridge interfaces (AXI4 / AXI4-Lite subsets of what the HLS
+# IODMA drives; the others are tied off / left open)
+_MASTER_SIGS = {
+    "AW": ["ADDR", "LEN", "SIZE", "BURST", "LOCK", "CACHE", "PROT", "QOS"],
+    "W": ["DATA", "STRB", "LAST"],
+    "B": ["RESP"],
+    "AR": ["ADDR", "LEN", "SIZE", "BURST", "LOCK", "CACHE", "PROT", "QOS"],
+    "R": ["DATA", "RESP", "LAST"],
+}
+_SLAVE_SIGS = {
+    "AW": ["ADDR"],
+    "W": ["DATA", "STRB"],
+    "B": ["RESP"],
+    "AR": ["ADDR"],
+    "R": ["DATA", "RESP"],
+}
+
+# DynaRapid map columns (after MapBuilderFPGA drops the columns below the PS) that are
+# left to the shell, next to the PS fabric interface: the PS AXI pins enter the fabric
+# through the INT column right of the PS
+SHELL_STRIP_COLS = 3
+# INT column of the first map column (the PS boundary) per part
+PS_BOUNDARY_INT_X = {
+    "xczu7ev-ffvc1156-2-e": 27,
+}
+
+
+def shell_key(board, part, clk_ns, ports):
+    sig = {
+        "board": board,
+        "part": part,
+        "clk_ns": clk_ns,
+        "dmas": [
+            {
+                "id": d["id"],
+                "in": [(c["name"], c["signals"]) for c in d["in"]],
+                "out": [(c["name"], c["signals"]) for c in d["out"]],
+            }
+            for d in ports
+        ],
+        "version": 1,
+    }
+    h = hashlib.sha256(json.dumps(sig, sort_keys=True).encode()).hexdigest()[:12]
+    return "shell%s" % h
+
+
+def _bus(w):
+    return "[%d:0] " % (w - 1) if w > 1 else ""
+
+
+def core_verilog(ports):
+    """Black box with the DynaRapid top-level ports of the accelerator."""
+    decl = ["    input clk", "    input rst"]
+    for d in ports:
+        for c in d["in"]:
+            decl += [
+                "    input %s%s" % (_bus(c["width"]), c["data"]),
+                "    input %s" % c["valid"],
+                "    output %s" % c["ready"],
+            ]
+        for c in d["out"]:
+            decl += [
+                "    output %s%s" % (_bus(c["width"]), c["data"]),
+                "    output %s" % c["valid"],
+                "    input %s" % c["ready"],
+            ]
+    return "(* black_box *)\nmodule %s (\n%s\n);\nendmodule\n" % (CORE_MODULE, ",\n".join(decl))
+
+
+def bridge_verilog(d):
+    """Pass-through module named after the IODMA: AXI interfaces towards the interconnects,
+    the packed elastic channels towards the accelerator core (ports core_<name>)."""
+    chans = {}
+    for c in d["in"] + d["out"]:
+        chans[c["name"]] = c
+    master = [c["name"] for c in d["in"] + d["out"] if c["name"].startswith("m_axi")][0]
+    slave = [c["name"] for c in d["in"] + d["out"] if c["name"].startswith("s_axi")][0]
+    m_if = master.rsplit("_", 1)[0]  # e.g. m_axi_gmem
+    s_if = slave.rsplit("_", 1)[0]  # e.g. s_axi_control
+    ports, body = [], []
+    ports.append(
+        '    (* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 ap_clk CLK" *)\n'
+        '    (* X_INTERFACE_PARAMETER = "ASSOCIATED_BUSIF %s:%s, ASSOCIATED_RESET ap_rst_n" *)\n'
+        "    input ap_clk" % (m_if, s_if)
+    )
+    ports.append(
+        '    (* X_INTERFACE_INFO = "xilinx.com:signal:reset:1.0 ap_rst_n RST" *)\n'
+        '    (* X_INTERFACE_PARAMETER = "POLARITY ACTIVE_LOW" *)\n'
+        "    input ap_rst_n"
+    )
+    ports += ["    output core_clk", "    output core_rst"]
+    body += ["    assign core_clk = ap_clk;", "    assign core_rst = ap_rst_n;"]
+
+    def axi(if_name, is_master, sigs):
+        nonlocal ports
+        first = True
+        for ch in ("AW", "W", "B", "AR", "R"):
+            c = chans["%s_%s" % (if_name, ch)]
+            # direction of the channel payload at the bridge's AXI interface
+            payload_out = (ch in ("AW", "W", "AR")) == is_master
+            to_core = not payload_out  # payload flows from the interconnect into the core
+            packed = {sig[len(c["name"]) :]: (off, w) for (sig, w), off in _offsets(c)}
+            core_data = "core_" + c["data"]
+            core_valid = "core_" + c["valid"]
+            core_ready = "core_" + c["ready"]
+            # core-side ports (named after the DynaRapid ports)
+            if to_core:
+                ports += [
+                    "    output %s%s" % (_bus(c["width"]), core_data),
+                    "    output %s" % core_valid,
+                    "    input %s" % core_ready,
+                ]
+            else:
+                ports += [
+                    "    input %s%s" % (_bus(c["width"]), core_data),
+                    "    input %s" % core_valid,
+                    "    output %s" % core_ready,
+                ]
+            # AXI side
+            for s in ["VALID", "READY"] + sigs[ch]:
+                full = "%s_%s%s" % (if_name, ch, s)
+                if s == "VALID":
+                    d_out = payload_out
+                elif s == "READY":
+                    d_out = not payload_out
+                else:
+                    d_out = payload_out
+                if s in ("VALID", "READY"):
+                    w = 1
+                elif s in packed:
+                    w = packed[s][1]
+                    if s == "LOCK":
+                        w = 1  # AXI4: single-bit lock (HLS drives an AXI3 2-bit lock)
+                else:
+                    continue
+                attr = '    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 %s %s%s" *)' % (
+                    if_name,
+                    ch,
+                    s,
+                )
+                if first:
+                    attr += (
+                        '\n    (* X_INTERFACE_PARAMETER = "PROTOCOL %s, MODE %s" *)'
+                        % ("AXI4" if is_master else "AXI4LITE", "Master" if is_master else "Slave")
+                    )
+                    first = False
+                ports.append(
+                    "%s\n    %s %s%s" % (attr, "output" if d_out else "input", _bus(w), full)
+                )
+                # wiring
+                if s == "VALID":
+                    if to_core:
+                        body.append("    assign %s = %s;" % (core_valid, full))
+                    else:
+                        body.append("    assign %s = %s;" % (full, core_valid))
+                elif s == "READY":
+                    if to_core:
+                        body.append("    assign %s = %s;" % (full, core_ready))
+                    else:
+                        body.append("    assign %s = %s;" % (core_ready, full))
+                else:
+                    off, pw = packed[s]
+                    if to_core:
+                        body.append(
+                            "    assign %s[%d:%d] = %s;" % (core_data, off + w - 1, off, full)
+                            if c["width"] > 1
+                            else "    assign %s = %s;" % (core_data, full)
+                        )
+                    else:
+                        rng = "[%d:%d]" % (off + w - 1, off) if c["width"] > 1 else ""
+                        body.append("    assign %s = %s%s;" % (full, core_data, rng))
+            # payload bits of the core input that the bridge does not drive
+            if to_core:
+                for (sig, w), off in _offsets(c):
+                    s = sig[len(c["name"]) :]
+                    driven = s in sigs[ch]
+                    lo = off + (1 if (driven and s == "LOCK") else (w if driven else 0))
+                    if lo < off + w:
+                        body.append(
+                            "    assign %s[%d:%d] = 0;" % (core_data, off + w - 1, lo)
+                            if c["width"] > 1
+                            else "    assign %s = 0;" % core_data
+                        )
+
+    axi(m_if, True, _MASTER_SIGS)
+    axi(s_if, False, _SLAVE_SIGS)
+    return "module %s_bridge (\n%s\n);\n%s\nendmodule\n" % (
+        d["id"],
+        ",\n".join(ports),
+        "\n".join(body),
+    )
+
+
+def _offsets(c):
+    off = 0
+    for sig, w in c["signals"]:
+        yield (sig, w), off
+        off += w
+
+
+def shell_tcl(board, part, clk_ns, ports, shell_dir, src_file, jobs):
+    """Vivado script building and implementing the shell with the accelerator as a DFX
+    partition. Writes shell_routed.dcp (partition empty, static routing locked) and
+    top.hwh into shell_dir."""
+    from finn.transformation.fpgadataflow import templates
+
+    fclk_mhz = int(1 / (clk_ns * 0.001))
+    ps_x = PS_BOUNDARY_INT_X[part] + SHELL_STRIP_COLS
+    n_mm = len(ports)
+    # board/PS setup from the regular Zynq shell template (up to the IP instantiations)
+    head = templates.custom_zynq_shell_template.split("#custom IP instantiations")[0]
+    head = head % (fclk_mhz, n_mm, n_mm, board, part)
+    head = head.replace(
+        "create_project finn_zynq_link ./ -part $FPGA_PART",
+        "create_project finn_zynq_link %s -part $FPGA_PART\nadd_files -norecurse %s\n"
+        "update_compile_order -fileset sources_1" % (shell_dir, src_file),
+    )
+    t = [head]
+    for k, d in enumerate(ports):
+        t += [
+            "create_bd_cell -type module -reference %s_bridge %s" % (d["id"], d["id"]),
+            "connect_bd_intf_net [get_bd_intf_pins %s/m_axi_gmem] "
+            "[get_bd_intf_pins smartconnect_0/S%02d_AXI]" % (d["id"], k),
+            "connect_bd_intf_net [get_bd_intf_pins %s/s_axi_control] "
+            "[get_bd_intf_pins axi_interconnect_0/M%02d_AXI]" % (d["id"], k),
+            "assign_axi_addr_proc %s/s_axi_control" % d["id"],
+            "connect_bd_net [get_bd_pins %s/ap_clk] [get_bd_pins smartconnect_0/aclk]" % d["id"],
+            "connect_bd_net [get_bd_pins %s/ap_rst_n] [get_bd_pins smartconnect_0/aresetn]"
+            % d["id"],
+        ]
+    t.append("create_bd_cell -type module -reference %s %s" % (CORE_MODULE, CORE_CELL))
+    t += [
+        "connect_bd_net [get_bd_pins %s/core_clk] [get_bd_pins %s/clk]" % (ports[0]["id"], CORE_CELL),
+        "connect_bd_net [get_bd_pins %s/core_rst] [get_bd_pins %s/rst]" % (ports[0]["id"], CORE_CELL),
+    ]
+    for d in ports:
+        for c in d["in"] + d["out"]:
+            for p in (c["data"], c["valid"], c["ready"]):
+                t.append(
+                    "connect_bd_net [get_bd_pins %s/core_%s] [get_bd_pins %s/%s]"
+                    % (d["id"], p, CORE_CELL, p)
+                )
+    t += [
+        "apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/zynq_ps/pl_clk0} }"
+        "  [get_bd_pins axi_interconnect_0/M*_ACLK]",
+        "save_bd_design",
+        "assign_bd_address",
+        "validate_bd_design",
+        'set_property SYNTH_CHECKPOINT_MODE "Hierarchical" [get_files top.bd]',
+        "make_wrapper -files [get_files top.bd] -import -fileset sources_1 -top",
+        "set_property top top_wrapper [current_fileset]",
+        "update_compile_order -fileset sources_1",
+        "launch_runs synth_1 -jobs %d" % jobs,
+        "wait_on_run [get_runs synth_1]",
+        "open_run synth_1",
+        # accelerator partition: grey box for the shell implementation
+        "set rp [get_cells -hier -filter {ORIG_REF_NAME == %s || REF_NAME == %s}]"
+        % (CORE_MODULE, CORE_MODULE),
+        "set_property HD.RECONFIGURABLE true $rp",
+        "update_design -cell $rp -buffer_ports",
+        # regions: the shell left of INT column X%d, the partition right of it
+        "proc sites_by_int_x {type cmp x} {",
+        "  set res {}",
+        "  foreach s [get_sites -filter \"SITE_TYPE =~ $type\"] {",
+        "    regexp {_X(\\d+)Y} [get_tiles -of $s] -> tx",
+        "    if {[expr $tx $cmp $x]} {lappend res $s}",
+        "  }",
+        "  return $res",
+        "}",
+        "proc site_range {sites prefix} {",
+        "  set xs {}; set ys {}",
+        "  foreach s $sites {",
+        "    if {[regexp \"^${prefix}_X(\\\\d+)Y(\\\\d+)$\" $s -> x y]} {lappend xs $x; lappend ys $y}",
+        "  }",
+        "  if {[llength $xs] == 0} {return {}}",
+        "  set xs [lsort -integer $xs]; set ys [lsort -integer $ys]",
+        "  return \"${prefix}_X[lindex $xs 0]Y[lindex $ys 0]:${prefix}_X[lindex $xs end]Y[lindex $ys end]\"",
+        "}",
+        "set rp_ranges {}",
+        "set sh_ranges {}",
+        "foreach {type prefix} {SLICE* SLICE DSP48E2 DSP48E2 RAMB36 RAMB36 RAMB18* RAMB18} {",
+        "  set r [site_range [sites_by_int_x $type >= %d] $prefix]" % ps_x,
+        "  if {$r != {}} {lappend rp_ranges $r}",
+        "  set r [site_range [sites_by_int_x $type < %d] $prefix]" % ps_x,
+        "  if {$r != {}} {lappend sh_ranges $r}",
+        "}",
+        "puts \"accelerator partition: $rp_ranges\"",
+        "puts \"shell region: $sh_ranges\"",
+        "create_pblock pb_accel",
+        "add_cells_to_pblock pb_accel $rp",
+        "resize_pblock pb_accel -add $rp_ranges",
+        "set_property SNAPPING_MODE ON [get_pblocks pb_accel]",
+        "create_pblock pb_shell",
+        "set rpname [get_property NAME $rp]",
+        "set sh_cells {}",
+        "foreach c [get_cells -hier -filter {IS_PRIMITIVE && REF_NAME != PS8 && REF_NAME !~ BUFG*}] {",
+        "  if {![string match \"$rpname/*\" $c]} {lappend sh_cells $c}",
+        "}",
+        "add_cells_to_pblock pb_shell $sh_cells",
+        "resize_pblock pb_shell -add $sh_ranges",
+        "set_property CONTAIN_ROUTING true [get_pblocks pb_shell]",
+        "opt_design",
+        "place_design",
+        "route_design",
+        "report_route_status -file %s/shell_route_status.rpt" % shell_dir,
+        "report_timing_summary -file %s/shell_timing.rpt" % shell_dir,
+        "report_utilization -file %s/shell_utilization.rpt" % shell_dir,
+        "update_design -cell $rp -black_box",
+        "lock_design -level routing",
+        "write_checkpoint -force %s/shell_routed.dcp" % shell_dir,
+        "set f [open %s/rp_cell.txt w]; puts $f [get_property NAME $rp]; close $f" % shell_dir,
+        "set f [open %s/rp_ranges.txt w]; puts $f $rp_ranges; close $f" % shell_dir,
+        "foreach hwh [glob -nocomplain %s/finn_zynq_link.gen/sources_1/bd/top/hw_handoff/top.hwh "
+        "%s/finn_zynq_link.srcs/sources_1/bd/top/hw_handoff/top.hwh] {file copy -force $hwh %s/top.hwh}"
+        % (shell_dir, shell_dir, shell_dir),
+    ]
+    return "\n".join(t) + "\n"
+
+
+def build_shell(board, part, clk_ns, ports, shell_lib, jobs=8):
+    """Build (or reuse) the pre-implemented shell. Returns (shell_dir, result dict)."""
+    key = shell_key(board, part, clk_ns, ports)
+    shell_dir = os.path.join(shell_lib, key)
+    done = os.path.join(shell_dir, "shell_routed.dcp")
+    res = {"shell": key, "shell_dir": shell_dir}
+    if os.path.isfile(done) and os.path.isfile(os.path.join(shell_dir, "top.hwh")):
+        res.update(status="cached", shell_s=0.0)
+        return shell_dir, res
+    if os.path.isdir(shell_dir):
+        shutil.rmtree(shell_dir)
+    os.makedirs(shell_dir)
+    src = os.path.join(shell_dir, "shell_sources.v")
+    with open(src, "w") as f:
+        f.write("// generated by finn.util.dynarapid.shell\n")
+        f.write(core_verilog(ports))
+        for d in ports:
+            f.write(bridge_verilog(d))
+    with open(os.path.join(shell_dir, "ports.json"), "w") as f:
+        json.dump(ports, f, indent=2)
+    tcl = os.path.join(shell_dir, "shell.tcl")
+    with open(tcl, "w") as f:
+        f.write(shell_tcl(board, part, clk_ns, ports, shell_dir, src, jobs))
+    rc, res["shell_s"] = run_vivado(tcl, os.path.join(shell_dir, "shell.log"), shell_dir)
+    ok = rc == 0 and os.path.isfile(done) and os.path.isfile(os.path.join(shell_dir, "top.hwh"))
+    res["status"] = "built" if ok else "shell_failed"
+    # the project (IP output products, runs) is not needed any more
+    if ok:
+        for sub in ("finn_zynq_link.runs", "finn_zynq_link.cache", "finn_zynq_link.ip_user_files"):
+            shutil.rmtree(os.path.join(shell_dir, sub), ignore_errors=True)
+    return shell_dir, res
+
+
+def assemble_tcl(shell_dir, accel_dcp, out_dir, bitfile):
+    """Fill the shell's accelerator partition with the DynaRapid-routed accelerator, route
+    the remaining (boundary and clock) nets and write the bitstream."""
+    rp = open(os.path.join(shell_dir, "rp_cell.txt")).read().strip()
+    t = [
+        "set t0 [clock milliseconds]",
+        "proc stamp {name} {global t0; puts \"STAMP $name [expr ([clock milliseconds] - $t0) / 1000.0]\"}",
+        "open_checkpoint %s/shell_routed.dcp" % shell_dir,
+        "stamp open_shell",
+        "read_checkpoint -cell %s %s" % (rp, accel_dcp),
+        "stamp read_accel",
+        "route_design",
+        "stamp route",
+        "report_route_status -file %s/route_status.rpt" % out_dir,
+        "report_timing_summary -file %s/timing_summary.rpt" % out_dir,
+        "report_utilization -file %s/utilization.rpt" % out_dir,
+        "stamp reports",
+        "write_bitstream -force -no_partial_bitfile %s" % bitfile,
+        "stamp bitstream",
+        "write_checkpoint -force %s/final_routed.dcp" % out_dir,
+    ]
+    return "\n".join(t) + "\n"

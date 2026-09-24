@@ -27,6 +27,7 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import json
 import multiprocessing as mp
 import os
 import subprocess
@@ -413,6 +414,55 @@ class ZynqBuild(Transformation):
         kernel_model.set_metadata_prop("dynarapid_core_name", core_name)
         return kernel_model
 
+    def apply_dynarapid_shell(self, model, sdp_nodes):
+        """The whole accelerator (IODMAs and compute layers) is placed and routed by
+        DynaRapid and inserted into a pre-implemented shell (finn.util.dynarapid.zynq):
+        no stitched IP, no accelerator block design, no Vivado P&R of the accelerator."""
+        from concurrent.futures import ThreadPoolExecutor
+
+        from finn.util.dynarapid.zynq import dynarapid_zynq_build
+
+        def prepare(sdp_node):
+            prefix = sdp_node.name + "_"
+            sdp_inst = getCustomOp(sdp_node)
+            dataflow_model_filename = sdp_inst.get_nodeattr("model")
+            kernel_model = ModelWrapper(dataflow_model_filename)
+            kernel_model = kernel_model.transform(InsertFIFO())
+            kernel_model = kernel_model.transform(SpecializeLayers(self.fpga_part))
+            kernel_model = kernel_model.transform(GiveUniqueNodeNames(prefix))
+            kernel_model = kernel_model.transform(PrepareIP(self.fpga_part, self.period_ns))
+            kernel_model = kernel_model.transform(HLSSynthIP())
+            kernel_model.set_metadata_prop("platform", "zynq-iodma")
+            kernel_model.save(dataflow_model_filename)
+            return kernel_model
+
+        # the partitions are independent: generate their IP concurrently
+        with ThreadPoolExecutor(max_workers=max(1, len(sdp_nodes))) as ex:
+            kernel_models = list(ex.map(prepare, sdp_nodes))
+        opts = dict(self.dynarapid)
+        out_dir = opts.get("out_dir") or make_build_dir("dynarapid_zynq_")
+        res = dynarapid_zynq_build(
+            kernel_models,
+            self.platform,
+            self.fpga_part,
+            self.period_ns,
+            out_dir,
+            library_dir=opts.get("library_dir"),
+            shell_lib=opts.get("shell_lib"),
+            workers=opts.get("workers"),
+        )
+        model.set_metadata_prop("dynarapid_result", json.dumps(res))
+        assert res["status"] == "ok", "DynaRapid bitfile flow failed (%s), see %s" % (
+            res["status"],
+            out_dir,
+        )
+        model.set_metadata_prop("vivado_pynq_proj", out_dir)
+        model.set_metadata_prop("bitfile", res["bitfile"])
+        model.set_metadata_prop("hw_handoff", res["hwh"])
+        model.set_metadata_prop("vivado_synth_rpt", os.path.join(out_dir, "assembly", "utilization.rpt"))
+        model.set_metadata_prop("platform", "zynq-iodma")
+        return (model, False)
+
     def apply(self, model):
         # first infer layouts
         model = model.transform(InferDataLayouts())
@@ -430,6 +480,8 @@ class ZynqBuild(Transformation):
             model = model.transform(GiveReadableTensorNames())
         # Build each kernel individually
         sdp_nodes = model.get_nodes_by_op_type("StreamingDataflowPartition")
+        if self.dynarapid is not None and self.dynarapid.get("shell", True):
+            return self.apply_dynarapid_shell(model, sdp_nodes)
         for sdp_node in sdp_nodes:
             prefix = sdp_node.name + "_"
             sdp_node = getCustomOp(sdp_node)

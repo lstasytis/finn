@@ -23,6 +23,7 @@ so identical nodes (within a model or across builds) share one library entry.
 import hashlib
 import json
 import os
+import re
 from qonnx.custom_op.registry import getCustomOp
 
 from finn.transformation.fpgadataflow.create_stitched_ip import CreateStitchedIP
@@ -83,15 +84,112 @@ def component_name(model, node, part, clk_ns):
     return "%sx%s" % (short, h.hexdigest()[:12])
 
 
+def is_iodma(node):
+    return node.op_type.startswith("IODMA")
+
+
 def stream_interfaces(node):
-    """(inputs, outputs) as lists of (verilog interface name, padded width)."""
+    """(inputs, outputs) as lists of (verilog interface name, padded width).
+
+    Only the AXI streams; the memory-mapped interfaces of IODMA nodes are extra
+    channels after these (see channels())."""
     intf = getCustomOp(node).get_verilog_top_module_intf_names()
-    unsupported = [k for k in ("axilite", "aximm", "ap_none", "clk2x") if intf.get(k)]
+    allowed = ("axilite", "aximm") if is_iodma(node) else ()
+    unsupported = [
+        k for k in ("axilite", "aximm", "ap_none", "clk2x") if intf.get(k) and k not in allowed
+    ]
     assert not unsupported, "%s: interfaces %s not supported by the DynaRapid flow" % (
         node.name,
         unsupported,
     )
     return [(n, int(w)) for n, w in intf["s_axis"]], [(n, int(w)) for n, w in intf["m_axis"]]
+
+
+# AXI channels: signals carried as channel data (besides VALID/READY), and whether the
+# channel is driven by the master
+_AXI_CHANNELS = {
+    "AW": (("ADDR", "ID", "LEN", "SIZE", "BURST", "LOCK", "CACHE", "PROT", "QOS", "REGION", "USER"), True),
+    "W": (("DATA", "STRB", "LAST", "ID", "USER"), True),
+    "AR": (("ADDR", "ID", "LEN", "SIZE", "BURST", "LOCK", "CACHE", "PROT", "QOS", "REGION", "USER"), True),
+    "R": (("DATA", "RESP", "LAST", "ID", "USER"), False),
+    "B": (("RESP", "ID", "USER"), False),
+}
+# channel order of the memory-mapped interfaces (after the stream channels)
+_AXI_IN_ORDER = [("slave", "AW"), ("slave", "W"), ("slave", "AR"), ("master", "R"), ("master", "B")]
+_AXI_OUT_ORDER = [("slave", "R"), ("slave", "B"), ("master", "AW"), ("master", "W"), ("master", "AR")]
+
+
+def hls_verilog_dir(node):
+    """impl/verilog of an HLS node (next to the packaged IP in impl/ip)."""
+    ip_path = getCustomOp(node).get_nodeattr("ip_path")
+    return os.path.join(os.path.dirname(os.path.normpath(ip_path)), "verilog")
+
+
+def hls_top_name(node):
+    """Top module of an HLS node (named after the node at IP generation time)."""
+    return getCustomOp(node).get_nodeattr("ip_vlnv").split(":")[2]
+
+
+def hls_top_ports(node):
+    """{port: (direction, width)} of the HLS top module, parameters at their defaults."""
+    top = os.path.join(hls_verilog_dir(node), hls_top_name(node) + ".v")
+    txt = open(top).read()
+    params = {}
+    for name, expr in re.findall(r"^\s*parameter\s+(\w+)\s*=\s*([^;]+);", txt, re.M):
+        params[name] = _eval_width(expr, params)
+    ports = {}
+    for d, rng, name in re.findall(
+        r"^\s*(input|output)\s+(?:wire\s+|reg\s+)?(\[[^\]]+\])?\s*(\w+)\s*;", txt, re.M
+    ):
+        width = 1
+        if rng:
+            msb, lsb = rng[1:-1].split(":")
+            width = _eval_width(msb, params) - _eval_width(lsb, params) + 1
+        ports[name] = (d, width)
+    return ports
+
+
+def _eval_width(expr, params):
+    expr = re.sub(r"\b[A-Za-z_]\w*\b", lambda m: str(params[m.group(0)]), expr)
+    assert re.fullmatch(r"[\d\s+\-*/()]+", expr), "cannot evaluate %s" % expr
+    return int(eval(expr.replace("/", "//")))
+
+
+def axi_channels(node):
+    """Memory-mapped interfaces of an IODMA node as elastic channels.
+
+    Returns (inputs, outputs): lists of dicts {name, width, valid, ready, signals}, where
+    signals is [(verilog port, width)] packed LSB first into the channel data, and name
+    is <interface>_<channel> (e.g. m_axi_gmem_AR). The channels follow the fixed orders
+    _AXI_IN_ORDER / _AXI_OUT_ORDER."""
+    intf = getCustomOp(node).get_verilog_top_module_intf_names()
+    ifs = {"slave": intf["axilite"][0], "master": intf["aximm"][0][0]}
+    ports = hls_top_ports(node)
+
+    def chan(role, ch):
+        pre = "%s_%s" % (ifs[role], ch)
+        sigs = [(pre + s, ports[pre + s][1]) for s in _AXI_CHANNELS[ch][0] if pre + s in ports]
+        return {
+            "name": pre,
+            "width": sum(w for _, w in sigs),
+            "valid": pre + "VALID",
+            "ready": pre + "READY",
+            "signals": sigs,
+        }
+
+    return [chan(*c) for c in _AXI_IN_ORDER], [chan(*c) for c in _AXI_OUT_ORDER]
+
+
+def channels(node):
+    """All elastic channels of a component: (inputs, outputs), lists of (name, width).
+    The AXI streams come first (in interface order), so that graph connections use the
+    stream index; IODMA nodes add their memory-mapped channels after them."""
+    ins, outs = stream_interfaces(node)
+    if is_iodma(node):
+        a_in, a_out = axi_channels(node)
+        ins = ins + [(c["name"], c["width"]) for c in a_in]
+        outs = outs + [(c["name"], c["width"]) for c in a_out]
+    return ins, outs
 
 
 def adapter_verilog(dcp, bd_name, n_in, n_out, in_widths, out_widths):
@@ -125,6 +223,116 @@ def adapter_verilog(dcp, bd_name, n_in, n_out, in_widths, out_widths):
         "module %s (\n%s\n);\n    %s_wrapper inst (\n%s\n    );\nendmodule\n"
         % (dcp, ",\n".join(ports), bd_name, ",\n".join(conns))
     )
+
+
+def iodma_adapter_verilog(dcp, node):
+    """Adapter for IODMA nodes: the HLS top module instantiated directly, its streams and
+    AXI channels mapped to elastic ports (channel data packed LSB first)."""
+    s_in, s_out = stream_interfaces(node)
+    a_in, a_out = axi_channels(node)
+    ports = hls_top_ports(node)
+    decl = ["    input clk", "    input rst"]
+    conns = ["        .ap_clk(clk)", "        .ap_rst_n(rst)"]
+    k = 0
+    for name, w in s_in:
+        decl += [
+            "    input [%d:0] dataInArray_%d" % (w - 1, k),
+            "    input pValidArray_%d" % k,
+            "    output readyArray_%d" % k,
+        ]
+        tw = ports[name + "_TDATA"][1]
+        conns += [
+            "        .%s_TDATA(dataInArray_%d[%d:0])" % (name, k, min(w, tw) - 1),
+            "        .%s_TVALID(pValidArray_%d)" % (name, k),
+            "        .%s_TREADY(readyArray_%d)" % (name, k),
+        ]
+        k += 1
+    for c in a_in:
+        decl += [
+            "    input [%d:0] dataInArray_%d" % (c["width"] - 1, k),
+            "    input pValidArray_%d" % k,
+            "    output readyArray_%d" % k,
+        ]
+        off = 0
+        for sig, w in c["signals"]:
+            conns.append("        .%s(dataInArray_%d[%d:%d])" % (sig, k, off + w - 1, off))
+            off += w
+        conns += [
+            "        .%s(pValidArray_%d)" % (c["valid"], k),
+            "        .%s(readyArray_%d)" % (c["ready"], k),
+        ]
+        k += 1
+    k = 0
+    for name, w in s_out:
+        decl += [
+            "    output [%d:0] dataOutArray_%d" % (w - 1, k),
+            "    output validArray_%d" % k,
+            "    input nReadyArray_%d" % k,
+        ]
+        tw = ports[name + "_TDATA"][1]
+        if tw < w:
+            conns.append("        .%s_TDATA(dataOutArray_%d[%d:0])" % (name, k, tw - 1))
+        else:
+            conns.append("        .%s_TDATA(dataOutArray_%d)" % (name, k))
+        conns += [
+            "        .%s_TVALID(validArray_%d)" % (name, k),
+            "        .%s_TREADY(nReadyArray_%d)" % (name, k),
+        ]
+        k += 1
+    for c in a_out:
+        decl += [
+            "    output [%d:0] dataOutArray_%d" % (c["width"] - 1, k),
+            "    output validArray_%d" % k,
+            "    input nReadyArray_%d" % k,
+        ]
+        off = 0
+        for sig, w in c["signals"]:
+            conns.append("        .%s(dataOutArray_%d[%d:%d])" % (sig, k, off + w - 1, off))
+            off += w
+        conns += [
+            "        .%s(validArray_%d)" % (c["valid"], k),
+            "        .%s(nReadyArray_%d)" % (c["ready"], k),
+        ]
+        k += 1
+    # unpadded stream outputs: tie off the padding bits
+    ties = []
+    for k, (name, w) in enumerate(s_out):
+        tw = ports[name + "_TDATA"][1]
+        if tw < w:
+            ties.append("    assign dataOutArray_%d[%d:%d] = 0;" % (k, w - 1, tw))
+    return (
+        "// DynaRapid adapter for an IODMA node, generated by finn.util.dynarapid\n"
+        "// NOTE: rst is FINN's active-low ap_rst_n\n"
+        "module %s (\n%s\n);\n%s    %s inst (\n%s\n    );\nendmodule\n"
+        % (
+            dcp,
+            ",\n".join(decl),
+            "".join(t + "\n" for t in ties),
+            hls_top_name(node),
+            ",\n".join(conns),
+        )
+    )
+
+
+def iodma_synth_tcl(node, dcp, comp_dir, synth_dir, part, threads):
+    """Vivado script for an IODMA component: HLS Verilog + adapter, OOC synthesis."""
+    adapter = os.path.join(comp_dir, dcp + ".v")
+    with open(adapter, "w") as f:
+        f.write(iodma_adapter_verilog(dcp, node))
+    rw_tcl = os.path.join(dynarapid_root(), "RapidWright", "tcl", "rapidwright.tcl")
+    dcp_file = os.path.join(synth_dir, dcp + "_synth.dcp")
+    tcl = [
+        "set_param general.maxThreads %d" % threads,
+        "read_verilog [glob %s/*.v]" % hls_verilog_dir(node),
+        "read_verilog %s" % adapter,
+        "synth_design -top %s -part %s -mode out_of_context" % (dcp, part),
+        "write_checkpoint -force %s" % dcp_file,
+        "write_edif -force %s" % dcp_file.replace(".dcp", ".edf"),
+        "report_utilization -packthru -file %s" % os.path.join(synth_dir, dcp + ".util"),
+        "source %s" % rw_tcl,
+        "generate_metadata %s %s 0" % (dcp_file, synth_dir),
+    ]
+    return "\n".join(tcl) + "\n"
 
 
 def synth_tcl(model, node, dcp, comp_dir, synth_dir, part, clk_ns, threads):
@@ -214,7 +422,12 @@ def build_component(
     if not os.path.isfile(meta):
         tcl_file = os.path.join(comp_dir, "synth.tcl")
         with open(tcl_file, "w") as f:
-            f.write(synth_tcl(model, node, dcp, comp_dir, synth_dir, part, clk_ns, vivado_threads))
+            if is_iodma(node):
+                f.write(iodma_synth_tcl(node, dcp, comp_dir, synth_dir, part, vivado_threads))
+            else:
+                f.write(
+                    synth_tcl(model, node, dcp, comp_dir, synth_dir, part, clk_ns, vivado_threads)
+                )
         rc, res["synth_s"] = run_vivado(
             tcl_file, os.path.join(comp_dir, "synth.log"), comp_dir, env
         )
@@ -241,13 +454,19 @@ def build_component(
     else:
         entry = "ch.agsl.dynarapid.pblockgenerator.GenerateShapedPblocks"
         pargs = ["-part", short, "-m", dcp, "-num", str(num_shapes), "-util", str(target_util)]
-    rc, res["pblock_s"] = run_java(
-        entry,
-        pargs,
-        env,
-        os.path.join(comp_dir, "pblocks.log"),
-    )
     comp_lib = os.path.join(library_dir, dcp)
+    if os.path.isdir(comp_lib) and any(
+        f.endswith("_placedRouted.dcp") for f in os.listdir(comp_lib)
+    ):
+        # pblock from an earlier (interrupted) build, only the database is missing
+        rc, res["pblock_s"] = 0, 0.0
+    else:
+        rc, res["pblock_s"] = run_java(
+            entry,
+            pargs,
+            env,
+            os.path.join(comp_dir, "pblocks.log"),
+        )
     if (
         rc != 0
         or not os.path.isdir(comp_lib)

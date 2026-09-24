@@ -17,6 +17,7 @@ PART_TO_DYNARAPID = {
     "xcvu13p-fsga2577-1-i": "xcvu13p",
     # other parts are passed by their full name
     "xcu250-figd2104-2L-e": "xcu250-figd2104-2L-e",
+    "xczu7ev-ffvc1156-2-e": "xczu7ev-ffvc1156-2-e",  # ZCU104
 }
 
 # Map region (starti, startj, endi, endj) in which library pblocks are generated.
@@ -30,6 +31,8 @@ PBLOCK_REGION = {
     "xczu3eg": "20,4,219,40",
     "xcvu13p": "260,20,459,127",  # inside one SLR (240 map rows each)
     "xcu250-figd2104-2L-e": "260,20,459,127",  # same die as xcvu13p
+    # 360 x 43 map (the map columns below the PS are dropped, see MapBuilderFPGA)
+    "xczu7ev-ffvc1156-2-e": "20,4,339,39",
 }
 
 
