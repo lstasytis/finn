@@ -172,6 +172,8 @@ def dynarapid_zynq_build(
         k: float(v) for k, v in re.findall(r"^STAMP (\w+) ([\d.]+)", open(log).read(), re.M)
     }
     res.update(_reports(asm_dir))
+    res["timing_rpt"] = os.path.join(asm_dir, "timing_summary.rpt")
+    res["utilization_xml"] = os.path.join(asm_dir, "synth_report.xml")
     if rc != 0 or not os.path.isfile(bitfile):
         res["status"] = "assembly_failed"
         return _done(res, out_dir, t_total)

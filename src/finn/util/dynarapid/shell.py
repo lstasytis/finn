@@ -428,6 +428,9 @@ def assemble_tcl(shell_dir, accel_dcp, out_dir, bitfile, threads=16, keep_dcp=Fa
         "report_route_status -file %s/route_status.rpt" % out_dir,
         "report_timing_summary -file %s/timing_summary.rpt" % out_dir,
         "report_utilization -file %s/utilization.rpt" % out_dir,
+        # the same hierarchical report as the regular Zynq flow (post-synthesis resources)
+        "report_utilization -hierarchical -hierarchical_depth 4 -format xml -file %s/synth_report.xml"
+        % out_dir,
         # per-cell resources in the format of FINN's synthesis report (post_synth_res)
         "report_utilization -hierarchical -hierarchical_depth 6 -format xml -file %s/utilization.xml"
         % out_dir,
