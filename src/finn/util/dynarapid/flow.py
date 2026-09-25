@@ -24,7 +24,9 @@ from finn.transformation.fpgadataflow.replace_verilog_relpaths import (
 from finn.util.dynarapid.components import build_component, component_name
 from finn.util.dynarapid.graph import onnx_to_dot
 from finn.util.dynarapid.tools import (
+    JVM_GB,
     PART_TO_DYNARAPID,
+    avail_memory_gb,
     dynarapid_env,
     run_java,
     run_vivado,
@@ -57,11 +59,9 @@ def build_library(
     # (the densest successful one is kept), which avoids sequential retries
     ncpu = os.cpu_count() or workers
     pblock_parallel = max(1, min(3, ncpu // max(1, len(uniq))))
-    # every job holds a JVM with the device model and one Vivado per attempt; on large
-    # devices memory, not cores, limits the number of parallel jobs
-    avail_gb = os.sysconf("SC_AVPHYS_PAGES") * os.sysconf("SC_PAGE_SIZE") / 2**30
-    per_job_gb = _job_memory_gb(part) * pblock_parallel
-    mem_workers = max(1, int(0.85 * avail_gb / per_job_gb))
+    # every job holds a JVM with the device model while its Vivado runs are going on; the
+    # Vivado runs themselves are limited machine-wide (tools.vivado_slots)
+    mem_workers = max(1, int(0.85 * avail_memory_gb() * 0.4 / JVM_GB))
     if mem_workers < workers:
         print("DynaRapid: limiting parallel component jobs to %d (memory)" % mem_workers)
         workers = mem_workers
@@ -91,12 +91,6 @@ def build_library(
     with ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
         results = list(ex.map(job, items))
     return dcps, results
-
-
-def _job_memory_gb(part):
-    """Rough peak memory of one component job (JVM + Vivado) for a device."""
-    large = part.startswith(("xcvu", "xcu2", "xcu5", "xcvp", "xcvc"))
-    return 10.0 if large else 3.0
 
 
 def _node_size_hint(node):

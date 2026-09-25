@@ -5,10 +5,54 @@
 
 """Locating and invoking DynaRapid (Java) and Vivado for the DynaRapid P&R flow."""
 
+import fcntl
 import os
+import random
 import shutil
 import subprocess
 import time
+from contextlib import contextmanager
+
+# measured peak resident memory on the xczu7ev (Vivado 2023.1): component place and route
+# 4.6 GB, DynaRapid JVM with the device model 2.8 GB
+VIVADO_GB = 4.5
+JVM_GB = 3.0
+
+
+def avail_memory_gb():
+    return os.sysconf("SC_AVPHYS_PAGES") * os.sysconf("SC_PAGE_SIZE") / 2**30
+
+
+def vivado_slots():
+    """(lock directory, number of slots) of the machine-wide limit on concurrent Vivado runs
+    (DYNARAPID_VIVADO_SLOTS overrides the number; default from cores and free memory)."""
+    d = os.path.join(os.environ.get("FINN_BUILD_DIR", "/tmp"), "dynarapid_vivado_slots")
+    n = os.environ.get("DYNARAPID_VIVADO_SLOTS")
+    if n is None:
+        n = min(os.cpu_count() or 1, int(0.85 * avail_memory_gb() * 0.6 / VIVADO_GB))
+    return d, max(1, int(n))
+
+
+@contextmanager
+def vivado_slot():
+    """Hold one of the machine-wide Vivado slots (lock files shared with DynaRapid)."""
+    d, n = vivado_slots()
+    os.makedirs(d, exist_ok=True)
+    while True:
+        for k in range(n):
+            f = open(os.path.join(d, "slot%d" % k), "a")
+            try:
+                fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                f.close()
+                continue
+            try:
+                yield
+            finally:
+                fcntl.lockf(f, fcntl.LOCK_UN)
+                f.close()
+            return
+        time.sleep(0.5 + random.random())
 
 # DynaRapid short part names for the FPGA parts it has maps for
 PART_TO_DYNARAPID = {
@@ -82,6 +126,9 @@ def dynarapid_env(work_dir, library_dir, part, clk_ns, vivado_threads=1):
             "RW_QUIET_MESSAGE": "1",
         }
     )
+    slot_dir, slots = vivado_slots()
+    env.setdefault("DYNARAPID_VIVADO_SLOTS_DIR", slot_dir)
+    env.setdefault("DYNARAPID_VIVADO_SLOTS", str(slots))
     return env
 
 
@@ -100,6 +147,7 @@ def run_vivado(tcl_file, log_file, cwd, env=None):
     """Run a Vivado batch script, return (returncode, seconds)."""
     cmd = ["vivado", "-mode", "batch", "-nojournal", "-nolog", "-notrace", "-source", tcl_file]
     t0 = time.time()
-    with open(log_file, "w") as f:
-        ret = subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT, cwd=cwd, env=env)
+    with vivado_slot():
+        with open(log_file, "w") as f:
+            ret = subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT, cwd=cwd, env=env)
     return ret.returncode, time.time() - t0

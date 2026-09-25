@@ -1962,10 +1962,10 @@ index b1834b0..c8ccf03 100755
              //Sourcing the basic vhdl files
  
 diff --git a/src/ch/agsl/dynarapid/vivado/VivadoRun.java b/src/ch/agsl/dynarapid/vivado/VivadoRun.java
-index e9ce66e..8d6b11d 100755
+index e9ce66e..07fd2eb 100755
 --- a/src/ch/agsl/dynarapid/vivado/VivadoRun.java
 +++ b/src/ch/agsl/dynarapid/vivado/VivadoRun.java
-@@ -52,89 +52,107 @@ public class VivadoRun
+@@ -52,89 +52,172 @@ public class VivadoRun
       * 0 if there was segfault
       * 1 all good
       */
@@ -1982,35 +1982,14 @@ index e9ce66e..8d6b11d 100755
      {
 -        StringUtils.printIntro("Vivado Run: " + tclLoc);
 -        boolean bash = true;
--
--        if(LocationParser.terminal.equals("bash"))
--            bash = true;
--
--        else if(LocationParser.terminal.equals("tcsh"))
--            bash = false;
--
--        else
--        {
--            System.out.println("ERROR: Could not find appropriate terminal. Check terminal field in locations.txt");
--            return -1; //error
--        }
--
--        try { 
--
--            String sysCommand = "";
--            if(bash)
--                sysCommand = LocationParser.bin + "run_command_bash ";
--
--            else
--                sysCommand = LocationParser.bin + "run_command_tcsh ";
 +        String v = System.getenv("DYNARAPID_CLK_PERIOD");
 +        if(v == null || v.isEmpty())
 +            return "2.5";
 +        return v;
 +    }
  
--            if(exportLicense)
--                sysCommand += LocationParser.exportLicense + " && ";
+-        if(LocationParser.terminal.equals("bash"))
+-            bash = true;
 +    /*
 +     * Site of the clock buffer used as HD.CLK_SRC of out-of-context component runs:
 +     * BUFGCTRL_X0Y2 (as in the original library) if the device has it, else its first BUFGCTRL
@@ -2024,17 +2003,90 @@ index e9ce66e..8d6b11d 100755
 +        com.xilinx.rapidwright.device.Site[] s = d.getAllSitesOfType(com.xilinx.rapidwright.device.SiteTypeEnum.BUFGCTRL);
 +        return s[0].getName();
 +    }
++
++    //Vivado processes currently running, by tcl script (to allow cancelling speculative runs)
++    static final java.util.Map<String, Process> running = new java.util.concurrent.ConcurrentHashMap<>();
+ 
+-        else if(LocationParser.terminal.equals("tcsh"))
+-            bash = false;
++    //Kills the Vivado run of the given tcl script (and its children) if it is still running
++    //runs cancelled (possibly while still waiting for a slot)
++    static java.util.Set<String> cancelled = java.util.concurrent.ConcurrentHashMap.newKeySet();
+ 
+-        else
++    /*
++     * Machine-wide limit on concurrent Vivado runs, shared by all DynaRapid processes (and the
++     * FINN flow) through lock files: DYNARAPID_VIVADO_SLOTS runs at most, lock files in
++     * DYNARAPID_VIVADO_SLOTS_DIR. Unset: no limit. Without it, many component jobs with hedged
++     * attempts and variants each start several Vivado runs and can exhaust the memory.
++     */
++    static java.nio.channels.FileLock acquireSlot(String tclLoc) throws Exception
++    {
++        String dir = System.getenv("DYNARAPID_VIVADO_SLOTS_DIR");
++        String n = System.getenv("DYNARAPID_VIVADO_SLOTS");
++        if(dir == null || n == null || dir.isEmpty() || n.isEmpty())
++            return null;
++        int slots = Integer.parseInt(n);
++        new File(dir).mkdirs();
++        java.util.Random rnd = new java.util.Random();
++        while(!cancelled.contains(tclLoc))
+         {
+-            System.out.println("ERROR: Could not find appropriate terminal. Check terminal field in locations.txt");
+-            return -1; //error
++            for(int k = 0; k < slots; k++)
++            {
++                java.nio.channels.FileChannel ch = java.nio.channels.FileChannel.open(
++                    java.nio.file.Paths.get(dir, "slot" + k),
++                    java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.WRITE);
++                try
++                {
++                    java.nio.channels.FileLock l = ch.tryLock();
++                    if(l != null)
++                        return l;
++                }
++                catch(java.nio.channels.OverlappingFileLockException e)
++                {
++                    //held by another thread of this process
++                }
++                ch.close();
++            }
++            Thread.sleep(500 + rnd.nextInt(1000));
+         }
++        return null;
++    }
+ 
+-        try { 
+-
+-            String sysCommand = "";
+-            if(bash)
+-                sysCommand = LocationParser.bin + "run_command_bash ";
+-
+-            else
+-                sysCommand = LocationParser.bin + "run_command_tcsh ";
+-
+-            if(exportLicense)
+-                sysCommand += LocationParser.exportLicense + " && ";
++    static void releaseSlot(java.nio.channels.FileLock l)
++    {
++        if(l == null)
++            return;
++        try
++        {
++            l.release();
++            l.channel().close();
++        }
++        catch(Exception e)
++        {
++            e.printStackTrace();
++        }
++    }
  
 -            sysCommand += LocationParser.sourceVivado + " && ";
 -            //sysCommand += "vivado -mode batch -source " + tclLoc + " > " + logsLoc;
 -            sysCommand += "/softs/xilinx/Vivado/2020.2/bin/vivado -mode batch -source " + tclLoc + " > " + logsLoc;
-+    //Vivado processes currently running, by tcl script (to allow cancelling speculative runs)
-+    static final java.util.Map<String, Process> running = new java.util.concurrent.ConcurrentHashMap<>();
- 
--            System.out.println("Running command: " + sysCommand);
-+    //Kills the Vivado run of the given tcl script (and its children) if it is still running
 +    public static void kill(String tclLoc)
 +    {
++        cancelled.add(tclLoc);
 +        Process p = running.get(tclLoc);
 +        if(p == null)
 +            return;
@@ -2042,7 +2094,7 @@ index e9ce66e..8d6b11d 100755
 +        p.destroyForcibly();
 +    }
  
--            Process p = Runtime.getRuntime().exec(sysCommand);
+-            System.out.println("Running command: " + sysCommand);
 +    public static int vivadoThreads()
 +    {
 +        String v = System.getenv("DYNARAPID_VIVADO_THREADS");
@@ -2051,24 +2103,14 @@ index e9ce66e..8d6b11d 100755
 +        return Integer.parseInt(v);
 +    }
  
--            //running a countdown of 1 hour to end the vivado process
--            boolean flag = false;
--            for(int i = 0; (i < 60) && (!flag); i++)
--            {
--                //1 minute process counts
--                long end = System.currentTimeMillis() + (60*1000);
--                while(System.currentTimeMillis() < end)
--                    if(isProcessTerminated(p))
--                    {
--                        flag = true;
--                        break;
--                    }
--            }
+-            Process p = Runtime.getRuntime().exec(sysCommand);
 +    public static int vivadoRun(String tclLoc, String logsLoc, boolean exportLicense, String errorReference, int errorCode, int num)
 +    {
 +        StringUtils.printIntro("Vivado Run: " + tclLoc);
  
--            if(!flag) //taking a lot of time to execute
+-            //running a countdown of 1 hour to end the vivado process
+-            boolean flag = false;
+-            for(int i = 0; (i < 60) && (!flag); i++)
 +        //Vivado is taken from DYNARAPID_VIVADO or else from the PATH
 +        String vivado = System.getenv("DYNARAPID_VIVADO");
 +        if(vivado == null || vivado.isEmpty())
@@ -2080,7 +2122,24 @@ index e9ce66e..8d6b11d 100755
 +        sysCommand += vivado + " -mode batch -nojournal -nolog -notrace -source " + tclLoc + " > " + logsLoc + " 2>&1";
 +        System.out.println("Running command: " + sysCommand);
 +
++        java.nio.channels.FileLock slot = null;
 +        try {
++            slot = acquireSlot(tclLoc);
++            if(cancelled.contains(tclLoc))
+             {
+-                //1 minute process counts
+-                long end = System.currentTimeMillis() + (60*1000);
+-                while(System.currentTimeMillis() < end)
+-                    if(isProcessTerminated(p))
+-                    {
+-                        flag = true;
+-                        break;
+-                    }
++                System.out.println("Cancelled before start: " + tclLoc);
++                return -1;
+             }
+-
+-            if(!flag) //taking a lot of time to execute
 +            //Run in the directory of the tcl script so that .Xil and other scratch files stay out of the cwd
 +            File runDir = new File(tclLoc).getAbsoluteFile().getParentFile();
 +            ProcessBuilder pb = new ProcessBuilder(LocationParser.terminal.equals("tcsh") ? "tcsh" : "bash", "-c", sysCommand);
@@ -2137,3 +2196,13 @@ index e9ce66e..8d6b11d 100755
          }
  
          catch (Exception e) {
+@@ -142,6 +225,9 @@ public class VivadoRun
+             System.out.println(e.getMessage());
+             return -1; //error
+         }
++        finally {
++            releaseSlot(slot);
++        }
+ 
+         System.out.println("Logs file generated in " + logsLoc);
+         return 1; //all good

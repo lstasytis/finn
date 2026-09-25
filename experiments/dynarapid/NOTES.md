@@ -309,3 +309,38 @@ why the generator was removed, whether a newer internal version exists (library 
 v0.2.0+, target-clock / streaming features), and whether a PR restoring it would be
 accepted. RapidWright's own pre-implemented module flow (BlockStitcher, PBlockGenerator) is
 the maintained alternative for component generation.
+
+### CNV on the ZCU104, continued
+
+* BRAM-heavy components relocate only vertically: right of the PS the xczu7ev map has four
+  BRAM columns and almost no repeating column pattern (probe: every 6-column window except
+  two pairs is unique). All large MVAUs were generated at the same columns and competed for
+  one column band (heights 85 + 125 + 55 + 45 + 30 + 25 > 360 rows). Components with BRAMs /
+  DSPs now get two pblock variants at disjoint columns; DynaRapid places CNV after that.
+* The relocation database did not know that BRAM cascades (deep weight memories) must stay
+  within one clock region: assembly failed with DRC CASC-31. The database now drops anchors
+  that split a cascade (dedicated `CASDO*`/`CASO*`, DSP `ACOUT/BCOUT/PCOUT/...` nets) across
+  clock regions; for the 33-BRAM MVAU that left 5 of 56 anchors. Components are therefore
+  synthesized without BRAM cascades (`-max_bram_cascade_height 1`, component hash version 2).
+* CNV Vivado baseline on the ZCU104: **1034 s** (IODMA HLS + stitched IP 267 s,
+  MakeZYNQProject 768 s; place 145 s, route 123 s), WNS +0.53 ns.
+
+### Cold builds, resources
+
+* Cold TFC (fresh library, shell cached): **669 s** vs 700 s Vivado - no gain. Library build
+  491 s: per component synthesis 72-90 s, pblock P&R 170-394 s.
+* Fixed Vivado costs dominate small components on this device: `place_design` of a 15-LUT
+  FIFO takes 82 s on an idle machine (32 s placer device model, ~10 s per placer phase),
+  unchanged by `-directive Quick/RuntimeOptimized`, `-no_psip`, `-no_timing_driven`, without
+  HD.CLK_SRC or CONTAIN_ROUTING. A second P&R in the same Vivado session places in 60 s.
+  **Six components placed and routed in one run take 95 s in total** (link 15, opt 8, place
+  55, route 14, per-cell checkpoints 3 s) - but `write_checkpoint -cell` drops the routing
+  (and HD.PARTITION is not allowed out of context); a batched flow would need RapidWright's
+  `DesignTools.copyImplementation` to split the result plus per-component metadata.
+* **Memory**: a component P&R run peaks at 4.6 GB, a DynaRapid JVM (device model) at
+  2.8 GB. The first cold CNV attempt ran 28 component jobs x (2 variants x hedged attempts)
+  = 152 Vivado processes and exhausted the 125 GB + swap (likely the cause of the earlier
+  container crash). Now: a machine-wide pool of Vivado slots (lock files under
+  `$FINN_BUILD_DIR/dynarapid_vivado_slots`, shared by DynaRapid and FINN,
+  `DYNARAPID_VIVADO_SLOTS` to override; default min(cores, 0.51 x free GB / 4.5) = 13 here)
+  and component jobs limited to 0.34 x free GB / 3.
