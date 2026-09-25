@@ -937,6 +937,398 @@ index c460620..110dfd4 100755
  
      }
  
+diff --git a/src/ch/agsl/dynarapid/pblockgenerator/GenerateBatchPblocks.java b/src/ch/agsl/dynarapid/pblockgenerator/GenerateBatchPblocks.java
+new file mode 100644
+index 0000000..f2539e2
+--- /dev/null
++++ b/src/ch/agsl/dynarapid/pblockgenerator/GenerateBatchPblocks.java
+@@ -0,0 +1,386 @@
++/*
++* DynaRapid
++*
++* This file is part of DynaRapid project
++* Copyright: See COPYING file that comes with this distribution
++*/
++package ch.agsl.dynarapid.pblockgenerator;
++
++import ch.agsl.dynarapid.GenerateDesign;
++import ch.agsl.dynarapid.entry.Start;
++import ch.agsl.dynarapid.map.MapElement;
++import ch.agsl.dynarapid.map.ResourceElement;
++import ch.agsl.dynarapid.modules.Component;
++import ch.agsl.dynarapid.modules.Pblock;
++import ch.agsl.dynarapid.parser.LocationParser;
++import ch.agsl.dynarapid.strings.StringUtils;
++import ch.agsl.dynarapid.vivado.VivadoRun;
++
++import com.xilinx.rapidwright.design.Design;
++import com.xilinx.rapidwright.design.DesignTools;
++import com.xilinx.rapidwright.edif.EDIFCell;
++import com.xilinx.rapidwright.edif.EDIFNetlist;
++import com.xilinx.rapidwright.edif.EDIFPort;
++import com.xilinx.rapidwright.edif.EDIFTools;
++
++import java.io.File;
++import java.io.FileWriter;
++import java.nio.charset.StandardCharsets;
++import java.nio.file.Files;
++import java.nio.file.Path;
++import java.nio.file.Paths;
++import java.util.ArrayList;
++import java.util.HashMap;
++import java.util.LinkedHashMap;
++import java.util.List;
++import java.util.Map;
++import java.util.regex.Matcher;
++import java.util.regex.Pattern;
++
++/**
++ * Batched pblock generator: several components are placed and routed in one Vivado run.
++ *
++ * On large devices the fixed cost of a Vivado place-and-route run dominates small components
++ * (xczu7ev: ~80 s of placement for a 15-LUT FIFO, ~110 s per run in total). Here the
++ * pblocks of many components (the same shapes and variants as GenerateFastPblocks) are packed
++ * into the generation region without overlap, all components are linked into one
++ * out-of-context design (each cell in its own pblock with CONTAIN_ROUTING), and the design is
++ * placed and routed once. Vivado cannot write a cell with its routing outside DFX, so
++ * RapidWright copies each cell's implementation into the component's own synthesized design
++ * (DesignTools.copyImplementation, internal nets only: port and clock nets stay unrouted as in
++ * GenerateFastPblocks). A second, short Vivado run per batch adds the pblock constraint, the
++ * utilization report and the RapidWright metadata, so the library entries have the same
++ * layout as those of GenerateFastPblocks.
++ *
++ * Output lines: "BATCH_OK <component> <pblock>" for each generated pblock and
++ * "BATCH_FAILED <component>" for components without one (to be built individually).
++ */
++public class GenerateBatchPblocks {
++
++    static class Item {
++        Component comp;
++        int j, r, c, i = -1, k;
++        Pblock pblock;
++        boolean ok;
++    }
++
++    //RapidWright's device caches are not thread-safe: splits of different batches in turn
++    static final Object RW_LOCK = new Object();
++
++    public static void main(String args[]) throws Exception
++    {
++        if (StringUtils.findInArray("-f", args) == -1)
++        {
++            System.out.println("<usage>: java GenerateBatchPblocks -f <component list> [-part <part>] [-util <u>] [-maxItems <n>]");
++            return;
++        }
++        if (StringUtils.findInArray("-part", args) != -1)
++            GenerateDesign.setPart(args[StringUtils.findInArray("-part", args) + 1]);
++        if (!Start.start())
++            return;
++        double util = 0.8;
++        int maxItems = 10;
++        if (StringUtils.findInArray("-util", args) != -1)
++            util = Double.parseDouble(args[StringUtils.findInArray("-util", args) + 1]);
++        if (StringUtils.findInArray("-maxItems", args) != -1)
++            maxItems = Integer.parseInt(args[StringUtils.findInArray("-maxItems", args) + 1]);
++        //-batches: target number of batches (runs in parallel); the items are spread over them
++        int nBatches = 0;
++        if (StringUtils.findInArray("-batches", args) != -1)
++            nBatches = Integer.parseInt(args[StringUtils.findInArray("-batches", args) + 1]);
++        List<String> names = Files.readAllLines(Paths.get(args[StringUtils.findInArray("-f", args) + 1]));
++
++        int maxRows = ResourceElement.endi - ResourceElement.starti + 1;
++        int cols = MapElement.map.get(0).size();
++        int variants = System.getenv("DYNARAPID_VARIANTS") == null ? 2 : Integer.parseInt(System.getenv("DYNARAPID_VARIANTS"));
++
++        //shapes (and variants at disjoint columns for components with BRAMs / DSPs)
++        List<Item> items = new ArrayList<>();
++        Map<String, Component> comps = new LinkedHashMap<>();
++        for (String name : names)
++        {
++            name = name.trim();
++            if (name.isEmpty())
++                continue;
++            Component comp = new Component(name, false);
++            comps.put(name, comp);
++            int nv = (comp.dcp.bram > 0 || comp.dcp.dsp > 0) ? variants : 1;
++            boolean used[] = new boolean[cols];
++            for (int v = 0; v < nv; v++)
++            {
++                int shape[] = GenerateShapedPblocks.chooseShape(comp, util, 1.0, maxRows, v == 0 ? null : used.clone());
++                if (shape == null)
++                    break;
++                Item it = new Item();
++                it.comp = comp;
++                it.j = shape[0];
++                it.r = shape[1];
++                it.c = shape[2];
++                items.add(it);
++                for (int j = shape[0]; j < shape[0] + shape[2] && j < cols; j++)
++                    used[j] = true;
++            }
++        }
++
++        //pack the pblocks into batches: every item keeps its columns (they determine where it
++        //can be relocated to) and gets the topmost free rows of a batch it fits into. Largest
++        //items first, each into the batch with the least area so far (balanced run times).
++        items.sort((a, b) -> Integer.compare(b.r * b.c, a.r * a.c));
++        if (nBatches > 0)
++            maxItems = Math.max(maxItems, (items.size() + nBatches - 1) / nBatches);
++        List<List<Item>> batches = new ArrayList<>();
++        List<boolean[][]> occupancy = new ArrayList<>();
++        List<Integer> area = new ArrayList<>();
++        int rows = MapElement.map.size();
++        for (int b = 0; b < nBatches; b++)
++        {
++            batches.add(new ArrayList<>());
++            occupancy.add(new boolean[rows][cols]);
++            area.add(0);
++        }
++        for (Item it : items)
++        {
++            List<Integer> order = new ArrayList<>();
++            for (int b = 0; b < batches.size(); b++)
++                order.add(b);
++            order.sort((a, b) -> Integer.compare(area.get(a), area.get(b)));
++            order.add(-1); //a new batch
++            for (int b : order)
++            {
++                if (it.i >= 0)
++                    break;
++                if (b == -1)
++                {
++                    batches.add(new ArrayList<>());
++                    occupancy.add(new boolean[rows][cols]);
++                    area.add(0);
++                    b = batches.size() - 1;
++                }
++                if (batches.get(b).size() >= maxItems)
++                    continue;
++                boolean occ[][] = occupancy.get(b);
++                int inc = Math.max(1, it.comp.incFactor);
++                for (int i = ResourceElement.starti; i + it.r - 1 <= ResourceElement.endi && it.i < 0; i += inc)
++                {
++                    boolean free = true;
++                    for (int a = i; a < i + it.r && free; a++)
++                        for (int c = it.j; c < it.j + it.c && free; c++)
++                            free = !occ[a][c];
++                    if (!free || !GenerateShapedPblocks.fits(it.comp, util, i, it.j, it.r, it.c))
++                        continue;
++                    it.i = i;
++                    for (int a = i; a < i + it.r; a++)
++                        for (int c = it.j; c < it.j + it.c; c++)
++                            occ[a][c] = true;
++                    batches.get(b).add(it);
++                    area.set(b, area.get(b) + it.r * it.c);
++                }
++            }
++        }
++        for (Item it : items)
++            if (it.i >= 0)
++                it.pblock = new Pblock(it.comp, it.i, it.j, it.r, it.c, 2, false, false);
++        System.out.println("Packed " + items.size() + " pblocks of " + comps.size() + " components into " + batches.size() + " batches");
++
++        File root = new File(LocationParser.exposedDCPs + "batches_" + ProcessHandle.current().pid());
++        root.mkdirs();
++        List<Thread> threads = new ArrayList<>();
++        for (int b = 0; b < batches.size(); b++)
++        {
++            final int bb = b;
++            final List<Item> batch = batches.get(b);
++            if (batch.isEmpty())
++                continue;
++            Thread th = new Thread(() -> {
++                try { runBatch(new File(root, "b" + bb), batch); }
++                catch (Exception e) { e.printStackTrace(); }
++            });
++            th.start();
++            threads.add(th);
++        }
++        for (Thread th : threads)
++            th.join();
++
++        for (String name : comps.keySet())
++        {
++            boolean any = false;
++            for (Item it : items)
++                if (it.comp.dcpName.equals(name) && it.ok)
++                {
++                    any = true;
++                    System.out.println("BATCH_OK " + name + " " + it.pblock.pblockName);
++                }
++            if (!any)
++                System.out.println("BATCH_FAILED " + name);
++        }
++        System.exit(0);
++    }
++
++    static String bus(EDIFPort p)
++    {
++        if (!p.isBus())
++            return "";
++        return "[" + p.getLeft() + ":" + p.getRight() + "] ";
++    }
++
++    static void runBatch(File dir, List<Item> batch) throws Exception
++    {
++        dir.mkdirs();
++        //ports of the components from their synthesized netlists
++        Map<String, EDIFCell> tops = new LinkedHashMap<>();
++        for (Item it : batch)
++            if (!tops.containsKey(it.comp.dcpName))
++            {
++                EDIFNetlist n;
++                synchronized (RW_LOCK)
++                {
++                    n = EDIFTools.readEdifFile(it.comp.moduleLoc.replace(".dcp", ".edf"));
++                }
++                tops.put(it.comp.dcpName, n.getTopCell());
++            }
++        StringBuilder v = new StringBuilder();
++        for (Map.Entry<String, EDIFCell> e : tops.entrySet())
++        {
++            List<String> ports = new ArrayList<>();
++            for (EDIFPort p : e.getValue().getPorts())
++                ports.add("    " + (p.isInput() ? "input " : "output ") + bus(p) + p.getBusName());
++            v.append("(* black_box *) module " + e.getKey() + " (\n" + String.join(",\n", ports) + "\n);\nendmodule\n");
++        }
++        List<String> topPorts = new ArrayList<>();
++        topPorts.add("    input clk");
++        StringBuilder insts = new StringBuilder();
++        for (int k = 0; k < batch.size(); k++)
++        {
++            Item it = batch.get(k);
++            it.k = k;
++            List<String> conns = new ArrayList<>();
++            for (EDIFPort p : tops.get(it.comp.dcpName).getPorts())
++            {
++                String pn = p.getBusName();
++                if (pn.equals("clk"))
++                {
++                    conns.add(".clk(clk)");
++                    continue;
++                }
++                topPorts.add("    " + (p.isInput() ? "input " : "output ") + bus(p) + "c" + k + "_" + pn);
++                conns.add("." + pn + "(c" + k + "_" + pn + ")");
++            }
++            insts.append("    " + it.comp.dcpName + " c" + k + " (" + String.join(", ", conns) + ");\n");
++        }
++        v.append("module top (\n" + String.join(",\n", topPorts) + "\n);\n" + insts + "endmodule\n");
++        Path topV = dir.toPath().resolve("top.v");
++        Files.write(topV, v.toString().getBytes(StandardCharsets.UTF_8));
++
++        //one place and route of all components
++        StringBuilder t = new StringBuilder();
++        t.append("set_param general.maxThreads " + VivadoRun.vivadoThreads() + "\n");
++        t.append("read_verilog " + topV + "\n");
++        for (Item it : batch)
++            if (t.indexOf(it.comp.moduleLoc) < 0)
++                t.append("read_checkpoint " + it.comp.moduleLoc + "\n");
++        t.append("link_design -top top -part " + GenerateDesign.fpga_part + " -mode out_of_context\n");
++        t.append("create_clock -period " + VivadoRun.clockPeriod() + " -name clk [get_ports clk]\n");
++        t.append("set_property HD.CLK_SRC " + VivadoRun.clockSourceSite() + " [get_ports clk]\n");
++        for (Item it : batch)
++        {
++            String pb = "pb" + it.k;
++            t.append("set_property DONT_TOUCH true [get_cells c" + it.k + "]\n");
++            t.append("create_pblock " + pb + "\n");
++            t.append(StringUtils.getPblockString(it.pblock.getAllSites(), pb));
++            t.append("add_cells_to_pblock " + pb + " [get_cells c" + it.k + "]\n");
++            t.append("set_property CONTAIN_ROUTING 1 [get_pblocks " + pb + "]\n");
++        }
++        t.append("opt_design\nplace_design\nroute_design\n");
++        //design-wide route status (per-net reports list every route tree and are very slow);
++        //any error fails the whole batch, its components are then built individually
++        t.append("set rs [report_route_status -return_string]\n"
++            + "set e -1\nregexp {nets with routing errors[.]* *: *(\\d+)} $rs -> e\n");
++        for (Item it : batch)
++            t.append("puts \"RESULT c" + it.k + " $e\"\n");
++        String batchDcp = dir.toPath().resolve("batch.dcp").toString();
++        t.append("write_checkpoint -force " + batchDcp + "\n");
++        t.append("write_edif -force " + batchDcp.replace(".dcp", ".edf") + "\n");
++        Path tcl = dir.toPath().resolve("batch.tcl");
++        Path log = dir.toPath().resolve("batch.log");
++        Files.write(tcl, t.toString().getBytes(StandardCharsets.UTF_8));
++        VivadoRun.vivadoRun(tcl.toString(), log.toString(), false, "batch pblocks: " + dir, 0);
++
++        String out = new String(Files.readAllBytes(log), StandardCharsets.ISO_8859_1);
++        Map<Integer, Integer> errors = new HashMap<>();
++        Matcher m = Pattern.compile("^RESULT c(\\d+) (\\d+)", Pattern.MULTILINE).matcher(out);
++        while (m.find())
++            errors.put(Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)));
++        if (!new File(batchDcp).exists() || errors.isEmpty())
++        {
++            System.out.println("Batch " + dir + " failed (see " + log + ")");
++            return;
++        }
++
++        //split: each cell's implementation into the component's own design
++        List<Item> split = new ArrayList<>();
++        synchronized (RW_LOCK)
++        {
++            Design src = Design.readCheckpoint(batchDcp, batchDcp.replace(".dcp", ".edf"));
++            for (Item it : batch)
++            {
++                if (errors.getOrDefault(it.k, 1) != 0)
++                {
++                    System.out.println("Routing errors in " + it.pblock.pblockName + " (batch " + dir + ")");
++                    continue;
++                }
++                Path libDir = LocationParser.getPlacedRoutedDCPsPath().resolve(it.comp.dcpName);
++                libDir.toFile().mkdirs();
++                String dcp = libDir.resolve(it.pblock.pblockName + "_placedRouted.dcp").toString();
++                Design dest = Design.readCheckpoint(it.comp.moduleLoc, it.comp.moduleLoc.replace(".dcp", ".edf"));
++                Map<String, String> map = new HashMap<>();
++                map.put("c" + it.k, "");
++                DesignTools.copyImplementation(src, dest, true, true, false, false, map);
++                //the batch netlist keeps one library per linked checkpoint (work_c<k>, ...);
++                //library entries must have all their cells in the work library
++                dest.getNetlist().consolidateAllToWorkLibrary();
++                dest.getNetlist().removeUnusedCellsFromAllWorkLibraries();
++                dest.writeCheckpoint(dcp);
++                EDIFTools.writeEDIFFile(dcp.replace(".dcp", ".edf"), dest.getNetlist(), GenerateDesign.fpga_part);
++                split.add(it);
++            }
++        }
++        if (split.isEmpty())
++            return;
++
++        //pblock constraint, utilization and RapidWright metadata of each component
++        StringBuilder md = new StringBuilder();
++        md.append("set_param general.maxThreads " + VivadoRun.vivadoThreads() + "\n");
++        md.append(LocationParser.sourceRW + "\n");
++        for (Item it : split)
++        {
++            Path libDir = LocationParser.getPlacedRoutedDCPsPath().resolve(it.comp.dcpName);
++            String prefix = libDir.resolve(it.pblock.pblockName).toString();
++            md.append("open_checkpoint " + prefix + "_placedRouted.dcp\n");
++            md.append("create_clock -period " + VivadoRun.clockPeriod() + " -name clk [get_ports clk]\n");
++            md.append("create_pblock pblock_1\n");
++            md.append(StringUtils.getPblockString(it.pblock.getAllSites(), "pblock_1"));
++            md.append("add_cells_to_pblock pblock_1 -top\n");
++            md.append("set_property CONTAIN_ROUTING 1 [get_pblocks pblock_1]\n");
++            md.append("report_utilization -pblocks pblock_1 -packthru -file " + prefix + ".util\n");
++            md.append("write_checkpoint -force " + prefix + "_placedRouted.dcp\n");
++            md.append("write_edif -force " + prefix + "_placedRouted.edf\n");
++            md.append("generate_metadata " + prefix + "_placedRouted.dcp " + libDir + "/ 0\n");
++            md.append("close_design\n");
++            md.append("puts \"META_OK " + it.pblock.pblockName + "\"\n");
++        }
++        Path mdTcl = dir.toPath().resolve("metadata.tcl");
++        Path mdLog = dir.toPath().resolve("metadata.log");
++        Files.write(mdTcl, md.toString().getBytes(StandardCharsets.UTF_8));
++        VivadoRun.vivadoRun(mdTcl.toString(), mdLog.toString(), false, "batch metadata: " + dir, 0);
++        String mdOut = new String(Files.readAllBytes(mdLog), StandardCharsets.ISO_8859_1);
++        for (Item it : split)
++        {
++            Path libDir = LocationParser.getPlacedRoutedDCPsPath().resolve(it.comp.dcpName);
++            boolean files = libDir.resolve(it.pblock.pblockName + "_placedRouted_0_metadata.txt").toFile().exists()
++                && libDir.resolve(it.pblock.pblockName + ".util").toFile().exists();
++            it.ok = files && mdOut.contains("META_OK " + it.pblock.pblockName + "\n");
++            if (!it.ok)
++                GenerateFastPblocks.removeOutputs(libDir, it.pblock.pblockName);
++        }
++    }
++}
 diff --git a/src/ch/agsl/dynarapid/pblockgenerator/GenerateFastPblocks.java b/src/ch/agsl/dynarapid/pblockgenerator/GenerateFastPblocks.java
 new file mode 100644
 index 0000000..9cf5cbf
@@ -1273,10 +1665,10 @@ index 0000000..9cf5cbf
 +}
 diff --git a/src/ch/agsl/dynarapid/pblockgenerator/GenerateShapedPblocks.java b/src/ch/agsl/dynarapid/pblockgenerator/GenerateShapedPblocks.java
 new file mode 100644
-index 0000000..13d4d9b
+index 0000000..adc14d6
 --- /dev/null
 +++ b/src/ch/agsl/dynarapid/pblockgenerator/GenerateShapedPblocks.java
-@@ -0,0 +1,174 @@
+@@ -0,0 +1,193 @@
 +/*
 +* DynaRapid
 +*
@@ -1317,6 +1709,25 @@ index 0000000..13d4d9b
 +    static int[] chooseShape(Component comp, double util, double aspect, int maxRows)
 +    {
 +        return chooseShape(comp, util, aspect, maxRows, null);
++    }
++
++    //the resources a pblock needs for the component at the target utilization
++    static ResourceElement scaledNeed(Component comp, double util)
++    {
++        ResourceElement need = comp.dcp;
++        double hard = Math.min(1.0, util / 0.8);
++        return new ResourceElement(
++            (int)Math.ceil(need.clel / util), (int)Math.ceil(need.clem / util),
++            (int)Math.ceil(need.dsp / hard), (int)Math.ceil(need.bram / hard));
++    }
++
++    //true if the pblock of r x c map cells with top-left (i, j) has the resources the
++    //component needs at the target utilization
++    static boolean fits(Component comp, double util, int i, int j, int r, int c)
++    {
++        if (i + r - 1 > ResourceElement.endi || j + c - 1 > ResourceElement.endj)
++            return false;
++        return ResourceElement.getPblock(i, j, i + r - 1, j + c - 1).isPblockAppropriate(scaledNeed(comp, util));
 +    }
 +
 +    //excluded: map columns the shape must not cover (null: none)

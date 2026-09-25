@@ -438,11 +438,13 @@ def build_component(
     target_util=0.8,
     pblock_mode="fast",
     pblock_parallel=1,
+    stages=("synth", "pblock", "database"),
 ):
     """Synthesize one component and generate its pre-implemented library entry.
 
     Returns a dict with status and per-stage seconds. Skips all work if the
-    component already exists in the library.
+    component already exists in the library. `stages` selects the steps to run (the
+    batched flow synthesizes all components first and generates the pblocks together).
     """
     res = {"dcp": dcp, "node": node.name, "op_type": node.op_type}
     if os.path.isfile(os.path.join(library_dir, dcp + ".bin.data")):
@@ -458,7 +460,7 @@ def build_component(
     # 1. out-of-context synthesis of the single-node block design + adapter
     meta = os.path.join(synth_dir, dcp + "_synth_0_metadata.txt")
     rc, res["synth_s"] = 0, 0.0
-    if not os.path.isfile(meta):
+    if not os.path.isfile(meta) and "synth" in stages:
         tcl_file = os.path.join(comp_dir, "synth.tcl")
         with open(tcl_file, "w") as f:
             if is_iodma(node):
@@ -481,6 +483,10 @@ def build_component(
         # a memory initialization file was not found: the netlist would have empty memories
         os.remove(meta)
         res["status"] = "synth_missing_meminit"
+        return res
+
+    if "pblock" not in stages:
+        res["status"] = "synthesized"
         return res
 
     # 2. pblock placement and routing with exposed pins (DynaRapid + Vivado)
@@ -514,6 +520,10 @@ def build_component(
         res["status"] = "pblock_failed"
         return res
 
+    if "database" not in stages:
+        res["status"] = "pblocks"
+        return res
+
     # 3. placement database (valid relocation sites) + binary database
     rc, res["database_s"] = run_java(
         "ch.agsl.dynarapid.entry.GenerateDatabase",
@@ -526,3 +536,46 @@ def build_component(
     with open(os.path.join(comp_dir, "result.json"), "w") as f:
         json.dump(res, f, indent=2)
     return res
+
+
+def has_pblocks(library_dir, dcp):
+    d = os.path.join(library_dir, dcp)
+    return os.path.isdir(d) and any(f.endswith("_placedRouted.dcp") for f in os.listdir(d))
+
+
+def batch_pblocks(dcps, work_dir, library_dir, part, clk_ns, util=0.6, batches=4, threads=4):
+    """Generate the pblocks of several synthesized components in shared Vivado runs
+    (DynaRapid GenerateBatchPblocks). Returns (set of components with pblocks, seconds)."""
+    if not dcps:
+        return set(), 0.0
+    env = dynarapid_env(work_dir, library_dir, part, clk_ns, threads)
+    os.makedirs(os.path.join(work_dir, "batches"), exist_ok=True)
+    lst = os.path.join(work_dir, "batches", "components_%d.txt" % os.getpid())
+    with open(lst, "w") as f:
+        f.write("\n".join(dcps) + "\n")
+    log = lst.replace(".txt", ".log")
+    args = ["-part", PART_TO_DYNARAPID[part], "-f", lst, "-util", str(util)]
+    args += ["-batches", str(batches)]
+    rc, t = run_java(
+        "ch.agsl.dynarapid.pblockgenerator.GenerateBatchPblocks", args, env, log, heap="12G"
+    )
+    ok = set(re.findall(r"^BATCH_OK (\S+)", open(log).read(), re.M))
+    return {d for d in ok if has_pblocks(library_dir, d)}, t
+
+
+def batch_databases(dcps, work_dir, library_dir, part, clk_ns):
+    """Placement databases of several components in one DynaRapid run. Returns seconds."""
+    if not dcps:
+        return 0.0
+    env = dynarapid_env(work_dir, library_dir, part, clk_ns)
+    os.makedirs(os.path.join(work_dir, "batches"), exist_ok=True)
+    lst = os.path.join(work_dir, "batches", "databases_%d.txt" % os.getpid())
+    with open(lst, "w") as f:
+        f.write("\n".join(dcps) + "\n")
+    rc, t = run_java(
+        "ch.agsl.dynarapid.entry.GenerateDatabase",
+        ["-part", PART_TO_DYNARAPID[part], "-f", lst],
+        env,
+        lst.replace(".txt", ".log"),
+    )
+    return t

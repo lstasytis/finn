@@ -21,13 +21,20 @@ from concurrent.futures import ThreadPoolExecutor
 from finn.transformation.fpgadataflow.replace_verilog_relpaths import (
     ReplaceVerilogRelPaths,
 )
-from finn.util.dynarapid.components import build_component, component_name
+from finn.util.dynarapid.components import (
+    batch_databases,
+    batch_pblocks,
+    build_component,
+    component_name,
+    has_pblocks,
+)
 from finn.util.dynarapid.graph import onnx_to_dot
 from finn.util.dynarapid.tools import (
     JVM_GB,
     PART_TO_DYNARAPID,
     avail_memory_gb,
     dynarapid_env,
+    vivado_slots,
     run_java,
     run_vivado,
 )
@@ -44,8 +51,13 @@ def build_library(
     target_util=0.8,
     vivado_threads=None,
     pblock_mode="fast",
+    batch=True,
+    batch_util=0.6,
 ):
-    """Build (or reuse) the components of all nodes. Returns ({node: dcp}, [results])."""
+    """Build (or reuse) the components of all nodes. Returns ({node: dcp}, [results]).
+
+    batch: generate the pblocks of many components in shared Vivado runs (the fixed cost of
+    a place-and-route run dominates small components), falling back to individual runs."""
     # memory initialization files are referenced with relative paths ("./x.dat") in some
     # generated HDL; make them absolute as CreateStitchedIP does, or synthesis silently
     # leaves the memories empty
@@ -69,7 +81,7 @@ def build_library(
     if vivado_threads is None:
         vivado_threads = max(1, min(8, ncpu // max(1, len(uniq) * pblock_parallel)))
 
-    def job(item):
+    def job(item, stages=("synth", "pblock", "database")):
         dcp, node = item
         return build_component(
             model,
@@ -84,12 +96,70 @@ def build_library(
             target_util=target_util,
             pblock_mode=pblock_mode,
             pblock_parallel=pblock_parallel,
+            stages=stages,
         )
 
     # sort by (rough) size so the largest components start first
     items = sorted(uniq.items(), key=lambda it: -_node_size_hint(it[1]))
+    if not batch:
+        with ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
+            results = list(ex.map(job, items))
+        return dcps, results
+
+    # batched: 1. synthesis of all components, 2. pblocks of many components per Vivado run
+    # (fallback: individually), 3. all placement databases in one DynaRapid run
+    t0 = time.time()
     with ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
-        results = list(ex.map(job, items))
+        results = list(ex.map(lambda it: job(it, ("synth",)), items))
+    synth_wall = time.time() - t0
+    by_dcp = {r["dcp"]: r for r in results}
+    need = [r["dcp"] for r in results if r["status"] == "synthesized" and not has_pblocks(library_dir, r["dcp"])]
+    t0 = time.time()
+    ok, _ = batch_pblocks(
+        need,
+        work_dir,
+        library_dir,
+        part,
+        clk_ns,
+        util=batch_util,
+        batches=max(1, min(len(need), vivado_slots()[1])),
+        threads=4,
+    )
+    batch_wall = time.time() - t0
+    fallback = [it for it in items if it[0] in need and it[0] not in ok]
+    t0 = time.time()
+    with ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
+        for r in ex.map(lambda it: job(it, ("synth", "pblock")), fallback):
+            by_dcp[r["dcp"]].update(r)
+    fallback_wall = time.time() - t0
+    db = [
+        d
+        for d, r in by_dcp.items()
+        if r["status"] in ("synthesized", "pblocks")
+        and has_pblocks(library_dir, d)
+        and not os.path.isfile(os.path.join(library_dir, d + ".bin.data"))
+    ]
+    db_wall = batch_databases(db, work_dir, library_dir, part, clk_ns)
+    for d, r in by_dcp.items():
+        if r["status"] in ("synthesized", "pblocks"):
+            built = os.path.isfile(os.path.join(library_dir, d + ".bin.data"))
+            if not has_pblocks(library_dir, d):
+                r["status"] = "pblock_failed"
+            else:
+                r["status"] = "built" if built else "database_failed"
+            r["batched"] = d in ok
+    results = list(by_dcp.values())
+    stats = {
+        "synth_wall_s": synth_wall,
+        "batch_wall_s": batch_wall,
+        "batched": len(ok),
+        "fallback": len(fallback),
+        "fallback_wall_s": fallback_wall,
+        "database_wall_s": db_wall,
+    }
+    print("DynaRapid library:", stats)
+    for r in results:
+        r["library_stats"] = stats
     return dcps, results
 
 
