@@ -419,6 +419,10 @@ def assemble_tcl(shell_dir, accel_dcp, out_dir, bitfile, threads=16, keep_dcp=Fa
         "stamp open_shell",
         "read_checkpoint -cell %s %s" % (rp, accel_dcp),
         "stamp read_accel",
+        # RapidWright's static nets (VCC/GND) come in as fixed routing; where they collide with
+        # signal routing of the relocated components (e.g. a shared FF clock enable site pin)
+        # the router must be able to rip them up
+        "set_property IS_ROUTE_FIXED 0 [get_nets -hier -quiet -filter {TYPE == POWER || TYPE == GROUND}]",
         "route_design",
         "stamp route",
         "report_route_status -file %s/route_status.rpt" % out_dir,

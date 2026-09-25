@@ -344,3 +344,28 @@ the maintained alternative for component generation.
   `$FINN_BUILD_DIR/dynarapid_vivado_slots`, shared by DynaRapid and FINN,
   `DYNARAPID_VIVADO_SLOTS` to override; default min(cores, 0.51 x free GB / 4.5) = 13 here)
   and component jobs limited to 0.34 x free GB / 3.
+
+### Current results (ZCU104, 5 ns, 32 cores, shell cached)
+
+| | Vivado ZynqBuild | DynaRapid, warm library | DynaRapid, cold library |
+|---|---|---|---|
+| TFC (17 components) | 700 s, WNS +0.94 | **135 s** (stitch 6 s, assembly 127 s), WNS +0.46 | 665 s |
+| CNV (63 components) | 1034 s, WNS +0.53 | **277 s** (stitch 36 s, assembly 238 s), WNS +0.41 | ~1850 s (library 1581 s) |
+
+Warm = all components in the library (same model rebuilt, or a model whose layers were built
+before); HLS is skipped then too (IP cache). The shell is built once per board / clock / IODMA
+interface (474 s, shared by TFC and CNV). Assembly = open shell 30 s, read accelerator
+15-23 s, route 46-137 s, bitstream 25-30 s.
+
+* Assembly routing errors on CNV (2 nets): RapidWright's static-net routing (VCC to a FF
+  clock-enable site pin shared with a signal of the relocated component) came in as fixed
+  routing. Assembly now clears IS_ROUTE_FIXED on POWER/GROUND nets before `route_design`;
+  CNV then routes cleanly and meets timing.
+* Functional check after these changes (TFC, 16 frames, verify_accel.py): identical outputs.
+  CNV is not simulated (millions of cycles per frame at this folding); its components use
+  the same flows (MVAU/SWG/thresholding/FIFO verified bit-exactly on the first 8 CNV nodes in
+  the previous session, IODMAs/bridges on TFC).
+
+The cold build is the open problem: with the machine-wide limit (13 Vivado runs, memory
+bound) CNV's components need 5251 s of synthesis and 13570 s of pblock P&R in total, i.e.
+~1450 s of wall time at best, mostly fixed per-run Vivado cost on small components.

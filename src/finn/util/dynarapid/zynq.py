@@ -188,7 +188,9 @@ def _reports(rpt_dir):
         res["nets_with_routing_errors"] = int(m.group(1)) if m else None
     ts = os.path.join(rpt_dir, "timing_summary.rpt")
     if os.path.isfile(ts):
-        m = re.search(r"WNS\(ns\)\s+TNS\(ns\).*?\n[- ]+\n\s+(\S+)\s+(\S+)", open(ts).read(), re.S)
+        txt = open(ts).read()
+        txt = txt[txt.find("Design Timing Summary") :]
+        m = re.search(r"WNS\(ns\)\s+TNS\(ns\)[^\n]*\n\s*-[- ]+\n\s+(\S+)\s+(\S+)", txt)
         if m:
             res["wns_ns"] = None if m.group(1) == "NA" else float(m.group(1))
     return res
