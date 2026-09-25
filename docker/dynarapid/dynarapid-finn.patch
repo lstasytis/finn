@@ -939,10 +939,10 @@ index c460620..110dfd4 100755
  
 diff --git a/src/ch/agsl/dynarapid/pblockgenerator/GenerateBatchPblocks.java b/src/ch/agsl/dynarapid/pblockgenerator/GenerateBatchPblocks.java
 new file mode 100644
-index 0000000..f2539e2
+index 0000000..3b17fb0
 --- /dev/null
 +++ b/src/ch/agsl/dynarapid/pblockgenerator/GenerateBatchPblocks.java
-@@ -0,0 +1,386 @@
+@@ -0,0 +1,432 @@
 +/*
 +* DynaRapid
 +*
@@ -1067,9 +1067,56 @@ index 0000000..f2539e2
 +            }
 +        }
 +
++        //round 1: all items; round 2: the items that failed, at lower utilization
++        runRound(items, util, maxItems, nBatches, cols, 1);
++        List<Item> retry = new ArrayList<>();
++        for (Item it : items)
++            if (!it.ok)
++            {
++                Item n = new Item();
++                n.comp = it.comp;
++                double u2 = util * 0.75;
++                int shape[] = GenerateShapedPblocks.chooseShape(it.comp, u2, 1.0, maxRows, null);
++                //keep the columns of the failed item (its variant role) if the shape fits there
++                if (shape != null)
++                {
++                    n.j = it.j;
++                    n.r = shape[1];
++                    n.c = shape[2];
++                    if (!GenerateShapedPblocks.fits(it.comp, u2, ResourceElement.starti, n.j, n.r, n.c))
++                        n.j = shape[0];
++                    retry.add(n);
++                }
++            }
++        if (!retry.isEmpty())
++        {
++            System.out.println("Retrying " + retry.size() + " pblocks at utilization " + (util * 0.75));
++            runRound(retry, util * 0.75, maxItems, Math.min(nBatches, retry.size()), cols, 2);
++            items.addAll(retry);
++        }
++
++        for (String name : comps.keySet())
++        {
++            boolean any = false;
++            for (Item it : items)
++                if (it.comp.dcpName.equals(name) && it.ok)
++                {
++                    any = true;
++                    System.out.println("BATCH_OK " + name + " " + it.pblock.pblockName);
++                }
++            if (!any)
++                System.out.println("BATCH_FAILED " + name);
++        }
++        System.exit(0);
++    }
++
++    //packs the items into batches and runs them (items get pblock and ok status)
++    static void runRound(List<Item> roundItems, double util, int maxItems, int nBatches, int cols, int round) throws Exception
++    {
 +        //pack the pblocks into batches: every item keeps its columns (they determine where it
 +        //can be relocated to) and gets the topmost free rows of a batch it fits into. Largest
 +        //items first, each into the batch with the least area so far (balanced run times).
++        List<Item> items = new ArrayList<>(roundItems);
 +        items.sort((a, b) -> Integer.compare(b.r * b.c, a.r * a.c));
 +        if (nBatches > 0)
 +            maxItems = Math.max(maxItems, (items.size() + nBatches - 1) / nBatches);
@@ -1125,9 +1172,9 @@ index 0000000..f2539e2
 +        for (Item it : items)
 +            if (it.i >= 0)
 +                it.pblock = new Pblock(it.comp, it.i, it.j, it.r, it.c, 2, false, false);
-+        System.out.println("Packed " + items.size() + " pblocks of " + comps.size() + " components into " + batches.size() + " batches");
++        System.out.println("Round " + round + ": packed " + items.size() + " pblocks into " + batches.size() + " batches");
 +
-+        File root = new File(LocationParser.exposedDCPs + "batches_" + ProcessHandle.current().pid());
++        File root = new File(LocationParser.exposedDCPs + "batches_" + ProcessHandle.current().pid() + "_r" + round);
 +        root.mkdirs();
 +        List<Thread> threads = new ArrayList<>();
 +        for (int b = 0; b < batches.size(); b++)
@@ -1146,19 +1193,6 @@ index 0000000..f2539e2
 +        for (Thread th : threads)
 +            th.join();
 +
-+        for (String name : comps.keySet())
-+        {
-+            boolean any = false;
-+            for (Item it : items)
-+                if (it.comp.dcpName.equals(name) && it.ok)
-+                {
-+                    any = true;
-+                    System.out.println("BATCH_OK " + name + " " + it.pblock.pblockName);
-+                }
-+            if (!any)
-+                System.out.println("BATCH_FAILED " + name);
-+        }
-+        System.exit(0);
 +    }
 +
 +    static String bus(EDIFPort p)
@@ -1236,19 +1270,31 @@ index 0000000..f2539e2
 +            t.append("set_property CONTAIN_ROUTING 1 [get_pblocks " + pb + "]\n");
 +        }
 +        t.append("opt_design\nplace_design\nroute_design\n");
-+        //design-wide route status (per-net reports list every route tree and are very slow);
-+        //any error fails the whole batch, its components are then built individually
++        //routing errors per component: nets with conflicts (overlaps) or antennas, by the cell
++        //prefix of their name (per-net route reports list every route tree and are very slow).
++        //Errors that cannot be attributed fail the whole batch.
 +        t.append("set rs [report_route_status -return_string]\n"
-+            + "set e -1\nregexp {nets with routing errors[.]* *: *(\\d+)} $rs -> e\n");
++            + "set e -1\nregexp {nets with routing errors[.]* *: *(\\d+)} $rs -> e\n"
++            + "array set cnt {}\nset attributed 0\n"
++            + "foreach n [get_nets -quiet -hier -filter {ROUTE_STATUS == CONFLICTS || ROUTE_STATUS == ANTENNAS}] {\n"
++            + "  if {[regexp {^c(\\d+)/} $n -> k]} {incr cnt($k); incr attributed}\n"
++            + "}\n"
++            + "puts \"ROUTE_ERRORS $e attributed $attributed\"\n");
 +        for (Item it : batch)
-+            t.append("puts \"RESULT c" + it.k + " $e\"\n");
++            t.append("if {$e == 0} {puts \"RESULT c" + it.k + " 0\"} elseif {$attributed == 0 || $e < 0} {puts \"RESULT c" + it.k + " $e\"} "
++                + "elseif {[info exists cnt(" + it.k + ")]} {puts \"RESULT c" + it.k + " $cnt(" + it.k + ")\"} else {puts \"RESULT c" + it.k + " 0\"}\n");
 +        String batchDcp = dir.toPath().resolve("batch.dcp").toString();
 +        t.append("write_checkpoint -force " + batchDcp + "\n");
 +        t.append("write_edif -force " + batchDcp.replace(".dcp", ".edf") + "\n");
 +        Path tcl = dir.toPath().resolve("batch.tcl");
 +        Path log = dir.toPath().resolve("batch.log");
 +        Files.write(tcl, t.toString().getBytes(StandardCharsets.UTF_8));
++        //a congested batch can keep the router busy for a long time: its components are
++        //then retried / built individually (DYNARAPID_BATCH_TIMEOUT_S, default 900 s)
++        String to = System.getenv("DYNARAPID_BATCH_TIMEOUT_S");
++        VivadoRun.setTimeLimitMinutes(Math.max(1, (int) Math.ceil((to == null ? 900 : Double.parseDouble(to)) / 60.0)));
 +        VivadoRun.vivadoRun(tcl.toString(), log.toString(), false, "batch pblocks: " + dir, 0);
++        VivadoRun.setTimeLimitMinutes(60);
 +
 +        String out = new String(Files.readAllBytes(log), StandardCharsets.ISO_8859_1);
 +        Map<Integer, Integer> errors = new HashMap<>();
@@ -1665,10 +1711,10 @@ index 0000000..9cf5cbf
 +}
 diff --git a/src/ch/agsl/dynarapid/pblockgenerator/GenerateShapedPblocks.java b/src/ch/agsl/dynarapid/pblockgenerator/GenerateShapedPblocks.java
 new file mode 100644
-index 0000000..adc14d6
+index 0000000..f1914ff
 --- /dev/null
 +++ b/src/ch/agsl/dynarapid/pblockgenerator/GenerateShapedPblocks.java
-@@ -0,0 +1,193 @@
+@@ -0,0 +1,194 @@
 +/*
 +* DynaRapid
 +*
@@ -1705,6 +1751,8 @@ index 0000000..adc14d6
 +
 +    //Physical width of one map column in CLB tiles (a map column holds a left and a right element)
 +    static final double COL_WIDTH = 2.0;
++    //largest height / width (in CLB tiles) of a pblock
++    static final double MAX_RATIO = 8.0;
 +
 +    static int[] chooseShape(Component comp, double util, double aspect, int maxRows)
 +    {
@@ -1712,13 +1760,15 @@ index 0000000..adc14d6
 +    }
 +
 +    //the resources a pblock needs for the component at the target utilization
++    //CLB resources get the utilization headroom, DSP / BRAM sites are used exactly (headroom
++    //for them only made BRAM-heavy shapes much taller; it was meant for BRAM cascades, which
++    //the components no longer use)
 +    static ResourceElement scaledNeed(Component comp, double util)
 +    {
 +        ResourceElement need = comp.dcp;
-+        double hard = Math.min(1.0, util / 0.8);
 +        return new ResourceElement(
 +            (int)Math.ceil(need.clel / util), (int)Math.ceil(need.clem / util),
-+            (int)Math.ceil(need.dsp / hard), (int)Math.ceil(need.bram / hard));
++            need.dsp, need.bram);
 +    }
 +
 +    //true if the pblock of r x c map cells with top-left (i, j) has the resources the
@@ -1733,14 +1783,7 @@ index 0000000..adc14d6
 +    //excluded: map columns the shape must not cover (null: none)
 +    static int[] chooseShape(Component comp, double util, double aspect, int maxRows, boolean[] excluded)
 +    {
-+        ResourceElement need = comp.dcp;
-+        //CLB resources get the utilization headroom. DSP / BRAM sites are used exactly on the
-+        //first attempt (util >= 0.8); retries at lower utilization also add headroom for them,
-+        //e.g. for BRAM cascades that need enough consecutive sites in one column
-+        double hard = Math.min(1.0, util / 0.8);
-+        ResourceElement scaled = new ResourceElement(
-+            (int)Math.ceil(need.clel / util), (int)Math.ceil(need.clem / util),
-+            (int)Math.ceil(need.dsp / hard), (int)Math.ceil(need.bram / hard));
++        ResourceElement scaled = scaledNeed(comp, util);
 +
 +        int inc = comp.incFactor;
 +        int si = ResourceElement.starti;
@@ -1766,6 +1809,10 @@ index 0000000..adc14d6
 +                    //weak one very tall and narrow (21 BRAMs: 105 x 2), which misses timing
 +                    //by ~3 ns at 5 ns because of the long wires between BRAMs and logic
 +                    double ratio = r / (c * COL_WIDTH);
++                    //very tall and narrow shapes (e.g. 165 x 2 map cells) do not have the
++                    //routing channels for their logic: congested, slow to route
++                    if (ratio > MAX_RATIO)
++                        break;
 +                    double dev = Math.max(ratio / aspect, aspect / ratio);
 +                    double score = r * c * COL_WIDTH * Math.sqrt(dev);
 +                    if (score < bestScore)
@@ -2373,10 +2420,10 @@ index b1834b0..c8ccf03 100755
              //Sourcing the basic vhdl files
  
 diff --git a/src/ch/agsl/dynarapid/vivado/VivadoRun.java b/src/ch/agsl/dynarapid/vivado/VivadoRun.java
-index e9ce66e..07fd2eb 100755
+index e9ce66e..aa3629d 100755
 --- a/src/ch/agsl/dynarapid/vivado/VivadoRun.java
 +++ b/src/ch/agsl/dynarapid/vivado/VivadoRun.java
-@@ -52,89 +52,172 @@ public class VivadoRun
+@@ -52,89 +52,181 @@ public class VivadoRun
       * 0 if there was segfault
       * 1 all good
       */
@@ -2471,12 +2518,6 @@ index e9ce66e..07fd2eb 100755
 -            String sysCommand = "";
 -            if(bash)
 -                sysCommand = LocationParser.bin + "run_command_bash ";
--
--            else
--                sysCommand = LocationParser.bin + "run_command_tcsh ";
--
--            if(exportLicense)
--                sysCommand += LocationParser.exportLicense + " && ";
 +    static void releaseSlot(java.nio.channels.FileLock l)
 +    {
 +        if(l == null)
@@ -2492,9 +2533,8 @@ index e9ce66e..07fd2eb 100755
 +        }
 +    }
  
--            sysCommand += LocationParser.sourceVivado + " && ";
--            //sysCommand += "vivado -mode batch -source " + tclLoc + " > " + logsLoc;
--            sysCommand += "/softs/xilinx/Vivado/2020.2/bin/vivado -mode batch -source " + tclLoc + " > " + logsLoc;
+-            else
+-                sysCommand = LocationParser.bin + "run_command_tcsh ";
 +    public static void kill(String tclLoc)
 +    {
 +        cancelled.add(tclLoc);
@@ -2505,13 +2545,26 @@ index e9ce66e..07fd2eb 100755
 +        p.destroyForcibly();
 +    }
  
--            System.out.println("Running command: " + sysCommand);
+-            if(exportLicense)
+-                sysCommand += LocationParser.exportLicense + " && ";
 +    public static int vivadoThreads()
 +    {
 +        String v = System.getenv("DYNARAPID_VIVADO_THREADS");
 +        if(v == null || v.isEmpty())
 +            return 16;
 +        return Integer.parseInt(v);
++    }
+ 
+-            sysCommand += LocationParser.sourceVivado + " && ";
+-            //sysCommand += "vivado -mode batch -source " + tclLoc + " > " + logsLoc;
+-            sysCommand += "/softs/xilinx/Vivado/2020.2/bin/vivado -mode batch -source " + tclLoc + " > " + logsLoc;
++    //time limit of a Vivado run in minutes (per thread, 60 by default)
++    static ThreadLocal<Integer> timeLimitMin = ThreadLocal.withInitial(() -> 60);
+ 
+-            System.out.println("Running command: " + sysCommand);
++    public static void setTimeLimitMinutes(int min)
++    {
++        timeLimitMin.set(min);
 +    }
  
 -            Process p = Runtime.getRuntime().exec(sysCommand);
@@ -2559,10 +2612,11 @@ index e9ce66e..07fd2eb 100755
 +            running.put(tclLoc, p);
 +
 +            //Vivado runs are limited to 1 hour
-+            boolean finished = p.waitFor(60, java.util.concurrent.TimeUnit.MINUTES);
++            boolean finished = p.waitFor(timeLimitMin.get(), java.util.concurrent.TimeUnit.MINUTES);
 +            running.remove(tclLoc);
 +            if(!finished)
              {
++                p.descendants().forEach(ProcessHandle::destroyForcibly);
 +                p.destroyForcibly();
                  System.out.println(tclLoc + " taking a lot of time to execute. Exiting process!");
                  ErrorLogger.addError(errorReference, errorCode + num, tclLoc + " taking a lot of time to execute. Exiting process!");
@@ -2607,7 +2661,7 @@ index e9ce66e..07fd2eb 100755
          }
  
          catch (Exception e) {
-@@ -142,6 +225,9 @@ public class VivadoRun
+@@ -142,6 +234,9 @@ public class VivadoRun
              System.out.println(e.getMessage());
              return -1; //error
          }
