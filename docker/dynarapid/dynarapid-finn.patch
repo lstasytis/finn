@@ -952,10 +952,10 @@ index c460620..110dfd4 100755
  
 diff --git a/src/ch/agsl/dynarapid/pblockgenerator/GenerateBatchPblocks.java b/src/ch/agsl/dynarapid/pblockgenerator/GenerateBatchPblocks.java
 new file mode 100644
-index 0000000..5304872
+index 0000000..59560c5
 --- /dev/null
 +++ b/src/ch/agsl/dynarapid/pblockgenerator/GenerateBatchPblocks.java
-@@ -0,0 +1,449 @@
+@@ -0,0 +1,450 @@
 +/*
 +* DynaRapid
 +*
@@ -1320,9 +1320,10 @@ index 0000000..5304872
 +        Path log = dir.toPath().resolve("batch.log");
 +        Files.write(tcl, t.toString().getBytes(StandardCharsets.UTF_8));
 +        //a congested batch can keep the router busy for a long time: its components are
-+        //then retried / built individually (DYNARAPID_BATCH_TIMEOUT_S, default 900 s)
++        //then retried / built individually (DYNARAPID_BATCH_TIMEOUT_S, default 300 s; batches of
++        //small components take 1-2.5 min, a congested one can route for many minutes)
 +        String to = System.getenv("DYNARAPID_BATCH_TIMEOUT_S");
-+        VivadoRun.setTimeLimitMinutes(Math.max(1, (int) Math.ceil((to == null ? 900 : Double.parseDouble(to)) / 60.0)));
++        VivadoRun.setTimeLimitMinutes(Math.max(1, (int) Math.ceil((to == null ? 300 : Double.parseDouble(to)) / 60.0)));
 +        VivadoRun.vivadoRun(tcl.toString(), log.toString(), false, "batch pblocks: " + dir, 0);
 +        VivadoRun.setTimeLimitMinutes(60);
 +

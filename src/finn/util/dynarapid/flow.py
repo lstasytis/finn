@@ -56,7 +56,7 @@ def build_library(
     pblock_mode="fast",
     batch=True,
     batch_util=0.6,
-    large_luts=2000,
+    large_luts=5000,
     large_bram=4,
 ):
     """Build (or reuse) the components of all nodes. Returns ({node: dcp}, [results]).

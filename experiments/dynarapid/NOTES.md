@@ -440,3 +440,54 @@ Session paused here (nothing running). State:
   larger groups); CNV cold run; run the e2e test; archive `$FINN_BUILD_DIR/dr_zcu104`
   logs/json to `experiments/dynarapid/results/` (gitignored); commit.
 * Note: `--shell-lib` must point at `<lib>/shells` (e.g. `dr_zcu104/lib/shells`).
+
+### Library build pipeline, final state
+
+1. Synthesis: directly synthesizable components in sessions (several per Vivado run),
+   MVAUs (block design) individually; all limited by the machine-wide Vivado slots.
+2. As components are synthesized: large ones (>= 4 BRAMs or > 5000 LUTs) are implemented
+   individually (hedged attempts from 0.8), the small ones in batch groups (~1/6 of the
+   components per group, shared place-and-route runs at 0.6, per-component error attribution,
+   immediate retries at 0.45, 300 s batch time limit), followed by their placement databases.
+3. Individual fallback for anything left.
+
+Other fixes in this round: RWRoute iteration limit 30 in the Zynq flow (2 overlaps persisted
+from iteration 16 to 99 on CNV, 80 s; the assembly resolves them); `route_design -directive
+Quick` in the assembly routes faster (55 vs 92 s) but misses timing (WNS -0.78), RuntimeOptimized
+is the same as the default.
+
+Measurement note: one CNV run (`cnv_sess`) was disturbed by a concurrent TFC build
+(`bit/tfc_pipe`, not started from this session) that shared the library and the Vivado slots.
+
+### Results (ZCU104, 5 ns, shell cached)
+
+| | Vivado ZynqBuild | DynaRapid warm library | DynaRapid cold library |
+|---|---|---|---|
+| TFC | 700 s, WNS +0.94 ns | **135 s**, WNS +0.46..0.77 | **553-618 s** (latest 595 s; one outlier 893 s, see below) |
+| CNV | 1034 s, WNS +0.53 ns | **248 s**, WNS +0.69 | **909 s**, WNS +0.18 |
+
+Cold CNV (909 s): HLS of the IODMAs 46 s, library 632 s (synthesis done after 206 s),
+stitching 35 s, assembly 194 s. Warm CNV: stitching 55 s, assembly 190 s. Cold TFC (618 s):
+library 441 s (synthesis done after 89 s), assembly 124 s.
+
+Cold times vary by +-20 %: which components end up congested (and retried) differs from run
+to run; the 893 s TFC run had one batch routing 5 min on a congested small MVAU before the
+batch time limit was lowered from 900 to 300 s.
+
+### What limits further gains
+
+* Warm builds: the assembly (open shell 30 s, read accelerator 22 s, route 92 s,
+  bitstream 30 s) is now 75 % of the time. Routing boundary + clock nets could be moved to
+  RapidWright (populate the shell's black box, RWRoute, Vivado only writes the bitstream), but
+  the shell contains encrypted IP (SmartConnect) which RapidWright can only carry through as
+  encrypted cells.
+* Cold builds: per-run Vivado overhead (~35 s start + device load, ~80 s placer fixed cost on
+  the xczu7ev) and the memory bound on parallel Vivado runs (13 here). Batching and synthesis
+  sessions amortize most of it; the largest components (BRAM-heavy MVAUs, 3-7 min each) and
+  congestion retries now form the critical path.
+* These BNN-PYNQ models are small; the global Vivado place-and-route that DynaRapid replaces is
+  only ~270 s of the 1034 s CNV flow. The shell pre-implementation removes most of the rest
+  (block design, IP synthesis, global implementation), and for larger designs the share of
+  global place-and-route grows.
+
+Final functional check (latest flow, cold TFC build, 16 frames): identical to FINN's RTL.
