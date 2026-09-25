@@ -161,7 +161,7 @@ def tb_sv(dmas, dw, nbytes_in, nbytes_out, frames, cycles):
         L += [
             "    fd = $fopen(\"in%d.hex\", \"r\");" % k,
             "    for (int i = 0; i < %d; i++) begin" % nbytes_in,
-            "      void'($fscanf(fd, \"%%h\\n\", b));",
+            "      void'($fscanf(fd, \"%h\\n\", b));",
             "      if (!mem%d.exists(%d/%d + i/%d)) mem%d[%d/%d + i/%d] = 0;" % (k, IN_BASE, nb, nb, k, IN_BASE, nb, nb),
             "      mem%d[%d/%d + i/%d][(i%%%d)*8 +: 8] = b;" % (k, IN_BASE, nb, nb, nb),
             "    end",
@@ -185,7 +185,7 @@ def tb_sv(dmas, dw, nbytes_in, nbytes_out, frames, cycles):
     L += [
         "    cyc = 0; st = 0;",
         "    while (!(st & 2) && cyc < %d) begin lite_read_%d(32'h00, st); cyc = cyc + 1; end" % (cycles, k),
-        "    $display(\"DONE status=%%h polls=%%0d time=%%0t\", st, cyc, $time);",
+        "    $display(\"DONE status=%h polls=%0d time=%0t\", st, cyc, $time);",
         "    fd = $fopen(\"out.hex\", \"w\");",
         "    for (int i = 0; i < %d; i++) begin" % nbytes_out,
         "      if (mem%d.exists(%d/%d + i/%d)) $fdisplay(fd, \"%%02h\", mem%d[%d/%d + i/%d][(i%%%d)*8 +: 8]);"
@@ -303,6 +303,7 @@ def run_xsim(sim_dir, srcs, top="tb", libs=()):
         p = subprocess.run(c, cwd=sim_dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         log += " ".join(c[:4]) + "\n" + p.stdout
         if p.returncode != 0:
+            open(os.path.join(sim_dir, "sim.log"), "w").write(log)
             raise RuntimeError("%s failed, see %s" % (c[0], os.path.join(sim_dir, "sim.log")))
     open(os.path.join(sim_dir, "sim.log"), "w").write(log)
     return log
@@ -320,8 +321,8 @@ def main():
     accel = ModelWrapper(os.path.join(args.accel_dir, "accel.onnx"))
     res_json = json.load(open(os.path.join(args.accel_dir, "dynarapid_zynq.json")))
     routed = res_json["accel"]["routed_dcp"]
-    part = accel.get_metadata_prop("dynarapid_fpga_part") or res_json.get("part")
-    clk_ns = 5.0
+    part = res_json.get("part") or "xczu7ev-ffvc1156-2-e"
+    clk_ns = res_json.get("clk_ns") or 5.0
     ports = mm_ports(accel)
 
     iodmas = [n for n in accel.graph.node if n.op_type.startswith("IODMA")]
@@ -387,7 +388,8 @@ def main():
             dut = os.path.join(sim, "dut.v")
             open(dut, "w").write(dut_ref(wname, wports, len(ports), gm_dw, gm_names, ctrl_names))
             srcs = [l.strip() for l in open(os.path.join(proj, "all_verilog_srcs.txt")) if l.strip()]
-            srcs = sorted(set(srcs)) + [dut, os.path.join(sim, "tb.sv")]
+            glbl = os.path.join(os.environ["XILINX_VIVADO"], "data", "verilog", "src", "glbl.v")
+            srcs = sorted(set(srcs) - {glbl}) + [glbl, dut, os.path.join(sim, "tb.sv")]
             log = run_xsim(sim, srcs, libs=("unisims_ver",))
         m = re.search(r"DONE status=(\w+) polls=(\d+) time=(\d+)", log)
         results[variant] = {

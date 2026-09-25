@@ -420,7 +420,16 @@ class ZynqBuild(Transformation):
         no stitched IP, no accelerator block design, no Vivado P&R of the accelerator."""
         from concurrent.futures import ThreadPoolExecutor
 
-        from finn.util.dynarapid.zynq import dynarapid_zynq_build
+        from finn.util.fpgadataflow import is_hls_node
+        from finn.util.dynarapid.components import (
+            component_name,
+            reuse_ip_attrs,
+            save_ip_attrs,
+        )
+        from finn.util.dynarapid.zynq import default_library_dir, dynarapid_zynq_build
+
+        opts = dict(self.dynarapid)
+        library_dir = opts.get("library_dir") or default_library_dir(self.fpga_part)
 
         def prepare(sdp_node):
             prefix = sdp_node.name + "_"
@@ -430,8 +439,19 @@ class ZynqBuild(Transformation):
             kernel_model = kernel_model.transform(InsertFIFO())
             kernel_model = kernel_model.transform(SpecializeLayers(self.fpga_part))
             kernel_model = kernel_model.transform(GiveUniqueNodeNames(prefix))
+            # HLS nodes identical to ones of an earlier build reuse their IP
+            dcps = {
+                n.name: component_name(kernel_model, n, self.fpga_part, self.period_ns)
+                for n in kernel_model.graph.node
+            }
+            for n in kernel_model.graph.node:
+                if is_hls_node(n) and getCustomOp(n).get_nodeattr("ip_path") == "":
+                    reuse_ip_attrs(n, dcps[n.name], library_dir)
             kernel_model = kernel_model.transform(PrepareIP(self.fpga_part, self.period_ns))
             kernel_model = kernel_model.transform(HLSSynthIP())
+            for n in kernel_model.graph.node:
+                if is_hls_node(n):
+                    save_ip_attrs(n, dcps[n.name], library_dir)
             kernel_model.set_metadata_prop("platform", "zynq-iodma")
             kernel_model.save(dataflow_model_filename)
             return kernel_model
@@ -439,7 +459,6 @@ class ZynqBuild(Transformation):
         # the partitions are independent: generate their IP concurrently
         with ThreadPoolExecutor(max_workers=max(1, len(sdp_nodes))) as ex:
             kernel_models = list(ex.map(prepare, sdp_nodes))
-        opts = dict(self.dynarapid)
         out_dir = opts.get("out_dir") or make_build_dir("dynarapid_zynq_")
         res = dynarapid_zynq_build(
             kernel_models,
@@ -447,7 +466,7 @@ class ZynqBuild(Transformation):
             self.fpga_part,
             self.period_ns,
             out_dir,
-            library_dir=opts.get("library_dir"),
+            library_dir=library_dir,
             shell_lib=opts.get("shell_lib"),
             workers=opts.get("workers"),
         )

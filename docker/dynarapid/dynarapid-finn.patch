@@ -888,10 +888,10 @@ index c460620..110dfd4 100755
  
 diff --git a/src/ch/agsl/dynarapid/pblockgenerator/GenerateFastPblocks.java b/src/ch/agsl/dynarapid/pblockgenerator/GenerateFastPblocks.java
 new file mode 100644
-index 0000000..b06cc02
+index 0000000..8649129
 --- /dev/null
 +++ b/src/ch/agsl/dynarapid/pblockgenerator/GenerateFastPblocks.java
-@@ -0,0 +1,253 @@
+@@ -0,0 +1,277 @@
 +/*
 +* DynaRapid
 +*
@@ -980,6 +980,13 @@ index 0000000..b06cc02
 +            libDir.resolve(name + suffix).toFile().delete();
 +    }
 +
++    static void cancel(Pblock pblock, File workDir, int[] status, int k)
++    {
++        System.out.println("Cancelling " + pblock.pblockName);
++        status[k] = -2;
++        VivadoRun.kill(workDir.toPath().resolve(pblock.pblockName + "_fast.tcl").toString());
++    }
++
 +    //Implements the component in the given pblock; returns the status of check()
 +    static int attempt(Component comp, Pblock pblock, Path libDir, File workDir, double util)
 +    {
@@ -1044,102 +1051,119 @@ index 0000000..b06cc02
 +        if (StringUtils.findInArray("-parallel", args) != -1)
 +            parallel = Integer.parseInt(args[StringUtils.findInArray("-parallel", args) + 1]);
 +
-+        //Attempts run in rounds of `parallel` concurrent Vivado runs at decreasing target
-+        //utilization; the densest successful pblock of the first successful round is kept.
-+        for (int t = 0; t < tries; t += parallel)
++        //Hedged attempts at decreasing target utilization: `parallel` attempts start at once;
++        //whenever the least dense running attempt has not finished after the hedge delay
++        //(DYNARAPID_HEDGE_S, default 150 s: a congested pblock can keep the router busy for
++        //many minutes before it fails) or an attempt failed, the next, less dense one starts.
++        //The densest successful pblock is kept: once an attempt succeeds, less dense ones are
++        //cancelled and denser ones still running get a grace period.
++        long hedgeMs = 150000;
++        if (System.getenv("DYNARAPID_HEDGE_S") != null)
++            hedgeMs = (long) (Double.parseDouble(System.getenv("DYNARAPID_HEDGE_S")) * 1000);
++        int maxRunning = Math.max(parallel, 2);
++        java.util.List<Pblock> att = new java.util.ArrayList<>();
++        java.util.List<Double> utils = new java.util.ArrayList<>();
++        java.util.List<Thread> threads = new java.util.ArrayList<>();
++        java.util.List<Long> started = new java.util.ArrayList<>();
++        java.util.Set<String> names = new java.util.HashSet<>();
++        final int status[] = new int[tries];
++        double u = util;
++        boolean exhausted = false;
++        long deadline = Long.MAX_VALUE;
++        int best = -1;
++        while (true)
 +        {
-+            java.util.List<Pblock> round = new java.util.ArrayList<>();
-+            java.util.List<Double> utils = new java.util.ArrayList<>();
-+            java.util.Set<String> names = new java.util.HashSet<>();
-+            double u = util;
-+            for (int k = 0; k < parallel && t + k < tries; k++, u *= 0.75)
++            int running = 0, lastRunning = -1, success = -1;
++            boolean retryable = false;
++            for (int k = 0; k < threads.size(); k++)
 +            {
-+                int shape[] = GenerateShapedPblocks.chooseShape(comp, u, 1.0, maxRows);
-+                if (shape == null)
-+                    break;
-+                //stage 2 only builds the pblock object (sites, name); nothing is run
-+                Pblock pblock = new Pblock(comp, ResourceElement.starti, shape[0], shape[1], shape[2], 2, false, false);
-+                if (!names.add(pblock.pblockName))
-+                    continue;
-+                round.add(pblock);
-+                utils.add(u);
-+            }
-+            util = u;
-+            if (round.isEmpty())
-+            {
-+                System.out.println("No pblock in the generation region fits the component at utilization " + util);
-+                break;
-+            }
-+
-+            int status[] = new int[round.size()];
-+            java.util.List<Thread> threads = new java.util.ArrayList<>();
-+            for (int k = 0; k < round.size(); k++)
-+            {
-+                final int kk = k;
-+                Thread th = new Thread(() -> status[kk] = attempt(comp, round.get(kk), libDir, workDir, utils.get(kk)));
-+                th.start();
-+                threads.add(th);
-+            }
-+            //Shapes are in order of decreasing utilization. Once an attempt succeeds, denser
-+            //attempts still running get a grace period (congested pblocks can keep the router
-+            //busy for a very long time) and are then cancelled.
-+            long start = System.currentTimeMillis();
-+            long deadline = Long.MAX_VALUE;
-+            while (true)
-+            {
-+                boolean allDone = true;
-+                int firstSuccess = -1;
-+                for (int k = 0; k < round.size(); k++)
-+                {
-+                    if (threads.get(k).isAlive())
-+                        allDone = false;
-+                    else if (status[k] == 0 && firstSuccess == -1)
-+                        firstSuccess = k;
-+                }
-+                if (allDone)
-+                    break;
-+                if (firstSuccess != -1 && deadline == Long.MAX_VALUE)
-+                {
-+                    long elapsed = System.currentTimeMillis() - start;
-+                    deadline = System.currentTimeMillis() + Math.max(60000, elapsed / 2);
-+                }
-+                boolean denserRunning = false;
-+                for (int k = 0; k < (firstSuccess == -1 ? 0 : firstSuccess); k++)
-+                    denserRunning |= threads.get(k).isAlive();
-+                if (firstSuccess != -1 && !denserRunning)
-+                    break;
-+                if (System.currentTimeMillis() > deadline)
-+                    break;
-+                Thread.sleep(2000);
-+            }
-+            for (int k = 0; k < round.size(); k++)
 +                if (threads.get(k).isAlive())
 +                {
-+                    System.out.println("Cancelling " + round.get(k).pblockName);
-+                    status[k] = -2;
-+                    VivadoRun.kill(workDir.toPath().resolve(round.get(k).pblockName + "_fast.tcl").toString());
++                    running++;
++                    lastRunning = k;
 +                }
-+            for (Thread th : threads)
-+                th.join();
-+
-+            int best = -1;
-+            for (int k = 0; k < round.size(); k++)
-+                if (status[k] == 0 && best == -1)
-+                    best = k;
-+            for (int k = 0; k < round.size(); k++)
-+                if (k != best)
-+                    removeOutputs(libDir, round.get(k).pblockName);
-+            if (best != -1)
-+            {
-+                System.out.println("Kept " + round.get(best).pblockName);
-+                System.out.println("Generated 1 pblock(s) for " + dcpName);
-+                System.exit(0);
++                else if (status[k] == 0 && success == -1)
++                    success = k;
++                else if (status[k] == 2 || status[k] == 4)
++                    retryable = true;
 +            }
-+            boolean retry = false;
-+            for (int st : status)
-+                retry |= (st == 2 || st == 4);
-+            if (!retry)
-+                break;
++            if (success != -1)
++            {
++                //less dense attempts are not needed any more
++                for (int k = success + 1; k < threads.size(); k++)
++                    if (threads.get(k).isAlive())
++                        cancel(att.get(k), workDir, status, k);
++                boolean denserRunning = false;
++                for (int k = 0; k < success; k++)
++                    denserRunning |= threads.get(k).isAlive();
++                if (deadline == Long.MAX_VALUE)
++                    deadline = System.currentTimeMillis() + Math.max(60000, (System.currentTimeMillis() - started.get(success)) / 2);
++                if (!denserRunning || System.currentTimeMillis() > deadline)
++                {
++                    for (int k = 0; k < success; k++)
++                        if (threads.get(k).isAlive())
++                            cancel(att.get(k), workDir, status, k);
++                    for (Thread th : threads)
++                        th.join();
++                    for (int k = 0; k < threads.size(); k++)
++                        if (status[k] == 0 && best == -1)
++                            best = k;
++                    break;
++                }
++            }
++            else
++            {
++                boolean launch = threads.size() < parallel
++                    || (running == 0 && (threads.isEmpty() || retryable))
++                    || (running > 0 && running < maxRunning
++                        && System.currentTimeMillis() - started.get(lastRunning) > hedgeMs);
++                if (launch && !exhausted && threads.size() < tries)
++                {
++                    Pblock pblock = null;
++                    while (pblock == null && !exhausted)
++                    {
++                        int shape[] = GenerateShapedPblocks.chooseShape(comp, u, 1.0, maxRows);
++                        if (shape == null)
++                        {
++                            System.out.println("No pblock in the generation region fits the component at utilization " + u);
++                            exhausted = true;
++                            break;
++                        }
++                        //stage 2 only builds the pblock object (sites, name); nothing is run
++                        Pblock p = new Pblock(comp, ResourceElement.starti, shape[0], shape[1], shape[2], 2, false, false);
++                        if (names.add(p.pblockName))
++                            pblock = p;
++                        else
++                            u *= 0.75;
++                    }
++                    if (pblock != null)
++                    {
++                        final int kk = threads.size();
++                        final Pblock pb = pblock;
++                        final double uu = u;
++                        att.add(pb);
++                        utils.add(uu);
++                        Thread th = new Thread(() -> status[kk] = attempt(comp, pb, libDir, workDir, uu));
++                        started.add(System.currentTimeMillis());
++                        threads.add(th);
++                        th.start();
++                        u *= 0.75;
++                        continue;
++                    }
++                }
++                if (running == 0 && (exhausted || threads.size() >= tries || !retryable))
++                    break;
++            }
++            Thread.sleep(2000);
++        }
++        for (int k = 0; k < att.size(); k++)
++            if (k != best)
++                removeOutputs(libDir, att.get(k).pblockName);
++        if (best != -1)
++        {
++            System.out.println("Kept " + att.get(best).pblockName);
++            System.out.println("Generated 1 pblock(s) for " + dcpName);
++            System.exit(0);
 +        }
 +        System.out.println("Generated 0 pblock(s) for " + dcpName);
 +        System.exit(1);
@@ -1147,10 +1171,10 @@ index 0000000..b06cc02
 +}
 diff --git a/src/ch/agsl/dynarapid/pblockgenerator/GenerateShapedPblocks.java b/src/ch/agsl/dynarapid/pblockgenerator/GenerateShapedPblocks.java
 new file mode 100644
-index 0000000..9f241e7
+index 0000000..fcc21e7
 --- /dev/null
 +++ b/src/ch/agsl/dynarapid/pblockgenerator/GenerateShapedPblocks.java
-@@ -0,0 +1,161 @@
+@@ -0,0 +1,165 @@
 +/*
 +* DynaRapid
 +*
@@ -1214,10 +1238,14 @@ index 0000000..9f241e7
 +                    if (!re.isPblockAppropriate(scaled))
 +                        continue;
 +
-+                    //area plus a penalty for deviating from the requested aspect ratio (height / width)
++                    //area plus a (weak) penalty for deviating from the requested aspect ratio
++                    //(height / width). The area dominates: components with many BRAMs / DSPs
++                    //need tall shapes over few hard-block columns, a square shape around the
++                    //same number of sites covers a large part of the device (e.g. a CNV MVAU
++                    //with 33 BRAMs: 100 x 34 map cells square vs. 170 x 3 tall)
 +                    double ratio = r / (c * COL_WIDTH);
 +                    double dev = Math.max(ratio / aspect, aspect / ratio);
-+                    double score = r * c * COL_WIDTH * dev;
++                    double score = r * c * COL_WIDTH * Math.pow(dev, 0.25);
 +                    if (score < bestScore)
 +                    {
 +                        bestScore = score;
@@ -1618,10 +1646,18 @@ index 0000000..0c49f06
 +    }
 +}
 diff --git a/src/ch/agsl/dynarapid/placer/GreedyPlacer.java b/src/ch/agsl/dynarapid/placer/GreedyPlacer.java
-index 4c82dae..a7d468e 100755
+index 4c82dae..e2a6ea2 100755
 --- a/src/ch/agsl/dynarapid/placer/GreedyPlacer.java
 +++ b/src/ch/agsl/dynarapid/placer/GreedyPlacer.java
-@@ -162,10 +162,33 @@ public class GreedyPlacer implements Placer {
+@@ -135,6 +135,7 @@ public class GreedyPlacer implements Placer {
+         int rows = MapElement.map.size();
+         int cols = MapElement.map.get(0).size();
+         fabric = new Node [rows][cols];
++        blockTiles(fabric);
+         
+         String siteName = "SLICE_X67Y624";
+         
+@@ -162,15 +163,77 @@ public class GreedyPlacer implements Placer {
           }
  
          centerSite = device.getSite(siteName);
@@ -1659,7 +1695,51 @@ index 4c82dae..a7d468e 100755
  
          //set padding here
          pad = 0;
-@@ -265,10 +288,31 @@ public class GreedyPlacer implements Placer {
+     }
+ 
++    /*
++     * Marks the map elements of the tiles listed (one per line) in the file named by
++     * DYNARAPID_BLOCKED_TILES as occupied, e.g. the sites a pre-implemented shell or a DFX
++     * partition cannot give to the components
++     */
++    static void blockTiles(Node[][] fabric)
++    {
++        String file = System.getenv("DYNARAPID_BLOCKED_TILES");
++        if(file == null || file.isEmpty())
++            return;
++        java.util.Map<String, String> params = new java.util.HashMap<>();
++        params.put("type", "Blocked");
++        params.put("dcp", "blocked");
++        Node blocked = new Node("blocked", "blocked", params, "");
++        GenerateDesign.nodes_in_netlist--; //not a node of the design
++        int n = 0;
++        try
++        {
++            for(String line : java.nio.file.Files.readAllLines(java.nio.file.Paths.get(file)))
++            {
++                String coord = MapElement.findInMap(line.trim());
++                if(coord == null || !coord.contains(":"))
++                    continue;
++                int i = Integer.parseInt(coord.substring(0, coord.indexOf(":")));
++                int j = Integer.parseInt(coord.substring(coord.indexOf(":") + 1));
++                if(fabric[i][j] == null)
++                {
++                    fabric[i][j] = blocked;
++                    n++;
++                }
++            }
++        }
++        catch(java.io.IOException e)
++        {
++            throw new RuntimeException(e);
++        }
++        System.out.println("Blocked " + n + " map elements (" + file + ")");
++    }
++
+     public String getPlacerName()
+     {
+         return "Greedy-Placer";
+@@ -265,10 +328,31 @@ public class GreedyPlacer implements Placer {
       * We iterate i and then go to previous step
       * If we reach a node where all its connections has been visited, we select the next node in the orderedNodes list and continue from 3rd step
       */

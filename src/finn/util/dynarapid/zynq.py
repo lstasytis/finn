@@ -26,10 +26,14 @@ from concurrent.futures import ThreadPoolExecutor
 from onnx import helper
 from qonnx.core.modelwrapper import ModelWrapper
 
-from finn.util.dynarapid.flow import dynarapid_pnr
+from finn.util.dynarapid.flow import build_library, dynarapid_pnr
 from finn.util.dynarapid.graph import mm_ports
 from finn.util.dynarapid.shell import SHELL_STRIP_COLS, assemble_tcl, build_shell
 from finn.util.dynarapid.tools import run_vivado
+
+
+def default_library_dir(part):
+    return os.path.join(os.environ["FINN_BUILD_DIR"], "dynarapid_library", part, "lib")
 
 
 def merge_partitions(kernel_models):
@@ -83,10 +87,9 @@ def dynarapid_zynq_build(
     Returns a result dict with the bitfile, hwh and per-stage times."""
     os.makedirs(out_dir, exist_ok=True)
     workers = workers or os.cpu_count()
-    build_dir = os.environ["FINN_BUILD_DIR"]
-    library_dir = library_dir or os.path.join(build_dir, "dynarapid_library", part, "lib")
+    library_dir = library_dir or default_library_dir(part)
     shell_lib = shell_lib or os.path.join(os.path.dirname(os.path.abspath(library_dir)), "shells")
-    res = {"out_dir": out_dir}
+    res = {"out_dir": out_dir, "board": board, "part": part, "clk_ns": clk_ns}
     t_total = time.time()
 
     accel = merge_partitions(kernel_models)
@@ -96,6 +99,29 @@ def dynarapid_zynq_build(
 
     def shell_job():
         return build_shell(board, part, clk_ns, ports, shell_lib, jobs=max(1, workers // 4))
+
+    t0 = time.time()
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        f_shell = ex.submit(shell_job)
+        # the component library does not depend on the shell: build it meanwhile
+        f_lib = ex.submit(
+            build_library,
+            accel,
+            os.path.join(os.path.dirname(os.path.abspath(library_dir)), "work"),
+            library_dir,
+            part,
+            clk_ns,
+            workers,
+        )
+        shell_dir, shell_res = f_shell.result()
+        f_lib.result()
+    res["parallel_s"] = time.time() - t0
+    res["shell"] = shell_res
+    if shell_res["status"] not in ("built", "cached"):
+        res["status"] = "shell_failed"
+        return _done(res, out_dir, t_total)
+
+    blocked = os.path.join(shell_dir, "blocked_tiles.txt")
 
     def accel_job():
         return dynarapid_pnr(
@@ -110,21 +136,16 @@ def dynarapid_zynq_build(
             no_clock=True,
             # keep the components out of the strip next to the PS used by the shell
             place_region="0,100000,%d,100000" % SHELL_STRIP_COLS,
+            # sites the shell cannot give to the accelerator (if any)
+            blocked_tiles=blocked if os.path.isfile(blocked) else None,
         )
 
+    # components are in the library now: place, stitch and route the accelerator
     t0 = time.time()
-    with ThreadPoolExecutor(max_workers=2) as ex:
-        f_shell = ex.submit(shell_job)
-        f_accel = ex.submit(accel_job)
-        shell_dir, shell_res = f_shell.result()
-        accel_res = f_accel.result()
-    res["parallel_s"] = time.time() - t0
-    res["shell"] = shell_res
+    accel_res = accel_job()
+    res["stitch_s"] = time.time() - t0
     res["accel"] = {k: v for k, v in accel_res.items() if k != "components"}
     res["accel_components"] = accel_res.get("components")
-    if shell_res["status"] not in ("built", "cached"):
-        res["status"] = "shell_failed"
-        return _done(res, out_dir, t_total)
     if accel_res["status"] != "routed":
         res["status"] = "accel_" + accel_res["status"]
         return _done(res, out_dir, t_total)

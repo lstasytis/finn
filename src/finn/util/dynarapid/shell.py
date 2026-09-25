@@ -10,14 +10,17 @@ together with the accelerator in one global Vivado run. Here the shell is implem
 its own, once, and cached:
 
   * the whole accelerator (IODMAs and compute layers, placed and routed by DynaRapid) is
-    one reconfigurable partition (DFX) of the shell: during the shell implementation it
-    is a grey box, afterwards a black box;
+    one cell of the shell: during the shell implementation a placeholder (DONT_TOUCH, so
+    no shell logic around it is optimized away), afterwards a black box with unrouted
+    boundary nets. (DFX partitions were tried first: snapping excludes several full-height
+    columns next to clocking/configuration columns on the xczu7ev, which leaves too few
+    relocation sites for components with BRAMs.)
   * the IODMAs keep their block-design names (idma0, odma0, ...) as thin pass-through
     modules between the interconnects and the black box, so that the hardware handoff
     (.hwh) of the shell has the address map the FINN driver expects;
   * the shell logic lives next to the PS (below it and in a narrow strip beside its
-    fabric interface), the partition covers the rest of the device, i.e. the region
-    DynaRapid places the components in.
+    fabric interface; pblock with EXCLUDE_PLACEMENT and CONTAIN_ROUTING), the rest of the
+    device is left to DynaRapid.
 
 The shell only depends on the board, the clock and the widths of the IODMA memory-mapped
 interfaces, so it is shared by all models with the same interfaces.
@@ -76,7 +79,7 @@ def shell_key(board, part, clk_ns, ports):
             }
             for d in ports
         ],
-        "version": 1,
+        "version": 4,
     }
     h = hashlib.sha256(json.dumps(sig, sort_keys=True).encode()).hexdigest()[:12]
     return "shell%s" % h
@@ -87,8 +90,11 @@ def _bus(w):
 
 
 def core_verilog(ports):
-    """Black box with the DynaRapid top-level ports of the accelerator."""
+    """Placeholder with the DynaRapid top-level ports of the accelerator, used while the
+    shell is implemented: every input feeds a register driving all outputs, so that no
+    shell logic around it is optimized away. Turned into a black box afterwards."""
     decl = ["    input clk", "    input rst"]
+    ins, outs = ["rst"], []
     for d in ports:
         for c in d["in"]:
             decl += [
@@ -96,13 +102,33 @@ def core_verilog(ports):
                 "    input %s" % c["valid"],
                 "    output %s" % c["ready"],
             ]
+            ins += [c["data"], c["valid"]]
+            outs.append((c["ready"], 1))
         for c in d["out"]:
             decl += [
                 "    output %s%s" % (_bus(c["width"]), c["data"]),
                 "    output %s" % c["valid"],
                 "    input %s" % c["ready"],
             ]
-    return "(* black_box *)\nmodule %s (\n%s\n);\nendmodule\n" % (CORE_MODULE, ",\n".join(decl))
+            ins.append(c["ready"])
+            outs += [(c["data"], c["width"]), (c["valid"], 1)]
+    body = [
+        '    (* DONT_TOUCH = "true" *) reg p = 0;',
+        "    always @(posedge clk) p <= ^{%s};" % ", ".join(ins),
+    ]
+    # one register per output bit: outputs sharing a driver would share their routing,
+    # which is invalid once the placeholder is removed and they become separate nets
+    for k, (o, w) in enumerate(outs):
+        body += [
+            '    (* DONT_TOUCH = "true" *) reg %sq%d = 0;' % (_bus(w), k),
+            "    always @(posedge clk) q%d <= {%d{p}};" % (k, w),
+            "    assign %s = q%d;" % (o, k),
+        ]
+    return '(* keep_hierarchy = "yes" *)\nmodule %s (\n%s\n);\n%s\nendmodule\n' % (
+        CORE_MODULE,
+        ",\n".join(decl),
+        "\n".join(body),
+    )
 
 
 def bridge_verilog(d):
@@ -291,12 +317,11 @@ def shell_tcl(board, part, clk_ns, ports, shell_dir, src_file, jobs):
         "launch_runs synth_1 -jobs %d" % jobs,
         "wait_on_run [get_runs synth_1]",
         "open_run synth_1",
-        # accelerator partition: grey box for the shell implementation
+        # the accelerator placeholder: kept as a hierarchy, black box after implementation
         "set rp [get_cells -hier -filter {ORIG_REF_NAME == %s || REF_NAME == %s}]"
         % (CORE_MODULE, CORE_MODULE),
-        "set_property HD.RECONFIGURABLE true $rp",
-        "update_design -cell $rp -buffer_ports",
-        # regions: the shell left of INT column X%d, the partition right of it
+        "set_property DONT_TOUCH true $rp",
+        # the shell left of INT column X%d (below the PS and next to its fabric interface)
         "proc sites_by_int_x {type cmp x} {",
         "  set res {}",
         "  foreach s [get_sites -filter \"SITE_TYPE =~ $type\"] {",
@@ -314,20 +339,12 @@ def shell_tcl(board, part, clk_ns, ports, shell_dir, src_file, jobs):
         "  set xs [lsort -integer $xs]; set ys [lsort -integer $ys]",
         "  return \"${prefix}_X[lindex $xs 0]Y[lindex $ys 0]:${prefix}_X[lindex $xs end]Y[lindex $ys end]\"",
         "}",
-        "set rp_ranges {}",
         "set sh_ranges {}",
-        "foreach {type prefix} {SLICE* SLICE DSP48E2 DSP48E2 RAMB36 RAMB36 RAMB18* RAMB18} {",
-        "  set r [site_range [sites_by_int_x $type >= %d] $prefix]" % ps_x,
-        "  if {$r != {}} {lappend rp_ranges $r}",
+        "foreach {type prefix} {SLICE* SLICE DSP48E2 DSP48E2 RAMBFIFO36 RAMB36 RAMB18* RAMB18} {",
         "  set r [site_range [sites_by_int_x $type < %d] $prefix]" % ps_x,
         "  if {$r != {}} {lappend sh_ranges $r}",
         "}",
-        "puts \"accelerator partition: $rp_ranges\"",
         "puts \"shell region: $sh_ranges\"",
-        "create_pblock pb_accel",
-        "add_cells_to_pblock pb_accel $rp",
-        "resize_pblock pb_accel -add $rp_ranges",
-        "set_property SNAPPING_MODE ON [get_pblocks pb_accel]",
         "create_pblock pb_shell",
         "set rpname [get_property NAME $rp]",
         "set sh_cells {}",
@@ -337,6 +354,7 @@ def shell_tcl(board, part, clk_ns, ports, shell_dir, src_file, jobs):
         "add_cells_to_pblock pb_shell $sh_cells",
         "resize_pblock pb_shell -add $sh_ranges",
         "set_property CONTAIN_ROUTING true [get_pblocks pb_shell]",
+        "set_property EXCLUDE_PLACEMENT true [get_pblocks pb_shell]",
         "opt_design",
         "place_design",
         "route_design",
@@ -344,10 +362,11 @@ def shell_tcl(board, part, clk_ns, ports, shell_dir, src_file, jobs):
         "report_timing_summary -file %s/shell_timing.rpt" % shell_dir,
         "report_utilization -file %s/shell_utilization.rpt" % shell_dir,
         "update_design -cell $rp -black_box",
+        # boundary nets are routed from scratch when the accelerator is inserted
+        "route_design -unroute -nets [get_nets -of [get_pins $rpname/*] -filter {TYPE != GLOBAL_CLOCK}]",
         "lock_design -level routing",
         "write_checkpoint -force %s/shell_routed.dcp" % shell_dir,
         "set f [open %s/rp_cell.txt w]; puts $f [get_property NAME $rp]; close $f" % shell_dir,
-        "set f [open %s/rp_ranges.txt w]; puts $f $rp_ranges; close $f" % shell_dir,
         "foreach hwh [glob -nocomplain %s/finn_zynq_link.gen/sources_1/bd/top/hw_handoff/top.hwh "
         "%s/finn_zynq_link.srcs/sources_1/bd/top/hw_handoff/top.hwh] {file copy -force $hwh %s/top.hwh}"
         % (shell_dir, shell_dir, shell_dir),
@@ -388,11 +407,12 @@ def build_shell(board, part, clk_ns, ports, shell_lib, jobs=8):
     return shell_dir, res
 
 
-def assemble_tcl(shell_dir, accel_dcp, out_dir, bitfile):
-    """Fill the shell's accelerator partition with the DynaRapid-routed accelerator, route
-    the remaining (boundary and clock) nets and write the bitstream."""
+def assemble_tcl(shell_dir, accel_dcp, out_dir, bitfile, threads=16, keep_dcp=False):
+    """Fill the shell's accelerator cell with the DynaRapid-routed accelerator, route the
+    remaining (boundary and clock) nets and write the bitstream."""
     rp = open(os.path.join(shell_dir, "rp_cell.txt")).read().strip()
     t = [
+        "set_param general.maxThreads %d" % threads,
         "set t0 [clock milliseconds]",
         "proc stamp {name} {global t0; puts \"STAMP $name [expr ([clock milliseconds] - $t0) / 1000.0]\"}",
         "open_checkpoint %s/shell_routed.dcp" % shell_dir,
@@ -407,6 +427,7 @@ def assemble_tcl(shell_dir, accel_dcp, out_dir, bitfile):
         "stamp reports",
         "write_bitstream -force -no_partial_bitfile %s" % bitfile,
         "stamp bitstream",
-        "write_checkpoint -force %s/final_routed.dcp" % out_dir,
     ]
+    if keep_dcp:
+        t.append("write_checkpoint -force %s/final_routed.dcp" % out_dir)
     return "\n".join(t) + "\n"

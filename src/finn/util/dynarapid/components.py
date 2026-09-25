@@ -88,6 +88,34 @@ def is_iodma(node):
     return node.op_type.startswith("IODMA")
 
 
+_IP_ATTRS = ("code_gen_dir_ipgen", "ipgen_path", "ip_path", "ip_vlnv")
+
+
+def save_ip_attrs(node, dcp, library_dir):
+    """Record where the generated IP of an HLS node is, next to its library entry."""
+    inst = getCustomOp(node)
+    attrs = {a: inst.get_nodeattr(a) for a in _IP_ATTRS}
+    if attrs["ip_path"] and os.path.isdir(attrs["ip_path"]):
+        os.makedirs(library_dir, exist_ok=True)
+        with open(os.path.join(library_dir, dcp + ".ip.json"), "w") as f:
+            json.dump(attrs, f)
+
+
+def reuse_ip_attrs(node, dcp, library_dir):
+    """Point an HLS node to the generated IP of an identical node (same component) from an
+    earlier build, so that HLS synthesis is skipped. Returns True if reused."""
+    f = os.path.join(library_dir, dcp + ".ip.json")
+    if not os.path.isfile(f):
+        return False
+    attrs = json.load(open(f))
+    if not all(os.path.isdir(attrs[a]) for a in ("code_gen_dir_ipgen", "ip_path")):
+        return False
+    inst = getCustomOp(node)
+    for a, v in attrs.items():
+        inst.set_nodeattr(a, v)
+    return True
+
+
 def stream_interfaces(node):
     """(inputs, outputs) as lists of (verilog interface name, padded width).
 
