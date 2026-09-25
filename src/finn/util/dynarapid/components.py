@@ -24,6 +24,7 @@ import hashlib
 import json
 import os
 import re
+import uuid
 from qonnx.custom_op.registry import getCustomOp
 
 from finn.transformation.fpgadataflow.create_stitched_ip import CreateStitchedIP
@@ -616,7 +617,7 @@ def batch_pblocks(dcps, work_dir, library_dir, part, clk_ns, util=0.6, batches=4
         return set(), 0.0
     env = dynarapid_env(work_dir, library_dir, part, clk_ns, threads)
     os.makedirs(os.path.join(work_dir, "batches"), exist_ok=True)
-    lst = os.path.join(work_dir, "batches", "components_%d.txt" % os.getpid())
+    lst = os.path.join(work_dir, "batches", "components_%s.txt" % uuid.uuid4().hex[:8])
     with open(lst, "w") as f:
         f.write("\n".join(dcps) + "\n")
     log = lst.replace(".txt", ".log")
@@ -635,7 +636,7 @@ def batch_databases(dcps, work_dir, library_dir, part, clk_ns):
         return 0.0
     env = dynarapid_env(work_dir, library_dir, part, clk_ns)
     os.makedirs(os.path.join(work_dir, "batches"), exist_ok=True)
-    lst = os.path.join(work_dir, "batches", "databases_%d.txt" % os.getpid())
+    lst = os.path.join(work_dir, "batches", "databases_%s.txt" % uuid.uuid4().hex[:8])
     with open(lst, "w") as f:
         f.write("\n".join(dcps) + "\n")
     rc, t = run_java(
@@ -645,3 +646,64 @@ def batch_databases(dcps, work_dir, library_dir, part, clk_ns):
         lst.replace(".txt", ".log"),
     )
     return t
+
+
+def synth_session(model_items, work_dir, library_dir, part, clk_ns, threads=1):
+    """Synthesize several directly synthesizable components (direct_sources) one after the
+    other in one Vivado run: the Vivado start and device load (~30 s of a ~45 s run for a
+    small component) are paid once. model_items: [(dcp, node)]. Returns result dicts like
+    build_component(stages=("synth",))."""
+    env = dynarapid_env(work_dir, library_dir, part, clk_ns, threads)
+    synth_dir = os.path.join(work_dir, "vhdlSynthDCPs")
+    os.makedirs(synth_dir, exist_ok=True)
+    tcl = ["set_param general.maxThreads %d" % threads, "set t0 [clock milliseconds]"]
+    todo = []
+    res = {}
+    for dcp, node in model_items:
+        r = {"dcp": dcp, "node": node.name, "op_type": node.op_type, "synth_s": 0.0}
+        res[dcp] = r
+        meta = os.path.join(synth_dir, dcp + "_synth_0_metadata.txt")
+        if os.path.isfile(meta):
+            r["status"] = "synthesized"
+            continue
+        comp_dir = os.path.join(work_dir, "components", dcp)
+        os.makedirs(comp_dir, exist_ok=True)
+        files, top = direct_sources(node)
+        body = direct_synth_tcl(node, dcp, comp_dir, synth_dir, part, threads, files, top)
+        tcl += [l for l in body.splitlines() if not l.startswith("set_param")]
+        tcl += [
+            'puts "SESSION_DONE %s [expr ([clock milliseconds] - $t0) / 1000.0]"' % dcp,
+            "close_design",
+            "remove_files -quiet [get_files -quiet]",
+        ]
+        todo.append(dcp)
+    if todo:
+        sess_dir = os.path.join(work_dir, "components", todo[0])
+        tcl_file = os.path.join(sess_dir, "synth_session.tcl")
+        with open(tcl_file, "w") as f:
+            f.write("\n".join(tcl) + "\n")
+        log = os.path.join(sess_dir, "synth_session.log")
+        rc, t = run_vivado(tcl_file, log, sess_dir, env)
+        done = dict(re.findall(r"^SESSION_DONE (\S+) ([\d.]+)", open(log, errors="ignore").read(), re.M))
+        prev = 0.0
+        for dcp in todo:
+            meta = os.path.join(synth_dir, dcp + "_synth_0_metadata.txt")
+            ok = dcp in done and os.path.isfile(meta)
+            res[dcp]["status"] = "synthesized" if ok else "synth_failed"
+            if dcp in done:
+                res[dcp]["synth_s"] = float(done[dcp]) - prev
+                prev = float(done[dcp])
+    return list(res.values())
+
+
+def synth_size(work_dir, dcp):
+    """(LUTs, BRAM tiles) of a synthesized component from its utilization report."""
+    f = os.path.join(work_dir, "vhdlSynthDCPs", dcp + ".util")
+    luts, bram = 0, 0.0
+    if os.path.isfile(f):
+        txt = open(f, errors="ignore").read()
+        m = re.search(r"\|\s*CLB LUTs\*?\s*\|\s*(\d+)", txt)
+        luts = int(m.group(1)) if m else 0
+        m = re.search(r"\|\s*Block RAM Tile\s*\|\s*([\d.]+)", txt)
+        bram = float(m.group(1)) if m else 0.0
+    return luts, bram

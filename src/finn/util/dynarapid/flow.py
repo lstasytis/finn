@@ -26,7 +26,10 @@ from finn.util.dynarapid.components import (
     batch_pblocks,
     build_component,
     component_name,
+    direct_sources,
     has_pblocks,
+    synth_session,
+    synth_size,
 )
 from finn.util.dynarapid.graph import onnx_to_dot
 from finn.util.dynarapid.tools import (
@@ -53,6 +56,8 @@ def build_library(
     pblock_mode="fast",
     batch=True,
     batch_util=0.6,
+    large_luts=2000,
+    large_bram=4,
 ):
     """Build (or reuse) the components of all nodes. Returns ({node: dcp}, [results]).
 
@@ -106,32 +111,103 @@ def build_library(
             results = list(ex.map(job, items))
         return dcps, results
 
-    # batched: 1. synthesis of all components, 2. pblocks of many components per Vivado run
-    # (fallback: individually), 3. all placement databases in one DynaRapid run
-    t0 = time.time()
-    with ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
-        results = list(ex.map(lambda it: job(it, ("synth",)), items))
-    synth_wall = time.time() - t0
-    by_dcp = {r["dcp"]: r for r in results}
-    need = [r["dcp"] for r in results if r["status"] == "synthesized" and not has_pblocks(library_dir, r["dcp"])]
-    t0 = time.time()
-    ok, _ = batch_pblocks(
-        need,
-        work_dir,
-        library_dir,
-        part,
-        clk_ns,
-        util=batch_util,
-        batches=max(1, min(len(need), vivado_slots()[1])),
-        threads=4,
-    )
-    batch_wall = time.time() - t0
-    fallback = [it for it in items if it[0] in need and it[0] not in ok]
-    t0 = time.time()
+    # batched and pipelined: components are synthesized in parallel; whenever `group` of
+    # them are synthesized, their pblocks are generated together (shared Vivado runs) and
+    # then their placement databases, while the other syntheses go on. Components that fail
+    # in a batch are built individually at the end.
+    from concurrent.futures import as_completed
+
+    t_start = time.time()
+    by_dcp = {}
+    todo = []
+    for it in items:
+        if os.path.isfile(os.path.join(library_dir, it[0] + ".bin.data")):
+            by_dcp[it[0]] = {"dcp": it[0], "node": it[1].name, "op_type": it[1].op_type, "status": "cached"}
+        else:
+            todo.append(it)
+    slots = vivado_slots()[1]
+    # a few groups (each one DynaRapid run with 1-3 batches): small groups mean many batches,
+    # each paying the fixed place-and-route cost
+    group = max(6, min(16, (len(todo) + 5) // 6))
+    batched_ok = set()
+    timeline = {}
+
+    def large_job(item):
+        r = job(item, ("synth", "pblock", "database"))
+        by_dcp[r["dcp"]].update(r)
+        return [r["dcp"]]
+
+    def pblock_group(dcps):
+        need = [d for d in dcps if not has_pblocks(library_dir, d)]
+        ok, _ = batch_pblocks(
+            need,
+            work_dir,
+            library_dir,
+            part,
+            clk_ns,
+            util=batch_util,
+            batches=max(1, (len(need) + 5) // 6),
+            threads=4,
+        )
+        batched_ok.update(ok)
+        db = [d for d in dcps if has_pblocks(library_dir, d)]
+        batch_databases(db, work_dir, library_dir, part, clk_ns)
+        return dcps
+
+    # each group holds a DynaRapid JVM (device model) while its batches run
+    with ThreadPoolExecutor(max_workers=max(1, workers)) as synth_ex, ThreadPoolExecutor(
+        max_workers=max(1, min(6, slots // 2))
+    ) as batch_ex:
+        # directly synthesizable components in sessions (several per Vivado run), the others
+        # (block design) individually
+        direct = [it for it in todo if direct_sources(it[1]) is not None]
+        other = [it for it in todo if direct_sources(it[1]) is None]
+        n_sess = max(1, min(slots, len(direct)))
+        size = max(1, min(8, (len(direct) + n_sess - 1) // n_sess))
+        sessions = [direct[k : k + size] for k in range(0, len(direct), size)]
+        synth_futs = [synth_ex.submit(job, it, ("synth",)) for it in other]
+        synth_futs += [
+            synth_ex.submit(synth_session, sess, work_dir, library_dir, part, clk_ns)
+            for sess in sessions
+        ]
+        # large components (many LUTs / BRAMs) are implemented individually as soon as they
+        # are synthesized: batching does not save much for them, and a large congested
+        # component slows down (and can fail) the whole batch
+        by_node = dict(todo)
+        batch_futs, ready = [], []
+        for f in as_completed(synth_futs):
+            rs = f.result()
+            for r in rs if isinstance(rs, list) else [rs]:
+                by_dcp[r["dcp"]] = r
+                if r["status"] != "synthesized":
+                    continue
+                luts, bram = synth_size(work_dir, r["dcp"])
+                if luts > large_luts or bram >= large_bram:
+                    item = (r["dcp"], by_node[r["dcp"]])
+                    batch_futs.append(batch_ex.submit(large_job, item))
+                else:
+                    ready.append(r["dcp"])
+            if len(ready) >= group:
+                batch_futs.append(batch_ex.submit(pblock_group, ready))
+                ready = []
+        timeline["synth_done_s"] = time.time() - t_start
+        if ready:
+            batch_futs.append(batch_ex.submit(pblock_group, ready))
+        for f in batch_futs:
+            f.result()
+    timeline["batches_done_s"] = time.time() - t_start
+
+    # components without pblocks (failed in their batch): individually, then their database
+    # (and components whose synthesis failed within a session: once more on their own)
+    fallback = [
+        it
+        for it in todo
+        if by_dcp[it[0]]["status"] in ("synthesized", "synth_failed")
+        and not has_pblocks(library_dir, it[0])
+    ]
     with ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
         for r in ex.map(lambda it: job(it, ("synth", "pblock")), fallback):
             by_dcp[r["dcp"]].update(r)
-    fallback_wall = time.time() - t0
     db = [
         d
         for d, r in by_dcp.items()
@@ -139,28 +215,21 @@ def build_library(
         and has_pblocks(library_dir, d)
         and not os.path.isfile(os.path.join(library_dir, d + ".bin.data"))
     ]
-    db_wall = batch_databases(db, work_dir, library_dir, part, clk_ns)
+    batch_databases(db, work_dir, library_dir, part, clk_ns)
+    timeline["done_s"] = time.time() - t_start
     for d, r in by_dcp.items():
-        if r["status"] in ("synthesized", "pblocks"):
+        if r["status"] in ("synthesized", "pblocks", "built"):
             built = os.path.isfile(os.path.join(library_dir, d + ".bin.data"))
             if not has_pblocks(library_dir, d):
                 r["status"] = "pblock_failed"
             else:
                 r["status"] = "built" if built else "database_failed"
-            r["batched"] = d in ok
-    results = list(by_dcp.values())
-    stats = {
-        "synth_wall_s": synth_wall,
-        "batch_wall_s": batch_wall,
-        "batched": len(ok),
-        "fallback": len(fallback),
-        "fallback_wall_s": fallback_wall,
-        "database_wall_s": db_wall,
-    }
+            r["batched"] = d in batched_ok
+    stats = dict(timeline, group=group, batched=len(batched_ok), fallback=len(fallback))
     print("DynaRapid library:", stats)
-    for r in results:
+    for r in by_dcp.values():
         r["library_stats"] = stats
-    return dcps, results
+    return dcps, list(by_dcp.values())
 
 
 def _node_size_hint(node):

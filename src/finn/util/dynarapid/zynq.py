@@ -176,6 +176,13 @@ def dynarapid_zynq_build(
     hwh = os.path.join(out_dir, "resizer.hwh")
     shutil.copy(os.path.join(shell_dir, "top.hwh"), hwh)
     res.update(status="ok", bitfile=bitfile, hwh=hwh)
+    res["timing_rpt"] = os.path.join(asm_dir, "timing_summary.rpt")
+    util_xml = os.path.join(asm_dir, "utilization.xml")
+    if os.path.isfile(util_xml):
+        rp = open(os.path.join(shell_dir, "rp_cell.txt")).read().strip()
+        res["utilization_xml"] = _name_cells(
+            util_xml, os.path.join(out_dir, "dynarapid", "accel_nodes.json"), rp
+        )
     return _done(res, out_dir, t_total)
 
 
@@ -194,6 +201,37 @@ def _reports(rpt_dir):
         if m:
             res["wns_ns"] = None if m.group(1) == "NA" else float(m.group(1))
     return res
+
+
+def _name_cells(util_xml, nodes_json, accel_cell):
+    """Copy of the hierarchical utilization report in which the accelerator's component
+    cells (dot ids n1, n2, ..., idma0) carry the names of their FINN nodes, so that
+    post_synth_res finds the per-node resources. Only direct children of accel_cell are
+    renamed (the shell has bridge cells called idma0 / odma0 too)."""
+    idmap = {k: v["node"] for k, v in json.load(open(nodes_json)).items()}
+    target = accel_cell.split("/")
+    stack = []  # (indent, name) of the rows above the current one
+
+    def row(m):
+        cell = re.search(r'(<tablecell[^>]*? contents=")(\s*)([^"]*?)(\s*")', m.group(0))
+        if cell is None:
+            return m.group(0)
+        indent, name = len(cell.group(2)), cell.group(3)
+        while stack and stack[-1][0] >= indent:
+            stack.pop()
+        # the first row is the top module, not part of the cell path
+        path = [n for _, n in stack[1:]]
+        stack.append((indent, name))
+        if path == target and name in idmap:
+            a, b = cell.span(3)
+            return m.group(0)[:a] + idmap[name] + m.group(0)[b:]
+        return m.group(0)
+
+    txt = re.sub(r"<tablerow[^>]*>.*?</tablerow>", row, open(util_xml).read(), flags=re.S)
+    out = util_xml.replace(".xml", "_finn.xml")
+    with open(out, "w") as f:
+        f.write(txt)
+    return out
 
 
 def _done(res, out_dir, t_total):

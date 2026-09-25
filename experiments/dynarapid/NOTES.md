@@ -369,3 +369,74 @@ interface (474 s, shared by TFC and CNV). Assembly = open shell 30 s, read accel
 The cold build is the open problem: with the machine-wide limit (13 Vivado runs, memory
 bound) CNV's components need 5251 s of synthesis and 13570 s of pblock P&R in total, i.e.
 ~1450 s of wall time at best, mostly fixed per-run Vivado cost on small components.
+
+## 2026-09-25 (continued): making cold builds faster
+
+The cold library build is bound by the total Vivado time of all component runs divided by
+the Vivado slots (13 here, memory bound). Most of a component's time is fixed per-run cost.
+
+### Batched component implementation (`GenerateBatchPblocks`)
+
+* The pblocks (shapes and variants chosen as before) of many components are packed into the
+  generation region without overlap (each keeps its columns, which decide where it can be
+  relocated to), the synthesized components are linked into one out-of-context design with
+  one pblock (CONTAIN_ROUTING, DONT_TOUCH) per cell, and the design is placed and routed once.
+  Six components: 95 s in total instead of ~110 s each.
+* Vivado cannot write a cell with its routing outside DFX (`write_checkpoint -cell` keeps only
+  the placement; HD.PARTITION is not allowed out of context). RapidWright splits the result:
+  `DesignTools.copyImplementation` of the cell into the component's own synthesized design
+  (internal nets only: port and clock nets stay unrouted, as in the single flow), work library
+  consolidated (the batch netlist has one library per linked checkpoint, `work_c0`, which
+  collided between components). A short Vivado pass per batch opens each split checkpoint and
+  adds the pblock constraint, utilization report and RapidWright metadata.
+* Robustness: 0.6 target utilization in batches (one unplaceable pblock fails the whole
+  placement); routing errors attributed per component (conflict / antenna nets by cell prefix;
+  pblocks contain their routing, so overlaps are always within one component; per-net
+  `report_route_status -of_objects` prints every route tree and was far too slow); failed
+  items retried at 0.45 by the batch's own thread; batch time limit 900 s (one congested
+  batch routed for >30 min); individual hedged generation as the last fallback.
+* Shape fixes found on the way: exact BRAM/DSP need (the utilization headroom for them only
+  made BRAM-heavy shapes taller); height/width capped at 8 CLB tiles (165 x 2 map-cell shapes
+  were congested and slow to route).
+* TFC: 17 components in 188 s (individually ~480 s); functional check (16 frames) identical.
+
+### Faster component synthesis
+
+* RTL nodes (FIFO, DWC, sliding window, thresholding) and single-cell HLS nodes (IODMA, Pool,
+  LabelSelect) are synthesized from their HDL directly (no project / IP catalog / block
+  design; unused inputs tied to 0 as in the block design). A FIFO run: ~50 s, of which
+  `synth_design` is 16 s. MVAU keeps the block design (weight streamer hierarchy).
+* Several direct syntheses in one Vivado session (`close_design` + `remove_files` in between;
+  results identical to separate runs): the second component took 11.5 s instead of ~45 s.
+* Pipelining: batches of components start as soon as enough components are synthesized
+  (groups of ~1/6 of the components, at most slots/2 DynaRapid batch JVMs at a time).
+  With small groups (6) this was slower (more batches, each with the fixed P&R cost).
+
+### Cold results so far (ZCU104, shell cached)
+
+| | Vivado | DynaRapid cold, per-component | + batched P&R | + direct synthesis |
+|---|---|---|---|---|
+| TFC | 700 s | 665 s | - | **553 s** |
+| CNV | 1034 s | ~1850 s | 1261 s | 1259 s |
+
+CNV cold, batched + direct synthesis: synthesis 362 s, batches 512 s (incl. retries), databases
+73 s, stitching 78 s, assembly 188 s, HLS 45 s. Warm builds stay at 135 s (TFC) / 277 s (CNV).
+
+## 2026-09-25 (later): pipelined library build, builder integration - IN PROGRESS
+
+Session paused here (nothing running). State:
+
+* Uncommitted: pipelined `build_library` + `synth_session` (components.py / flow.py),
+  builder fixes (assembly writes `utilization.xml`, cells renamed to FINN node names via
+  `zynq._name_cells`, `vivado_timing_rpt` metadata used by `step_synthesize_bitfile`),
+  new `tests/end2end/test_end2end_dynarapid.py` (+ `dynarapid` marker in setup.cfg). The
+  e2e test has not been run yet.
+* Cold TFC with the pipelined build (`bit/tfc_pipe`, library `lib11`, shell cached):
+  **814 s, worse than the 553 s of `1a6db3645`**. Synthesis is done at 92 s (sessions
+  work), but the batched P&R ends at 642 s: groups of 4 components each get their own
+  batch run, so there are more, less efficient runs. WNS +0.69, 0 routing errors. Not
+  functionally verified yet (`verify_accel.py --accel-dir bit/tfc_pipe/dynarapid`).
+* Next: verify tfc_pipe; keep synth sessions but batch P&R as before (all at once, or
+  larger groups); CNV cold run; run the e2e test; archive `$FINN_BUILD_DIR/dr_zcu104`
+  logs/json to `experiments/dynarapid/results/` (gitignored); commit.
+* Note: `--shell-lib` must point at `<lib>/shells` (e.g. `dr_zcu104/lib/shells`).

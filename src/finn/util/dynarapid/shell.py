@@ -428,6 +428,9 @@ def assemble_tcl(shell_dir, accel_dcp, out_dir, bitfile, threads=16, keep_dcp=Fa
         "report_route_status -file %s/route_status.rpt" % out_dir,
         "report_timing_summary -file %s/timing_summary.rpt" % out_dir,
         "report_utilization -file %s/utilization.rpt" % out_dir,
+        # per-cell resources in the format of FINN's synthesis report (post_synth_res)
+        "report_utilization -hierarchical -hierarchical_depth 6 -format xml -file %s/utilization.xml"
+        % out_dir,
         "stamp reports",
         "write_bitstream -force -no_partial_bitfile %s" % bitfile,
         "stamp bitstream",
