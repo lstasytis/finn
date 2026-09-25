@@ -939,10 +939,10 @@ index c460620..110dfd4 100755
  
 diff --git a/src/ch/agsl/dynarapid/pblockgenerator/GenerateBatchPblocks.java b/src/ch/agsl/dynarapid/pblockgenerator/GenerateBatchPblocks.java
 new file mode 100644
-index 0000000..3b17fb0
+index 0000000..5304872
 --- /dev/null
 +++ b/src/ch/agsl/dynarapid/pblockgenerator/GenerateBatchPblocks.java
-@@ -0,0 +1,432 @@
+@@ -0,0 +1,449 @@
 +/*
 +* DynaRapid
 +*
@@ -1011,6 +1011,9 @@ index 0000000..3b17fb0
 +
 +    //RapidWright's device caches are not thread-safe: splits of different batches in turn
 +    static final Object RW_LOCK = new Object();
++    //all items, including retries (reported at the end)
++    static final List<Item> ALL = java.util.Collections.synchronizedList(new ArrayList<>());
++    static int MAX_ROWS;
 +
 +    public static void main(String args[]) throws Exception
 +    {
@@ -1067,38 +1070,16 @@ index 0000000..3b17fb0
 +            }
 +        }
 +
-+        //round 1: all items; round 2: the items that failed, at lower utilization
++        //items that fail in a batch are retried right away (by the batch's thread) at lower
++        //utilization, while the other batches are still running
++        MAX_ROWS = maxRows;
++        ALL.addAll(items);
 +        runRound(items, util, maxItems, nBatches, cols, 1);
-+        List<Item> retry = new ArrayList<>();
-+        for (Item it : items)
-+            if (!it.ok)
-+            {
-+                Item n = new Item();
-+                n.comp = it.comp;
-+                double u2 = util * 0.75;
-+                int shape[] = GenerateShapedPblocks.chooseShape(it.comp, u2, 1.0, maxRows, null);
-+                //keep the columns of the failed item (its variant role) if the shape fits there
-+                if (shape != null)
-+                {
-+                    n.j = it.j;
-+                    n.r = shape[1];
-+                    n.c = shape[2];
-+                    if (!GenerateShapedPblocks.fits(it.comp, u2, ResourceElement.starti, n.j, n.r, n.c))
-+                        n.j = shape[0];
-+                    retry.add(n);
-+                }
-+            }
-+        if (!retry.isEmpty())
-+        {
-+            System.out.println("Retrying " + retry.size() + " pblocks at utilization " + (util * 0.75));
-+            runRound(retry, util * 0.75, maxItems, Math.min(nBatches, retry.size()), cols, 2);
-+            items.addAll(retry);
-+        }
 +
 +        for (String name : comps.keySet())
 +        {
 +            boolean any = false;
-+            for (Item it : items)
++            for (Item it : new ArrayList<>(ALL))
 +                if (it.comp.dcpName.equals(name) && it.ok)
 +                {
 +                    any = true;
@@ -1108,6 +1089,28 @@ index 0000000..3b17fb0
 +                System.out.println("BATCH_FAILED " + name);
 +        }
 +        System.exit(0);
++    }
++
++    //new items (at the given utilization) for the failed items of a batch
++    static List<Item> retryItems(List<Item> batch, double u2)
++    {
++        List<Item> retry = new ArrayList<>();
++        for (Item it : batch)
++        {
++            if (it.ok)
++                continue;
++            int shape[] = GenerateShapedPblocks.chooseShape(it.comp, u2, 1.0, MAX_ROWS, null);
++            if (shape == null)
++                continue;
++            Item n = new Item();
++            n.comp = it.comp;
++            n.r = shape[1];
++            n.c = shape[2];
++            //keep the columns of the failed item (its variant role) if the shape fits there
++            n.j = GenerateShapedPblocks.fits(it.comp, u2, ResourceElement.starti, it.j, n.r, n.c) ? it.j : shape[0];
++            retry.add(n);
++        }
++        return retry;
 +    }
 +
 +    //packs the items into batches and runs them (items get pblock and ok status)
@@ -1177,6 +1180,7 @@ index 0000000..3b17fb0
 +        File root = new File(LocationParser.exposedDCPs + "batches_" + ProcessHandle.current().pid() + "_r" + round);
 +        root.mkdirs();
 +        List<Thread> threads = new ArrayList<>();
++        final int maxItemsF = maxItems;
 +        for (int b = 0; b < batches.size(); b++)
 +        {
 +            final int bb = b;
@@ -1184,7 +1188,20 @@ index 0000000..3b17fb0
 +            if (batch.isEmpty())
 +                continue;
 +            Thread th = new Thread(() -> {
-+                try { runBatch(new File(root, "b" + bb), batch); }
++                try
++                {
++                    runBatch(new File(root, "b" + bb), batch);
++                    if (round == 1)
++                    {
++                        List<Item> retry = retryItems(batch, util * 0.75);
++                        if (!retry.isEmpty())
++                        {
++                            System.out.println("Retrying " + retry.size() + " pblocks of batch " + bb + " at utilization " + (util * 0.75));
++                            ALL.addAll(retry);
++                            runRound(retry, util * 0.75, maxItemsF, 1, cols, 100 + bb);
++                        }
++                    }
++                }
 +                catch (Exception e) { e.printStackTrace(); }
 +            });
 +            th.start();

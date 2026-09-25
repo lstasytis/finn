@@ -60,7 +60,8 @@ _VOLATILE_ATTRS = {
 
 # bump when the way components are implemented changes (invalidates cached components)
 #   2: no BRAM cascades (synth_design -max_bram_cascade_height 1)
-FLOW_VERSION = 2
+#   3: RTL / single-cell HLS nodes synthesized from their HDL directly (no block design)
+FLOW_VERSION = 3
 
 
 def component_name(model, node, part, clk_ns):
@@ -258,14 +259,70 @@ def adapter_verilog(dcp, bd_name, n_in, n_out, in_widths, out_widths):
     )
 
 
-def iodma_adapter_verilog(dcp, node):
-    """Adapter for IODMA nodes: the HLS top module instantiated directly, its streams and
-    AXI channels mapped to elastic ports (channel data packed LSB first)."""
+_HDL_EXT = (".v", ".sv", ".vh", ".svh")
+
+
+def direct_sources(node):
+    """(HDL files, top module) of nodes that can be synthesized from their HDL directly (no
+    project, no block design): a single HLS IP cell, or RTL files with one module reference.
+    None for other nodes (e.g. MVAU with a weight streamer hierarchy), memory init files."""
+    cmds = getCustomOp(node).code_generation_ipi()
+    if len(cmds) == 1:
+        m = re.match(r"create_bd_cell -type ip -vlnv xilinx\.com:hls:(\w+):[\d.]+ \S+$", cmds[0])
+        if m:
+            vdir = hls_verilog_dir(node)
+            if not os.path.isdir(vdir):
+                return None
+            if any(not f.endswith(_HDL_EXT) for f in os.listdir(vdir)):
+                return None  # e.g. memory initialization files of HLS ROMs
+            return sorted(os.path.join(vdir, f) for f in os.listdir(vdir)), m.group(1)
+    files, top = [], None
+    for c in cmds:
+        if c.startswith("file mkdir"):
+            continue
+        m = re.match(r"add_files (?:-copy_to \S+ )?-norecurse (\S+)$", c)
+        if m and m.group(1).endswith(_HDL_EXT):
+            files.append(m.group(1))
+            continue
+        m = re.match(r"create_bd_cell -type module -reference (\S+) \S+$", c)
+        if m and top is None:
+            top = m.group(1)
+            continue
+        return None
+    return (files, top) if files and top else None
+
+
+def module_port_dirs(files, top):
+    """{port: 'input'/'output'} of a Verilog/SystemVerilog module."""
+    for f in files:
+        txt = open(f, errors="ignore").read()
+        m = re.search(r"\bmodule\s+%s\b(.*?)\bendmodule\b" % re.escape(top), txt, re.S)
+        if m:
+            body = re.sub(r"//[^\n]*|/\*.*?\*/|\(\*.*?\*\)", " ", m.group(1), flags=re.S)
+            return {
+                name: d
+                for d, name in re.findall(
+                    r"\b(input|output)\b(?:\s+(?:wire|reg|logic))?(?:\s*\[[^\]]*\])?\s*(\w+)",
+                    body,
+                )
+            }
+    raise AssertionError("module %s not found in %s" % (top, files))
+
+
+def direct_adapter_verilog(dcp, node, top, port_dirs):
+    """Adapter instantiating the node's top module directly: streams (and the AXI channels
+    of IODMAs) mapped to elastic ports, channel data packed LSB first, unused inputs tied to
+    0 (as in the block design), unused outputs left open."""
     s_in, s_out = stream_interfaces(node)
-    a_in, a_out = axi_channels(node)
-    ports = hls_top_ports(node)
+    a_in, a_out = axi_channels(node) if is_iodma(node) else ([], [])
+    try:
+        widths = {p: w for p, (_, w) in hls_top_ports(node).items()}
+    except Exception:
+        widths = {}
     decl = ["    input clk", "    input rst"]
     conns = ["        .ap_clk(clk)", "        .ap_rst_n(rst)"]
+    used = {"ap_clk", "ap_rst_n"}
+    ties = []
     k = 0
     for name, w in s_in:
         decl += [
@@ -273,12 +330,13 @@ def iodma_adapter_verilog(dcp, node):
             "    input pValidArray_%d" % k,
             "    output readyArray_%d" % k,
         ]
-        tw = ports[name + "_TDATA"][1]
+        tw = min(w, widths.get(name + "_TDATA", w))
         conns += [
-            "        .%s_TDATA(dataInArray_%d[%d:0])" % (name, k, min(w, tw) - 1),
+            "        .%s_TDATA(dataInArray_%d[%d:0])" % (name, k, tw - 1),
             "        .%s_TVALID(pValidArray_%d)" % (name, k),
             "        .%s_TREADY(readyArray_%d)" % (name, k),
         ]
+        used |= {name + "_TDATA", name + "_TVALID", name + "_TREADY"}
         k += 1
     for c in a_in:
         decl += [
@@ -289,11 +347,13 @@ def iodma_adapter_verilog(dcp, node):
         off = 0
         for sig, w in c["signals"]:
             conns.append("        .%s(dataInArray_%d[%d:%d])" % (sig, k, off + w - 1, off))
+            used.add(sig)
             off += w
         conns += [
             "        .%s(pValidArray_%d)" % (c["valid"], k),
             "        .%s(readyArray_%d)" % (c["ready"], k),
         ]
+        used |= {c["valid"], c["ready"]}
         k += 1
     k = 0
     for name, w in s_out:
@@ -302,15 +362,17 @@ def iodma_adapter_verilog(dcp, node):
             "    output validArray_%d" % k,
             "    input nReadyArray_%d" % k,
         ]
-        tw = ports[name + "_TDATA"][1]
+        tw = min(w, widths.get(name + "_TDATA", w))
         if tw < w:
             conns.append("        .%s_TDATA(dataOutArray_%d[%d:0])" % (name, k, tw - 1))
+            ties.append("    assign dataOutArray_%d[%d:%d] = 0;" % (k, w - 1, tw))
         else:
             conns.append("        .%s_TDATA(dataOutArray_%d)" % (name, k))
         conns += [
             "        .%s_TVALID(validArray_%d)" % (name, k),
             "        .%s_TREADY(nReadyArray_%d)" % (name, k),
         ]
+        used |= {name + "_TDATA", name + "_TVALID", name + "_TREADY"}
         k += 1
     for c in a_out:
         decl += [
@@ -321,42 +383,41 @@ def iodma_adapter_verilog(dcp, node):
         off = 0
         for sig, w in c["signals"]:
             conns.append("        .%s(dataOutArray_%d[%d:%d])" % (sig, k, off + w - 1, off))
+            used.add(sig)
             off += w
         conns += [
             "        .%s(validArray_%d)" % (c["valid"], k),
             "        .%s(nReadyArray_%d)" % (c["ready"], k),
         ]
+        used |= {c["valid"], c["ready"]}
         k += 1
-    # unpadded stream outputs: tie off the padding bits
-    ties = []
-    for k, (name, w) in enumerate(s_out):
-        tw = ports[name + "_TDATA"][1]
-        if tw < w:
-            ties.append("    assign dataOutArray_%d[%d:%d] = 0;" % (k, w - 1, tw))
+    for p, d in sorted(port_dirs.items()):
+        if p not in used and d == "input":
+            conns.append("        .%s(0)" % p)
     return (
-        "// DynaRapid adapter for an IODMA node, generated by finn.util.dynarapid\n"
+        "// DynaRapid adapter (direct instantiation), generated by finn.util.dynarapid\n"
         "// NOTE: rst is FINN's active-low ap_rst_n\n"
         "module %s (\n%s\n);\n%s    %s inst (\n%s\n    );\nendmodule\n"
-        % (
-            dcp,
-            ",\n".join(decl),
-            "".join(t + "\n" for t in ties),
-            hls_top_name(node),
-            ",\n".join(conns),
-        )
+        % (dcp, ",\n".join(decl), "".join(t + "\n" for t in ties), top, ",\n".join(conns))
     )
 
 
-def iodma_synth_tcl(node, dcp, comp_dir, synth_dir, part, threads):
-    """Vivado script for an IODMA component: HLS Verilog + adapter, OOC synthesis."""
+def direct_synth_tcl(node, dcp, comp_dir, synth_dir, part, threads, files, top):
+    """Vivado script for a directly synthesized component: HDL + adapter, OOC synthesis
+    (non-project: no project, IP catalog or block design)."""
     adapter = os.path.join(comp_dir, dcp + ".v")
     with open(adapter, "w") as f:
-        f.write(iodma_adapter_verilog(dcp, node))
+        f.write(direct_adapter_verilog(dcp, node, top, module_port_dirs(files, top)))
     rw_tcl = os.path.join(dynarapid_root(), "RapidWright", "tcl", "rapidwright.tcl")
     dcp_file = os.path.join(synth_dir, dcp + "_synth.dcp")
-    tcl = [
-        "set_param general.maxThreads %d" % threads,
-        "read_verilog [glob %s/*.v]" % hls_verilog_dir(node),
+    sv = [f for f in files if f.endswith((".sv", ".svh"))]
+    v = [f for f in files if f.endswith((".v", ".vh"))]
+    tcl = ["set_param general.maxThreads %d" % threads]
+    if sv:
+        tcl.append("read_verilog -sv [list %s]" % " ".join(sv))
+    if v:
+        tcl.append("read_verilog [list %s]" % " ".join(v))
+    tcl += [
         "read_verilog %s" % adapter,
         # no BRAM cascades: a cascade must stay within a clock region (DRC CASC-31), which
         # restricts the relocation of the component to clock-region aligned positions
@@ -463,8 +524,13 @@ def build_component(
     if not os.path.isfile(meta) and "synth" in stages:
         tcl_file = os.path.join(comp_dir, "synth.tcl")
         with open(tcl_file, "w") as f:
-            if is_iodma(node):
-                f.write(iodma_synth_tcl(node, dcp, comp_dir, synth_dir, part, vivado_threads))
+            direct = direct_sources(node)
+            if direct is not None:
+                f.write(
+                    direct_synth_tcl(
+                        node, dcp, comp_dir, synth_dir, part, vivado_threads, direct[0], direct[1]
+                    )
+                )
             else:
                 f.write(
                     synth_tcl(model, node, dcp, comp_dir, synth_dir, part, clk_ns, vivado_threads)
