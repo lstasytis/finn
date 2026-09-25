@@ -139,6 +139,8 @@ def dynarapid_zynq_build(
             # sites the shell cannot give to the accelerator (if any)
             blocked_tiles=blocked if os.path.isfile(blocked) else None,
             place_order=place_order,
+            # leftover overlaps are resolved by Vivado when the accelerator is assembled
+            rwroute_max_iter=30,
         )
 
     # components are in the library now: place, stitch and route the accelerator

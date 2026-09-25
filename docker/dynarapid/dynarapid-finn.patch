@@ -435,10 +435,10 @@ index 0000000..0f98bd8
 +    }
 +}
 diff --git a/src/ch/agsl/dynarapid/entry/GenerateRouted.java b/src/ch/agsl/dynarapid/entry/GenerateRouted.java
-index 232a4d8..c600ee9 100755
+index 232a4d8..1626826 100755
 --- a/src/ch/agsl/dynarapid/entry/GenerateRouted.java
 +++ b/src/ch/agsl/dynarapid/entry/GenerateRouted.java
-@@ -53,14 +53,54 @@ public class GenerateRouted {
+@@ -53,14 +53,67 @@ public class GenerateRouted {
      public static boolean routeDesignPartially(Design design, Path finalLocation)
      {
          StringUtils.printIntro("Started partial routing using RWRouter");
@@ -465,7 +465,20 @@ index 232a4d8..c600ee9 100755
 +        if(mode != null && mode.contains("timing"))
 +            design = PartialRouter.routeDesignPartialTimingDriven(design, null, softPreserve);
 +        else
-+            design = PartialRouter.routeDesignPartialNonTimingDriven(design, null, softPreserve);
++        {
++            //DYNARAPID_RWROUTE_MAX_ITER: iteration limit of RWRoute (default 100). A few overlaps
++            //can persist for dozens of iterations; when the design is routed again afterwards
++            //(e.g. assembled into a shell by Vivado) a lower limit saves that time
++            java.util.List<String> a = new java.util.ArrayList<>(java.util.Arrays.asList(
++                "--fixBoundingBox", "--useUTurnNodes", "--nonTimingDriven", "--verbose"));
++            String it = System.getenv("DYNARAPID_RWROUTE_MAX_ITER");
++            if(it != null && !it.isEmpty())
++            {
++                a.add("--maxIterations");
++                a.add(it);
++            }
++            design = PartialRouter.routeDesignWithUserDefinedArguments(design, a.toArray(new String[0]), null, softPreserve);
++        }
 +        removeEmptyBusNets(design);
          design.writeCheckpoint(finalLocation);
          return true;

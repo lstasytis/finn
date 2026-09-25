@@ -315,6 +315,7 @@ def dynarapid_pnr(
     place_region=None,
     blocked_tiles=None,
     place_order=None,
+    rwroute_max_iter=None,
 ):
     """Run the full DynaRapid flow on a FINN dataflow model; returns a result dict.
 
@@ -375,6 +376,8 @@ def dynarapid_pnr(
         env["DYNARAPID_BLOCKED_TILES"] = blocked_tiles
     if place_order is not None:
         env["DYNARAPID_PLACE_ORDER"] = place_order
+    if rwroute_max_iter is not None:
+        env["DYNARAPID_RWROUTE_MAX_ITER"] = str(rwroute_max_iter)
     args = ["-f", dot_file, "-part", PART_TO_DYNARAPID[part], "-placer", placer]
     args += ["-threads", str(max(1, workers))]
     if no_clock:
