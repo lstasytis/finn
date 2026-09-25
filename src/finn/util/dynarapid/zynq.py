@@ -123,7 +123,7 @@ def dynarapid_zynq_build(
 
     blocked = os.path.join(shell_dir, "blocked_tiles.txt")
 
-    def accel_job():
+    def accel_job(place_order=None):
         return dynarapid_pnr(
             accel,
             os.path.join(out_dir, "dynarapid"),
@@ -138,11 +138,18 @@ def dynarapid_zynq_build(
             place_region="0,100000,%d,100000" % SHELL_STRIP_COLS,
             # sites the shell cannot give to the accelerator (if any)
             blocked_tiles=blocked if os.path.isfile(blocked) else None,
+            place_order=place_order,
         )
 
     # components are in the library now: place, stitch and route the accelerator
     t0 = time.time()
     accel_res = accel_job()
+    log = os.path.join(out_dir, "dynarapid", "generate_design.log")
+    if accel_res["status"] == "dynarapid_failed" and "Could not find placement" in open(log).read():
+        # the greedy placer in graph order can fill the few column bands that large
+        # components (BRAMs) can go to with small ones: place the largest ones first
+        res["place_retry"] = "size"
+        accel_res = accel_job(place_order="size")
     res["stitch_s"] = time.time() - t0
     res["accel"] = {k: v for k, v in accel_res.items() if k != "components"}
     res["accel_components"] = accel_res.get("components")

@@ -58,6 +58,11 @@ _VOLATILE_ATTRS = {
 }
 
 
+# bump when the way components are implemented changes (invalidates cached components)
+#   2: no BRAM cascades (synth_design -max_bram_cascade_height 1)
+FLOW_VERSION = 2
+
+
 def component_name(model, node, part, clk_ns):
     """Content-addressed component name: <optype><hash>, no underscores.
 
@@ -65,7 +70,7 @@ def component_name(model, node, part, clk_ns):
     the first "_I", "_J", ... so the component name itself must not contain '_'.
     """
     h = hashlib.sha256()
-    h.update(("%s|%s|%s" % (node.op_type, part, clk_ns)).encode())
+    h.update(("%s|%s|%s|%d" % (node.op_type, part, clk_ns, FLOW_VERSION)).encode())
     for a in sorted(node.attribute, key=lambda a: a.name):
         if a.name in _VOLATILE_ATTRS:
             continue
@@ -353,7 +358,10 @@ def iodma_synth_tcl(node, dcp, comp_dir, synth_dir, part, threads):
         "set_param general.maxThreads %d" % threads,
         "read_verilog [glob %s/*.v]" % hls_verilog_dir(node),
         "read_verilog %s" % adapter,
-        "synth_design -top %s -part %s -mode out_of_context" % (dcp, part),
+        # no BRAM cascades: a cascade must stay within a clock region (DRC CASC-31), which
+        # restricts the relocation of the component to clock-region aligned positions
+        "synth_design -top %s -part %s -mode out_of_context -max_bram_cascade_height 1"
+        % (dcp, part),
         "write_checkpoint -force %s" % dcp_file,
         "write_edif -force %s" % dcp_file.replace(".dcp", ".edf"),
         "report_utilization -packthru -file %s" % os.path.join(synth_dir, dcp + ".util"),
@@ -404,7 +412,10 @@ def synth_tcl(model, node, dcp, comp_dir, synth_dir, part, clk_ns, threads):
         # synthesize the whole block design in one global run
         "set_property synth_checkpoint_mode None [get_files %s]" % bd_file,
         "generate_target all [get_files %s]" % bd_file,
-        "synth_design -top %s -part %s -mode out_of_context" % (dcp, part),
+        # no BRAM cascades: a cascade must stay within a clock region (DRC CASC-31), which
+        # restricts the relocation of the component to clock-region aligned positions
+        "synth_design -top %s -part %s -mode out_of_context -max_bram_cascade_height 1"
+        % (dcp, part),
         "write_checkpoint -force %s" % dcp_file,
         "write_edif -force %s" % dcp_file.replace(".dcp", ".edf"),
         "report_utilization -packthru -file %s" % os.path.join(synth_dir, dcp + ".util"),

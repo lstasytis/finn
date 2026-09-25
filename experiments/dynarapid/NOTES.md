@@ -182,3 +182,130 @@ s = 8: -2.50 ns (Vivado -0.02). s = 16: over the HLS limit. See `README.md`.
 5. Cold-library cost: about 2-4 min fixed per component. On large devices, memory
    (about 10 GB per job) limits parallelism.
 6. Add e2e tests (`tests/end2end`, TFC/CNV with `dynarapid_pnr=True`). None exist yet.
+
+---
+
+# Progress log
+
+## 2026-09-25: ZCU104, whole-accelerator DynaRapid flow with a pre-implemented shell
+
+Target: ZCU104 (xczu7ev-ffvc1156-2-e), 5 ns, 32 cores / 125 GB, Vivado 2023.1. Models from
+`prepare_model.py --part xczu7ev-ffvc1156-2-e` (same reduced foldings as before).
+Outputs in `$FINN_BUILD_DIR/dr_zcu104` (not committed).
+
+### Where the Vivado bitfile flow spends its time (TFC, ZCU104, 700 s)
+
+`run_bitfile_experiment.py` now records the wall-clock time of every ZynqBuild stage:
+
+| stage | s |
+|---|---|
+| IODMA HLS (two partitions, sequential) | 43 + 44 |
+| stitched IP packaging (idma, kernel, odma) | 26 + 45 + 25 |
+| MakeZYNQProject: block design, OOC synthesis of its IPs (SmartConnect 108 s, ...), top synthesis 31 s, implementation (place 96 s, route 41 s, bitstream 24 s) | 516 |
+| total | 700 |
+
+The kernel-only DynaRapid mode of the previous session cannot win here: it only removes the
+kernel's share of place and route, the shell block design, its synthesis and a global
+implementation remain.
+
+### New flow (`ZynqBuild(dynarapid={...})`, default `shell=True`; `finn.util.dynarapid.zynq`)
+
+1. ZynqBuild partitions as usual (IODMA insertion, DWCs, partitioning); IP generation of the
+   partitions runs concurrently. **No stitched IP is created**, and HLS nodes identical to
+   ones of an earlier build (same component hash) reuse their IP (`<dcp>.ip.json` in the
+   library).
+2. The partitions are merged into one accelerator graph *including the IODMAs*. IODMAs are
+   DynaRapid components too: the HLS Verilog is synthesized directly (no block design), and
+   each AXI channel (AW/W/B/AR/R of `m_axi_gmem` and `s_axi_control`) is one elastic channel
+   (data = packed payload, valid/ready = the channel handshake). The IODMA nodes are called
+   `idma<i>` / `odma<j>` in the dot file, so their unconnected AXI channels become top-level
+   ports with fixed names.
+3. In parallel: the component library (all components concurrently, cached) and the **shell**
+   (`finn.util.dynarapid.shell`, cached per board / clock / IODMA interface widths):
+   PS + AXI interconnect + SmartConnect + pass-through "bridge" modules named `idma0`,
+   `odma0` (AXI interfaces towards the interconnects, the packed channels towards the
+   accelerator) + one accelerator cell. The shell is implemented in a pblock below the PS and
+   in a 3-column strip next to its fabric interface (EXCLUDE_PLACEMENT, CONTAIN_ROUTING),
+   with a placeholder in the accelerator cell; afterwards the placeholder is turned into a
+   black box, its boundary nets are unrouted and the static design is locked. The block
+   design's `.hwh` is the shell's, with the IODMA names and address map the FINN driver uses.
+4. DynaRapid places, stitches and routes the accelerator outside the shell region
+   (`DYNARAPID_PLACE_REGION`).
+5. Assembly (Vivado): `open_checkpoint` shell, `read_checkpoint -cell` accelerator,
+   `route_design` (only boundary + clock nets are unrouted), `write_bitstream`.
+
+Only the assembly touches the full design; the accelerator is never placed or routed by
+Vivado as a whole.
+
+#### Things that did not work / had to be fixed on the way
+
+* **DynaRapid map on the xczu7ev**: the map builder dropped every row in which one column
+  has no site; the PS is shorter than the die, so 240 of 360 CLB rows were dropped. It now
+  drops the (27) columns below the PS instead when that keeps more of the map (360 x 43).
+* Hard-coded sites that do not exist on the xczu7ev: HD.CLK_SRC `BUFGCTRL_X0Y2` (component
+  runs), `BUFGCE_X0Y8` (OOC designs), the greedy placer's default center `SLICE_X67Y624`.
+  Replaced by device-derived choices. Relocation sites outside the map (below the PS) are
+  skipped by the database generator.
+* **DFX for the shell** (accelerator as a reconfigurable partition): implements fine, but
+  pblock snapping removes ~5 full-height columns (next to clocking/configuration columns)
+  from the partition, and components with BRAMs can only be relocated vertically (the column
+  pattern repeats rarely): the IODMA had 70 anchors, all overlapping a removed column.
+  Replaced by the placeholder approach above (no DFX license or rules involved).
+* Placeholder with one register driving all outputs: Vivado routes nets from a common
+  driver through shared site pins, which is illegal once they become separate nets
+  (`Constraints 18-608`). One register per output bit.
+* A black box can not go through `opt_design` outside DFX (DRC INBB-3), hence the placeholder.
+
+### Results
+
+**TFC** (17 components incl. IODMAs):
+
+| | Vivado ZynqBuild | DynaRapid flow |
+|---|---|---|
+| total | 700 s | 672 s with a cold shell (474 s, built once), about 200 s with the shell cached |
+| of which | 184 s IODMA HLS + stitched IP, 516 s shell project + synthesis + implementation | 55 s IODMA HLS (parallel), 6 s DynaRapid stitching, 136 s assembly (open shell 30 s, read accelerator 15 s, route 50 s, reports 4 s, bitstream 24 s, final checkpoint 12 s) |
+| WNS | +0.943 ns | +0.769 ns |
+| routing errors | 0 | 0 |
+
+**Functional check** (`verify_accel.py`, new): xsim testbench with an AXI-Lite master
+programming the IODMAs like the FINN driver and AXI memory models; the post-route netlist of
+the DynaRapid accelerator plus the shell's bridge modules versus FINN's regular stitched IP
+of the same accelerator graph (RTL). TFC, 16 frames of random input: all output bytes
+identical (156.0 vs 155.96 us simulated). This covers the IODMA adapters, the AXI channel
+packing in the bridges and the DynaRapid routing.
+
+**CNV**: all 61 components build on the ZCU104 and the design places (it did not fit the
+KV260). Open: RWRoute leaves 5 nets unrouted (congestion) and WNS is -2.9 ns. The WNS comes
+from inside one component: the shape chooser made BRAM-heavy MVAUs very tall and narrow
+(21 BRAMs -> 105 x 2 map cells), whose internal BRAM-to-logic wires miss 5 ns by ~3 ns (its
+route_design alone ran 16 min trying to close timing). The shape score is now area x
+sqrt(aspect deviation) (was area x deviation: 100 x 34 for 33 BRAMs, too wide to place;
+then area x deviation^0.25: too tall).
+
+### Cold component builds
+
+Per component (all in parallel): synthesis 80-100 s, pblock place and route 150-300 s
+(`place_design` alone ~80 s even for small components: fixed per-phase overhead on the
+xczu7ev), database 3-15 s. ~10% of first attempts (target utilization 0.8) fail, and a failed
+attempt costs up to ~6 min of congested routing before the next one starts; the slowest
+component bounds the build. Now hedged: if an attempt runs longer than 150 s
+(`DYNARAPID_HEDGE_S`), the next, less dense attempt starts alongside it and the densest
+success is kept. `place_design/route_design -directive Quick` was tried: slower and with
+routing errors.
+
+### DynaRapid upstream: where did library generation go?
+
+Library generation (GeneratePblocks, GenerateDatabase, PblockGenerator, the synthesizer
+package) was removed from https://github.com/AGS-L/DynaRapid on 2026-03-20 in commits
+`9fb2322a5` / `cfb0f2bcd` ("clean up repo"); since then only prebuilt library zips (xck26,
+xcvu13p, xczu3eg, Dynamatic components) are released (v0.2.0, v0.3.0). No reason is given
+anywhere (commits, README, issues). There is no other branch; the 4 forks and the other AGS-L
+repos (incl. DynaRapid-PYNQ-Video-pipeline) do not have it either, and nothing is in
+EPFL-LAP/dynamatic. The last commit with the full generator is `b74e30655` (2025-11-18),
+which is what the restored generator here is based on. `cf79165` (our pin) is still HEAD.
+So there is nothing newer to pull in. Worth asking the author (Andrea Guerrieri,
+andrea.guerrieri@ieee.org / @epfl.ch; co-authors at AMD: Chris Lavin, Eddie Hung):
+why the generator was removed, whether a newer internal version exists (library format of
+v0.2.0+, target-clock / streaming features), and whether a PR restoring it would be
+accepted. RapidWright's own pre-implemented module flow (BlockStitcher, PBlockGenerator) is
+the maintained alternative for component generation.

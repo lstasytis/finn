@@ -181,12 +181,14 @@ def dynarapid_pnr(
     pblock_mode="fast",
     place_region=None,
     blocked_tiles=None,
+    place_order=None,
 ):
     """Run the full DynaRapid flow on a FINN dataflow model; returns a result dict.
 
     place_region: "top,bottom,left,right" DynaRapid map rows/columns the components are
     placed in (clipped to the map), default the whole map.
     blocked_tiles: file with tile names (one per line) the components must not cover.
+    place_order: None (graph order) or "size" (largest components first).
 
     no_clock: leave clk as a plain port (for embedding into a shell), otherwise DynaRapid
     drives it through a BUFGCE and routes the clock itself."""
@@ -238,6 +240,8 @@ def dynarapid_pnr(
         env["DYNARAPID_PLACE_REGION"] = place_region
     if blocked_tiles is not None:
         env["DYNARAPID_BLOCKED_TILES"] = blocked_tiles
+    if place_order is not None:
+        env["DYNARAPID_PLACE_ORDER"] = place_order
     args = ["-f", dot_file, "-part", PART_TO_DYNARAPID[part], "-placer", placer]
     args += ["-threads", str(max(1, workers))]
     if no_clock:

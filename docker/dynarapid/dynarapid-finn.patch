@@ -762,7 +762,7 @@ index 9577109..9fd444e 100755
          //////////////////////////////////////////////
  
 diff --git a/src/ch/agsl/dynarapid/modules/Pblock.java b/src/ch/agsl/dynarapid/modules/Pblock.java
-index e07a5ce..4bdcc21 100755
+index e07a5ce..a677aaf 100755
 --- a/src/ch/agsl/dynarapid/modules/Pblock.java
 +++ b/src/ch/agsl/dynarapid/modules/Pblock.java
 @@ -114,7 +114,7 @@ public class Pblock implements Serializable
@@ -783,7 +783,7 @@ index e07a5ce..4bdcc21 100755
                      //Adds DSP / BRAM in the pblock only when it will actually be used.
                          if(i % 5 == 4)
                          {
-@@ -217,6 +217,17 @@ public class Pblock implements Serializable
+@@ -217,6 +217,68 @@ public class Pblock implements Serializable
          return true;
      }
  
@@ -795,13 +795,64 @@ index e07a5ce..4bdcc21 100755
 +    public static HashSet<Site> validPlacements(Module m, ModuleInst mi) {
 +        HashSet<Site> valid = new HashSet<>(m.calculateAllValidPlacements(m.getDevice()));
 +        valid.retainAll(new HashSet<>(mi.getAllValidPlacements()));
-+        return valid;
++        return removeCascadeSplits(m, valid);
++    }
++
++    //dedicated cascade outputs of RAMB and DSP sites
++    static boolean isCascadeOutPin(String pin) {
++        return pin.startsWith("CASDO") || pin.startsWith("CASO") || pin.startsWith("ACOUT")
++            || pin.startsWith("BCOUT") || pin.startsWith("PCOUT") || pin.startsWith("CARRYCASCOUT")
++            || pin.startsWith("MULTSIGNOUT");
++    }
++
++    /*
++     * BRAM / DSP cascades (dedicated connections between vertically adjacent sites) must not
++     * cross a clock region boundary (DRC CASC-31). Relocation checks do not know this: an anchor
++     * is dropped if it would put cascaded sites of the module into different clock regions.
++     */
++    static HashSet<Site> removeCascadeSplits(Module m, HashSet<Site> valid) {
++        java.util.List<java.util.List<com.xilinx.rapidwright.design.SiteInst>> groups = new java.util.ArrayList<>();
++        for (com.xilinx.rapidwright.design.Net n : m.getNets()) {
++            //a cascade connection: net driven by a cascade output, to the next site(s)
++            com.xilinx.rapidwright.design.SitePinInst src = n.getSource();
++            if (src == null || !isCascadeOutPin(src.getName()))
++                continue;
++            java.util.Set<com.xilinx.rapidwright.design.SiteInst> g = new java.util.HashSet<>();
++            for (com.xilinx.rapidwright.design.SitePinInst p : n.getPins())
++                g.add(p.getSiteInst());
++            if (g.size() > 1)
++                groups.add(new java.util.ArrayList<>(g));
++        }
++        if (groups.isEmpty())
++            return valid;
++        HashSet<Site> res = new HashSet<>();
++        for (Site anchor : valid) {
++            boolean ok = true;
++            for (java.util.List<com.xilinx.rapidwright.design.SiteInst> g : groups) {
++                com.xilinx.rapidwright.device.ClockRegion cr = null;
++                for (com.xilinx.rapidwright.design.SiteInst si : g) {
++                    Site s = m.getCorrespondingSite(si, anchor);
++                    com.xilinx.rapidwright.device.ClockRegion c = (s == null) ? null : s.getTile().getClockRegion();
++                    if (c == null || (cr != null && c != cr)) {
++                        ok = false;
++                        break;
++                    }
++                    cr = c;
++                }
++                if (!ok)
++                    break;
++            }
++            if (ok)
++                res.add(anchor);
++        }
++        System.out.println("Cascades: " + groups.size() + " groups, " + res.size() + " of " + valid.size() + " placements keep them within a clock region");
++        return res;
 +    }
 +
      public void setAnchorPosition() {
          Design design = new Design("test", GenerateDesign.fpga_part);
  		EDIFNetlist netlist = design.getNetlist();
-@@ -228,7 +239,7 @@ public class Pblock implements Serializable
+@@ -228,7 +290,7 @@ public class Pblock implements Serializable
          Module m = new Module(Design.readCheckpoint(dcp), meta);
          netlist.migrateCellAndSubCells(m.getNetlist().getTopCell(), true);
          ModuleInst m1 = design.createModuleInst("m1", m);
@@ -888,10 +939,10 @@ index c460620..110dfd4 100755
  
 diff --git a/src/ch/agsl/dynarapid/pblockgenerator/GenerateFastPblocks.java b/src/ch/agsl/dynarapid/pblockgenerator/GenerateFastPblocks.java
 new file mode 100644
-index 0000000..8649129
+index 0000000..9cf5cbf
 --- /dev/null
 +++ b/src/ch/agsl/dynarapid/pblockgenerator/GenerateFastPblocks.java
-@@ -0,0 +1,277 @@
+@@ -0,0 +1,328 @@
 +/*
 +* DynaRapid
 +*
@@ -903,6 +954,7 @@ index 0000000..8649129
 +
 +import ch.agsl.dynarapid.GenerateDesign;
 +import ch.agsl.dynarapid.entry.Start;
++import ch.agsl.dynarapid.map.MapElement;
 +import ch.agsl.dynarapid.map.ResourceElement;
 +import ch.agsl.dynarapid.modules.Component;
 +import ch.agsl.dynarapid.modules.Pblock;
@@ -980,77 +1032,11 @@ index 0000000..8649129
 +            libDir.resolve(name + suffix).toFile().delete();
 +    }
 +
-+    static void cancel(Pblock pblock, File workDir, int[] status, int k)
++    //Hedged search for one pblock (shapes avoiding the excluded map columns); returns the
++    //name of the kept pblock or null
++    static String hedged(Component comp, Path libDir, File workDir, double util, int tries,
++            int parallel, int maxRows, boolean[] excluded) throws Exception
 +    {
-+        System.out.println("Cancelling " + pblock.pblockName);
-+        status[k] = -2;
-+        VivadoRun.kill(workDir.toPath().resolve(pblock.pblockName + "_fast.tcl").toString());
-+    }
-+
-+    //Implements the component in the given pblock; returns the status of check()
-+    static int attempt(Component comp, Pblock pblock, Path libDir, File workDir, double util)
-+    {
-+        try
-+        {
-+            StringUtils.printIntro("Attempt: " + pblock.pblockName + " (target utilization " + util + ")");
-+            Path tclLoc = workDir.toPath().resolve(pblock.pblockName + "_fast.tcl");
-+            Path logLoc = workDir.toPath().resolve(pblock.pblockName + "_fast.report");
-+            try (FileWriter w = new FileWriter(tclLoc.toFile()))
-+            {
-+                w.write(tcl(comp, pblock, libDir));
-+            }
-+            VivadoRun.vivadoRun(tclLoc.toString(), logLoc.toString(), false, "fast pblock: " + pblock.pblockName, 0);
-+            int status = check(logLoc);
-+            System.out.println("Pblock status: " + status + " for " + pblock.pblockName);
-+            if (status == 0)
-+                Files.copy(logLoc, libDir.resolve(pblock.pblockName + ".report"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-+            return status;
-+        }
-+        catch (Exception e)
-+        {
-+            e.printStackTrace();
-+            return -1;
-+        }
-+    }
-+
-+    public static void main(String args[]) throws Exception
-+    {
-+        if (StringUtils.findInArray("-m", args) == -1)
-+        {
-+            System.out.println("<usage>: java GenerateFastPblocks -m <component> [-part <part>] [-util <u>] [-tries <t>] [-parallel <n>]");
-+            return;
-+        }
-+        if (StringUtils.findInArray("-part", args) != -1)
-+            GenerateDesign.setPart(args[StringUtils.findInArray("-part", args) + 1]);
-+        if (!Start.start())
-+            return;
-+
-+        String dcpName = args[StringUtils.findInArray("-m", args) + 1];
-+        double util = 0.6;
-+        int tries = 5;
-+        if (StringUtils.findInArray("-util", args) != -1)
-+            util = Double.parseDouble(args[StringUtils.findInArray("-util", args) + 1]);
-+        if (StringUtils.findInArray("-tries", args) != -1)
-+            tries = Integer.parseInt(args[StringUtils.findInArray("-tries", args) + 1]);
-+
-+        if (!new File(LocationParser.vhdlSynthDCPs + dcpName + "_synth.dcp").exists()
-+                && !new File(LocationParser.genericSynthDCPs + dcpName + "_synth.dcp").exists())
-+        {
-+            System.out.println("ERROR: Could not find synthesized DCP for the module: " + dcpName);
-+            System.exit(1);
-+        }
-+
-+        Component comp = new Component(dcpName, false);
-+        Path libDir = LocationParser.getPlacedRoutedDCPsPath().resolve(dcpName);
-+        libDir.toFile().mkdirs();
-+        File workDir = new File(LocationParser.exposedDCPs + dcpName);
-+        workDir.mkdirs();
-+        int maxRows = ResourceElement.endi - ResourceElement.starti + 1;
-+
-+        int parallel = 1;
-+        if (StringUtils.findInArray("-parallel", args) != -1)
-+            parallel = Integer.parseInt(args[StringUtils.findInArray("-parallel", args) + 1]);
-+
 +        //Hedged attempts at decreasing target utilization: `parallel` attempts start at once;
 +        //whenever the least dense running attempt has not finished after the hedge delay
 +        //(DYNARAPID_HEDGE_S, default 150 s: a congested pblock can keep the router busy for
@@ -1122,7 +1108,7 @@ index 0000000..8649129
 +                    Pblock pblock = null;
 +                    while (pblock == null && !exhausted)
 +                    {
-+                        int shape[] = GenerateShapedPblocks.chooseShape(comp, u, 1.0, maxRows);
++                        int shape[] = GenerateShapedPblocks.chooseShape(comp, u, 1.0, maxRows, excluded);
 +                        if (shape == null)
 +                        {
 +                            System.out.println("No pblock in the generation region fits the component at utilization " + u);
@@ -1162,7 +1148,123 @@ index 0000000..8649129
 +        if (best != -1)
 +        {
 +            System.out.println("Kept " + att.get(best).pblockName);
-+            System.out.println("Generated 1 pblock(s) for " + dcpName);
++            return att.get(best).pblockName;
++        }
++        return null;
++    }
++
++    static void cancel(Pblock pblock, File workDir, int[] status, int k)
++    {
++        System.out.println("Cancelling " + pblock.pblockName);
++        status[k] = -2;
++        VivadoRun.kill(workDir.toPath().resolve(pblock.pblockName + "_fast.tcl").toString());
++    }
++
++    //Implements the component in the given pblock; returns the status of check()
++    static int attempt(Component comp, Pblock pblock, Path libDir, File workDir, double util)
++    {
++        try
++        {
++            StringUtils.printIntro("Attempt: " + pblock.pblockName + " (target utilization " + util + ")");
++            Path tclLoc = workDir.toPath().resolve(pblock.pblockName + "_fast.tcl");
++            Path logLoc = workDir.toPath().resolve(pblock.pblockName + "_fast.report");
++            try (FileWriter w = new FileWriter(tclLoc.toFile()))
++            {
++                w.write(tcl(comp, pblock, libDir));
++            }
++            VivadoRun.vivadoRun(tclLoc.toString(), logLoc.toString(), false, "fast pblock: " + pblock.pblockName, 0);
++            int status = check(logLoc);
++            System.out.println("Pblock status: " + status + " for " + pblock.pblockName);
++            if (status == 0)
++                Files.copy(logLoc, libDir.resolve(pblock.pblockName + ".report"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
++            return status;
++        }
++        catch (Exception e)
++        {
++            e.printStackTrace();
++            return -1;
++        }
++    }
++
++    public static void main(String args[]) throws Exception
++    {
++        if (StringUtils.findInArray("-m", args) == -1)
++        {
++            System.out.println("<usage>: java GenerateFastPblocks -m <component> [-part <part>] [-util <u>] [-tries <t>] [-parallel <n>]");
++            return;
++        }
++        if (StringUtils.findInArray("-part", args) != -1)
++            GenerateDesign.setPart(args[StringUtils.findInArray("-part", args) + 1]);
++        if (!Start.start())
++            return;
++
++        String dcpName = args[StringUtils.findInArray("-m", args) + 1];
++        double util = 0.6;
++        int tries = 5;
++        if (StringUtils.findInArray("-util", args) != -1)
++            util = Double.parseDouble(args[StringUtils.findInArray("-util", args) + 1]);
++        if (StringUtils.findInArray("-tries", args) != -1)
++            tries = Integer.parseInt(args[StringUtils.findInArray("-tries", args) + 1]);
++
++        if (!new File(LocationParser.vhdlSynthDCPs + dcpName + "_synth.dcp").exists()
++                && !new File(LocationParser.genericSynthDCPs + dcpName + "_synth.dcp").exists())
++        {
++            System.out.println("ERROR: Could not find synthesized DCP for the module: " + dcpName);
++            System.exit(1);
++        }
++
++        Component comp = new Component(dcpName, false);
++        Path libDir = LocationParser.getPlacedRoutedDCPsPath().resolve(dcpName);
++        libDir.toFile().mkdirs();
++        File workDir = new File(LocationParser.exposedDCPs + dcpName);
++        workDir.mkdirs();
++        int maxRows = ResourceElement.endi - ResourceElement.starti + 1;
++
++        int parallel = 1;
++        if (StringUtils.findInArray("-parallel", args) != -1)
++            parallel = Integer.parseInt(args[StringUtils.findInArray("-parallel", args) + 1]);
++
++        //Components with BRAMs / DSPs can usually only be relocated vertically (the column
++        //pattern of the fabric rarely repeats): several variants at disjoint columns
++        //(DYNARAPID_VARIANTS, default 2) give the placer the choice between column bands.
++        int variants = 1;
++        if (comp.dcp.bram > 0 || comp.dcp.dsp > 0)
++            variants = System.getenv("DYNARAPID_VARIANTS") == null ? 2 : Integer.parseInt(System.getenv("DYNARAPID_VARIANTS"));
++        int cols = MapElement.map.get(0).size();
++        java.util.List<boolean[]> masks = new java.util.ArrayList<>();
++        boolean[] used = new boolean[cols];
++        for (int v = 0; v < variants; v++)
++        {
++            int shape[] = GenerateShapedPblocks.chooseShape(comp, util, 1.0, maxRows, v == 0 ? null : used);
++            if (shape == null)
++                break;
++            masks.add(v == 0 ? null : used.clone());
++            for (int j = shape[0]; j < shape[0] + shape[2] && j < cols; j++)
++                used[j] = true;
++        }
++        final double util0 = util;
++        final int tries0 = tries, parallel0 = parallel;
++        String kept[] = new String[masks.size()];
++        java.util.List<Thread> vthreads = new java.util.ArrayList<>();
++        for (int v = 0; v < masks.size(); v++)
++        {
++            final int vv = v;
++            Thread th = new Thread(() -> {
++                try { kept[vv] = hedged(comp, libDir, workDir, util0, tries0, parallel0, maxRows, masks.get(vv)); }
++                catch (Exception e) { e.printStackTrace(); }
++            });
++            th.start();
++            vthreads.add(th);
++        }
++        for (Thread th : vthreads)
++            th.join();
++        int n = 0;
++        for (String k : kept)
++            if (k != null)
++                n++;
++        if (n > 0)
++        {
++            System.out.println("Generated " + n + " pblock(s) for " + dcpName);
 +            System.exit(0);
 +        }
 +        System.out.println("Generated 0 pblock(s) for " + dcpName);
@@ -1171,10 +1273,10 @@ index 0000000..8649129
 +}
 diff --git a/src/ch/agsl/dynarapid/pblockgenerator/GenerateShapedPblocks.java b/src/ch/agsl/dynarapid/pblockgenerator/GenerateShapedPblocks.java
 new file mode 100644
-index 0000000..fcc21e7
+index 0000000..13d4d9b
 --- /dev/null
 +++ b/src/ch/agsl/dynarapid/pblockgenerator/GenerateShapedPblocks.java
-@@ -0,0 +1,165 @@
+@@ -0,0 +1,174 @@
 +/*
 +* DynaRapid
 +*
@@ -1214,6 +1316,12 @@ index 0000000..fcc21e7
 +
 +    static int[] chooseShape(Component comp, double util, double aspect, int maxRows)
 +    {
++        return chooseShape(comp, util, aspect, maxRows, null);
++    }
++
++    //excluded: map columns the shape must not cover (null: none)
++    static int[] chooseShape(Component comp, double util, double aspect, int maxRows, boolean[] excluded)
++    {
 +        ResourceElement need = comp.dcp;
 +        //CLB resources get the utilization headroom. DSP / BRAM sites are used exactly on the
 +        //first attempt (util >= 0.8); retries at lower utilization also add headroom for them,
@@ -1231,6 +1339,8 @@ index 0000000..fcc21e7
 +        for (int j = ResourceElement.startj; j <= ResourceElement.endj; j++)
 +            for (int c = 1; j + c - 1 <= ResourceElement.endj; c++)
 +            {
++                if (excluded != null && excluded[j + c - 1])
++                    break;
 +                //smallest number of rows (multiple of the increment factor) that fits
 +                for (int r = inc; r <= maxRows; r += inc)
 +                {
@@ -1238,14 +1348,15 @@ index 0000000..fcc21e7
 +                    if (!re.isPblockAppropriate(scaled))
 +                        continue;
 +
-+                    //area plus a (weak) penalty for deviating from the requested aspect ratio
-+                    //(height / width). The area dominates: components with many BRAMs / DSPs
-+                    //need tall shapes over few hard-block columns, a square shape around the
-+                    //same number of sites covers a large part of the device (e.g. a CNV MVAU
-+                    //with 33 BRAMs: 100 x 34 map cells square vs. 170 x 3 tall)
++                    //area times the square root of the deviation from the requested aspect
++                    //ratio (height / width). Components with many BRAMs / DSPs need to span
++                    //several hard-block columns or be tall: a linear penalty makes them
++                    //square and very wide (CNV MVAU with 33 BRAMs: 100 x 34 map cells), a
++                    //weak one very tall and narrow (21 BRAMs: 105 x 2), which misses timing
++                    //by ~3 ns at 5 ns because of the long wires between BRAMs and logic
 +                    double ratio = r / (c * COL_WIDTH);
 +                    double dev = Math.max(ratio / aspect, aspect / ratio);
-+                    double score = r * c * COL_WIDTH * Math.pow(dev, 0.25);
++                    double score = r * c * COL_WIDTH * Math.sqrt(dev);
 +                    if (score < bestScore)
 +                    {
 +                        bestScore = score;
