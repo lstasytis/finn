@@ -64,8 +64,9 @@ _VOLATILE_ATTRS = {
 #   2: no BRAM cascades (synth_design -max_bram_cascade_height 1)
 #   3: RTL / single-cell HLS nodes synthesized from their HDL directly (no block design)
 #   4: batch split drops LUT route-through cells (Vivado lost their site), split sanity check
+#   5: batch split drops only 5LUT route-through cells (6LUT ones are kept)
 # the Vivado release is part of the key as well (tools.vivado_version)
-FLOW_VERSION = 4
+FLOW_VERSION = 5
 
 
 def component_name(model, node, part, clk_ns):

@@ -953,10 +953,10 @@ index c460620..110dfd4 100755
  
 diff --git a/src/ch/agsl/dynarapid/pblockgenerator/GenerateBatchPblocks.java b/src/ch/agsl/dynarapid/pblockgenerator/GenerateBatchPblocks.java
 new file mode 100644
-index 0000000..59ba754
+index 0000000..913f9ab
 --- /dev/null
 +++ b/src/ch/agsl/dynarapid/pblockgenerator/GenerateBatchPblocks.java
-@@ -0,0 +1,488 @@
+@@ -0,0 +1,491 @@
 +/*
 +* DynaRapid
 +*
@@ -1377,10 +1377,13 @@ index 0000000..59ba754
 +                    //LUT route-through cells keep a reference to the batch hierarchy (c<k>/...)
 +                    //in the written placement; Vivado then drops the whole site ("placement
 +                    //information for 1 sites failed to restore") and its cells stay without a
-+                    //LOC. Vivado rebuilds route-throughs from the site PIPs, so drop the cells.
++                    //LOC. This was seen for route-throughs on 5LUT BELs (into FFs / CARRY8), which
++                    //Vivado rebuilds from the site PIPs, so drop those. 6LUT route-throughs (CARRY8
++                    //S inputs) must stay: one entering on a pin other than A6 is not rebuilt and the
++                    //net ends up as an antenna in the assembly (DRC RTSTAT-5, CNV IODMA).
 +                    for (SiteInst si : dest.getSiteInsts())
 +                        for (Cell c : new ArrayList<>(si.getCells()))
-+                            if (c.isRoutethru())
++                            if (c.isRoutethru() && c.getBELName().endsWith("5LUT"))
 +                                si.removeCell(c.getBEL());
 +                    //the batch netlist keeps one library per linked checkpoint (work_c<k>, ...);
 +                    //library entries must have all their cells in the work library

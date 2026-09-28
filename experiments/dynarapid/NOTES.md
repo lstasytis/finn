@@ -591,3 +591,36 @@ per-component attribution after it never ran and the whole batch fell back (seen
 TFC cold batches, so the first timed TFC cold run was aborted). Fix: `catch` route_design and
 continue to the attribution. Re-run of the failed 9-component batch: 4 nets with errors, all
 11 conflicting nets in c6, the other 8 components RESULT 0 (split normally), 155 s.
+
+TFC DynaRapid **cold** (2024.2, fixed batches, shell cached, timed, `bit/tfc_cold`, lib
+`tfc_c2`): **929 s** flow / 992 s script (2023.1: 553-618 s). Library 803 s (synthesis done
+after 101 s; all 17 components batched, 0 fallbacks), stitch 6 s, assembly 120 s; WNS
++0.571 ns, 0 routing errors, peak RSS 4.5 GB. Critical path: MVAU_hls_0 (784x64 layer). Its
+variant J12 had routing errors in the 7-component batch (16:11-16:16), was retried alone at
+0.45 (16:18-16:22, still 6 errors) and then dropped, keeping only variant J25. The component
+is practically unchanged vs 2023.1 (1219 vs 1186 LUTs, 3.5 BRAM tiles, same R20xC9 pblock,
+now 100 % of the pblock's CLBs), so this is the known congestion variance on a tight pblock
+rather than a 2024.2 effect. Possible improvement (not done): skip or hedge the lone retry
+when the other variant already succeeded.
+TFC DynaRapid **warm** (same library): **126 s** (2023.1: 135 s): stitch 6 s, assembly 120 s
+(open shell 25, read accel 21, route 39, reports 6, bitstream 22), WNS +0.571 ns, 0 errors.
+
+TFC cold build verified (`verify_accel`, 16 frames, batch path): **outputs_match true**.
+
+**CNV cold failed in assembly** (`bit/cnv_cold`, lib `cnv_c2`; library 1687 s, stitch 88 s,
+assembly 176 s): DRC RTSTAT-2/-5, one partially routed net with an antenna,
+`idma0/.../rreq_burst_conv/sect_cnt[1]`; deterministic (the warm rerun failed the same way).
+The net drives a CARRY8 S[0] through an A6LUT route-through that enters on pin **A3**. The
+batch split (FLOW_VERSION 4) dropped all LUT route-through cells; Vivado rebuilds route-throughs
+on the default pin, but not this one. Every checkpoint along the way (library, stitched
+design, even after re-reading) reports the net as ROUTED, and only the assembly's
+route_design leaves the antenna; unroute + reroute of the net in the assembly does not help
+(the router does not create LUT route-throughs for CARRY8 S). This is a regression of the
+2026-09-28 split fix, not of 2024.2: CNV had not been rebuilt since.
+Split harness experiments (RapidWright, batch.dcp → component checkpoint, then Vivado):
+the TFC case of that fix had its route-throughs on **5LUT** BELs (5 FF route-throughs D5/C5LUT,
+1 CARRY8 via B5LUT); keeping them (even with the EDIFHierCellInst re-pointed to the
+component netlist) reproduces Constraints 18-4521 (16 cells without LOC, 40 routing errors),
+dropping them gives the known-good result. The CNV IODMA has 132 route-throughs, all on 6LUT
+BELs (CARRY8 S inputs, 4 of them not on A6), and keeping them does not trigger 18-4521.
+Fix: drop only 5LUT route-through cells. `FLOW_VERSION` 4 → 5.
