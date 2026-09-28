@@ -549,3 +549,14 @@ CNV prepare running concurrently, so not a clean timing): **3 passed** in 1218 s
 flow 922 s: parallel stage 804 s (shell build 446 s ran inside it, concurrently with the
 library), stitch 5 s, assembly 114 s (open shell 25, read accel 19, route 36, bitstream 22).
 WNS +0.376 ns at 5 ns (2023.1: +0.701), 0 routing errors.
+
+TFC on 2024.2 (`dr_zcu104_2024/bit/tfc_c0`, cold library **and** new shell, untimed): 950 s
+flow (parallel stage 815 s incl. shell build 421 s, stitch 7 s, assembly 128 s), WNS +0.904 ns,
+0 routing errors, peak RSS of the driver process 4.9 GB.
+
+`verify_accel.py` first reported `outputs_match: false`: the **reference** (FINN stitched IP)
+left the last output word (frames 12-15) unwritten, DynaRapid's output was complete. Cause:
+testbench race. The reference's single output burst completes in the same simulation time
+step in which the status poll sees ap_done (2024.2 HLS IODMA asserts done around the last W
+beat, before the B response), and the dump ran first. Fix: `DRAIN_CYCLES = 5000` wait after
+DONE before dumping memory (both DUTs). Re-check: **outputs_match true** (16 frames).

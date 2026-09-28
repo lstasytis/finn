@@ -51,6 +51,9 @@ def verilog_ports(path, module):
     return ports
 
 
+DRAIN_CYCLES = 5000
+
+
 def tb_sv(dmas, dw, nbytes_in, nbytes_out, frames, cycles):
     """Testbench: dmas = [{"k", "dir", "mem_dw"}]; the DUT is module `dut`."""
     L = ["`timescale 1ns/1ps", "module tb;", "  reg clk = 0; always #2.5 clk = ~clk;", "  reg rstn = 0;"]
@@ -186,6 +189,9 @@ def tb_sv(dmas, dw, nbytes_in, nbytes_out, frames, cycles):
         "    cyc = 0; st = 0;",
         "    while (!(st & 2) && cyc < %d) begin lite_read_%d(32'h00, st); cyc = cyc + 1; end" % (cycles, k),
         "    $display(\"DONE status=%h polls=%0d time=%0t\", st, cyc, $time);",
+        # drain: with Vivado 2024.2 HLS the IODMA reports ap_done before its last write burst
+        # reaches the memory model (seen in the FINN reference: last word missing at DONE)
+        "    repeat (%d) @(posedge clk);" % DRAIN_CYCLES,
         "    fd = $fopen(\"out.hex\", \"w\");",
         "    for (int i = 0; i < %d; i++) begin" % nbytes_out,
         "      if (mem%d.exists(%d/%d + i/%d)) $fdisplay(fd, \"%%02h\", mem%d[%d/%d + i/%d][(i%%%d)*8 +: 8]);"
