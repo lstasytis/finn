@@ -133,6 +133,9 @@ pytest tests/end2end/test_end2end_dynarapid.py -x -s     # marker: dynarapid
 
 ## Status (2026-09-28)
 
+Toolchain: results below are Vivado 2023.1; switching to 2024.2 (FINN minimum) before
+the timed phases, all 2023.1 numbers to be re-measured.
+
 Results, ZCU104, 5 ns, shell cached (details in NOTES.md):
 
 | | Vivado ZynqBuild | DynaRapid warm | DynaRapid cold |
@@ -148,8 +151,7 @@ Open / in progress (task file: `experiments/dynarapid/TASK_scaling_and_examples.
    in the batch split (`GenerateBatchPblocks`), which are now dropped, plus a no-LOC check in
    the metadata step. Note: a cell without LOC can show `STATUS=ASSIGNED`, not UNPLACED.
    Planned next: switch to Vivado 2024.2 (FINN's documented minimum), then re-validate.
-2. Merge `expanded-finnexamples` (finn-examples benchmark configs; only `setup.cfg` overlaps:
-   keep both markers).
+2. `expanded-finnexamples` merged (2026-09-28); models in `tests/benchmark/models/`.
 3. VGG10 (RadioML) Vivado vs DynaRapid cold (`run_vgg10.py`); new layer types MVAU_rtl
    (DSP), FMPadding_rtl, StreamingMaxPool_hls; large layers (PE16xSIMD96).
 4. Core-scaling experiment: N = 4/8/16/32 cores via `taskset` + scaled

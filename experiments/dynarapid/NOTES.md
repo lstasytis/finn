@@ -526,3 +526,12 @@ FINN RTL) in 776 s; DynaRapid flow 530 s (parallel library 387 s, stitch 5 s, as
 138 s), WNS +0.701 ns at 5 ns, 0 routing errors. TFC `verify_accel.py` regression deferred
 to right after the planned switch to Vivado 2024.2 (FINN's documented minimum), where all
 checks are repeated anyway.
+
+## 2026-09-28: Phase 2, finn-examples merged
+
+`git merge expanded-finnexamples` (8eb5e4d8d): only conflict `setup.cfg` markers, both kept
+(`node_tree_modeling`, `finn_examples`; `dynarapid` untouched). Also brings a small change in
+`streamingdataflowpartition.py` (output dtype cast in execute). All models from
+`tests/benchmark/models/download_models.sh` are in `tests/benchmark/models/` (gitignored):
+tfc/cnv w1a1/w1a2/w2a2, cnv_1w1a_gtsrb, MLP_W3A3 (kws), unsw_nb15-mlp-w2a2 (cybersecurity),
+mobilenetv1-w4a4, radioml_w4a4_small_tidy, resnet50_w1a2.
