@@ -131,33 +131,42 @@ pytest tests/end2end/test_end2end_dynarapid.py -x -s     # marker: dynarapid
 * Changing how components are built → bump `FLOW_VERSION` in components.py (cache key).
 * Measurements vary ±20 % cold (which batches congest). Never time two builds at once.
 
-## Status (2026-09-28)
+## Status (2026-09-28, evening)
 
-Toolchain: results below are Vivado 2023.1; switching to 2024.2 (FINN minimum) before
-the timed phases, all 2023.1 numbers to be re-measured.
+Toolchain: **Vivado 2024.2** (container restarted, see `restart.md`); 2023.1 results are archived
+in NOTES.md, the 2023.1 library in `$FINN_BUILD_DIR/dynarapid_library_v2023.1`. 2024.2 runs live
+in `$FINN_BUILD_DIR/dr_zcu104_2024/` (models, `lib/shells`, per-run libraries, logs).
 
-Results, ZCU104, 5 ns, shell cached (details in NOTES.md):
+Results, ZCU104, 5 ns, 32 cores, shell cached, 2024.2, FLOW_VERSION 7 (details in NOTES.md):
 
-| | Vivado ZynqBuild | DynaRapid warm | DynaRapid cold |
-|---|---|---|---|
-| TFC | 700 s | 135 s | 553-618 s |
-| CNV | 1034 s | 248 s | 909 s |
+| | Vivado ZynqBuild | DynaRapid warm | DynaRapid cold | 2023.1 cold |
+|---|---|---|---|---|
+| TFC | 715 s | 126-135 s (v5) | 860 s | 553-618 s |
+| CNV | 981 s | 266 s (v5, stitch was 86 s, now 32 s) | 925 s | 909 s |
 
-Serial parts of the DynaRapid flow (cap the scaling): IODMA HLS ~45 s, stitching 35-55 s,
-assembly ~190 s (Vivado: open shell, route boundary/clock nets, bitstream).
+All with 0 routing errors; TFC verified (verify_accel 16 frames), e2e test 3 passed. CNV cannot
+be fully verified with verify_accel (1 frame = ~4 M cycles, ~8 h gate-level xsim; reference
+RTL misses the SWG package).
 
-Open / in progress (task file: `experiments/dynarapid/TASK_scaling_and_examples.md`):
-1. e2e test passes (2026-09-28): the lost CARRY8 slice came from LUT route-through cells
-   in the batch split (`GenerateBatchPblocks`), which are now dropped, plus a no-LOC check in
-   the metadata step. Note: a cell without LOC can show `STATUS=ASSIGNED`, not UNPLACED.
-   Planned next: switch to Vivado 2024.2 (FINN's documented minimum), then re-validate.
-2. `expanded-finnexamples` merged (2026-09-28); models in `tests/benchmark/models/`.
-3. VGG10 (RadioML) Vivado vs DynaRapid cold (`run_vgg10.py`); new layer types MVAU_rtl
+2024.2 changes that were needed (all in NOTES.md, 2026-09-28 sections): Vivado release in the
+cache keys; verify_accel drain wait; batch Tcl tolerates the 2024.2 link_design error
+(Designutils 20-50) and route_design failure on overlaps; batch split drops only 5LUT
+route-throughs; **pblocks built by one resize_pblock call** (2024.2 silently dropped ~40 % of
+the sites when a pblock was grown by many small calls - the main cold-build slowdown).
+
+Serial parts of the DynaRapid flow (cap the scaling): IODMA HLS ~45 s, stitching 6-32 s,
+assembly 120-170 s (Vivado: open shell, route boundary/clock nets, bitstream).
+
+Open / next (task file: `experiments/dynarapid/TASK_scaling_and_examples.md`):
+1. TFC cold: one 7-component batch with MVAU_hls_0 (3.5 BRAM tiles) hits the 300 s batch
+   time limit before its 0.45 retry succeeds (~5 min on the critical path). Candidates:
+   build it individually (large threshold) or a shorter batch time limit.
+2. VGG10 (RadioML) Vivado vs DynaRapid cold (`run_vgg10.py`); new layer types MVAU_rtl
    (DSP), FMPadding_rtl, StreamingMaxPool_hls; large layers (PE16xSIMD96).
-4. Core-scaling experiment: N = 4/8/16/32 cores via `taskset` + scaled
+3. Core-scaling experiment: N = 4/8/16/32 cores via `taskset` + scaled
    `NUM_DEFAULT_WORKERS`/`DYNARAPID_VIVADO_SLOTS`/Vivado threads, Vivado flow vs DynaRapid cold;
    report memory-bound points and serial parts.
-5. Then MobileNet / ResNet50 (DynaRapid only).
+4. Then the finn-examples models, MobileNet (DynaRapid only); ResNet50 needs an Alveo shell.
 
 ## Conventions
 

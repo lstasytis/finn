@@ -698,3 +698,16 @@ keeps 72; one call with all sites, or the range `SLICE_X71Y306:SLICE_X82Y319`, k
 the placement failures (CNV) and likely the persistent MVAU congestion (TFC). Fix: one
 `resize_pblock` call with all sites. The FLOW_VERSION 6 estimate change is reverted to isolate
 the effect. `FLOW_VERSION` 7.
+Result FLOW_VERSION 7, CNV DynaRapid **cold**: **925 s** flow / 985 s script (v5: 1968 s, v6: 1766 s,
+2023.1: 909 s). Library 726 s (synthesis 299 s, all 57 components batched, **0 batch failures,
+0 retries, 0 fallbacks**), stitch 32 s (v5/v6: 83-88 s), assembly 168 s; WNS +0.528 ns, 0 routing
+errors.
+Result FLOW_VERSION 7, TFC DynaRapid **cold**: **860 s** (v5/v6: 929-939 s; 2023.1: 553-618 s):
+library 733 s (synthesis 101 s, all 17 batched, 0 fallbacks), stitch 6 s, assembly 122 s,
+WNS +0.536 ns, 0 routing errors. The 7-component batch with MVAU_hls_0 (784x64, 3.5 BRAM tiles)
+routed with 3 persistent overlaps until the 300 s batch time limit; its 0.45 retry built all 7
+(both MVAU variants). Remaining TFC loss vs 2023.1 = that timed-out batch. Candidates: route the
+MVAU individually (lower the "large" threshold, e.g. >= 3 BRAM tiles), or a shorter batch
+time limit.
+FLOW_VERSION 7: TFC cold `verify_accel` 16 frames **outputs_match true**; e2e test **3 passed**
+(977 s; DynaRapid flow 702 s: library 592 s, stitch 5 s, assembly 106 s, WNS +0.467 ns, 0 errors).
