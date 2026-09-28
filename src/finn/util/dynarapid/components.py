@@ -66,8 +66,9 @@ _VOLATILE_ATTRS = {
 #   4: batch split drops LUT route-through cells (Vivado lost their site), split sanity check
 #   5: batch split drops only 5LUT route-through cells (6LUT ones are kept)
 #   6: pblock estimate: >= 85 % of the LUT cells, LUTRAM at half SLICEM density (2024.2)
+#   7: pblocks built by one resize_pblock (2024.2 dropped sites); estimate of 6 reverted
 # the Vivado release is part of the key as well (tools.vivado_version)
-FLOW_VERSION = 6
+FLOW_VERSION = 7
 
 
 def component_name(model, node, part, clk_ns):

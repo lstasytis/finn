@@ -685,3 +685,16 @@ batches 1060 s, 8 fallbacks; stitch 83 s, assembly 173 s; WNS +0.497 ns, 0 error
 with v5. TFC cold **930 s** (library 803 s, 0 fallbacks, the MVAU_hls_0 congestion retry
 unchanged; WNS +0.724 ns, 0 errors). The estimate change alone is not enough (see the
 resource-map over-count above).
+
+e2e test with FLOW_VERSION 6: **3 passed** (1056 s).
+
+**Root cause of the 2024.2 placement failures / congestion: pblocks lose sites.** DynaRapid
+builds pblocks with many `resize_pblock <pb> -add {5 sites} -locs keep_all` calls
+(`StringUtils.getPblockString`). In Vivado 2024.2 this silently drops sites: the failing CNV
+Pool pblock lists 168 SLICE sites (an exact 12 x 14 rectangle, X71-82 Y306-319), Vivado keeps
+**100** (holes in several columns, all valid SLICEL/SLICEM sites, no warning). One site per call
+keeps 72; one call with all sites, or the range `SLICE_X71Y306:SLICE_X82Y319`, keeps 168. So on
+2024.2 every component was implemented in a pblock ~40 % smaller than planned, which explains
+the placement failures (CNV) and likely the persistent MVAU congestion (TFC). Fix: one
+`resize_pblock` call with all sites. The FLOW_VERSION 6 estimate change is reverted to isolate
+the effect. `FLOW_VERSION` 7.

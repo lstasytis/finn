@@ -929,7 +929,7 @@ index 43596da..c5a76e0 100755
  
      public static synchronized Path getPlacedRoutedDCPsPath() {
 diff --git a/src/ch/agsl/dynarapid/parser/UtilizationParser.java b/src/ch/agsl/dynarapid/parser/UtilizationParser.java
-index c460620..5f5e765 100755
+index c460620..6d6592c 100755
 --- a/src/ch/agsl/dynarapid/parser/UtilizationParser.java
 +++ b/src/ch/agsl/dynarapid/parser/UtilizationParser.java
 @@ -71,6 +71,7 @@ public class UtilizationParser {
@@ -960,29 +960,21 @@ index c460620..5f5e765 100755
              calculateValues();
          }
          catch(Exception e)
-@@ -135,10 +149,17 @@ public class UtilizationParser {
+@@ -135,8 +149,12 @@ public class UtilizationParser {
      public void calculateValues()
      {
          dsp = (resourceUsed[13] / 2) + (resourceUsed[13] % 2) ;
 -        bram = 0;
--
--        int logic = (resourceUsed[1] / 8) + (resourceUsed[1] % 8 == 0 ? 0 : 1);
--        int memory = (resourceUsed[2] / 8) + (resourceUsed[2] % 8 == 0 ? 0 : 1);
 +        //BRAM tiles: one RAMB36 or two RAMB18 per tile (the "Block RAM Tile" column can be fractional)
 +        bram = resourceUsed[11] + (resourceUsed[12] / 2) + (resourceUsed[12] % 2);
-+
-+        //Vivado 2024.2 placement in tight pblocks (FINN components): the synthesis LUT count
-+        //assumes ideal LUT combining (e.g. 815 LUT cells counted as 548 LUTs) and distributed
-+        //RAM of different memories rarely shares a SLICEM (write enable / address), so count
-+        //at least 85 % of the LUT cells and LUTRAM at half density
-+        int logicLuts = Math.max(resourceUsed[1], (int) Math.ceil(0.85 * lutCells));
-+        int logic = (logicLuts / 8) + (logicLuts % 8 == 0 ? 0 : 1);
-+        int memLuts = (dram + srl == resourceUsed[2]) ? srl + 2 * dram : resourceUsed[2];
-+        int memory = (memLuts / 8) + (memLuts % 8 == 0 ? 0 : 1);
-         int ff = (resourceUsed[3]  / 16) + (resourceUsed[3] % 16 == 0 ? 0 : 1);
  
-         System.out.println(ff);
-@@ -153,7 +174,7 @@ public class UtilizationParser {
++        //(dram, srl and lutCells are parsed for diagnostics; a 2024.2 estimate that counted
++        //85 % of the LUT cells and LUTRAM at half density was not needed once the pblock
++        //construction was fixed, see StringUtils.getPblockString)
+         int logic = (resourceUsed[1] / 8) + (resourceUsed[1] % 8 == 0 ? 0 : 1);
+         int memory = (resourceUsed[2] / 8) + (resourceUsed[2] % 8 == 0 ? 0 : 1);
+         int ff = (resourceUsed[3]  / 16) + (resourceUsed[3] % 16 == 0 ? 0 : 1);
+@@ -153,7 +171,7 @@ public class UtilizationParser {
  
          int carryPresent = (clel + clem);
          if(carryPresent < carry8)
@@ -2453,6 +2445,62 @@ index 4c82dae..e2a6ea2 100755
          ArrayList<String> nodeList = new ArrayList<>(); //Temporary queue of nodes. This is fed in to the nodesQ
          HashSet<String> visited = new HashSet<>(); //Array of nodes already present in the nodeList
          ArrayList<Pair> orderedNodes = new ArrayList<>(); //Here the nodes are arranged in decreasing order of number of peripherals
+diff --git a/src/ch/agsl/dynarapid/strings/StringUtils.java b/src/ch/agsl/dynarapid/strings/StringUtils.java
+index 60d2c91..fd7890c 100755
+--- a/src/ch/agsl/dynarapid/strings/StringUtils.java
++++ b/src/ch/agsl/dynarapid/strings/StringUtils.java
+@@ -81,39 +81,26 @@ public class StringUtils {
+     }
+ 
+     //This returns the tcl pblock string to form the pblock
+-    //Mantains not more than 5 sites in one line for readability
++    //(all sites in one resize_pblock call, 16 per line)
+     public static String getPblockString(ArrayList<Site> sites, String vivadoPblockName)
+     {
+         if(sites.size() == 0)
+-        {
+-            String temp = "";
+-            return temp;
+-        }
+-
+-        int count = 1;
+-        String pblockString = "resize_pblock " + vivadoPblockName + " -add {";
++            return "";
+ 
++        //one resize_pblock with all sites: Vivado 2024.2 silently drops sites when a pblock is
++        //grown by many small resize_pblock -add calls (168 sites listed in chunks of 5 -> 100 in
++        //the pblock, one per call -> 72), which made pblocks much smaller than planned
++        StringBuilder sb = new StringBuilder("resize_pblock " + vivadoPblockName + " -add {");
++        int count = 0;
+         for(Site s : sites)
+         {
+-            String name = s.getName();
+-            if(count % 6 == 0)
+-            {
+-                pblockString += "} -locs keep_all\n";
+-                pblockString += "resize_pblock " + vivadoPblockName + " -add {";
+-                count = 1;
+-            }
+-
+-            pblockString += s + " ";
++            if(count > 0 && count % 16 == 0)
++                sb.append("\n    ");
++            sb.append(s.getName()).append(" ");
+             count++;
+         }
+-
+-        if(count == 1)
+-            pblockString = pblockString.substring(0, pblockString.length() - (21 + vivadoPblockName.length()));
+-
+-        else
+-            pblockString += "} -locs keep_all\n";
+-
+-        return pblockString;
++        sb.append("} -locs keep_all\n");
++        return sb.toString();
+     }
+ 
+     //This removes the [width-1:0] from the port name
 diff --git a/src/ch/agsl/dynarapid/tclgenerator/ComponentTclGenerator.java b/src/ch/agsl/dynarapid/tclgenerator/ComponentTclGenerator.java
 index d6ad778..0a2f775 100755
 --- a/src/ch/agsl/dynarapid/tclgenerator/ComponentTclGenerator.java
