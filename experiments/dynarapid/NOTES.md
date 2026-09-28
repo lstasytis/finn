@@ -680,3 +680,8 @@ this folding needs ~4 M cycles (MVAU_hls_1 alone 1.8 M), i.e. ~8 h of gate-level
 `ConvolutionInputGenerator_rtl_0_impl.sv` (the SWG package is missing from the reference source
 list; CNV was never run through verify_accel before). Functional evidence for the 2024.2 flow:
 TFC 16 frames and the e2e MLP functional check.
+FLOW_VERSION 6 results (timed, shell cached): CNV cold **1766 s** (library 1509 s: synthesis 309 s,
+batches 1060 s, 8 fallbacks; stitch 83 s, assembly 173 s; WNS +0.497 ns, 0 errors) vs 1968 s
+with v5. TFC cold **930 s** (library 803 s, 0 fallbacks, the MVAU_hls_0 congestion retry
+unchanged; WNS +0.724 ns, 0 errors). The estimate change alone is not enough (see the
+resource-map over-count above).
