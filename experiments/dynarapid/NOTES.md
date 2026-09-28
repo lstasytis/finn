@@ -664,3 +664,19 @@ FLOW_VERSION 6: `UtilizationParser` counts logic LUT sites as max(combined, 0.85
 LUTRAM at half SLICEM density (SRL/8 + DRAM/4). Effect on CNV components: Pool_hls CLEL 69 → 98,
 ConvolutionInputGenerator_rtl CLEM 18 → 35, MVAUs/IODMAs unchanged (their combined count is
 already close to the cell count).
+
+FLOW_VERSION 6, CNV cold (in progress): the new estimates are used (e.g. Pool_hls CLEL 98,
+SWG CLEM 35), but 8 components still fail placement in batches. The failing Pool pblock
+`poolhlsx1f77cdc81140_I40_J17_R14_C7` has **100 CLBs** in Vivado although `chooseShape`/`fits`
+require CLEL+CLEM >= 98/0.6 = 164 in the DynaRapid resource map; its other variant
+`_I40_J19_R16_C8` has 170 CLBs (Vivado) and succeeded. So the DynaRapid resource map
+(`ResourceElement` over the tile map) over-counts CLBs for some column ranges (J17..J23 here),
+independent of the estimate. Open.
+
+CNV `verify_accel` (FLOW_VERSION 5 cold build): not usable as is. (1) The DynaRapid netlist
+simulation polled 200000 times (4.0 ms simulated, ~1.5 h wall) without DONE: one CNV frame at
+this folding needs ~4 M cycles (MVAU_hls_1 alone 1.8 M), i.e. ~8 h of gate-level xsim.
+(2) The reference RTL does not compile: `'swg' is not declared` in
+`ConvolutionInputGenerator_rtl_0_impl.sv` (the SWG package is missing from the reference source
+list; CNV was never run through verify_accel before). Functional evidence for the 2024.2 flow:
+TFC 16 frames and the e2e MLP functional check.
