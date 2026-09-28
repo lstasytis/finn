@@ -263,6 +263,18 @@ def adapter_verilog(dcp, bd_name, n_in, n_out, in_widths, out_widths):
 _HDL_EXT = (".v", ".sv", ".vh", ".svh")
 
 
+def vendor_ip_cores(node):
+    """Xilinx IP cores an HLS node instantiates (e.g. floating_point for float arithmetic).
+    Their netlists are encrypted: RapidWright places and routes around them but cannot write
+    their contents, so they would end up as black boxes in the assembled design."""
+    try:
+        ip_path = getCustomOp(node).get_nodeattr("ip_path")
+    except AttributeError:
+        return []
+    d = os.path.join(ip_path, "hdl", "ip") if ip_path else ""
+    return sorted(os.listdir(d)) if d and os.path.isdir(d) else []
+
+
 def direct_sources(node):
     """(HDL files, top module) of nodes that can be synthesized from their HDL directly (no
     project, no block design): a single HLS IP cell, or RTL files with one module reference.
@@ -607,7 +619,9 @@ def build_component(
 
 def has_pblocks(library_dir, dcp):
     d = os.path.join(library_dir, dcp)
-    return os.path.isdir(d) and any(f.endswith("_placedRouted.dcp") for f in os.listdir(d))
+    # a pblock is complete once its RapidWright metadata exists (a failed batch split can
+    # leave a checkpoint without it)
+    return os.path.isdir(d) and any(f.endswith("_placedRouted_0_metadata.txt") for f in os.listdir(d))
 
 
 def batch_pblocks(dcps, work_dir, library_dir, part, clk_ns, util=0.6, batches=4, threads=4):

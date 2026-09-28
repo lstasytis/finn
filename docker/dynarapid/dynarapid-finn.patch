@@ -152,10 +152,10 @@ index 168331f..50e76e5 100755
              return true;
 diff --git a/src/ch/agsl/dynarapid/entry/GenerateDatabase.java b/src/ch/agsl/dynarapid/entry/GenerateDatabase.java
 new file mode 100644
-index 0000000..c2b560f
+index 0000000..dfcdf50
 --- /dev/null
 +++ b/src/ch/agsl/dynarapid/entry/GenerateDatabase.java
-@@ -0,0 +1,164 @@
+@@ -0,0 +1,165 @@
 +/*
 +* DynaRapid
 +*
@@ -283,8 +283,9 @@ index 0000000..c2b560f
 +        if (!onlyBin) {
 +            StringUtils.printIntro("Generating databses for specified modules");
 +            for (String s : moduleNames) {
++                //one broken component must not cost the databases of the others
 +                if (!DatabaseGenerator.printDatabase(s, starti, startj, endi, endj)) {
-+                    break;
++                    System.out.println("ERROR: database failed for " + s + ", continuing");
 +                }
 +            }
 +        }
@@ -952,10 +953,10 @@ index c460620..110dfd4 100755
  
 diff --git a/src/ch/agsl/dynarapid/pblockgenerator/GenerateBatchPblocks.java b/src/ch/agsl/dynarapid/pblockgenerator/GenerateBatchPblocks.java
 new file mode 100644
-index 0000000..59560c5
+index 0000000..9f85b79
 --- /dev/null
 +++ b/src/ch/agsl/dynarapid/pblockgenerator/GenerateBatchPblocks.java
-@@ -0,0 +1,450 @@
+@@ -0,0 +1,461 @@
 +/*
 +* DynaRapid
 +*
@@ -1353,17 +1354,28 @@ index 0000000..59560c5
 +                Path libDir = LocationParser.getPlacedRoutedDCPsPath().resolve(it.comp.dcpName);
 +                libDir.toFile().mkdirs();
 +                String dcp = libDir.resolve(it.pblock.pblockName + "_placedRouted.dcp").toString();
-+                Design dest = Design.readCheckpoint(it.comp.moduleLoc, it.comp.moduleLoc.replace(".dcp", ".edf"));
-+                Map<String, String> map = new HashMap<>();
-+                map.put("c" + it.k, "");
-+                DesignTools.copyImplementation(src, dest, true, true, false, false, map);
-+                //the batch netlist keeps one library per linked checkpoint (work_c<k>, ...);
-+                //library entries must have all their cells in the work library
-+                dest.getNetlist().consolidateAllToWorkLibrary();
-+                dest.getNetlist().removeUnusedCellsFromAllWorkLibraries();
-+                dest.writeCheckpoint(dcp);
-+                EDIFTools.writeEDIFFile(dcp.replace(".dcp", ".edf"), dest.getNetlist(), GenerateDesign.fpga_part);
-+                split.add(it);
++                //a component that cannot be split (e.g. encrypted IP cells: copyImplementation
++                //fails on their site routing) must not take the rest of the batch with it
++                try
++                {
++                    Design dest = Design.readCheckpoint(it.comp.moduleLoc, it.comp.moduleLoc.replace(".dcp", ".edf"));
++                    Map<String, String> map = new HashMap<>();
++                    map.put("c" + it.k, "");
++                    DesignTools.copyImplementation(src, dest, true, true, false, false, map);
++                    //the batch netlist keeps one library per linked checkpoint (work_c<k>, ...);
++                    //library entries must have all their cells in the work library
++                    dest.getNetlist().consolidateAllToWorkLibrary();
++                    dest.getNetlist().removeUnusedCellsFromAllWorkLibraries();
++                    dest.writeCheckpoint(dcp);
++                    EDIFTools.writeEDIFFile(dcp.replace(".dcp", ".edf"), dest.getNetlist(), GenerateDesign.fpga_part);
++                    split.add(it);
++                }
++                catch (Exception e)
++                {
++                    System.out.println("Split failed for " + it.pblock.pblockName + " (batch " + dir + "): " + e);
++                    e.printStackTrace(System.out);
++                    GenerateFastPblocks.removeOutputs(libDir, it.pblock.pblockName);
++                }
 +            }
 +        }
 +        if (split.isEmpty())
@@ -1408,7 +1420,7 @@ index 0000000..59560c5
 +}
 diff --git a/src/ch/agsl/dynarapid/pblockgenerator/GenerateFastPblocks.java b/src/ch/agsl/dynarapid/pblockgenerator/GenerateFastPblocks.java
 new file mode 100644
-index 0000000..9cf5cbf
+index 0000000..ace8d92
 --- /dev/null
 +++ b/src/ch/agsl/dynarapid/pblockgenerator/GenerateFastPblocks.java
 @@ -0,0 +1,328 @@
@@ -1497,7 +1509,7 @@ index 0000000..9cf5cbf
 +
 +    static void removeOutputs(Path libDir, String name)
 +    {
-+        for (String suffix : new String[] {"_placedRouted.dcp", "_placedRouted.edf", "_placedRouted_0_metadata.txt", ".util", ".report"})
++        for (String suffix : new String[] {"_placedRouted.dcp", "_placedRouted.edf", "_placedRouted_load.tcl", "_placedRouted_0_metadata.txt", ".util", ".report"})
 +            libDir.resolve(name + suffix).toFile().delete();
 +    }
 +

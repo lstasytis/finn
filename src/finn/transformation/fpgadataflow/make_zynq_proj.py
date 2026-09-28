@@ -478,7 +478,11 @@ class ZynqBuild(Transformation):
         model.set_metadata_prop("vivado_pynq_proj", out_dir)
         model.set_metadata_prop("bitfile", res["bitfile"])
         model.set_metadata_prop("hw_handoff", res["hwh"])
-        model.set_metadata_prop("vivado_synth_rpt", os.path.join(out_dir, "assembly", "utilization.rpt"))
+        model.set_metadata_prop(
+            "vivado_synth_rpt",
+            res.get("utilization_xml") or os.path.join(out_dir, "assembly", "utilization.rpt"),
+        )
+        model.set_metadata_prop("vivado_timing_rpt", res["timing_rpt"])
         model.set_metadata_prop("platform", "zynq-iodma")
         return (model, False)
 

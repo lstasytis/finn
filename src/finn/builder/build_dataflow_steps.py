@@ -1350,7 +1350,8 @@ def step_synthesize_bitfile(model: ModelWrapper, cfg: DataflowBuildConfig):
                 json.dump(post_synth_resources, f, indent=2)
 
             vivado_pynq_proj_dir = model.get_metadata_prop("vivado_pynq_proj")
-            timing_rpt = (
+            # DynaRapid shell flow: no Vivado project, the assembly writes the report
+            timing_rpt = model.get_metadata_prop("vivado_timing_rpt") or (
                 "%s/finn_zynq_link.runs/impl_1/top_wrapper_timing_summary_routed.rpt"
                 % vivado_pynq_proj_dir
             )

@@ -26,6 +26,7 @@ from concurrent.futures import ThreadPoolExecutor
 from onnx import helper
 from qonnx.core.modelwrapper import ModelWrapper
 
+from finn.util.dynarapid.components import vendor_ip_cores
 from finn.util.dynarapid.flow import build_library, dynarapid_pnr
 from finn.util.dynarapid.graph import mm_ports
 from finn.util.dynarapid.shell import SHELL_STRIP_COLS, assemble_tcl, build_shell
@@ -94,6 +95,14 @@ def dynarapid_zynq_build(
 
     accel = merge_partitions(kernel_models)
     accel.save(os.path.join(out_dir, "accel.onnx"))
+    vendor = {n.name: vendor_ip_cores(n) for n in accel.graph.node}
+    vendor = {k: v for k, v in vendor.items() if v}
+    if vendor:
+        # encrypted IP cannot pass through RapidWright (black boxes at assembly)
+        res["status"] = "unsupported_vendor_ip"
+        res["vendor_ip"] = vendor
+        print("DynaRapid: layers with encrypted Xilinx IP cores are not supported: %s" % vendor)
+        return _done(res, out_dir, t_total)
     ports = mm_ports(accel)
     assert ports, "the DynaRapid shell flow needs IODMAs at the accelerator boundary"
 
