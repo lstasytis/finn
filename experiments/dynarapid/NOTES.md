@@ -718,3 +718,6 @@ congesting a batch. TFC DynaRapid **cold** (2024.2, FLOW_VERSION 7): **591 s** f
 (before: 860 s; 2023.1: 553-618 s; Vivado flow 715 s): library 463 s (synthesis 100 s, 16
 batched + 1 individual, 0 batch failures, 0 retries), stitch 6 s, assembly 121 s, WNS +0.796 ns,
 0 routing errors.
+Warm (FLOW_VERSION 7): TFC **128 s** (stitch 6, assembly 121, WNS +0.796), CNV **200 s** (stitch 32,
+assembly 168, WNS +0.528; before the pblock fix 266 s), 0 routing errors.
+TFC cold build with large_bram 3: verify_accel 16 frames outputs_match true.

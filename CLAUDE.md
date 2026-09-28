@@ -141,8 +141,8 @@ Results, ZCU104, 5 ns, 32 cores, shell cached, 2024.2, FLOW_VERSION 7 (details i
 
 | | Vivado ZynqBuild | DynaRapid warm | DynaRapid cold | 2023.1 cold |
 |---|---|---|---|---|
-| TFC | 715 s | 126-135 s (v5) | 591 s | 553-618 s |
-| CNV | 981 s | 266 s (v5, stitch was 86 s, now 32 s) | 925 s | 909 s |
+| TFC | 715 s | 128 s | 591 s | 553-618 s |
+| CNV | 981 s | 200 s | 925 s | 909 s |
 
 All with 0 routing errors; TFC verified (verify_accel 16 frames), e2e test 3 passed. CNV cannot
 be fully verified with verify_accel (1 frame = ~4 M cycles, ~8 h gate-level xsim; reference
