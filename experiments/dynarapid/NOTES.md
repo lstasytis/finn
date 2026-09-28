@@ -624,3 +624,43 @@ component netlist) reproduces Constraints 18-4521 (16 cells without LOC, 40 rout
 dropping them gives the known-good result. The CNV IODMA has 132 route-throughs, all on 6LUT
 BELs (CARRY8 S inputs, 4 of them not on A6), and keeping them does not trigger 18-4521.
 Fix: drop only 5LUT route-through cells. `FLOW_VERSION` 4 → 5.
+
+CNV cold rerun (FLOW_VERSION 5, lib `cnv_c3`), in progress: 8 components fail in their batches
+at **placement** (whole batch lost, no per-component attribution before routing): all 6
+ConvolutionInputGenerator_rtl, one MVAU_hls, one Pool_hls; they go to the individual hedged
+fallback (correct, slow). Errors: `[Place 30-487]` pblock of 100 CLBs, instances need 113
+("Luts: 545 (combined) 814 (total), available capacity: 800", 8 control sets), and in the 0.45
+retry `[Place 30-484]` LUTRAM/SRL packing into capable slices. On 2024.2 the SWG window buffer
+is synthesized as 140 LUTs of distributed RAM (SLICEM only). `UtilizationParser` sizes pblocks
+from the synthesis report: CLEL = LUT-as-logic/8 and CLEM = LUT-as-memory/8 (combined LUT count,
+no LUTRAM packing constraints), which is too optimistic for these components on 2024.2.
+Open: recalibrate the pblock size estimate for 2024.2 (combined vs total LUTs, LUTRAM/SLICEM),
+and attribute placement failures per component so one oversized component does not sink its
+batch.
+Result: CNV DynaRapid **cold** (2024.2, FLOW_VERSION 5, timed): **1968 s** flow / 2030 s script
+(2023.1: 909 s), **assembly ok, 0 routing errors, WNS +0.086 ns** (route-through fix confirmed).
+Library 1702 s: synthesis done 301 s (2023.1: 206 s), batches done 1015 s (49 components
+batched), the 8 placement-failed components in the individual fallback until 1702 s; stitch
+88 s, assembly 178 s (open 25, read 27, route 85, reports 10, bitstream 24). Peak RSS of the
+driver 9.4 GB. The slowdown vs 2023.1 is the pblock sizing (fallback 687 s on the critical
+path) plus slower synthesis.
+CNV DynaRapid **warm** (2024.2): **266 s** (2023.1: 248 s): stitch 86 s, assembly 180 s (open 25,
+read 27, route 85, reports 10, bitstream 24), WNS +0.086 ns, 0 routing errors.
+TFC DynaRapid **cold** rerun (FLOW_VERSION 5, lib `tfc_c3`): **939 s** (library 804 s, synthesis
+101 s, all 17 batched, 0 fallbacks; stitch 6 s, assembly 129 s), WNS +0.565 ns, 0 errors.
+The MVAU_hls_0 variant J12 failed again in its batch and again in the 0.45 retry (J23) -
+deterministic, not variance (18:12:53-18:24:08 on the critical path).
+TFC DynaRapid **warm** (FLOW_VERSION 5): 135 s, WNS +0.565 ns, 0 errors. TFC cold build (FLOW_VERSION
+5, batch path, 6LUT route-throughs kept): `verify_accel` 16 frames **outputs_match true**.
+
+e2e test with FLOW_VERSION 5 (shell cached, cold library): **3 passed** (1596 s). DynaRapid flow
+1316 s: library 1197 s, stitch 5 s, assembly 114 s, WNS +0.376 ns, 0 errors. Slow because a
+9-component batch (the MLP's MVAUs + IODMAs) routed with 2-3 persistent node overlaps until
+the 300 s batch time limit killed it, and the 0.45 retry did the same, so all 9 went to the
+individual fallback (a killed batch has no checkpoint, so no per-component attribution).
+CNV cold `verify_accel` (1 frame, post-route netlist xsim) still running after 1.5 h.
+
+FLOW_VERSION 6: `UtilizationParser` counts logic LUT sites as max(combined, 0.85 x LUT cells) and
+LUTRAM at half SLICEM density (SRL/8 + DRAM/4). Effect on CNV components: Pool_hls CLEL 69 → 98,
+ConvolutionInputGenerator_rtl CLEM 18 → 35, MVAUs/IODMAs unchanged (their combined count is
+already close to the cell count).

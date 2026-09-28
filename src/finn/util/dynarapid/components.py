@@ -65,8 +65,9 @@ _VOLATILE_ATTRS = {
 #   3: RTL / single-cell HLS nodes synthesized from their HDL directly (no block design)
 #   4: batch split drops LUT route-through cells (Vivado lost their site), split sanity check
 #   5: batch split drops only 5LUT route-through cells (6LUT ones are kept)
+#   6: pblock estimate: >= 85 % of the LUT cells, LUTRAM at half SLICEM density (2024.2)
 # the Vivado release is part of the key as well (tools.vivado_version)
-FLOW_VERSION = 5
+FLOW_VERSION = 6
 
 
 def component_name(model, node, part, clk_ns):

@@ -929,20 +929,60 @@ index 43596da..c5a76e0 100755
  
      public static synchronized Path getPlacedRoutedDCPsPath() {
 diff --git a/src/ch/agsl/dynarapid/parser/UtilizationParser.java b/src/ch/agsl/dynarapid/parser/UtilizationParser.java
-index c460620..110dfd4 100755
+index c460620..5f5e765 100755
 --- a/src/ch/agsl/dynarapid/parser/UtilizationParser.java
 +++ b/src/ch/agsl/dynarapid/parser/UtilizationParser.java
-@@ -135,7 +135,8 @@ public class UtilizationParser {
+@@ -71,6 +71,7 @@ public class UtilizationParser {
+     public static int resourceUsed[];
+ 
+     public int clel, clem, bram, dsp;
++    public int dram, srl, lutCells;
+     public boolean status;
+ 
+     public UtilizationParser(String utilLoc)
+@@ -102,6 +103,19 @@ public class UtilizationParser {
+             if(i != resourceNames.length)
+                 status = false;
+ 
++            //second pass (not in the sequential order above): LUTRAM / SRL split and the
++            //number of LUT cells (primitives table), for the pblock estimate below
++            dram = srl = lutCells = 0;
++            for (String s : java.nio.file.Files.readAllLines(file.toPath()))
++            {
++                if (s.startsWith("|     LUT as Distributed RAM"))
++                    dram = extractValue(s);
++                else if (s.startsWith("|     LUT as Shift Register"))
++                    srl = extractValue(s);
++                else if (s.matches("^\\| LUT[1-6] .*"))
++                    lutCells += extractValue(s);
++            }
++
+             calculateValues();
+         }
+         catch(Exception e)
+@@ -135,10 +149,17 @@ public class UtilizationParser {
      public void calculateValues()
      {
          dsp = (resourceUsed[13] / 2) + (resourceUsed[13] % 2) ;
 -        bram = 0;
+-
+-        int logic = (resourceUsed[1] / 8) + (resourceUsed[1] % 8 == 0 ? 0 : 1);
+-        int memory = (resourceUsed[2] / 8) + (resourceUsed[2] % 8 == 0 ? 0 : 1);
 +        //BRAM tiles: one RAMB36 or two RAMB18 per tile (the "Block RAM Tile" column can be fractional)
 +        bram = resourceUsed[11] + (resourceUsed[12] / 2) + (resourceUsed[12] % 2);
++
++        //Vivado 2024.2 placement in tight pblocks (FINN components): the synthesis LUT count
++        //assumes ideal LUT combining (e.g. 815 LUT cells counted as 548 LUTs) and distributed
++        //RAM of different memories rarely shares a SLICEM (write enable / address), so count
++        //at least 85 % of the LUT cells and LUTRAM at half density
++        int logicLuts = Math.max(resourceUsed[1], (int) Math.ceil(0.85 * lutCells));
++        int logic = (logicLuts / 8) + (logicLuts % 8 == 0 ? 0 : 1);
++        int memLuts = (dram + srl == resourceUsed[2]) ? srl + 2 * dram : resourceUsed[2];
++        int memory = (memLuts / 8) + (memLuts % 8 == 0 ? 0 : 1);
+         int ff = (resourceUsed[3]  / 16) + (resourceUsed[3] % 16 == 0 ? 0 : 1);
  
-         int logic = (resourceUsed[1] / 8) + (resourceUsed[1] % 8 == 0 ? 0 : 1);
-         int memory = (resourceUsed[2] / 8) + (resourceUsed[2] % 8 == 0 ? 0 : 1);
-@@ -153,7 +154,7 @@ public class UtilizationParser {
+         System.out.println(ff);
+@@ -153,7 +174,7 @@ public class UtilizationParser {
  
          int carryPresent = (clel + clem);
          if(carryPresent < carry8)
