@@ -953,10 +953,10 @@ index c460620..110dfd4 100755
  
 diff --git a/src/ch/agsl/dynarapid/pblockgenerator/GenerateBatchPblocks.java b/src/ch/agsl/dynarapid/pblockgenerator/GenerateBatchPblocks.java
 new file mode 100644
-index 0000000..9f85b79
+index 0000000..797a8e7
 --- /dev/null
 +++ b/src/ch/agsl/dynarapid/pblockgenerator/GenerateBatchPblocks.java
-@@ -0,0 +1,461 @@
+@@ -0,0 +1,478 @@
 +/*
 +* DynaRapid
 +*
@@ -975,8 +975,10 @@ index 0000000..9f85b79
 +import ch.agsl.dynarapid.strings.StringUtils;
 +import ch.agsl.dynarapid.vivado.VivadoRun;
 +
++import com.xilinx.rapidwright.design.Cell;
 +import com.xilinx.rapidwright.design.Design;
 +import com.xilinx.rapidwright.design.DesignTools;
++import com.xilinx.rapidwright.design.SiteInst;
 +import com.xilinx.rapidwright.edif.EDIFCell;
 +import com.xilinx.rapidwright.edif.EDIFNetlist;
 +import com.xilinx.rapidwright.edif.EDIFPort;
@@ -1362,6 +1364,14 @@ index 0000000..9f85b79
 +                    Map<String, String> map = new HashMap<>();
 +                    map.put("c" + it.k, "");
 +                    DesignTools.copyImplementation(src, dest, true, true, false, false, map);
++                    //LUT route-through cells keep a reference to the batch hierarchy (c<k>/...)
++                    //in the written placement; Vivado then drops the whole site ("placement
++                    //information for 1 sites failed to restore") and its cells stay without a
++                    //LOC. Vivado rebuilds route-throughs from the site PIPs, so drop the cells.
++                    for (SiteInst si : dest.getSiteInsts())
++                        for (Cell c : new ArrayList<>(si.getCells()))
++                            if (c.isRoutethru())
++                                si.removeCell(c.getBEL());
 +                    //the batch netlist keeps one library per linked checkpoint (work_c<k>, ...);
 +                    //library entries must have all their cells in the work library
 +                    dest.getNetlist().consolidateAllToWorkLibrary();
@@ -1390,6 +1400,12 @@ index 0000000..9f85b79
 +            Path libDir = LocationParser.getPlacedRoutedDCPsPath().resolve(it.comp.dcpName);
 +            String prefix = libDir.resolve(it.pblock.pblockName).toString();
 +            md.append("open_checkpoint " + prefix + "_placedRouted.dcp\n");
++            //every cell must have survived the split (a site that fails to restore leaves its
++            //cells without a LOC and would be lost silently): otherwise no META_OK -> the
++            //component falls back to an individual build
++            md.append("set noloc 0\nforeach c [get_cells -hier -filter {IS_PRIMITIVE && REF_NAME!=GND && REF_NAME!=VCC}] "
++                + "{ if {[get_property LOC $c] eq \"\"} {incr noloc} }\n");
++            md.append("if {$noloc > 0} { puts \"SPLIT_UNPLACED " + it.pblock.pblockName + " $noloc\"; close_design; } else {\n");
 +            md.append("create_clock -period " + VivadoRun.clockPeriod() + " -name clk [get_ports clk]\n");
 +            md.append("create_pblock pblock_1\n");
 +            md.append(StringUtils.getPblockString(it.pblock.getAllSites(), "pblock_1"));
@@ -1401,6 +1417,7 @@ index 0000000..9f85b79
 +            md.append("generate_metadata " + prefix + "_placedRouted.dcp " + libDir + "/ 0\n");
 +            md.append("close_design\n");
 +            md.append("puts \"META_OK " + it.pblock.pblockName + "\"\n");
++            md.append("}\n");
 +        }
 +        Path mdTcl = dir.toPath().resolve("metadata.tcl");
 +        Path mdLog = dir.toPath().resolve("metadata.log");

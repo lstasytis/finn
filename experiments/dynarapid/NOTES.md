@@ -491,3 +491,38 @@ batch time limit was lowered from 900 to 300 s.
   global place-and-route grows.
 
 Final functional check (latest flow, cold TFC build, 16 frames): identical to FINN's RTL.
+
+## 2026-09-28: e2e blocker (unplaced CARRY8 slice) root-caused and fixed
+
+Symptom: e2e MLP assembly failed with DRC UNPL-1 (16 cells of
+`StreamingDataflowPartition_1_MVAU_hls_0`, cell `n2`). Findings:
+
+* The **library checkpoint** `mvauhlsx159743c61ccc_I55_J11_R10_C7_placedRouted.dcp` was already
+  broken: the 16 cells had empty LOC with `STATUS=ASSIGNED` (the earlier check used
+  `STATUS==UNPLACED` and missed them). The other variant (J28) was fine.
+* In the batch design (`batch.dcp`), Vivado had placed all 16 cells in SLICE_X68Y297 and
+  routed with 0 errors.
+* The split (`DesignTools.copyImplementation` in `GenerateBatchPblocks.runBatch`) produced a
+  checkpoint that, when reopened by Vivado in the metadata step, reported
+  `[Constraints 18-4521] Instance c4/.../inputBuf_9_fu_196_reg[14] does not exist` and
+  `[Designutils 20-2070] placement information for 1 sites failed to restore`. The metadata
+  step then rewrote the checkpoint without that site, so the loss went unnoticed. The site
+  contains a LUT route-through cell (D5LUT, rt for DFF2); the written placement still
+  references the batch hierarchy `c4/` for it. Re-pointing the cells' EDIFHierCellInst to
+  the destination netlist does not help.
+* Reproduced standalone (RapidWright harness on batch.dcp): as-is split → 16 cells without
+  LOC and 40 nets with routing errors; removing the route-through cells → 0 without LOC and
+  1 unrouted net, the same as the known-good J28 variant (Vivado rebuilds the
+  route-throughs from the site PIPs; the affected net is ROUTED).
+
+Fix (`GenerateBatchPblocks`): drop route-through cells after `copyImplementation`; the
+metadata step now counts cells without LOC and withholds `META_OK` if any are found, so a
+bad split falls back to an individual build instead of corrupting the library silently.
+`FLOW_VERSION` 3 → 4.
+
+Result (Vivado 2023.1, cold library after the FLOW_VERSION bump): `pytest
+tests/end2end/test_end2end_dynarapid.py` **3 passed** (export, build, functional check vs
+FINN RTL) in 776 s; DynaRapid flow 530 s (parallel library 387 s, stitch 5 s, assembly
+138 s), WNS +0.701 ns at 5 ns, 0 routing errors. TFC `verify_accel.py` regression deferred
+to right after the planned switch to Vivado 2024.2 (FINN's documented minimum), where all
+checks are repeated anyway.

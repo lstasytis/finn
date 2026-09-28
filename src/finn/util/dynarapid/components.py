@@ -62,7 +62,8 @@ _VOLATILE_ATTRS = {
 # bump when the way components are implemented changes (invalidates cached components)
 #   2: no BRAM cascades (synth_design -max_bram_cascade_height 1)
 #   3: RTL / single-cell HLS nodes synthesized from their HDL directly (no block design)
-FLOW_VERSION = 3
+#   4: batch split drops LUT route-through cells (Vivado lost their site), split sanity check
+FLOW_VERSION = 4
 
 
 def component_name(model, node, part, clk_ns):

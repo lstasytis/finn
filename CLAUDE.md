@@ -144,11 +144,10 @@ Serial parts of the DynaRapid flow (cap the scaling): IODMA HLS ~45 s, stitching
 assembly ~190 s (Vivado: open shell, route boundary/clock nets, bitstream).
 
 Open / in progress (task file: `experiments/dynarapid/TASK_scaling_and_examples.md`):
-1. e2e test (`tests/end2end/test_end2end_dynarapid.py`, MLP on ZCU104) not yet passing:
-   last failure = unplaced CARRY cells of a batched MVAU after stitching (library checkpoint
-   itself fully placed); reproduces with a clean library (so not the stale-`.edn`
-   pollution; old library kept as `*_polluted_20260928`). Loss happens in relocation /
-   stitching or assembly; see `experiments/dynarapid/TASK_scaling_and_examples.md` Phase 1.
+1. e2e test passes (2026-09-28): the lost CARRY8 slice came from LUT route-through cells
+   in the batch split (`GenerateBatchPblocks`), which are now dropped, plus a no-LOC check in
+   the metadata step. Note: a cell without LOC can show `STATUS=ASSIGNED`, not UNPLACED.
+   Planned next: switch to Vivado 2024.2 (FINN's documented minimum), then re-validate.
 2. Merge `expanded-finnexamples` (finn-examples benchmark configs; only `setup.cfg` overlaps:
    keep both markers).
 3. VGG10 (RadioML) Vivado vs DynaRapid cold (`run_vgg10.py`); new layer types MVAU_rtl
