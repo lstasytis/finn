@@ -535,3 +535,17 @@ checks are repeated anyway.
 `tests/benchmark/models/download_models.sh` are in `tests/benchmark/models/` (gitignored):
 tfc/cnv w1a1/w1a2/w2a2, cnv_1w1a_gtsrb, MLP_W3A3 (kws), unsw_nb15-mlp-w2a2 (cybersecurity),
 mobilenetv1-w4a4, radioml_w4a4_small_tidy, resnet50_w1a2.
+
+## 2026-09-28: switch to Vivado 2024.2, re-validation
+
+Container restarted with `FINN_XILINX_VERSION=2024.2` (`restart.md`). All 2023.1 caches are
+stale: the Vivado release is now part of the component hash (`component_name`) and of the
+shell key (`tools.vivado_version()`). The 2023.1 default library was moved to
+`$FINN_BUILD_DIR/dynarapid_library_v2023.1`; 2024.2 experiments go to
+`$FINN_BUILD_DIR/dr_zcu104_2024/` (TFC/CNV re-prepared there with 2024.2 HLS; TFC ipgen 120 s).
+
+e2e test (`pytest tests/end2end/test_end2end_dynarapid.py`, cold library, **no cached shell**,
+CNV prepare running concurrently, so not a clean timing): **3 passed** in 1218 s. DynaRapid
+flow 922 s: parallel stage 804 s (shell build 446 s ran inside it, concurrently with the
+library), stitch 5 s, assembly 114 s (open shell 25, read accel 19, route 36, bitstream 22).
+WNS +0.376 ns at 5 ns (2023.1: +0.701), 0 routing errors.

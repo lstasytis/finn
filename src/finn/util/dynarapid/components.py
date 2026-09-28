@@ -34,6 +34,7 @@ from finn.util.dynarapid.tools import (
     dynarapid_root,
     run_java,
     run_vivado,
+    vivado_version,
 )
 
 # node attributes that do not influence the generated hardware
@@ -63,6 +64,7 @@ _VOLATILE_ATTRS = {
 #   2: no BRAM cascades (synth_design -max_bram_cascade_height 1)
 #   3: RTL / single-cell HLS nodes synthesized from their HDL directly (no block design)
 #   4: batch split drops LUT route-through cells (Vivado lost their site), split sanity check
+# the Vivado release is part of the key as well (tools.vivado_version)
 FLOW_VERSION = 4
 
 
@@ -73,7 +75,9 @@ def component_name(model, node, part, clk_ns):
     the first "_I", "_J", ... so the component name itself must not contain '_'.
     """
     h = hashlib.sha256()
-    h.update(("%s|%s|%s|%d" % (node.op_type, part, clk_ns, FLOW_VERSION)).encode())
+    h.update(
+        ("%s|%s|%s|%d|%s" % (node.op_type, part, clk_ns, FLOW_VERSION, vivado_version())).encode()
+    )
     for a in sorted(node.attribute, key=lambda a: a.name):
         if a.name in _VOLATILE_ATTRS:
             continue

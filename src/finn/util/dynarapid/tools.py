@@ -19,6 +19,12 @@ VIVADO_GB = 4.5
 JVM_GB = 3.0
 
 
+def vivado_version():
+    """Vivado release of the active toolchain (e.g. "2024.2"), part of all cache keys:
+    checkpoints and HLS output of one release are not reused by another."""
+    return os.path.basename(os.path.normpath(os.environ.get("XILINX_VIVADO", ""))) or "unknown"
+
+
 def avail_memory_gb():
     return os.sysconf("SC_AVPHYS_PAGES") * os.sysconf("SC_PAGE_SIZE") / 2**30
 

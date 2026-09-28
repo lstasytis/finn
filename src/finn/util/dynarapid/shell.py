@@ -34,7 +34,7 @@ import json
 import os
 import shutil
 
-from finn.util.dynarapid.tools import run_vivado
+from finn.util.dynarapid.tools import run_vivado, vivado_version
 
 CORE_MODULE = "finn_accel_core"
 CORE_CELL = "accel"
@@ -80,6 +80,7 @@ def shell_key(board, part, clk_ns, ports):
             for d in ports
         ],
         "version": 4,
+        "vivado": vivado_version(),
     }
     h = hashlib.sha256(json.dumps(sig, sort_keys=True).encode()).hexdigest()[:12]
     return "shell%s" % h
