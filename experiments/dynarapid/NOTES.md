@@ -560,3 +560,15 @@ testbench race. The reference's single output burst completes in the same simula
 step in which the status poll sees ap_done (2024.2 HLS IODMA asserts done around the last W
 beat, before the B response), and the dump ran first. Fix: `DRAIN_CYCLES = 5000` wait after
 DONE before dumping memory (both DUTs). Re-check: **outputs_match true** (16 frames).
+
+**2024.2 regression: every batch failed.** `GenerateBatchPblocks`' batch Tcl
+(`read_verilog top.v` + `read_checkpoint` per component + `link_design`) hits
+`ERROR: [Designutils 20-50] Could not find synplify library file` in 2024.2 (not in 2023.1,
+no such file in either install), so `link_design` returns an error although it logs
+"completed successfully"; the error cannot be demoted (Common 17-239). All batches of TFC
+(6/6) and CNV fell back to individual builds, which is why the first 2024.2 cold runs were
+slow (TFC parallel stage 815 s; CNV > 40 min). Removing the black-box stubs from top.v does
+not help. Fix: `catch` link_design, accept only if a design is open and has no black boxes
+(else re-raise). A failed CNV batch re-run by hand: linked (2268 primitives), placed, routed,
+0 routing errors, 93 s. The first-run TFC/CNV numbers above are therefore fallback-path
+numbers; the timed cold runs use the fixed batch path.

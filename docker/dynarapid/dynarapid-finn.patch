@@ -953,10 +953,10 @@ index c460620..110dfd4 100755
  
 diff --git a/src/ch/agsl/dynarapid/pblockgenerator/GenerateBatchPblocks.java b/src/ch/agsl/dynarapid/pblockgenerator/GenerateBatchPblocks.java
 new file mode 100644
-index 0000000..797a8e7
+index 0000000..462cc28
 --- /dev/null
 +++ b/src/ch/agsl/dynarapid/pblockgenerator/GenerateBatchPblocks.java
-@@ -0,0 +1,478 @@
+@@ -0,0 +1,484 @@
 +/*
 +* DynaRapid
 +*
@@ -1290,7 +1290,13 @@ index 0000000..797a8e7
 +        for (Item it : batch)
 +            if (t.indexOf(it.comp.moduleLoc) < 0)
 +                t.append("read_checkpoint " + it.comp.moduleLoc + "\n");
-+        t.append("link_design -top top -part " + GenerateDesign.fpga_part + " -mode out_of_context\n");
++        //Vivado 2024.2 fails link_design of a Verilog top over checkpoints with the non-demotable
++        //[Designutils 20-50] "Could not find synplify library file" although the link completes;
++        //accept that, but require an open design without black boxes
++        t.append("if {[catch {link_design -top top -part " + GenerateDesign.fpga_part + " -mode out_of_context} err]} {\n");
++        t.append("    if {[catch {current_design}] || [llength [get_cells -quiet -hier -filter {IS_BLACKBOX}]] > 0} {error $err}\n");
++        t.append("    puts \"INFO: link_design error ignored, design linked: $err\"\n");
++        t.append("}\n");
 +        t.append("create_clock -period " + VivadoRun.clockPeriod() + " -name clk [get_ports clk]\n");
 +        t.append("set_property HD.CLK_SRC " + VivadoRun.clockSourceSite() + " [get_ports clk]\n");
 +        for (Item it : batch)
