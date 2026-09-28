@@ -953,10 +953,10 @@ index c460620..110dfd4 100755
  
 diff --git a/src/ch/agsl/dynarapid/pblockgenerator/GenerateBatchPblocks.java b/src/ch/agsl/dynarapid/pblockgenerator/GenerateBatchPblocks.java
 new file mode 100644
-index 0000000..462cc28
+index 0000000..59ba754
 --- /dev/null
 +++ b/src/ch/agsl/dynarapid/pblockgenerator/GenerateBatchPblocks.java
-@@ -0,0 +1,484 @@
+@@ -0,0 +1,488 @@
 +/*
 +* DynaRapid
 +*
@@ -1308,7 +1308,11 @@ index 0000000..462cc28
 +            t.append("add_cells_to_pblock " + pb + " [get_cells c" + it.k + "]\n");
 +            t.append("set_property CONTAIN_ROUTING 1 [get_pblocks " + pb + "]\n");
 +        }
-+        t.append("opt_design\nplace_design\nroute_design\n");
++        //Vivado 2024.2 makes route_design fail ([Route 35-2] "not legally routed") when overlaps
++        //remain; 2023.1 finished with routing errors. Continue either way: the errors are
++        //attributed to components below
++        t.append("opt_design\nplace_design\n");
++        t.append("if {[catch {route_design} err]} {puts \"INFO: route_design error: $err\"}\n");
 +        //routing errors per component: nets with conflicts (overlaps) or antennas, by the cell
 +        //prefix of their name (per-net route reports list every route tree and are very slow).
 +        //Errors that cannot be attributed fail the whole batch.

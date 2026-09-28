@@ -572,3 +572,22 @@ not help. Fix: `catch` link_design, accept only if a design is open and has no b
 (else re-raise). A failed CNV batch re-run by hand: linked (2268 primitives), placed, routed,
 0 routing errors, 93 s. The first-run TFC/CNV numbers above are therefore fallback-path
 numbers; the timed cold runs use the fixed batch path.
+
+CNV first 2024.2 run (`bit/cnv_c0`, cold library, shell reused from TFC, batches still broken =
+all components via the individual fallback, untimed): 2568 s flow (parallel 2303 s, stitch
+91 s, assembly 175 s), WNS +0.411 ns, 0 routing errors. Its `verify_accel` (4 frames,
+post-route netlist xsim) was stopped after 30 min to not block the timed runs; CNV is
+verified on the cold (batch-path) build instead, with 1 frame.
+
+TFC Vivado ZynqBuild (2024.2, 32 cores, timed): **715 s** (2023.1: 700 s), WNS +0.958 ns.
+OOC IP synth up to 109 s (smartconnect), synth 33, link 23, opt 7, place 87, route 42,
+bitstream 20.
+CNV Vivado ZynqBuild (2024.2, 32 cores, timed): **981 s** (2023.1: 1034 s), WNS +0.682 ns
+(synth 32, link 28, place 137, route 86, bitstream 22).
+
+**Second 2024.2 batch regression:** `route_design` now *fails* (`[Route 35-2] Design is not
+legally routed. There are N node overlaps`) where 2023.1 finished with routing errors, so the
+per-component attribution after it never ran and the whole batch fell back (seen in 2 of the
+TFC cold batches, so the first timed TFC cold run was aborted). Fix: `catch` route_design and
+continue to the attribution. Re-run of the failed 9-component batch: 4 nets with errors, all
+11 conflicting nets in c6, the other 8 components RESULT 0 (split normally), 155 s.
