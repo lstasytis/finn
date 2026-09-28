@@ -711,3 +711,10 @@ MVAU individually (lower the "large" threshold, e.g. >= 3 BRAM tiles), or a shor
 time limit.
 FLOW_VERSION 7: TFC cold `verify_accel` 16 frames **outputs_match true**; e2e test **3 passed**
 (977 s; DynaRapid flow 702 s: library 592 s, stitch 5 s, assembly 106 s, WNS +0.467 ns, 0 errors).
+
+Large-component threshold `large_bram` 4 → 3 BRAM tiles (flow.py): the TFC MVAU_hls_0 (3.5
+tiles) is now implemented individually (hedged) as soon as it is synthesized instead of
+congesting a batch. TFC DynaRapid **cold** (2024.2, FLOW_VERSION 7): **591 s** flow / 650 s script
+(before: 860 s; 2023.1: 553-618 s; Vivado flow 715 s): library 463 s (synthesis 100 s, 16
+batched + 1 individual, 0 batch failures, 0 retries), stitch 6 s, assembly 121 s, WNS +0.796 ns,
+0 routing errors.

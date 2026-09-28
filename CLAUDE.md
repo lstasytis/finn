@@ -141,7 +141,7 @@ Results, ZCU104, 5 ns, 32 cores, shell cached, 2024.2, FLOW_VERSION 7 (details i
 
 | | Vivado ZynqBuild | DynaRapid warm | DynaRapid cold | 2023.1 cold |
 |---|---|---|---|---|
-| TFC | 715 s | 126-135 s (v5) | 860 s | 553-618 s |
+| TFC | 715 s | 126-135 s (v5) | 591 s | 553-618 s |
 | CNV | 981 s | 266 s (v5, stitch was 86 s, now 32 s) | 925 s | 909 s |
 
 All with 0 routing errors; TFC verified (verify_accel 16 frames), e2e test 3 passed. CNV cannot
@@ -158,9 +158,8 @@ Serial parts of the DynaRapid flow (cap the scaling): IODMA HLS ~45 s, stitching
 assembly 120-170 s (Vivado: open shell, route boundary/clock nets, bitstream).
 
 Open / next (task file: `experiments/dynarapid/TASK_scaling_and_examples.md`):
-1. TFC cold: one 7-component batch with MVAU_hls_0 (3.5 BRAM tiles) hits the 300 s batch
-   time limit before its 0.45 retry succeeds (~5 min on the critical path). Candidates:
-   build it individually (large threshold) or a shorter batch time limit.
+1. (done) TFC cold 860 → 591 s: components with >= 3 BRAM tiles are built individually
+   (`large_bram` 3 in flow.py; the 3.5-tile TFC MVAU congested its batch).
 2. VGG10 (RadioML) Vivado vs DynaRapid cold (`run_vgg10.py`); new layer types MVAU_rtl
    (DSP), FMPadding_rtl, StreamingMaxPool_hls; large layers (PE16xSIMD96).
 3. Core-scaling experiment: N = 4/8/16/32 cores via `taskset` + scaled
