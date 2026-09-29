@@ -820,3 +820,44 @@ All DynaRapid runs 0 routing errors, 0 fallbacks, WNS +0.7..+0.9 ns (Vivado +1.0
   components) are where more cores pay off.
 * Raw data: `$FINN_BUILD_DIR/dr_zcu104_2024/scaling/` (per-run logs, memory samples,
   `scaling.json`); archived in `experiments/dynarapid/results/scaling_zcu104_2024/`.
+
+### Stitching and assembly breakdown (serial part of the DynaRapid flow)
+
+From the 16-core cold runs (other core counts within a few seconds); stitching from
+`dynarapid/generate_design.log` (RapidWright/RWRoute timers), assembly from the `STAMP`s and
+`route_design` log of `assembly/assemble.log`.
+
+| Stage | CNV (63 nodes) | TFC (17 nodes) |
+|---|---|---|
+| **DynaRapid: place + stitch + route the FINN nodes** | **36 s** | **7 s** |
+| - JVM start, device map, greedy placement | ~5 s | ~4 s |
+| - read component checkpoints | 4 s (64 reads) | 2 s (18 reads) |
+| - RWRoute of the inter-component nets | 25 s (3005 nets, 30 iterations) | 1 s (317 nets, 5 iterations) |
+| - write `accel_routed.dcp` | 1 s | <1 s |
+| **Assembly in Vivado (shell integration)** | **165 s** | **120 s** |
+| - `open_checkpoint` shell | 24 s | 25 s |
+| - `read_checkpoint -cell` accelerator | 27 s | 21 s |
+| - `route_design` (327 / 290 unrouted nets) | 72 s | 39 s |
+| - reports (timing, utilization) | 10 s | 6 s |
+| - `write_bitstream` | 23 s | 22 s |
+| - Vivado start / exit | 8 s | 8 s |
+
+Findings:
+* Placing the FINN nodes is nearly free (greedy placement a few seconds, checkpoint reads
+  1-4 s). The DynaRapid part is dominated by RWRoute on CNV: most conflicts clear early, then
+  2 overlapping nodes persist from ~iteration 16 to the cap of 30, and 37 nets are unpreserved as
+  unroutable; both are left to Vivado. About half of the 25 s is spent without progress.
+* **The serial bottleneck is the assembly, mostly fixed Vivado cost:** opening the shell and
+  inserting the accelerator ~50 s regardless of the model, bitstream 22 s, start/exit 8 s.
+  `route_design` is the only model-dependent step and is slow for what it routes: ~300 nets
+  (shell boundary, clock, RWRoute leftovers), 39-72 s; on CNV it first resolves ~570
+  overlapping nodes from the inserted accelerator.
+* The parallel component library is the bulk of a cold build (460 s TFC, 820 s CNV at 16
+  cores); stitching + assembly (~130-200 s) are most of the ~330 s serial term in the CNV fit.
+
+Candidates to shorten it (not done): (1) RWRoute iteration cap 30 → ~15 (Vivado resolves the
+last overlaps anyway; ~10 s on CNV); (2) skip or background the reports (5-10 s); (3) merge the
+accelerator into the shell in RapidWright instead of `open_checkpoint` + `read_checkpoint -cell`
+(most of the ~50 s; the shell contains encrypted SmartConnect IP, which RapidWright can only
+carry through as encrypted cells); (4) fewer leftovers from RWRoute so `route_design` has less
+to clean up.
