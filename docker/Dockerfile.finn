@@ -89,8 +89,10 @@ RUN echo "StrictHostKeyChecking no" >> /etc/ssh/ssh_config
 RUN locale-gen "en_US.UTF-8"
 
 # Install slashkit. If the package isn't provided, this is a no-op
-# The wildcard pattern ensures COPY doesn't fail if the file doesn't exist
-COPY slashkit.de[b] /tmp/
+# The wildcard pattern ensures COPY doesn't fail if the file doesn't exist; requirements.txt
+# (always present) keeps it working with the legacy builder too (DOCKER_BUILDKIT=0, for
+# hosts without buildx), which rejects a COPY whose only source matches nothing
+COPY requirements.txt slashkit.de[b] /tmp/
 RUN if [ -f /tmp/slashkit.deb ]; then apt-get update && apt-get install -y /tmp/slashkit.deb && rm /tmp/slashkit.deb; fi
 
 # install XRT
