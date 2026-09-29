@@ -2320,7 +2320,7 @@ index 0000000..0c49f06
 +    }
 +}
 diff --git a/src/ch/agsl/dynarapid/placer/GreedyPlacer.java b/src/ch/agsl/dynarapid/placer/GreedyPlacer.java
-index 4c82dae..e2a6ea2 100755
+index 4c82dae..01fc13f 100755
 --- a/src/ch/agsl/dynarapid/placer/GreedyPlacer.java
 +++ b/src/ch/agsl/dynarapid/placer/GreedyPlacer.java
 @@ -135,6 +135,7 @@ public class GreedyPlacer implements Placer {
@@ -2331,7 +2331,7 @@ index 4c82dae..e2a6ea2 100755
          
          String siteName = "SLICE_X67Y624";
          
-@@ -162,15 +163,77 @@ public class GreedyPlacer implements Placer {
+@@ -162,15 +163,61 @@ public class GreedyPlacer implements Placer {
           }
  
          centerSite = device.getSite(siteName);
@@ -2343,23 +2343,7 @@ index 4c82dae..e2a6ea2 100755
 +        if(coord == null || !coord.contains(":"))
 +        {
 +            //the default site is not on this device (or not in the map): center of the map
-+            centeri = rows / 2;
-+            centerj = cols / 2;
-+            centerSite = null;
-+            for(int dj = 0; centerSite == null && dj < cols; dj++)
-+            {
-+                int j = (centerj + dj) % cols;
-+                MapElement e = MapElement.map.get(centeri).get(j);
-+                for(String tn : new String[] {e.rightElementName, e.leftElementName})
-+                {
-+                    com.xilinx.rapidwright.device.Tile t = (tn == null) ? null : device.getTile(tn);
-+                    if(centerSite == null && t != null && t.getSites().length > 0)
-+                    {
-+                        centerSite = t.getSites()[0];
-+                        centerj = j;
-+                    }
-+                }
-+            }
++            centerAt(rows / 2, cols / 2, 0, cols - 1);
 +        }
 +        else
 +        {
@@ -2413,7 +2397,7 @@ index 4c82dae..e2a6ea2 100755
      public String getPlacerName()
      {
          return "Greedy-Placer";
-@@ -265,10 +328,31 @@ public class GreedyPlacer implements Placer {
+@@ -265,10 +312,31 @@ public class GreedyPlacer implements Placer {
       * We iterate i and then go to previous step
       * If we reach a node where all its connections has been visited, we select the next node in the orderedNodes list and continue from 3rd step
       */
@@ -2445,6 +2429,48 @@ index 4c82dae..e2a6ea2 100755
          ArrayList<String> nodeList = new ArrayList<>(); //Temporary queue of nodes. This is fed in to the nodesQ
          HashSet<String> visited = new HashSet<>(); //Array of nodes already present in the nodeList
          ArrayList<Pair> orderedNodes = new ArrayList<>(); //Here the nodes are arranged in decreasing order of number of peripherals
+@@ -581,9 +649,41 @@ public class GreedyPlacer implements Placer {
+         return true;
+     }
+ 
++    //Design center at map row i, starting at column j: the first column (from j, wrapping
++    //within [lo, hi]) with a site
++    void centerAt(int i, int j, int lo, int hi)
++    {
++        centeri = i;
++        centerj = j;
++        centerSite = null;
++        int n = hi - lo + 1;
++        for(int dj = 0; centerSite == null && dj < n; dj++)
++        {
++            int jj = lo + ((j - lo + dj) % n);
++            MapElement e = MapElement.map.get(centeri).get(jj);
++            for(String tn : new String[] {e.rightElementName, e.leftElementName})
++            {
++                com.xilinx.rapidwright.device.Tile t = (tn == null) ? null : device.getTile(tn);
++                if(centerSite == null && t != null && t.getSites().length > 0)
++                {
++                    centerSite = t.getSites()[0];
++                    centerj = jj;
++                }
++            }
++        }
++    }
++
+     public Map<String, Node> placer(Map<String, Node> nodes)
+     {
+         if((centeri < topRow) || (centeri > bottomRow) || (centerj < leftCol) || (centerj > rightCol))
++        {
++            //the part's default center (e.g. SLICE_X67Y624, in SLR2 of the xcu55c) is outside
++            //the placement region: center the design in the region
++            int hi = Math.min(rightCol, MapElement.map.get(0).size() - 1);
++            centerAt((topRow + Math.min(bottomRow, MapElement.map.size() - 1)) / 2, (leftCol + hi) / 2, leftCol, hi);
++            System.out.println("Design center moved into the placement region: I = " + centeri + " J = " + centerj);
++        }
++        if((centeri < topRow) || (centeri > bottomRow) || (centerj < leftCol) || (centerj > rightCol) || centerSite == null)
+         {
+             System.out.println("Design center of: I = " + centeri + " J = " + centerj + ". is not within the constrained region of the FPGA fabric. Exiting design placement");
+             return null;
 diff --git a/src/ch/agsl/dynarapid/strings/StringUtils.java b/src/ch/agsl/dynarapid/strings/StringUtils.java
 index 60d2c91..fd7890c 100755
 --- a/src/ch/agsl/dynarapid/strings/StringUtils.java

@@ -68,6 +68,7 @@ PART_TO_DYNARAPID = {
     # other parts are passed by their full name
     "xcu250-figd2104-2L-e": "xcu250-figd2104-2L-e",
     "xczu7ev-ffvc1156-2-e": "xczu7ev-ffvc1156-2-e",  # ZCU104
+    "xcu55c-fsvh2892-2L-e": "xcu55c-fsvh2892-2L-e",  # Alveo U55C
 }
 
 # Map region (starti, startj, endi, endj) in which library pblocks are generated.
@@ -83,6 +84,9 @@ PBLOCK_REGION = {
     "xcu250-figd2104-2L-e": "260,20,459,127",  # same die as xcvu13p
     # 360 x 43 map (the map columns below the PS are dropped, see MapBuilderFPGA)
     "xczu7ev-ffvc1156-2-e": "20,4,339,39",
+    # 720 x 148 map, 3 SLRs of 240 rows (map rows 240-479 = SLR1); inside the DynaRapid
+    # region of the Vitis shell (alveo.DR_REGION)
+    "xcu55c-fsvh2892-2L-e": "260,10,459,100",
 }
 
 
