@@ -4,7 +4,9 @@ You are continuing work on the FINN + DynaRapid integration in
 1. Read CLAUDE.md (repo root) fully — it is the onboarding doc: goal, environment,
    file/function map, commands, known pitfalls, status. Do not re-derive what it states.
 2. Then read experiments/dynarapid/TASK_scaling_and_examples.md — that is your task.
-   Execute its phases in order (0 → 5), following its ground rules.
+   Phases 0-4 are done (results in NOTES.md). Start at **Phase 6** (U55C per-model v++ link,
+   section "NEXT AGENT STARTS HERE"), following the ground rules at the top of the file;
+   Phase 5 (finn-examples models) follows on the U55C afterwards.
 3. Use experiments/dynarapid/NOTES.md only as a reference for specific past results or
    decisions (grep for the section you need; don't read it end to end).
 
