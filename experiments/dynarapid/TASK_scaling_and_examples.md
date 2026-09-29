@@ -113,3 +113,38 @@ Zynq-only — do not start it; report what an Alveo shell would require.
    verified yes/no, blockers).
 4. A final message to the user: results, what limits scaling, recommended server size, open
    issues.
+
+## Update 2026-09-29 (user decision)
+
+VGG10 does not fit DynaRapid's per-component pblocks on the ZCU104 (64 % DSPs, pblocks 90 % of
+the region, see NOTES.md). User decision: the core-scaling experiment (Phase 4) runs on the
+ZCU104 with CNV and TFC; **everything after it (VGG10, the finn-examples models incl.
+MobileNet) targets the Alveo U55C** (`xcu55c-fsvh2892-2L-e`, platform
+`xilinx_u55c_gen3x16_xdma_3_202210_1`, Vitis 2024.2; Alveo work is authorized by this).
+
+### Plan: DynaRapid on the U55C (Vitis flow)
+
+FINN's Vitis flow (`alveo_build.py`: CreateVitisXO, VitisLink) links three kernels per model -
+`idma0` (HLS IODMA, m_axi + s_axilite), the compute partition (RTL kernel, AXI-Stream only) and
+`odma0` - with `stream_connect`, HBM via `sp=`, and `v++ --link` implements the platform's
+dynamic region (ULP, DFX) on top of the locked static region (`hw.xsa`: `hw_bb_locked.dcp`).
+The ULP also holds encrypted IP (HBM memory subsystem, SmartConnect), so it must stay in Vivado.
+Mapping of the Zynq design:
+
+1. **Shell (cached per platform / clock / DMA widths):** `v++ --link` with the real IODMA
+   kernels and a placeholder compute kernel (registered AXI-Stream loop, one register per output
+   bit, as on Zynq); keep the routed checkpoint (`--save-temps`,
+   `_x/link/vivado/vpl/prj/prj.runs/impl_1/*_routed.dcp`) and the xclbin (metadata sections).
+2. **Per model:** DynaRapid builds the compute kernel's components (library on the xcu55c part)
+   and stitches/routes it within a place region inside one SLR next to the kernel's DMAs
+   (SLR crossings out of scope at first).
+3. **Assembly:** open the shell checkpoint, `read_checkpoint -cell <compute kernel>`, route the
+   boundary, `write_bitstream -cell` for the ULP (partial bitstream), then
+   `xclbinutil --replace-section BITSTREAM` on the shell's xclbin.
+4. Functional check: XRT hardware is not available here; verification via the post-route
+   netlist simulation of the compute kernel against FINN's RTL (as verify_accel, streams only).
+
+Steps: (U1) FINN Vitis baseline on U55C for TFC (v++ link time, toolchain check);
+(U2) xcu55c part in DynaRapid (PART_TO_DYNARAPID, library map region per SLR, memory per
+Vivado run on the larger part); (U3) Alveo shell + assembly; (U4) TFC/CNV end to end, then
+VGG10 and the finn-examples models. Heavy U55C runs only in gaps between timed scaling runs.
