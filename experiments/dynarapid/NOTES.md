@@ -861,3 +861,21 @@ accelerator into the shell in RapidWright instead of `open_checkpoint` + `read_c
 (most of the ~50 s; the shell contains encrypted SmartConnect IP, which RapidWright can only
 carry through as encrypted cells); (4) fewer leftovers from RWRoute so `route_design` has less
 to clean up.
+
+## 2026-09-29: VGG10 on the Alveo U55C (Vitis flow) - setup
+
+* `run_vgg10.py --board U55C` selects `ShellFlowType.VITIS_ALVEO` (boards in `vitis_part_map`).
+* Upstream bug fixed: `step_synthesize_bitfile` passed `cfg.synth_clk_period_ns()` (a float,
+  "not callable") to `VitisLink` (fc9d7451ad, also on `expanded-finnexamples`), so the Vitis
+  bitfile step could not run at all.
+* DynaRapid map of `xcu55c-fsvh2892-2L-e` (full part names go through `GenerateDesign.setPart`
+  unchanged): 720 x 148 map cells, 3 SLRs of 240 map rows (map rows 0-239 = SLR2, 240-479 =
+  SLR1, 480-719 = SLR0; map row 0 is the top). Per SLR 29280 CLEL / ~24700 CLEM / ~7700 DSP /
+  3360 BRAM map cells - VGG10 (98k LUTs, 1098 DSPs) fits in one SLR.
+* Platform `xilinx_u55c_gen3x16_xdma_3_202210_1` (`hw.xsa` → `hw_bb_locked.dcp`, 3 min to open):
+  reconfigurable partition `level0_i/ulp` (black box), `pblock_dynamic_region` = SLICE
+  X0-232 Y0-719; static base logic `pblock_blp` = X197-232 (SLR0/1), X206-232 (SLR2). SLR0 is
+  the bottom (Y0-239, HBM). Plan for the DynaRapid region: inside SLR1, map rows ~260-459,
+  columns up to ~115 (clear of the static columns), with the v++-placed ULP logic (HBM
+  subsystem, interconnect, DMA kernels) kept out of it (pblock with CONTAIN_ROUTING, as the
+  Zynq shell strip).

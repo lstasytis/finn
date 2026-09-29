@@ -49,6 +49,15 @@ BACKEND_STEPS = {
 }
 
 
+def shell_flow(board):
+    """Alveo boards (U55C, U250, ...) use the Vitis flow, the others the Zynq flow."""
+    from finn.util.basic import vitis_part_map
+
+    if board in vitis_part_map:
+        return build_cfg.ShellFlowType.VITIS_ALVEO
+    return build_cfg.ShellFlowType.VIVADO_ZYNQ
+
+
 def config(out, steps, board, **kw):
     return build_cfg.DataflowBuildConfig(
         output_dir=out,
@@ -58,7 +67,7 @@ def config(out, steps, board, **kw):
         + "/specialize_layers_config/vgg10radioml_specialize_layers.json",
         synth_clk_period_ns=4.0,
         board=board,
-        shell_flow_type=build_cfg.ShellFlowType.VIVADO_ZYNQ,
+        shell_flow_type=shell_flow(board),
         standalone_thresholds=True,
         generate_outputs=[
             build_cfg.DataflowOutputType.ESTIMATE_REPORTS,
