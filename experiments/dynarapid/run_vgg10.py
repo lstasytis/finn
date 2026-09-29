@@ -59,7 +59,6 @@ def config(out, steps, board, **kw):
         synth_clk_period_ns=4.0,
         board=board,
         shell_flow_type=build_cfg.ShellFlowType.VIVADO_ZYNQ,
-        split_large_fifos=True,
         standalone_thresholds=True,
         generate_outputs=[
             build_cfg.DataflowOutputType.ESTIMATE_REPORTS,

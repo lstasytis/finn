@@ -721,3 +721,30 @@ batched + 1 individual, 0 batch failures, 0 retries), stitch 6 s, assembly 121 s
 Warm (FLOW_VERSION 7): TFC **128 s** (stitch 6, assembly 121, WNS +0.796), CNV **200 s** (stitch 32,
 assembly 168, WNS +0.528; before the pblock fix 266 s), 0 routing errors.
 TFC cold build with large_bram 3: verify_accel 16 frames outputs_match true.
+
+## 2026-09-29: Phase 3, VGG10 (RadioML) on ZCU104 (Vivado 2024.2, 4 ns)
+
+`run_vgg10.py`: removed `split_large_fifos` (no longer a DataflowBuildConfig option since the
+consolidated FIFO component, afab4dd3f; `tests/benchmark/vgg10-radioml/test_build_*.py` still
+passes it). Layers: 7 x (FMPadding_rtl, ConvolutionInputGenerator_rtl, MVAU_rtl,
+Thresholding_rtl, ConvolutionInputGenerator_rtl, Pool_hls), 3 MVAU_rtl FC layers, an
+integer ElementwiseAdd_hls (INT32 + INT15, no float IP) and LabelSelect_hls.
+Frontend (`$FINN_BUILD_DIR/vgg10_2024/run/frontend`): 661 s (hw_ipgen 171 s, set_fifo_depths 484 s).
+
+VGG10 DynaRapid first run (`vgg10_2024/dr0`, cold library, new 4 ns shell): shell 431 s
+(one-time), library 1800 s (129 components, 0 batch failures; critical path the largest
+MVAU_rtl `mvaurtlxd28c5144199d`: 34.9k LUTs, 51.9k FFs, 2936 CARRY8, 384 DSPs, pblock
+R105 x C35, its OOC place and route ~15 min), then **stitching failed**: DynaRapid's placer
+could not place `idma0` (`Could not find any placement shape and site`), in graph order and in
+the size-order retry (10 of 129 components placed). The run still ended with rc=0 (the builder
+does not raise on `accel_dynarapid_failed` - to fix).
+Cause: capacity. Synthesized totals 98k LUTs (43 % of xczu7ev), 147k FFs (32 %), **1098 DSPs
+(64 %)**, 17 BRAM tiles. The components' smallest pblocks add up to 12893 map cells of the
+360 x 40 = 14400-cell placement region (90 %); the three largest MVAU_rtl have one variant
+each (R105 x C35 = 3675 cells spans 35 of the 40 columns; R60 x C29; R40 x C22). Rectangular,
+non-overlapping per-component pblocks with 0.6 CLB headroom do not pack at this DSP density;
+the BRAM components (IODMAs) relocate only to their columns, which the large MVAUs cover.
+VGG10 Vivado ZynqBuild (2024.2, 32 cores, 4 ns, timed, from the FIFO-sized model): **2382 s**,
+WNS +0.547 ns, peak RSS of the driver 5.3 GB. The DynaRapid cold rerun (`dr1`, fresh library,
+cached shell) is queued for a second library-build timing; it is expected to fail in stitching
+the same way.
