@@ -879,3 +879,10 @@ to clean up.
   columns up to ~115 (clear of the static columns), with the v++-placed ULP logic (HBM
   subsystem, interconnect, DMA kernels) kept out of it (pblock with CONTAIN_ROUTING, as the
   Zynq shell strip).
+
+VGG10 Vitis baseline (U55C, 2024.2, 32 cores, 4 ns, FINN defaults, from the FIFO-sized
+model; frontend 11 min separately): **9566 s (2 h 39 min)**, WNS +0.003 ns, peak RSS 9.5 GB.
+Kernel preparation (PrepareForLinking: IODMA HLS, stitched IP + OOC synthesis of the compute
+kernel, package_xo) ~45 min; `v++ --link` ~114 min: linking synthesized kernels incl. 138
+platform IP OOC runs 30 min (only 3-4 at a time: FINN's VitisLink passes no synth/impl jobs),
+opt 7 min, place 34 min, route 18 min, bitstream 19 min.
