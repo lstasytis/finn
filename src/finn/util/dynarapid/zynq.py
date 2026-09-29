@@ -30,7 +30,7 @@ from finn.util.dynarapid.components import vendor_ip_cores
 from finn.util.dynarapid.flow import build_library, dynarapid_pnr
 from finn.util.dynarapid.graph import mm_ports
 from finn.util.dynarapid.shell import SHELL_STRIP_COLS, assemble_tcl, build_shell
-from finn.util.dynarapid.tools import run_vivado
+from finn.util.dynarapid.tools import run_vivado, usable_cpus
 
 
 def default_library_dir(part):
@@ -87,7 +87,7 @@ def dynarapid_zynq_build(
     """Build the bitfile of a ZynqBuild design (partition models with generated IP).
     Returns a result dict with the bitfile, hwh and per-stage times."""
     os.makedirs(out_dir, exist_ok=True)
-    workers = workers or os.cpu_count()
+    workers = workers or usable_cpus()
     library_dir = library_dir or default_library_dir(part)
     shell_lib = shell_lib or os.path.join(os.path.dirname(os.path.abspath(library_dir)), "shells")
     res = {"out_dir": out_dir, "board": board, "part": part, "clk_ns": clk_ns}

@@ -26,7 +26,24 @@ def vivado_version():
 
 
 def avail_memory_gb():
+    """Memory available to new processes (MemAvailable: free pages plus reclaimable page
+    cache; free pages alone underestimate it badly on a machine with a large page cache)."""
+    try:
+        with open("/proc/meminfo") as f:
+            for line in f:
+                if line.startswith("MemAvailable:"):
+                    return int(line.split()[1]) / 2**20
+    except OSError:
+        pass
     return os.sysconf("SC_AVPHYS_PAGES") * os.sysconf("SC_PAGE_SIZE") / 2**30
+
+
+def usable_cpus():
+    """CPUs this process may run on (taskset / cgroup affinity), not all of the machine's."""
+    try:
+        return len(os.sched_getaffinity(0))
+    except AttributeError:
+        return os.cpu_count() or 1
 
 
 def vivado_slots():
@@ -35,7 +52,7 @@ def vivado_slots():
     d = os.path.join(os.environ.get("FINN_BUILD_DIR", "/tmp"), "dynarapid_vivado_slots")
     n = os.environ.get("DYNARAPID_VIVADO_SLOTS")
     if n is None:
-        n = min(os.cpu_count() or 1, int(0.85 * avail_memory_gb() * 0.6 / VIVADO_GB))
+        n = min(usable_cpus(), int(0.85 * avail_memory_gb() * 0.6 / VIVADO_GB))
     return d, max(1, int(n))
 
 
