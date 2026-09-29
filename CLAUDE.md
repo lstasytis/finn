@@ -96,6 +96,24 @@ pytest tests/end2end/test_end2end_dynarapid.py -x -s     # marker: dynarapid
 
 * `--shell-lib` must point at the **`shells` directory** (`$D/lib/shells`), else the shell
   (474 s) is rebuilt. Shells are keyed by board/clock/IODMA widths; a new clock = new shell.
+
+### Scaling experiment on another (bigger) machine
+
+```
+git clone -b feature/dynarapid-pnr git@github.com:lstasytis/finn.git && cd finn
+FINN_XILINX_PATH=<Xilinx dir> FINN_XILINX_VERSION=2024.2 ./run-docker.sh   # fetches deps,
+#   applies docker/dynarapid/*.patch, compiles DynaRapid on first start
+# inside the container (in screen/tmux):
+experiments/dynarapid/run_scaling.sh          # CORES default: nproc, halving down to 4
+python experiments/dynarapid/summarize_scaling.py $FINN_BUILD_DIR/dr_scaling/scaling
+```
+
+`run_scaling.sh` prepares TFC/CNV and builds the ZCU104 shell once (untimed), then runs Vivado
+flow and DynaRapid cold at each core count (taskset, workers, Vivado threads <= 8,
+DYNARAPID_VIVADO_SLOTS = min(N, memory bound)); env overrides MODELS, CORES, MAX_SLOTS, D,
+PART. On this 32-core / 125 GB container the memory bound is 13 slots. Needs no Alveo
+tools. Results of the reference run: NOTES.md "2026-09-29: Phase 4".
+
 * Library layout: `<x>/lib` (component pblocks, `.data`, `.bin.data`, `.ip.json` HLS reuse) and
   sibling `<x>/work` (synth DCPs, batches, designs). Default:
   `$FINN_BUILD_DIR/dynarapid_library/<part>/lib`. Cold measurement = fresh `<x>` dir.
@@ -157,15 +175,20 @@ the sites when a pblock was grown by many small calls - the main cold-build slow
 Serial parts of the DynaRapid flow (cap the scaling): IODMA HLS ~45 s, stitching 6-32 s,
 assembly 120-170 s (Vivado: open shell, route boundary/clock nets, bitstream).
 
+Core-scaling experiment (Phase 4, ZCU104, 2024.2; NOTES.md "2026-09-29: Phase 4"): Vivado flow
+flat (CNV 962-1013 s at 4-32 cores); DynaRapid cold CNV 3135 / 1731 / 1083 / 1178 s at
+4 / 8 / 16 / 32 cores (memory-bound at 13 Vivado slots from 16 cores up), TFC at 32 cores
+651 s vs Vivado 714 s; TFC at 16/8/4 cores in progress. To repeat on a bigger machine see
+"Scaling experiment on another machine" above.
+
 Open / next (task file: `experiments/dynarapid/TASK_scaling_and_examples.md`):
-1. (done) TFC cold 860 → 591 s: components with >= 3 BRAM tiles are built individually
-   (`large_bram` 3 in flow.py; the 3.5-tile TFC MVAU congested its batch).
-2. VGG10 (RadioML) Vivado vs DynaRapid cold (`run_vgg10.py`); new layer types MVAU_rtl
-   (DSP), FMPadding_rtl, StreamingMaxPool_hls; large layers (PE16xSIMD96).
-3. Core-scaling experiment: N = 4/8/16/32 cores via `taskset` + scaled
-   `NUM_DEFAULT_WORKERS`/`DYNARAPID_VIVADO_SLOTS`/Vivado threads, Vivado flow vs DynaRapid cold;
-   report memory-bound points and serial parts.
-4. Then the finn-examples models, MobileNet (DynaRapid only); ResNet50 needs an Alveo shell.
+1. Finish the TFC scaling points; scaling table, plot, Amdahl extrapolation in NOTES.md.
+2. **User decision 2026-09-29: VGG10 and the finn-examples models move to the Alveo U55C**
+   (VGG10 does not fit DynaRapid's pblocks on the ZCU104: 64 % DSPs). Plan in the task file
+   ("Update 2026-09-29"): Vitis shell (v++ link with DMA kernels + placeholder compute kernel,
+   cached), DynaRapid for the compute kernel on xcu55c, assembly with read_checkpoint -cell and
+   a partial bitstream, xclbinutil. Heavy U55C runs only when no timed run is going.
+3. Builder: an `accel_dynarapid_failed` result still ends the build with rc=0 (should raise).
 
 ## Conventions
 
