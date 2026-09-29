@@ -780,11 +780,43 @@ fallbacks, WNS +0.1..+0.5 ns. Fit T(N) = a + b/N on N = 4, 8: a ~ 330 s, b ~ 112
 the Vivado flow for CNV (best 1083 vs 982 s): CNV's global place and route is small, the
 serial parts (assembly ~165 s, stitch 30-60 s, IODMA HLS) and the memory cap dominate.
 
-TFC (in progress, same setup):
+TFC (same setup):
 
 | N | Vivado | DynaRapid cold | DR library | DR synth done | DR stitch | DR assembly | DR CPU s | DR avg cores | DR peak mem GB |
 |---|---|---|---|---|---|---|---|---|---|
 | 32 | 714 | 651 | 463 | 133 | 6 | 120 | 2734 | 4.2 | 29 |
+| 16 | 711 | 649 | 462 | 133 | 7 | 120 | 2608 | 4.0 | 29 |
+| 8 | 703 | 920 | 734 | 169 | 7 | 119 | 2797 | 3.0 | 29 |
+| 4 | 764 | 1314 | 1120 | 311 | 10 | 125 | 2772 | 2.1 | 23 |
 
-TFC at 32 cores: DynaRapid cold 651 s vs Vivado 714 s (0 routing errors, 0 fallbacks, WNS +0.9 ns).
-Remaining points (16, 8, 4) are running.
+All DynaRapid runs 0 routing errors, 0 fallbacks, WNS +0.7..+0.9 ns (Vivado +1.0 ns).
+
+### Scaling summary
+
+* **Vivado flow: flat.** CNV 962-1013 s, TFC 703-764 s from 4 to 32 cores; ~1.2 cores used on
+  average (CPU 860-1420 s per run), 12-26 GB peak.
+* **DynaRapid cold scales with cores until a limit.** CNV 3135 → 1731 → 1083 s (4 → 8 → 16 cores,
+  1.81x and 1.60x per doubling), TFC 1314 → 920 → 649 s (1.43x, 1.42x). Total CPU work is roughly
+  constant (CNV 8.4-10.9 k s, TFC 2.6-2.8 k s), i.e. **~8x (CNV) / ~3x (TFC) the CPU work of the
+  Vivado flow**, spread over many parallel Vivado runs.
+* **Limits:**
+  - CNV at 16 and 32 cores: the **memory bound** (13 concurrent Vivado runs on this 125 GB
+    machine; peak 81-95 GB). 32 cores are not faster than 16 (1178 vs 1083 s, within the run-to-run
+    variance).
+  - TFC at 16 and 32 cores: the **critical path**, not cores or memory (17 components, 4 cores
+    used on average; synthesis done at 133 s, the individually built 3.5-BRAM MVAU, then stitch
+    6 s and assembly 120 s).
+  - Serial parts in every run: assembly 120-180 s (open shell, read the accelerator, route
+    boundary/clock nets, bitstream), stitching 6-61 s, the IODMA HLS in the front end.
+* **Crossover:** TFC: DynaRapid cold is faster than the Vivado flow from 16 cores (649 vs 711 s,
+  -9 %). CNV: not on this machine (best 1083 vs 982 s).
+* **Extrapolation (Amdahl, T(N) = a + b / min(N, slots)):** fit on the non-memory-bound points
+  N = 4, 8: CNV a ≈ 330 s, b ≈ 11200 s; TFC a ≈ 525 s, b ≈ 3150 s (TFC's a is dominated by its
+  critical path). With enough memory for N concurrent Vivado runs: CNV ≈ 330 + 11200/N →
+  ~680 s at 32, ~505 s at 64, ~420 s at 128 cores (vs ~980 s Vivado); TFC ≈ 575 s at 64 (floor
+  ~530 s). Memory needed: ~4.6 GB per concurrent component place and route plus ~2.8 GB per
+  DynaRapid JVM, so roughly **6-7 GB per core** to not be memory-bound (≈ 200 GB for 32 cores,
+  ≈ 400 GB for 64). Small models saturate early; the larger finn-examples models (many more
+  components) are where more cores pay off.
+* Raw data: `$FINN_BUILD_DIR/dr_zcu104_2024/scaling/` (per-run logs, memory samples,
+  `scaling.json`); archived in `experiments/dynarapid/results/scaling_zcu104_2024/`.

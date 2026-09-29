@@ -175,14 +175,15 @@ the sites when a pblock was grown by many small calls - the main cold-build slow
 Serial parts of the DynaRapid flow (cap the scaling): IODMA HLS ~45 s, stitching 6-32 s,
 assembly 120-170 s (Vivado: open shell, route boundary/clock nets, bitstream).
 
-Core-scaling experiment (Phase 4, ZCU104, 2024.2; NOTES.md "2026-09-29: Phase 4"): Vivado flow
-flat (CNV 962-1013 s at 4-32 cores); DynaRapid cold CNV 3135 / 1731 / 1083 / 1178 s at
-4 / 8 / 16 / 32 cores (memory-bound at 13 Vivado slots from 16 cores up), TFC at 32 cores
-651 s vs Vivado 714 s; TFC at 16/8/4 cores in progress. To repeat on a bigger machine see
-"Scaling experiment on another machine" above.
+Core-scaling experiment (Phase 4, ZCU104, 2024.2, done; NOTES.md "2026-09-29: Phase 4"): Vivado
+flow flat (CNV 962-1013 s, TFC 703-764 s at 4-32 cores). DynaRapid cold CNV 3135/1731/1083/1178 s,
+TFC 1314/920/649/651 s at 4/8/16/32 cores; memory-bound (13 Vivado slots) from 16 cores for
+CNV, critical-path-bound for TFC. DynaRapid beats Vivado only for TFC at >= 16 cores (-9 %).
+Extrapolated CNV ~505 s at 64 cores given ~6-7 GB RAM per core. To repeat on a bigger machine
+see "Scaling experiment on another machine" above.
 
 Open / next (task file: `experiments/dynarapid/TASK_scaling_and_examples.md`):
-1. Finish the TFC scaling points; scaling table, plot, Amdahl extrapolation in NOTES.md.
+1. (done) Scaling experiment on the ZCU104; repeat on the bigger server with run_scaling.sh.
 2. **User decision 2026-09-29: VGG10 and the finn-examples models move to the Alveo U55C**
    (VGG10 does not fit DynaRapid's pblocks on the ZCU104: 64 % DSPs). Plan in the task file
    ("Update 2026-09-29"): Vitis shell (v++ link with DMA kernels + placeholder compute kernel,
