@@ -122,10 +122,12 @@ def build_library(
     for n in model.graph.node:
         uniq.setdefault(dcps[n.name], n)
 
-    # spare workers are used for speculative pblock attempts at lower utilization
-    # (the densest successful one is kept), which avoids sequential retries
+    # spare Vivado slots are used for speculative pblock attempts of the large (individually
+    # built) components at lower utilization (the densest successful one is kept), which
+    # avoids sequential retries after a hedge delay of 150 s each; the large ones are ~10 %
+    # of the components (CNV 8 of 63, TFC 2 of 17), the others go into batched runs
     ncpu = usable_cpus()
-    pblock_parallel = max(1, min(3, ncpu // max(1, len(uniq))))
+    pblock_parallel = max(1, min(3, vivado_slots()[1] // 10))
     # every job holds a JVM with the device model while its Vivado runs are going on; the
     # Vivado runs themselves are limited machine-wide (tools.vivado_slots)
     jvms = max(1, int(0.85 * avail_memory_gb() * 0.4 / JVM_GB))
