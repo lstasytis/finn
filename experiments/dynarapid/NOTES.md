@@ -886,3 +886,39 @@ Kernel preparation (PrepareForLinking: IODMA HLS, stitched IP + OOC synthesis of
 kernel, package_xo) ~45 min; `v++ --link` ~114 min: linking synthesized kernels incl. 138
 platform IP OOC runs 30 min (only 3-4 at a time: FINN's VitisLink passes no synth/impl jobs),
 opt 7 min, place 34 min, route 18 min, bitstream 19 min.
+
+## 2026-09-29 (evening): DynaRapid U55C flow - status and blocker
+
+Working (`finn.util.dynarapid.alveo`, `experiments/dynarapid/run_alveo_dynarapid.py`):
+* Placeholder compute kernel (wrapper + registered `finn_accel_core`) packaged as a Vitis RTL
+  kernel (needs `auto_family_support_level level_2`, else VPL 5-683).
+* Shell = `v++ --link` with the real IODMA kernels + placeholder, pre-placement hook: the core in
+  `pblock_dynarapid` (EXCLUDE_PLACEMENT, CONTAIN_ROUTING; all SLICE/DSP/RAMB sites of a tile
+  rectangle, one resize_pblock). Lessons: select the core by ORIG_REF_NAME (REF_NAME is
+  uniquified); do not create a pblock for the other ULP cells (Vivado re-parents v++'s
+  pblock_dynamic_SLR<n> under it: HDPR-23); do not resize pblock_dynamic_SLR<n> (VPL 30-887,
+  clock region column rule). `--remote_ip_cache` cuts the 138 platform IP runs: link 65 min
+  (2nd step 24 → 10 min). Cached per platform/clock/kernels/widths/region.
+* Region: SLR1 alone (216 map rows) is too short for VGG10 - DSP components relocate only
+  vertically and all MVAU variants sit on two column bands; SLR2 + SLR1 (map rows 12-467,
+  SLICE X4-170 Y252-707) places all 127 components; stitch 195 s (RWRoute 89 s, 30 iterations).
+* GreedyPlacer: the default center site (SLICE_X67Y624, SLR2) is outside the region → it now
+  recenters in the place region (patch regenerated).
+* Library for VGG10 on xcu55c (cold, 32 cores, partly concurrent with a shell link): 3966 s,
+  122 components batched, 0 fallbacks (ZCU104: 1681 s).
+
+**Blocker - assembly:** a routed Vitis design cannot take the DynaRapid kernel into the
+placeholder. `update_design -cells <core> -black_box` fails (Coretcl 2-1501: only reconfigurable
+modules can be black-boxed once the design has routing; also after unrouting the whole ULP, since
+the locked static routing remains). `HD.RECONFIGURABLE` on the core: "Nested HD.RECONFIGURABLE
+hierarchy is not supported" (it is inside the ULP partition). `pr_subdivide -cell level0_i/ulp
+-subcells {core} ulp.dcp` needs a synthesized ULP netlist containing the core; v++'s `ulp.dcp` has
+every kernel/IP as a black box (138+ OOC checkpoints), and the partial bitstream of a nested
+partition may not be loadable by XRT. (The Zynq shell has no enclosing partition, which is why
+the same update_design works there.)
+Options: (a) hierarchical DFX with a merged ULP netlist + pr_subdivide (uncertain, XRT loading
+unclear); (b) per-model v++ link with the DynaRapid-routed core read into a black-box
+placeholder before opt_design (read_checkpoint -cell + lock) - robust, but the ULP is placed and
+routed per model (estimate 40-60 min instead of the ~114 min link + ~40 min compute-kernel synth
+of the baseline); (c) splice the core into the shell checkpoint with RapidWright (encrypted
+platform IP, very large design; risky).
