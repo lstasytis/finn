@@ -55,6 +55,8 @@ util/dynarapid/components.py  component_name (content hash, FLOW_VERSION), direc
                          (Java wrappers), has_pblocks (needs metadata file), vendor_ip_cores
 util/dynarapid/shell.py  build_shell (cached per board/clock/IODMA widths), bridge_verilog,
                          assemble_tcl (open shell, read_checkpoint -cell accel, route, bitstream)
+util/dynarapid/alveo.py  U55C (Vitis) flow: DR_REGION, kernel .xo packaging, link config/hooks,
+                         dynarapid_alveo_build (Phase 6 in the task file reworks it)
 util/dynarapid/graph.py  onnx_to_dot (ids n1.., idma<i>/odma<j>), mm_ports, external_ports
 util/dynarapid/tools.py  run_vivado / run_java, vivado_slots (machine-wide lock files,
                          VIVADO_GB=4.5, JVM_GB=3.0), dynarapid_env, PART_TO_DYNARAPID
@@ -148,6 +150,14 @@ tools. Results of the reference run: NOTES.md "2026-09-29: Phase 4".
 * Assembly: clear `IS_ROUTE_FIXED` on POWER/GROUND nets before `route_design`.
 * Changing how components are built → bump `FLOW_VERSION` in components.py (cache key).
 * Measurements vary ±20 % cold (which batches congest). Never time two builds at once.
+* Vivado 2024.2: grow pblocks with ONE `resize_pblock` call (many small calls silently drop
+  sites); batch Tcl must tolerate the spurious link_design error (Designutils 20-50) and a
+  failing route_design with overlaps; batch split drops only 5LUT route-throughs.
+* U55C / Vitis: the compute kernel is inside the DFX partition `level0_i/ulp` → no black-box
+  swap in a routed design (Coretcl 2-1501, no nested HD.RECONFIGURABLE); cells are found by
+  ORIG_REF_NAME; never add pblocks around ULP cells or resize v++'s `pblock_dynamic_SLR<n>`
+  (HDPR-23, VPL 30-887); DSP/BRAM components relocate only vertically, so the DynaRapid region
+  needs height (SLR2+SLR1 for VGG10); use `v++ --remote_ip_cache`.
 
 ## Status (2026-09-28, evening)
 
@@ -182,13 +192,15 @@ CNV, critical-path-bound for TFC. DynaRapid beats Vivado only for TFC at >= 16 c
 Extrapolated CNV ~505 s at 64 cores given ~6-7 GB RAM per core. To repeat on a bigger machine
 see "Scaling experiment on another machine" above.
 
+U55C (VGG10): Vitis baseline 9566 s (WNS +0.003 ns). DynaRapid library + stitching work on the
+xcu55c (region SLR2+SLR1); the cached-shell assembly is blocked by DFX rules. **Next: Phase 6 in
+the task file (per-model v++ link with the locked DynaRapid kernel) - a fresh agent implements
+it; all artifacts to start from are listed there.**
+
 Open / next (task file: `experiments/dynarapid/TASK_scaling_and_examples.md`):
 1. (done) Scaling experiment on the ZCU104; repeat on the bigger server with run_scaling.sh.
-2. **User decision 2026-09-29: VGG10 and the finn-examples models move to the Alveo U55C**
-   (VGG10 does not fit DynaRapid's pblocks on the ZCU104: 64 % DSPs). Plan in the task file
-   ("Update 2026-09-29"): Vitis shell (v++ link with DMA kernels + placeholder compute kernel,
-   cached), DynaRapid for the compute kernel on xcu55c, assembly with read_checkpoint -cell and
-   a partial bitstream, xclbinutil. Heavy U55C runs only when no timed run is going.
+2. **Phase 6: U55C per-model v++ link** (user decision 2026-09-30), then VGG10 timed runs and
+   `run_u55c_vgg10.sh` for the user's 128-core server; then the finn-examples models on U55C.
 3. Builder: an `accel_dynarapid_failed` result still ends the build with rc=0 (should raise).
 
 ## Conventions

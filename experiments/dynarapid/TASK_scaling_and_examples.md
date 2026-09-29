@@ -122,7 +122,11 @@ ZCU104 with CNV and TFC; **everything after it (VGG10, the finn-examples models 
 MobileNet) targets the Alveo U55C** (`xcu55c-fsvh2892-2L-e`, platform
 `xilinx_u55c_gen3x16_xdma_3_202210_1`, Vitis 2024.2; Alveo work is authorized by this).
 
-### Plan: DynaRapid on the U55C (Vitis flow)
+### Plan: DynaRapid on the U55C (Vitis flow) - SUPERSEDED (2026-09-30, see Phase 6)
+
+The cached-shell variant below was implemented up to the assembly and is blocked there
+(NOTES.md "2026-09-29 (evening)"); kept for reference.
+
 
 FINN's Vitis flow (`alveo_build.py`: CreateVitisXO, VitisLink) links three kernels per model -
 `idma0` (HLS IODMA, m_axi + s_axilite), the compute partition (RTL kernel, AXI-Stream only) and
@@ -148,3 +152,104 @@ Steps: (U1) FINN Vitis baseline on U55C for TFC (v++ link time, toolchain check)
 (U2) xcu55c part in DynaRapid (PART_TO_DYNARAPID, library map region per SLR, memory per
 Vivado run on the larger part); (U3) Alveo shell + assembly; (U4) TFC/CNV end to end, then
 VGG10 and the finn-examples models. Heavy U55C runs only in gaps between timed scaling runs.
+
+
+## Phase 6 (2026-09-30, user decision): U55C with a per-model v++ link - NEXT AGENT STARTS HERE
+
+Context in one paragraph: DynaRapid on the Alveo U55C cannot use a cached, routed shell as on
+Zynq, because the compute kernel sits inside the platform's DFX partition (`level0_i/ulp`) and
+Vivado refuses to black-box / replace a non-partition cell in a routed design (details and the
+three things tried: NOTES.md "2026-09-29 (evening)"). User decision: **per-model `v++ --link`**
+in which the DynaRapid-placed-and-routed compute kernel is read into a black-box core before
+`opt_design` and locked, and Vivado places and routes only the rest of the ULP (IODMAs, HBM
+memory subsystem, interconnect). The old ZCU104 "kernel mode" did exactly this insertion
+(`make_zynq_proj.py:129-146`: `read_checkpoint -cell $c <routed dcp>` + `lock_design -level
+routing $c`, core found by `ORIG_REF_NAME || REF_NAME`) - reuse that pattern.
+
+What exists and is reusable (all on `feature/dynarapid-pnr`):
+* `src/finn/util/dynarapid/alveo.py`: `DR_REGION` (xcu55c: SLR2+SLR1, corners `SLICE_X4Y707` /
+  `SLICE_X170Y252`, DynaRapid place region `"12,467,3,108"` = top,bottom,left,right map
+  rows/cols), `placeholder_xo_tcl` (RTL kernel packaging that v++ accepts; keep
+  `auto_family_support_level level_2`), `link_config` (FINN's connectivity), `pre_place_tcl`
+  (tile-rectangle site collection in ONE `resize_pblock` call), `dynarapid_alveo_build`
+  (library + stitching parts are good; shell/assembly parts are to be replaced),
+  `shell_key`, `build_shell`, `assemble_tcl`, `package_xclbin` (obsolete after this phase).
+* `experiments/dynarapid/run_alveo_dynarapid.py`: takes the model saved after FINN's Vitis
+  bitfile step, `link_kernels()` returns the compute kernel model + the kernel list (IODMA `.xo`s
+  from `PrepareForLinking`).
+* `src/finn/util/dynarapid/graph.py`: `kernel_wrapper_verilog(..., black_box=True)` = wrapper
+  (`ap_clk`, `ap_rst_n`, `s_axis_*`, `m_axis_*`) around a black-box `finn_accel_core`
+  (`shell.CORE_MODULE`), reset active low (`.rst(ap_rst_n)`, as the Zynq shell).
+* `tools.py`: `PART_TO_DYNARAPID` / `PBLOCK_REGION` have the xcu55c (library region
+  `"260,10,459,100"`, inside SLR1).
+* DynaRapid Java: `GreedyPlacer` recenters the design into the place region when the part's
+  default center site is outside it (needed on the xcu55c; patch regenerated).
+
+Artifacts on disk (`$FINN_BUILD_DIR=/tmp/finn_dev_lstasytis`, host mount), usable to start
+without rebuilding anything:
+* VGG10 U55C frontend: `vgg10_u55c/run/frontend` (`run_vgg10.py --board U55C --mode frontend`).
+* Baseline (FINN Vitis flow, 9566 s, WNS +0.003 ns): `vgg10_u55c/run/vivado`; its model after
+  linking, **input for the DynaRapid driver**:
+  `vgg10_u55c/run/vivado/intermediate_models/step_synthesize_bitfile.onnx`; baseline v++ link
+  dir: `vitis_link_proj_2zr82mqr` (config.txt, logs).
+* Cold VGG10 component library on xcu55c (122 components, 0 fallbacks):
+  `vgg10_u55c/dr0/lib/lib` + `vgg10_u55c/dr0/lib/work`.
+* **Already stitched and routed compute kernel** for the SLR2+SLR1 region:
+  `vgg10_u55c/dr0/lib/work/designs/accel/accel_routed.dcp` (stitch 156-195 s; RWRoute stops at
+  its 30-iteration cap with a few overlaps, as on Zynq - Vivado must finish those; with a locked
+  core this needs attention, see risks).
+* Platform IP cache for `v++ --remote_ip_cache` (138 IP OOC runs, 74 MB):
+  `vgg10_u55c/dr0/lib/shells/ip_cache` (link step 2: 24 → 10 min with it).
+* `vgg10_u55c/dr0/lib/shells/vshell*`: obsolete cached shells of the superseded variant.
+
+Steps (verify each before the next; record results in a dated NOTES.md section; commit after
+each working step):
+1. **Black-box compute kernel .xo** (per model): `kernel_wrapper_verilog(<kernel name>,
+   CORE_MODULE, ins, outs, black_box=True)` (ins/outs = `graph.external_ports(compute_model)`),
+   packaged with `placeholder_xo_tcl` (same kernel name and stream args as FINN's
+   `CreateVitisXO`). Check: package_xo succeeds; the kernel's OOC synthesis inside v++ accepts the
+   black box.
+2. **Link hook** (`[vivado] prop=run.impl_1.STEPS.OPT_DESIGN.TCL.PRE=<tcl>`): find the core
+   (`get_cells -hier -filter {NAME =~ */<compute inst>/* && ORIG_REF_NAME == finn_accel_core}`;
+   REF_NAME is uniquified by the platform's per-IP synthesis), `read_checkpoint -cell $core
+   <accel_routed.dcp>`, `lock_design -level routing $core`, then `pblock_dynarapid` over the
+   DR_REGION sites (reuse the site collection of `pre_place_tcl`) with EXCLUDE_PLACEMENT, core
+   added to it. Do NOT create other pblocks or resize v++'s `pblock_dynamic_SLR<n>` (HDPR-23,
+   VPL 30-887). Check on the first attempt with the existing `accel_routed.dcp` (one link,
+   ~45 min with the IP cache): link log shows the core filled and locked, opt/place/route run,
+   0 routing errors, WNS at 4 ns, xclbin written. **This is the go/no-go test; if the locked-core
+   insertion cannot be made to work in ~2 h, stop and report to the user.**
+3. **Orchestration**: rework `dynarapid_alveo_build`: vendor-IP check → library (`build_library`,
+   parallel) → stitching (`dynarapid_pnr`, `place_region=DR_REGION[part]["place"]`, size-order
+   retry) → black-box kernel .xo → per-model `v++ --link` (FINN's `config.txt` via `link_config`,
+   the hook, `--remote_ip_cache <shared dir>`, `[vivado] synth.jobs/impl.jobs` = cores, `-o
+   finn-accel.xclbin`) → reports (timing summary, route status of
+   `_x/link/vivado/vpl/prj/prj.runs/impl_1`) into `dynarapid_alveo.json` with per-stage times.
+   Remove the placeholder-shell / assembly / xclbinutil code paths (build_shell, assemble_tcl,
+   package_xclbin, shell_key) or keep them clearly marked as unused.
+4. **Correctness**: xclbin with 0 routing errors, timing met at 4 ns (or report the WNS);
+   functional check of the DynaRapid compute kernel against FINN's RTL - post-route netlist
+   simulation of the compute kernel with stream I/O only (adapt `verify_accel.py`, which drives
+   IODMAs over AXI; here drive `s_axis_0`/read `m_axis_0` directly) with as few frames as VGG10
+   allows; if one frame is too long for gate-level xsim (CNV needed ~8 h per frame), report it.
+5. **Timed runs here** (nothing else running): DynaRapid cold (fresh library dir, IP cache warm =
+   the realistic iteration case) and warm (library cached); stage breakdown (library synth /
+   batches, stitch, kernel .xo, v++ link steps) vs. the 9566 s baseline.
+6. **Deliverable for the user's 128-core server**: `experiments/dynarapid/run_u55c_vgg10.sh`
+   (frontend if missing → Vitis baseline → DynaRapid cold → DynaRapid warm; slots from free
+   memory like `run_scaling.sh`; v++ jobs = cores; prints a summary table). Test it end to end
+   here once, commit, then tell the user it is safe to run there. (The ZCU104 `run_scaling.sh`
+   is already there and tested in its original form.)
+
+Risks to check early:
+* Vivado may refuse or disturb a locked, pre-routed cell inside the DFX partition during
+  opt/place/route (the Zynq kernel mode had no enclosing partition).
+* RWRoute leaves a few overlaps (30-iteration cap); with the core's routing locked Vivado cannot
+  fix them → either raise the RWRoute cap for this flow, or lock only placement
+  (`lock_design -level placement`) and let Vivado finish the core's routing.
+* Other ULP nets routing through the DynaRapid region; the SLR1/SLR2 crossings inside the
+  compute kernel at 250 MHz. Fallback if timing fails: keep the kernel within SLR1 by generating
+  more pblock variants on other column bands (the SLR1-only region failed only because all MVAU
+  variants sit on two column bands).
+* The per-model link is a serial chunk (~40-60 min estimated); only the compute kernel part
+  scales with cores - report this honestly.
