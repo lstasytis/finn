@@ -788,3 +788,53 @@ TFC (in progress, same setup):
 
 TFC at 32 cores: DynaRapid cold 651 s vs Vivado 714 s (0 routing errors, 0 fallbacks, WNS +0.9 ns).
 Remaining points (16, 8, 4) are running.
+
+## 2026-09-29: Phase 4b, scaling on a 128-thread server; library plan sized for the machine
+
+Machine: AMD EPYC 9554P (1 socket, 64 cores / 128 threads; CPUs 0-63 are distinct physical
+cores, 64-127 their SMT siblings, so N=128 adds SMT only), 755 GB, Vivado 2024.2, same
+container image. `$FINN_BUILD_DIR` moved to the 1.7 TB repo volume (`build/finn_build`,
+/tmp had 43 GB). `run_scaling.sh` defaults: CORES 128 64 32 16 8 4, MAX_SLOTS 83 (memory).
+Shell + model prep untimed (CNV prep 4 min, shell run 14.5 min).
+
+### Series 1: flow as tuned for the 32-core machine (`dr_scaling/scaling`)
+
+| CNV, N | Vivado | DynaRapid cold | DR library | DR synth done | DR stitch | DR assembly | DR avg cores | DR peak mem GB |
+|---|---|---|---|---|---|---|---|---|
+| 128 | 894 | 820 | 588 | 109 | 24 | 151 | 12.4 | 177 |
+| 64 | 890 | 874 | 632 | 110 | 24 | 163 | 11.4 | 176 |
+| 32 | 888 | 774 | 536 | 164 | 34 | 151 | 11.2 | 102 |
+
+All 0 routing errors, WNS +0.2..+0.6 ns. Vivado flat. DynaRapid does not scale past 32 cores:
+**~12 cores busy on average**, although 83 Vivado slots were free. Cause: fixed constants in
+`build_library` (flow.py): `group = max(6, min(16, (n+5)//6))` (~6 groups, CNV 11 components
+each, split in 2 Vivado runs of 5-6), and the batch pool `min(6, slots // 2)` shared by the
+groups and the 7 large (individual, hedged) MVAUs - 12 tasks on 6 workers, so the 5th group
+only started at 284 s and the large MVAUs finished at 200-518 s. Batch timeline (n128): a
+1-component batch 140 s, 5-6-component batches 183-278 s, i.e. the fixed cost dominates.
+Also: `avail_memory_gb` used free pages only (log said "limiting parallel component jobs to
+58" with 740 GB MemAvailable), and `os.cpu_count()` ignores taskset.
+(N=32 caveat: the driver was stopped during this run; ~8 Vivado runs started 14:07:52-14:08:00
+without the maxThreads cap.)
+
+### Change (commit 274c7e2d): `batch_plan` in flow.py
+
+Components per batched Vivado run k (1..8) minimize the makespan estimate
+`ceil(ceil(n/k)/slots) * (120 s + 20 s * k)` (tie: larger k); group pool = min(JVMs by
+memory, slots); per JVM 1-3 runs; Vivado threads per run = clamp(2*CPUs / concurrent runs,
+1, 4); batch time limit (`DYNARAPID_BATCH_TIMEOUT_S`, was a fixed 300 s) =
+max(200, 1.6 * expected run time * max(1, 2/threads)). CPUs from process affinity, memory
+from MemAvailable. Plans: 128/64 cores k=1 (limit 224 s); 32: k=2; 16: k=4; 8: k=7; 4: k=7,
+2 runs per JVM; the old 32-core/13-slot machine: k=5 (as tuned before).
+
+Test (TFC cold, 128 cores, `dr_scaling/test_plan`): 677 s (library 559, stitch 8, assembly
+109), 0 routing errors, WNS +0.53 ns, **verify_accel 16 frames match**. 16 of 17 components
+done by 259 s; the critical path was one IODMA (`iodmahlsx18978fb7e0ad`) whose 1-component
+batch congested at util 0.6, hit the (then 300 s) limit and was retried at 0.45 (done at
+559 s). The adaptive limit was added after this test (224 s at k=1). Next improvement: a
+speculative lower-utilization attempt for batches that run long while slots are free
+(Java, GenerateBatchPblocks), instead of waiting for the limit.
+
+### Series 2: machine-sized plan (`dr_scaling/scaling_v2`)
+
+Running (CNV Vivado points at 128/64/32 reused from series 1).

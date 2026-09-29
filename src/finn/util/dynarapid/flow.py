@@ -45,9 +45,13 @@ from finn.util.dynarapid.tools import (
 
 # cost model of one batched pblock run (GenerateBatchPblocks, xczu7ev, Vivado 2024.2, CNV):
 # ~140 s for 1 component, ~230 s for 6 - the fixed cost (Vivado start, device, placer)
-# dominates, the components add little each
+# dominates, the components add little each. That is on an idle machine: when the runs (and
+# the large components and syntheses going on beside them) outnumber the CPUs, every run
+# slows down; median run time over its idle value: 1.0 at 56 runs on 128 CPUs, 1.17 at 27 on
+# 32, 1.7 at 14 on 16 (CNV, 128-thread EPYC) ~ BATCH_CPU_LOAD * concurrent runs / CPUs
 BATCH_RUN_S = 120.0
 BATCH_ITEM_S = 20.0
+BATCH_CPU_LOAD = 1.3
 
 
 def batch_plan(n_items, slots, ncpu, jvms):
@@ -55,15 +59,19 @@ def batch_plan(n_items, slots, ncpu, jvms):
 
     slots: concurrent Vivado runs allowed (memory, tools.vivado_slots); ncpu: usable CPUs;
     jvms: DynaRapid JVMs that fit into memory. Chooses the components per Vivado run k that
-    minimizes the estimated makespan waves * (BATCH_RUN_S + k * BATCH_ITEM_S) (with many
-    slots: small batches, all in parallel; with few: large batches, fewer fixed costs),
-    then how many of those runs share one JVM (group = k * per_jvm components)."""
+    minimizes the estimated makespan waves * (BATCH_RUN_S + k * BATCH_ITEM_S) * CPU load
+    (with many slots and CPUs: small batches, all in parallel; with few: large batches, fewer
+    fixed costs), then how many of those runs share one JVM (group = k * per_jvm)."""
     n = max(1, n_items)
+
+    def load(runs):
+        return max(1.0, BATCH_CPU_LOAD * min(slots, runs) / max(1, ncpu))
+
     best = None
     # at most 8 per run: larger batches were not tried (congestion, packing on the device)
     for k in range(1, 9):
         runs = -(-n // k)
-        cost = -(-runs // slots) * (BATCH_RUN_S + k * BATCH_ITEM_S)
+        cost = -(-runs // slots) * (BATCH_RUN_S + k * BATCH_ITEM_S) * load(runs)
         # ties: the larger batch (less CPU time and memory)
         if best is None or cost <= best[0]:
             best = (cost, k)
@@ -72,13 +80,14 @@ def batch_plan(n_items, slots, ncpu, jvms):
     # every group (task of the batch pool) holds one JVM while its runs go on
     pool = max(1, min(jvms, slots))
     per_jvm = max(1, min(3, -(-runs // pool)))
-    # Vivado threads per batch run: spread the CPUs over the runs that go on at once (2x
-    # oversubscribed: only the placer and router use several threads, and not all the time)
-    threads = max(1, min(4, 2 * ncpu // max(1, min(slots, runs))))
-    # time limit of a batched run (then retried at lower utilization): a congested batch
-    # otherwise holds up the library for DynaRapid's fixed 300 s, while a large batch on
-    # few threads needs longer than that
-    timeout = max(200, int(1.6 * (BATCH_RUN_S + k * BATCH_ITEM_S) * max(1.0, 2.0 / threads)))
+    # Vivado threads per batch run: the CPUs spread over the runs that go on at once (more
+    # threads than CPUs slow all runs down, see BATCH_CPU_LOAD)
+    threads = max(1, min(4, ncpu // max(1, min(slots, runs))))
+    # time limit of a batched run, after which it is retried at lower utilization (the
+    # DynaRapid default is a fixed 300 s): twice the expected time under the CPU load; a
+    # limit hit by a healthy but slow run costs a retry and an individual rebuild at the end
+    expected = (BATCH_RUN_S + k * BATCH_ITEM_S) * load(runs)
+    timeout = max(300, int(2 * expected))
     return dict(
         k=k, group=k * per_jvm, per_jvm=per_jvm, pool=pool, threads=threads, timeout_s=timeout
     )
