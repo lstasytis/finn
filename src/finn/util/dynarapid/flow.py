@@ -107,7 +107,7 @@ def build_library(
     batch=True,
     batch_util=0.6,
     large_luts=5000,
-    large_bram=3,
+    large_bram=2,
 ):
     """Build (or reuse) the components of all nodes. Returns ({node: dcp}, [results]).
 
@@ -229,7 +229,9 @@ def build_library(
         # large components (many LUTs / BRAMs) are implemented individually as soon as they
         # are synthesized: batching does not save much for them, and a large congested
         # component slows down (and can fail) the whole batch (Vivado 2024.2: the TFC 784x64
-        # MVAU with 3.5 BRAM tiles kept a 7-component batch routing until its time limit)
+        # MVAU with 3.5 BRAM tiles kept a 7-component batch routing until its time limit;
+        # the TFC input IODMA with 2 BRAM tiles congests at the batch utilization 0.6 even
+        # alone, the individual path's hedged lower-utilization attempt avoids the limit)
         by_node = dict(todo)
         batch_futs, ready = [], []
         for f in as_completed(synth_futs):
