@@ -752,3 +752,39 @@ VGG10 DynaRapid cold rerun (`dr1`, fresh library, shell cached, timed): library 
 (vs Vivado flow 2382 s for the whole bitfile), stitching failed again in 3.6 s (same
 placement capacity problem, size-order retry included); warm rerun `dr1w` fails the same way
 in seconds. No VGG10 DynaRapid bitfile; decision on how to proceed pending with the user.
+
+## 2026-09-29: Phase 4, core-scaling experiment (ZCU104, Vivado 2024.2, FLOW_VERSION 7)
+
+Setup (`$FINN_BUILD_DIR/dr_zcu104_2024/scaling/run_scaling.sh`, summary
+`experiments/dynarapid/summarize_scaling.py`): per run `taskset -c 0-(N-1)`,
+`NUM_DEFAULT_WORKERS`/`--workers N`, `DYNARAPID_VIVADO_SLOTS=min(N,13)` (memory bound on this
+125 GB machine), Vivado `general.maxThreads=min(N,8)` via `Vivado_init.tcl` (removed at the
+end), fresh DynaRapid library per run, shell cached. CPU work = user+sys of the process tree
+(/usr/bin/time -v); peak memory = max of `free` used minus the idle level at the start.
+Strictly serial, nothing else running.
+
+CNV (flow wall time, s):
+
+| N | Vivado | DynaRapid cold | DR library | DR synth done | DR stitch | DR assembly | DR CPU s | DR avg cores | DR peak mem GB |
+|---|---|---|---|---|---|---|---|---|---|
+| 32 | 984 | 1178 | 921 | 402 | 32 | 163 | 10916 | 9.3 | 81 |
+| 16 | 982 | 1083 | 821 | 464 | 36 | 165 | 8374 | 7.7 | 95 |
+| 8 | 962 | 1731 | 1456 | 718 | 46 | 167 | 8748 | 5.1 | 76 |
+| 4 | 1013 | 3135 | 2835 | 1430 | 61 | 178 | 9536 | 3.0 | 35 |
+
+Vivado flow: flat (962-1013 s, ~1.2 cores average, 19-26 GB). DynaRapid: 4 → 8 cores 1.81x,
+8 → 16 1.60x; 16 and 32 are both limited by the 13 Vivado slots (memory), 32 is not faster
+(run-to-run variance; the 32-core run also burned more CPU). All 0 routing errors, 0
+fallbacks, WNS +0.1..+0.5 ns. Fit T(N) = a + b/N on N = 4, 8: a ~ 330 s, b ~ 11200 s (predicts
+1030 s at 16, observed 1083 s with 13 slots). On this machine DynaRapid cold does **not** beat
+the Vivado flow for CNV (best 1083 vs 982 s): CNV's global place and route is small, the
+serial parts (assembly ~165 s, stitch 30-60 s, IODMA HLS) and the memory cap dominate.
+
+TFC (in progress, same setup):
+
+| N | Vivado | DynaRapid cold | DR library | DR synth done | DR stitch | DR assembly | DR CPU s | DR avg cores | DR peak mem GB |
+|---|---|---|---|---|---|---|---|---|---|
+| 32 | 714 | 651 | 463 | 133 | 6 | 120 | 2734 | 4.2 | 29 |
+
+TFC at 32 cores: DynaRapid cold 651 s vs Vivado 714 s (0 routing errors, 0 fallbacks, WNS +0.9 ns).
+Remaining points (16, 8, 4) are running.
