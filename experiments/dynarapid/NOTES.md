@@ -748,3 +748,7 @@ VGG10 Vivado ZynqBuild (2024.2, 32 cores, 4 ns, timed, from the FIFO-sized model
 WNS +0.547 ns, peak RSS of the driver 5.3 GB. The DynaRapid cold rerun (`dr1`, fresh library,
 cached shell) is queued for a second library-build timing; it is expected to fail in stitching
 the same way.
+VGG10 DynaRapid cold rerun (`dr1`, fresh library, shell cached, timed): library **1681 s**
+(vs Vivado flow 2382 s for the whole bitfile), stitching failed again in 3.6 s (same
+placement capacity problem, size-order retry included); warm rerun `dr1w` fails the same way
+in seconds. No VGG10 DynaRapid bitfile; decision on how to proceed pending with the user.
