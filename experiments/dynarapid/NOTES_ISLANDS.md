@@ -75,3 +75,26 @@ foldings), `cnv1/` (CNV-w1a1 PE=SIMD=1, ZCU104). Shell 10 ns: `$FINN_BUILD_DIR/r
 ## Results
 
 (appended as they arrive)
+
+### 2026-09-30 01:32: first island bitstream (CNV-w1a1 PE=SIMD=1, ZCU104, 10 ns)
+
+`$FINN_BUILD_DIR/rwi/bit/cnv1_isl_a`, 64 workers, K=auto -> 7 islands (18/7/10/6/3/1/6 nodes).
+Fixes needed on the way: HD.CLK_SRC BUFGCE lookup by CLOCK_REGION property (get_sites
+-of_objects clock_region returned nothing for most regions); RapidWright does not recognize
+Vivado's `black_box "true"` EDIF property as a black box (expects IS_IMPORTED=true or
+black_box=1): the stitcher sets IS_IMPORTED before populateBlackBox; the merged netlist must be
+consolidated into one EDIF library (else `work` refers to `xil_defaultlib` written after it,
+EDIF 20-83 at read_checkpoint -cell).
+
+| stage | s |
+|---|---|
+| node synthesis (all parallel, 51 DCPs) | 73 |
+| 100 MHz shell (one-time, cached afterwards) | 384 |
+| island P&R (7 parallel; link 8, opt 14, place 45-50, route 10-15) | 91-104 |
+| stitch (RapidWright: read 8 DCPs 1.5 s, populate 1.8 s, RWRoute 229 connections 2.6 s, write 0.9 s) | 9 |
+| assembly (open shell 22, read accel 21, route 55, reports 7, bitstream 23) | 128 |
+
+Result: 0 routing errors, WNS +2.774 ns, WHS +0.010 ns. Estimated end-to-end with cached shell
+~320 s (stitch/assembly were re-run by hand after the fixes; next runs give the real total).
+Assembly route_design: RT build 16 s + init 12 s fixed, 283 unrouted + 130 partial nets, 100
+node overlaps -> the serial tail is now mostly Vivado fixed cost.
