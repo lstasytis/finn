@@ -456,9 +456,10 @@ class ZynqBuild(Transformation):
             kernel_model.save(dataflow_model_filename)
             return kernel_model
 
-        # the partitions are independent: generate their IP concurrently
-        with ThreadPoolExecutor(max_workers=max(1, len(sdp_nodes))) as ex:
-            kernel_models = list(ex.map(prepare, sdp_nodes))
+        # one partition after the other, as the regular flow does: PrepareIP / HLSSynthIP fork
+        # multiprocessing pools, which can deadlock when forked from several threads at once
+        # (MobileNet hung this way); each partition's nodes are still processed in parallel
+        kernel_models = [prepare(n) for n in sdp_nodes]
         out_dir = opts.get("out_dir") or make_build_dir("dynarapid_zynq_")
         if opts.get("flow") == "islands":
             # island flow (finn.util.rwislands): no component library, RapidWright stitching
