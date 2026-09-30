@@ -402,3 +402,8 @@ Baselines (FINN's Vitis flow, same settings) running concurrently for TFC and CN
   stitched core in the kernel wrapper vs FINN's stitched-IP RTL of the compute partition,
   stream I/O only): 16 amplitude-varied frames, all outputs match (classes vary), identical
   cycle count (1295).
+* **CNV U55C island xclbin written: 0 routing errors, WNS +0.003 ns, WHS +0.002 ns** (6 islands,
+  kernel built in 274 s, hook read 210 s). Validation-phase time 5723 s (overlapping runs).
+* Sequential U55C timing started 13:25 (`run_u55c_timing.sh`: tfc bitfile, tfc islands, cnv
+  bitfile, cnv islands; 64 workers; nothing else running except the single-core gate-level
+  simulation of verify_kernel on CNV until it finishes).
