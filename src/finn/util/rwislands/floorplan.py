@@ -63,6 +63,21 @@ def partition(costs, k):
     return segs[::-1]
 
 
+def class_partition(names, res, costs, k, k_scarce=2):
+    """Islands for dense designs: nodes using a scarce column resource (URAM) form their own
+    islands (k_scarce of them, chain order among themselves), placed first; the other nodes are
+    cut into k chain-order islands. Returns member lists (scarce islands first)."""
+    scarce = [i for i, n in enumerate(names) if res[n].get("uram", 0) > 0]
+    rest = [i for i in range(len(names)) if i not in set(scarce)]
+    groups = []
+    for idx, kk in ((scarce, k_scarce), (rest, k)):
+        if not idx:
+            continue
+        for a, b in partition([costs[i] for i in idx], kk):
+            groups.append([names[i] for i in idx[a:b]])
+    return groups
+
+
 def need(res, util):
     """Sites an island with the (summed) resources res needs at the utilization targets."""
     u = util
@@ -144,8 +159,15 @@ def allocate_bestfit(dev, lanes, needs, step=5):
         bands.append([((lx0, lx1, r, min(r + step - 1, y1)), capacity(dev.sites_in(lx0, lx1, r, min(r + step - 1, y1)))) for r in rows])
     ptr = [0] * len(lanes)
     total = [sum(c["slice"] for _, c in lb) for lb in bands]
-    res, prev = [], None
-    for req in needs:
+    cap_all = {key: max(1, sum(c[key] for lb in bands for _, c in lb)) for key in needs[0]}
+    # hardest islands first: largest share of the scarcest resource they need
+    order = sorted(
+        range(len(needs)),
+        key=lambda i: -max(needs[i][key] / cap_all[key] for key in ("bram", "uram", "dsp")),
+    )
+    res, prev = [None] * len(needs), None
+    for i in order:
+        req = needs[i]
         best = None
         for li, lb in enumerate(bands):
             got = dict.fromkeys(req, 0)
@@ -167,9 +189,77 @@ def allocate_bestfit(dev, lanes, needs, step=5):
         _, li, k = best
         lb = bands[li]
         r0, r1 = lb[ptr[li]][0], lb[k - 1][0]
-        res.append([(r0[0], r0[1], r0[2], r1[3])])
+        res[i] = [(r0[0], r0[1], r0[2], r1[3])]
         ptr[li] = k
         prev = (li,)
+    return res
+
+
+def allocate_rects(dev, needs, allowed, step=5):
+    """2D rectangle packing for dense designs: islands (hardest first: largest share of the
+    scarcest resource) each get the free rectangle of the tile grid (any width and position
+    within the allowed rectangles) that covers their needs with the least waste, waste being
+    the resources taken beyond the need, weighted by scarcity. Returns rects per island or None."""
+    import numpy as np
+
+    xs0 = min(a[0] for a in allowed)
+    xs1 = max(a[1] for a in allowed)
+    ymax = max(a[3] for a in allowed)
+    nx, nb = xs1 - xs0 + 1, ymax // step + 1
+    kinds = list(needs[0])
+    cap = np.zeros((len(kinds), nx, nb))
+    for st in dev.sites:
+        if xs0 <= st.x <= xs1:
+            c = capacity([st])
+            for ki, k in enumerate(kinds):
+                cap[ki, st.x - xs0, st.y // step] += c[k]
+    occ = np.ones((nx, nb), dtype=np.int64)  # 1 = not usable
+    for x0, x1, y0, y1 in allowed:
+        occ[x0 - xs0 : x1 - xs0 + 1, y0 // step : y1 // step + 1] = 0
+    # prefix sums (padded) for O(1) rectangle sums
+    pc = np.zeros((len(kinds), nx + 1, nb + 1))
+    pc[:, 1:, 1:] = cap.cumsum(1).cumsum(2)
+    total = np.maximum(1, cap.sum(axis=(1, 2)))
+    order = sorted(
+        range(len(needs)),
+        key=lambda i: -max(needs[i][k] / total[kinds.index(k)] for k in ("bram", "uram", "dsp", "slice")),
+    )
+    res = [None] * len(needs)
+    for i in order:
+        req = np.array([needs[i][k] for k in kinds], dtype=float)
+        po = np.zeros((nx + 1, nb + 1), dtype=np.int64)
+        po[1:, 1:] = occ.cumsum(0).cumsum(1)
+        best = None
+        for a in range(nx):
+            for b in range(a, nx):
+                # capacity of columns a..b per band, cumulative over bands
+                colsum = pc[:, b + 1, :] - pc[:, a, :]  # (kinds, nb+1) prefix over bands
+                if np.any(colsum[:, -1] < req):
+                    continue
+                occ_col = po[b + 1, :] - po[a, :]  # prefix over bands of occupied cells
+                for y0 in range(nb):
+                    # smallest y1 with enough capacity (bisect on the prefix)
+                    lo, hi = y0 + 1, nb
+                    if np.any(colsum[:, hi] - colsum[:, y0] < req):
+                        continue
+                    while lo < hi:
+                        mid = (lo + hi) // 2
+                        if np.all(colsum[:, mid] - colsum[:, y0] >= req):
+                            hi = mid
+                        else:
+                            lo = mid + 1
+                    y1 = lo
+                    if occ_col[y1] - occ_col[y0] > 0:
+                        continue
+                    got = colsum[:, y1] - colsum[:, y0]
+                    waste = float(np.sum((got - req) / total))
+                    if best is None or waste < best[0]:
+                        best = (waste, a, b, y0, y1)
+        if best is None:
+            return None
+        _, a, b, y0, y1 = best
+        occ[a : b + 1, y0:y1] = 1
+        res[i] = [(a + xs0, b + xs0, y0 * step, y1 * step - 1)]
     return res
 
 
@@ -189,7 +279,7 @@ def floorplan(dev, island_res, region, n_lanes=None, utils=None, first_lanes=())
         needs = [need(r, util) for r in island_res]
         rects = allocate(dev, lanes, needs)
         if rects is None:
-            rects = allocate_bestfit(dev, lanes, needs)
+            rects = allocate_rects(dev, needs, list(lanes))
         if rects is not None:
             # one set of ranges per rectangle (an island continuing into the next lane has
             # two rectangles, whose bounding box would overlap other islands)

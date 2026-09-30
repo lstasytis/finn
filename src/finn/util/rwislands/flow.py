@@ -220,7 +220,7 @@ def synthesize(accel, dcps, work, part, clk_ns, cpus, slots):
     return res
 
 
-def island_tcl(name, island_v, dcp_files, part, clk_ns, ranges, cr, threads, out_dir):
+def island_tcl(name, island_v, dcp_files, part, clk_ns, ranges, cr, threads, out_dir, contain=True):
     t = [
         "set_param general.maxThreads %d" % threads,
         "set t0 [clock milliseconds]",
@@ -241,7 +241,10 @@ def island_tcl(name, island_v, dcp_files, part, clk_ns, ranges, cr, threads, out
         "create_pblock pb",
         "resize_pblock pb -add {%s}" % " ".join(ranges),
         "add_cells_to_pblock pb -top",
-        "set_property CONTAIN_ROUTING 1 [get_pblocks pb]",
+    ]
+    if contain:
+        t.append("set_property CONTAIN_ROUTING 1 [get_pblocks pb]")
+    t += [
         "opt_design",
         "stamp opt",
         "place_design",
@@ -392,10 +395,27 @@ def rw_islands_zynq_build(
         # the fabric left of the shell (above the PS): its rows are those with sites there
         ys = [st.y for st in dev.sites if st.x < sx0]
         first = [(0, sx0 - 1, min(ys) - min(ys) % 5, dev.ymax)]
+    contain = True
     try:
         rects, ranges, util, lanes = floorplan(dev, isl_res, region, first_lanes=first)
     except RuntimeError as e:
-        return abort("floorplan_failed", error=str(e))
+        # too dense for one rectangle per island (e.g. BRAM/URAM in few columns): the whole
+        # accelerator as one island over the whole region; its parts are not adjacent (the
+        # shell lies in between), so its routing cannot be contained - no other island to
+        # collide with, the shell's routing is fixed at assembly
+        from finn.util.rwislands.device import pblock_ranges
+
+        res["floorplan_fallback"] = str(e)
+        isl = {"island_0": names}
+        tot = {}
+        for n in names:
+            for kk, v in node_res[n].items():
+                tot[kk] = tot.get(kk, 0) + v
+        isl_res = [tot]
+        lanes = list(first) + [region]
+        rects = [lanes]
+        ranges = [[g for r in lanes for g in pblock_ranges(dev.sites_in(*r))]]
+        util, contain = None, False
     stamp("floorplan")
     res["islands"] = {
         name: {"nodes": mem, "res": r, "cost": sum(costs[names.index(n)] for n in mem), "rects": rc}
@@ -420,7 +440,11 @@ def rw_islands_zynq_build(
         cr = next(s.cr for s in dev.sites_in(*r0) if s.type.startswith("SLICE"))
         tcl = os.path.join(d, "island.tcl")
         with open(tcl, "w") as f:
-            f.write(island_tcl(name, v, files, part, clk_ns, ranges[list(isl).index(name)], cr, threads, d))
+            f.write(
+                island_tcl(
+                    name, v, files, part, clk_ns, ranges[list(isl).index(name)], cr, threads, d, contain
+                )
+            )
         rc, t = run_vivado(tcl, os.path.join(d, "island.log"), d)
         info = {"pnr_s": t, "rc": rc}
         info.update(_island_reports(d))
