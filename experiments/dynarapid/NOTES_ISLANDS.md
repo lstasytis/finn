@@ -241,3 +241,12 @@ encrypted IP); estimate 44k LUT, 530 BRAM18, 39 URAM, 684 DSP), VGG10 (`rwi/vgg1
 * Timing batch 1 started 03:41 (`run_islands_timing.sh`, MODELS="tfc cnv cnv1 vgg10",
   islands then vivado per model, 64 workers, one build at a time, shell cached).
   TFC islands: 309 s end to end, 0 routing errors, WNS +4.264.
+
+#### Timing batch 1 results (ZCU104, 100 MHz, 64 workers, one build at a time, shell cached)
+
+| model | Vivado ZynqBuild | island flow | speedup | K | synth | island P&R | stitch | assembly | WNS islands / Vivado | routing errors |
+|---|---|---|---|---|---|---|---|---|---|---|
+| TFC | 644 s | 309 s | 2.08x | 3 | 65 | 104 | 4 | 81 | +4.264 / +4.648 | 0 |
+| CNV | 891 s | 365 s | 2.44x | 6 | 74 | 114 | 9 | 113 | +3.726 / +1.632 | 0 |
+
+(island times end to end incl. ZynqBuild's partitioning and IODMA HLS, ~55 s; `summarize_islands.py`)
