@@ -51,8 +51,11 @@ def link_hook_tcl(core_dcp, ranges):
             '  puts "RWI_HOOK black boxes: [get_cells -hier -quiet -filter IS_BLACKBOX]"',
             '  error "island core black box not found: $core"',
             "}",
-            "read_checkpoint -cell $core %s" % core_dcp,
+            # read_checkpoint -cell replaces the cell object: keep its name, query it again
+            "set core_name [get_property NAME $core]",
+            "read_checkpoint -cell $core_name %s" % core_dcp,
             'puts "RWI_HOOK read_checkpoint [expr ([clock milliseconds] - $t0) / 1000.0]"',
+            "set core [get_cells $core_name]",
             # placement locked; its routing stays, Vivado may still finish/repair nets
             "lock_design -level placement $core",
             # the island region is the core's alone (one resize_pblock call: 2024.2 drops sites
