@@ -45,9 +45,12 @@ def link_hook_tcl(core_dcp, ranges):
         [
             "set t0 [clock milliseconds]",
             # the platform's per-IP synthesis uniquifies REF_NAME, ORIG_REF_NAME keeps it
-            "set core [get_cells -hier -filter {ORIG_REF_NAME == %s || REF_NAME == %s}]"
+            "set core [get_cells -hier -quiet -filter {IS_BLACKBOX && (REF_NAME =~ *%s* || ORIG_REF_NAME =~ *%s*)}]"
             % (TOP_MODULE, TOP_MODULE),
-            'if {[llength $core] != 1} {error "island core black box not found: $core"}',
+            'if {[llength $core] != 1} {',
+            '  puts "RWI_HOOK black boxes: [get_cells -hier -quiet -filter IS_BLACKBOX]"',
+            '  error "island core black box not found: $core"',
+            "}",
             "read_checkpoint -cell $core %s" % core_dcp,
             'puts "RWI_HOOK read_checkpoint [expr ([clock milliseconds] - $t0) / 1000.0]"',
             # placement locked; its routing stays, Vivado may still finish/repair nets
