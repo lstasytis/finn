@@ -400,9 +400,9 @@ def rw_islands_zynq_build(
         rects, ranges, util, lanes = floorplan(dev, isl_res, region, first_lanes=first)
     except RuntimeError as e:
         # too dense for one rectangle per island (e.g. BRAM/URAM in few columns): the whole
-        # accelerator as one island over the whole region; its parts are not adjacent (the
-        # shell lies in between), so its routing cannot be contained - no other island to
-        # collide with, the shell's routing is fixed at assembly
+        # accelerator as one island in the main region (one connected rectangle, so its
+        # routing stays contained; without containment its routing used shell tiles and the
+        # assembly lost the shell's placement)
         from finn.util.rwislands.device import pblock_ranges
 
         res["floorplan_fallback"] = str(e)
@@ -412,10 +412,10 @@ def rw_islands_zynq_build(
             for kk, v in node_res[n].items():
                 tot[kk] = tot.get(kk, 0) + v
         isl_res = [tot]
-        lanes = list(first) + [region]
+        lanes = [region]
         rects = [lanes]
         ranges = [[g for r in lanes for g in pblock_ranges(dev.sites_in(*r))]]
-        util, contain = None, False
+        util = None
     stamp("floorplan")
     res["islands"] = {
         name: {"nodes": mem, "res": r, "cost": sum(costs[names.index(n)] for n in mem), "rects": rc}
