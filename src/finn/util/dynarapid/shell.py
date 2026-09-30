@@ -418,9 +418,13 @@ def build_shell(board, part, clk_ns, ports, shell_lib, jobs=8):
     return shell_dir, res
 
 
-def assemble_tcl(shell_dir, accel_dcp, out_dir, bitfile, threads=16, keep_dcp=False, reports="full"):
+def assemble_tcl(
+    shell_dir, accel_dcp, out_dir, bitfile, threads=16, keep_dcp=False, reports="full", trigger=None
+):
     """Fill the shell's accelerator cell with the DynaRapid-routed accelerator, route the
-    remaining (boundary and clock) nets and write the bitstream."""
+    remaining (boundary and clock) nets and write the bitstream. trigger: the script opens the
+    shell right away and then waits for this file ("go": accelerator ready, else abort), so
+    that Vivado's start and the shell load overlap with the accelerator build."""
     rp = open(os.path.join(shell_dir, "rp_cell.txt")).read().strip()
     t = [
         "set_param general.maxThreads %d" % threads,
@@ -428,6 +432,17 @@ def assemble_tcl(shell_dir, accel_dcp, out_dir, bitfile, threads=16, keep_dcp=Fa
         "proc stamp {name} {global t0; puts \"STAMP $name [expr ([clock milliseconds] - $t0) / 1000.0]\"}",
         "open_checkpoint %s/shell_routed.dcp" % shell_dir,
         "stamp open_shell",
+    ]
+    if trigger is not None:
+        t += [
+            "while {![file exists %s]} {after 200}" % trigger,
+            "after 200",
+            "set f [open %s]; set go [string trim [read $f]]; close $f" % trigger,
+            'if {$go != "go"} {puts "ABORT: accelerator not built"; exit 1}',
+            "set t0 [clock milliseconds]",
+            "stamp wait",
+        ]
+    t += [
         "read_checkpoint -cell %s %s" % (rp, accel_dcp),
         "stamp read_accel",
         # RapidWright's static nets (VCC/GND) come in as fixed routing; where they collide with

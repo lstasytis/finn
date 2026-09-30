@@ -278,6 +278,32 @@ def rw_islands_zynq_build(
         res["status"] = "shell_failed"
         return _done(res, stamps, out_dir, t_total)
 
+    # the assembly Vivado opens the shell now and waits for the stitched accelerator
+    asm_dir = os.path.join(out_dir, "assembly")
+    os.makedirs(asm_dir, exist_ok=True)
+    bitfile = os.path.join(out_dir, "resizer.bit")
+    accel_dcp = os.path.join(work, "stitch", "accel_routed.dcp")
+    trigger = os.path.join(asm_dir, "accel_ready")
+    if os.path.exists(trigger):
+        os.remove(trigger)
+    asm_tcl = os.path.join(asm_dir, "assemble.tcl")
+    with open(asm_tcl, "w") as f:
+        f.write(
+            assemble_tcl(
+                shell_dir, accel_dcp, asm_dir, bitfile, threads=min(16, cpus), reports="min",
+                trigger=trigger,
+            )
+        )
+    asm_pool = ThreadPoolExecutor(max_workers=1)
+    f_asm = asm_pool.submit(run_vivado, asm_tcl, os.path.join(asm_dir, "assemble.log"), asm_dir)
+
+    def abort(status, **kw):
+        with open(trigger, "w") as f:
+            f.write("abort")
+        f_asm.result()
+        res.update(status=status, **kw)
+        return _done(res, stamps, out_dir, t_total)
+
     # 2. islands and floorplan
     names = [n.name for n in accel.graph.node]
     node_res = {n: synth[dcps[n]]["util"] for n in names}
@@ -294,7 +320,10 @@ def rw_islands_zynq_build(
         isl_res.append(tot)
     x0 = PS_BOUNDARY_INT_X[part] + SHELL_STRIP_COLS
     region = (x0, dev.xmax, 0, dev.ymax)
-    rects, ranges, util, lanes = floorplan(dev, isl_res, region)
+    try:
+        rects, ranges, util, lanes = floorplan(dev, isl_res, region)
+    except RuntimeError as e:
+        return abort("floorplan_failed", error=str(e))
     stamp("floorplan")
     res["islands"] = {
         name: {"nodes": mem, "res": r, "cost": sum(costs[names.index(n)] for n in mem), "rects": rc}
@@ -355,13 +384,11 @@ def rw_islands_zynq_build(
     res["top_s"] = top_s
     bad = [n for n, i in infos.items() if not i["ok"]]
     if bad or top_rc != 0:
-        res.update(status="island_failed", failed=bad, top_rc=top_rc)
-        return _done(res, stamps, out_dir, t_total)
+        return abort("island_failed", failed=bad, top_rc=top_rc)
 
     # 4. stitch with RapidWright
     st_dir = os.path.join(work, "stitch")
     os.makedirs(st_dir, exist_ok=True)
-    accel_dcp = os.path.join(st_dir, "accel_routed.dcp")
     cmd = [
         java_bin(),
         "-Xmx32G",
@@ -389,18 +416,16 @@ def rw_islands_zynq_build(
     res["stitch_unrouted_pins"] = int(m.group(1)) if m else None
     stamp("stitch")
     if rc != 0 or not os.path.isfile(accel_dcp):
-        res["status"] = "stitch_failed"
-        return _done(res, stamps, out_dir, t_total)
+        return abort("stitch_failed")
 
-    # 5. assembly
-    asm_dir = os.path.join(out_dir, "assembly")
-    os.makedirs(asm_dir, exist_ok=True)
-    bitfile = os.path.join(out_dir, "resizer.bit")
-    tcl = os.path.join(asm_dir, "assemble.tcl")
-    with open(tcl, "w") as f:
-        f.write(assemble_tcl(shell_dir, accel_dcp, asm_dir, bitfile, threads=min(16, cpus), reports="min"))
+    # 5. assembly (the shell is already open in the waiting Vivado)
+    t0 = time.time()
+    with open(trigger, "w") as f:
+        f.write("go")
+    rc, _ = f_asm.result()
+    asm_pool.shutdown()
+    res["assembly_s"] = time.time() - t0
     log = os.path.join(asm_dir, "assemble.log")
-    rc, res["assembly_s"] = run_vivado(tcl, log, asm_dir)
     stamp("assembly")
     res["assembly_stamps"] = {
         kk: float(vv) for kk, vv in re.findall(r"^STAMP (\w+) ([\d.]+)", open(log).read(), re.M)
