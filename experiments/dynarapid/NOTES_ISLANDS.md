@@ -267,3 +267,11 @@ Assembly now writes the bitstream before the reports (VGG10: bitstream ~40 s ear
 Batch 2 queued: cnv1 islands (re-time), mnv1 islands (single-island fallback) + mnv1 Vivado.
 | VGG10 (Vivado) | 2112 s | | **1.91x** vs 1107 s | | | | | | / +3.337 | |
 | CNV-w1a1 PE=SIMD=1 (re-timed with the lane fix) | 811 s | 358 s | **2.27x** | 7 | 72 | 130 | 6 | 94 | +2.939 / +3.657 | 0 |
+
+VGG10 functional check (`verify_accel.py`, `vgg10_isl_b`, 2 random frames): post-route netlist of
+the RapidWright-stitched accelerator + shell bridges vs FINN's stitched-IP RTL: **outputs match**
+(netlist sim ~14 min CPU). Caveat: both outputs are class 0 for both random frames, so this
+check is weak (a constant-output fault would pass); real RadioML samples would make it
+conclusive. The reference RTL sim first failed ("'swg' is not declared"): verify_accel sorted
+the sources, putting swg_pkg.sv after its users - packages now first (also the reason CNV
+could not be verified in the DynaRapid branch).
