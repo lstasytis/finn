@@ -303,3 +303,18 @@ times therefore only indicative.
 **VGG10 functional check, stronger (8 frames, input amplitude scaled per frame,
 `verify_accel.py --frames 8 --vary-amplitude`): outputs match FINN's RTL for all 8 frames, with
 different classes (00 00 00 15 15 12 00 00 hex)** -> the island-flow VGG10 build is verified.
+
+### 2026-09-30 ~07:30: MobileNetV1 island-flow bitstream (ZCU104, 100 MHz)
+
+`bit/mnv1_isl_c` (fallback: one island in the main region x 30-69, CONTAIN_ROUTING; concurrent
+with the MobileNet Vivado baseline, so indicative): **bitstream written, 0 routing errors, WNS
++2.70 ns**. End to end 2088 s (ZynqBuild prep ~110 s, island flow 1975 s): synthesis 159 s,
+floorplan attempts ~98 s (snake + 2D packing at all utilizations, pure Python - should be
+short-circuited when the resource totals already exceed what rectangles can pack), the single
+island's P&R 1193 s (link 56, opt 102, place 449, route 545) at ~88 % LUT / 88 % BRAM / 72 % URAM
+of the region, stitch 36 s, assembly 470 s (read accel 82, route 312, bitstream 42, reports 32).
+No parallel P&R here - the speedup potential for MobileNet on the ZCU104 is limited by the
+floorplan (see above). No functional check possible yet: the three URAM MVAUs need their weights
+written over AXI-Lite at runtime (verify_accel does not do that) and the design is too large
+for gate-level simulation in useful time.
+MobileNet Vivado ZynqBuild baseline (timing/mnv1_vivado): started 06:44, still running at 07:30.
