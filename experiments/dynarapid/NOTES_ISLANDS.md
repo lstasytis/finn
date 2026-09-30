@@ -426,3 +426,13 @@ unplaced platform netlist) and still ~14 % longer placement of the rest of the d
 per-model link is a ~65-75 min platform floor (IP synthesis 12 min, placement 22-25 min, routing
 7 min, bitstream 11 min); the island flow can only pay off when the compute kernel's own
 synthesis and P&R are a large share (big models).
+| CNV Vitis flow | 5458 s | 760 | - | 182 | 1608 | 547 | 698 | (FINN prep ~1100 s) | 0 | +0.003/+0.009 |
+| CNV islands | 5562 s | 748 | 215 | 212 | 1427 | 667 | 729 | 276 (synth 87, 6 islands 180, stitch 8) | 0 | +0.003/+0.009 |
+
+CNV: island flow 2 % slower; placement of the rest is faster with the kernel pre-placed
+(1427 vs 1608 s) but routing slower (667 vs 547 s) and the hook adds 215 s. Conclusion for
+TFC/CNV-size models on the U55C: the per-model v++ link dominates (~75 min of platform IP
+synthesis, placement, routing, bitstream) and the island flow cannot shorten it; it only replaces
+FINN's stitched-IP synthesis of the kernel (a few minutes for these models). The approach needs
+kernels whose own synthesis + P&R is hours (U250-class MobileNet, ResNet50) - or a cached platform
+region (option b, nested DFX) to remove the per-model platform work.
