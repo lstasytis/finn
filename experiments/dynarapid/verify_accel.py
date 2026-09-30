@@ -325,8 +325,14 @@ def main():
     out = os.path.abspath(args.out)
     os.makedirs(out, exist_ok=True)
     accel = ModelWrapper(os.path.join(args.accel_dir, "accel.onnx"))
-    res_json = json.load(open(os.path.join(args.accel_dir, "dynarapid_zynq.json")))
-    routed = res_json["accel"]["routed_dcp"]
+    isl_json = os.path.join(args.accel_dir, "rwislands_zynq.json")
+    if os.path.isfile(isl_json):
+        # island flow (finn.util.rwislands): the RapidWright-stitched accelerator
+        res_json = json.load(open(isl_json))
+        routed = os.path.join(args.accel_dir, "work", "stitch", "accel_routed.dcp")
+    else:
+        res_json = json.load(open(os.path.join(args.accel_dir, "dynarapid_zynq.json")))
+        routed = res_json["accel"]["routed_dcp"]
     part = res_json.get("part") or "xczu7ev-ffvc1156-2-e"
     clk_ns = res_json.get("clk_ns") or 5.0
     ports = mm_ports(accel)

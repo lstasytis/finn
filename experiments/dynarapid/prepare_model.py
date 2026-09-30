@@ -222,6 +222,7 @@ def extract_subgraph(model, node_names):
 
 
 def main():
+    global FPGA_PART, CLK_NS
     ap = argparse.ArgumentParser()
     ap.add_argument("--topology", choices=["tfc", "cnv"], required=True)
     ap.add_argument("--wbits", type=int, default=1)
@@ -235,10 +236,11 @@ def main():
     ap.add_argument("--nodes", default="", help="comma-separated node names to keep")
     ap.add_argument("--out", required=True)
     ap.add_argument("--part", default=None, help="FPGA part (default: KV260 xck26)")
+    ap.add_argument("--clk", type=float, default=5.0, help="clock period (ns)")
     args = ap.parse_args()
-    global FPGA_PART
     if args.part:
         FPGA_PART = args.part
+    CLK_NS = args.clk
 
     os.makedirs(args.out, exist_ok=True)
     timings = {}

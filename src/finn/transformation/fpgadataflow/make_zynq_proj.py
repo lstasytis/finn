@@ -460,16 +460,32 @@ class ZynqBuild(Transformation):
         with ThreadPoolExecutor(max_workers=max(1, len(sdp_nodes))) as ex:
             kernel_models = list(ex.map(prepare, sdp_nodes))
         out_dir = opts.get("out_dir") or make_build_dir("dynarapid_zynq_")
-        res = dynarapid_zynq_build(
-            kernel_models,
-            self.platform,
-            self.fpga_part,
-            self.period_ns,
-            out_dir,
-            library_dir=library_dir,
-            shell_lib=opts.get("shell_lib"),
-            workers=opts.get("workers"),
-        )
+        if opts.get("flow") == "islands":
+            # island flow (finn.util.rwislands): no component library, RapidWright stitching
+            from finn.util.rwislands.flow import rw_islands_zynq_build
+
+            res = rw_islands_zynq_build(
+                kernel_models,
+                self.platform,
+                self.fpga_part,
+                self.period_ns,
+                out_dir,
+                shell_lib=opts.get("shell_lib")
+                or os.path.join(os.environ["FINN_BUILD_DIR"], "rwislands", "shells"),
+                islands=opts.get("islands", "auto"),
+                workers=opts.get("workers"),
+            )
+        else:
+            res = dynarapid_zynq_build(
+                kernel_models,
+                self.platform,
+                self.fpga_part,
+                self.period_ns,
+                out_dir,
+                library_dir=library_dir,
+                shell_lib=opts.get("shell_lib"),
+                workers=opts.get("workers"),
+            )
         model.set_metadata_prop("dynarapid_result", json.dumps(res))
         assert res["status"] == "ok", "DynaRapid bitfile flow failed (%s), see %s" % (
             res["status"],

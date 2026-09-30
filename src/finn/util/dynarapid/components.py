@@ -423,13 +423,13 @@ def direct_adapter_verilog(dcp, node, top, port_dirs):
     )
 
 
-def direct_synth_tcl(node, dcp, comp_dir, synth_dir, part, threads, files, top):
+def direct_synth_tcl(node, dcp, comp_dir, synth_dir, part, threads, files, top, metadata=True):
     """Vivado script for a directly synthesized component: HDL + adapter, OOC synthesis
-    (non-project: no project, IP catalog or block design)."""
+    (non-project: no project, IP catalog or block design). metadata: also write DynaRapid's
+    metadata file (needs DynaRapid's RapidWright Tcl)."""
     adapter = os.path.join(comp_dir, dcp + ".v")
     with open(adapter, "w") as f:
         f.write(direct_adapter_verilog(dcp, node, top, module_port_dirs(files, top)))
-    rw_tcl = os.path.join(dynarapid_root(), "RapidWright", "tcl", "rapidwright.tcl")
     dcp_file = os.path.join(synth_dir, dcp + "_synth.dcp")
     sv = [f for f in files if f.endswith((".sv", ".svh"))]
     v = [f for f in files if f.endswith((".v", ".vh"))]
@@ -447,13 +447,18 @@ def direct_synth_tcl(node, dcp, comp_dir, synth_dir, part, threads, files, top):
         "write_checkpoint -force %s" % dcp_file,
         "write_edif -force %s" % dcp_file.replace(".dcp", ".edf"),
         "report_utilization -packthru -file %s" % os.path.join(synth_dir, dcp + ".util"),
-        "source %s" % rw_tcl,
-        "generate_metadata %s %s 0" % (dcp_file, synth_dir),
     ]
+    if metadata:
+        tcl += _metadata_tcl(dcp_file, synth_dir)
     return "\n".join(tcl) + "\n"
 
 
-def synth_tcl(model, node, dcp, comp_dir, synth_dir, part, clk_ns, threads):
+def _metadata_tcl(dcp_file, synth_dir):
+    rw_tcl = os.path.join(dynarapid_root(), "RapidWright", "tcl", "rapidwright.tcl")
+    return ["source %s" % rw_tcl, "generate_metadata %s %s 0" % (dcp_file, synth_dir)]
+
+
+def synth_tcl(model, node, dcp, comp_dir, synth_dir, part, clk_ns, threads, metadata=True):
     """Vivado script: single-node block design + adapter, OOC synthesis, util + metadata."""
     inst = getCustomOp(node)
     ins, outs = stream_interfaces(node)
@@ -471,7 +476,6 @@ def synth_tcl(model, node, dcp, comp_dir, synth_dir, part, clk_ns, threads):
             )
         )
     ip_dirs = "$::env(FINN_ROOT)/finn-rtllib/memstream %s" % inst.get_nodeattr("ip_path")
-    rw_tcl = os.path.join(dynarapid_root(), "RapidWright", "tcl", "rapidwright.tcl")
     fclk_hz = round(1e9 / clk_ns)
     bd_file = "%s/prj.srcs/sources_1/bd/%s/%s.bd" % (comp_dir, bd_name, bd_name)
     dcp_file = os.path.join(synth_dir, dcp + "_synth.dcp")
@@ -501,9 +505,9 @@ def synth_tcl(model, node, dcp, comp_dir, synth_dir, part, clk_ns, threads):
         "write_checkpoint -force %s" % dcp_file,
         "write_edif -force %s" % dcp_file.replace(".dcp", ".edf"),
         "report_utilization -packthru -file %s" % os.path.join(synth_dir, dcp + ".util"),
-        "source %s" % rw_tcl,
-        "generate_metadata %s %s 0" % (dcp_file, synth_dir),
     ]
+    if metadata:
+        tcl += _metadata_tcl(dcp_file, synth_dir)
     return "\n".join(tcl) + "\n"
 
 
