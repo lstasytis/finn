@@ -179,8 +179,10 @@ def island_tcl(name, island_v, dcp_files, part, clk_ns, ranges, cr, threads, out
         "create_clock -period %.3f -name clk [get_ports clk]" % clk_ns,
         # clock source of the out-of-context run (the clock routing is discarded when the
         # island is stitched; Vivado routes the real clock tree at assembly)
-        "set_property HD.CLK_SRC [lindex [get_sites -of_objects [get_clock_regions %s] "
-        "-filter {SITE_TYPE == BUFGCE}] 0] [get_ports clk]" % cr,
+        "set bufg [lindex [get_sites -quiet -filter {SITE_TYPE == BUFGCE && CLOCK_REGION == %s}] 0]"
+        % cr,
+        'if {$bufg == ""} {set bufg [lindex [get_sites -filter {SITE_TYPE == BUFGCE}] 0]}',
+        "set_property HD.CLK_SRC $bufg [get_ports clk]",
         "create_pblock pb",
         "resize_pblock pb -add {%s}" % " ".join(ranges),
         "add_cells_to_pblock pb -top",

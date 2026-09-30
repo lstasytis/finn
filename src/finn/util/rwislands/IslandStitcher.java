@@ -9,6 +9,7 @@ import com.xilinx.rapidwright.design.Design;
 import com.xilinx.rapidwright.design.DesignTools;
 import com.xilinx.rapidwright.design.Net;
 import com.xilinx.rapidwright.design.SitePinInst;
+import com.xilinx.rapidwright.edif.EDIFCellInst;
 import com.xilinx.rapidwright.rwroute.PartialRouter;
 
 import java.util.ArrayList;
@@ -63,7 +64,15 @@ public class IslandStitcher {
         Design top = topF.get();
         stamp("read_top");
         for (Map.Entry<String, Future<Design>> e : islF.entrySet()) {
+            // Vivado marks black boxes with black_box = "true", which RapidWright's
+            // EDIFCellInst.isBlackBox() does not recognize (it expects IS_IMPORTED or "1")
+            EDIFCellInst inst = top.getNetlist().getCellInstFromHierName(e.getKey());
+            inst.addProperty(EDIFCellInst.BLACK_BOX_PROP, "true");
             DesignTools.populateBlackBox(top, e.getKey(), e.getValue().get());
+            inst.removeProperty(EDIFCellInst.BLACK_BOX_PROP);
+            if (inst.getCellType().isLeafCellOrBlackBox()) {
+                throw new RuntimeException("island " + e.getKey() + " was not filled");
+            }
         }
         ex.shutdown();
         stamp("populate");
@@ -101,6 +110,9 @@ public class IslandStitcher {
             if (!p.isRouted()) unrouted++;
         }
         System.out.println("RESULT unrouted_pins " + unrouted);
+        // the islands' netlists come with their own libraries (xil_defaultlib, work_<node>):
+        // one work library, so that no library refers to one written after it
+        top.getNetlist().consolidateAllToWorkLibrary(true);
         top.writeCheckpoint(out);
         stamp("write");
     }
