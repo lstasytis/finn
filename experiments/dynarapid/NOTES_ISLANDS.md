@@ -436,3 +436,8 @@ synthesis, placement, routing, bitstream) and the island flow cannot shorten it;
 FINN's stitched-IP synthesis of the kernel (a few minutes for these models). The approach needs
 kernels whose own synthesis + P&R is hours (U250-class MobileNet, ResNet50) - or a cached platform
 region (option b, nested DFX) to remove the per-model platform work.
+* Experiment: is the slow `read_checkpoint -cell` due to RapidWright's DCP (text EDIF)? VGG10's
+  stitched accelerator re-written by Vivado (open 67 s + write 44 s) reads into the ZCU104 shell
+  in 74 s vs 83 s for the RapidWright DCP (-11 %) -> not worth the conversion; the cost is
+  read_checkpoint -cell of a large netlist itself (on the U55C ~210 s for TFC/CNV into the
+  unplaced platform netlist).
