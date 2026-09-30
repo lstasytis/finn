@@ -49,7 +49,7 @@ from finn.util.rwislands.floorplan import floorplan, island_cost, partition
 
 # INT column where the island flow's shell region starts (it spans [SHELL_X0, PS boundary +
 # strip)); the fabric left of it (above the PS on the xczu7ev) is an extra island lane
-SHELL_X0 = {"xczu7ev-ffvc1156-2-e": 20}
+SHELL_X0 = {"xczu7ev-ffvc1156-2-e": 20, "xczu9eg-ffvb1156-2-e": 17}
 from finn.util.rwislands.netlist import TOP_MODULE, channel_graph, island_verilog, top_verilog
 
 HERE = os.path.dirname(os.path.abspath(__file__))

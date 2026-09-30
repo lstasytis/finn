@@ -63,6 +63,8 @@ SHELL_STRIP_COLS = 3
 # INT column of the first map column (the PS boundary) per part
 PS_BOUNDARY_INT_X = {
     "xczu7ev-ffvc1156-2-e": 27,
+    # first full-height column right of the PS (sites in all rows from here on)
+    "xczu9eg-ffvb1156-2-e": 24,
 }
 
 
