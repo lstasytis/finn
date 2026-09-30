@@ -139,3 +139,18 @@ encrypted IP); estimate 44k LUT, 530 BRAM18, 39 URAM, 684 DSP), VGG10 (`rwi/vgg1
   the weights over AXI-Lite). A fixed-weights variant is therefore not possible (BRAM would not
   fit: 265 BRAM36 + 39 URAM). -> the island flow must pass compute-node AXI-Lite interfaces
   through the shell (like the IODMA control interfaces). In progress.
+
+### 2026-09-30 ~02:45: pipelined assembly, stitcher speed-up, VGG10 first run (in progress)
+
+* Assembly Vivado now starts when the shell is ready and opens it while the islands are built;
+  it waits for a trigger file ("go"/"abort") from the flow. TFC (`tfc_isl_b`): assembly on the
+  critical path 107 -> 80 s, island flow 256 s, 0 routing errors, WNS +3.92.
+* IslandStitcher: `createMissingSitePinInsts` over the whole design took 36 s on VGG10; now only
+  for the top cell's nets (islands' own nets are complete). VGG10 stitch 93 -> 38 s (read 1.5,
+  populate 22, names 4.5, site pins 0.9, RWRoute 779 pins 6.3, write 2.8), same result.
+* VGG10 (`vgg10_isl_a`, 10 ns): synthesis 129 components; K=auto -> 4 islands (the largest
+  MVAU_rtl dominates the max island cost, so the partitioner takes the fewest islands with the
+  same maximum). Island P&R 130 / 250 / 289 / 325 s (link 12-24, opt 19-33, place 68-162, route
+  28-98). Assembly: read_checkpoint -cell of the stitched accelerator 89 s (Vivado parsing the
+  RapidWright-written EDIF of a 98k-LUT design) - now the largest fixed chunk after the islands.
+* AXI-Lite pass-through for compute nodes implemented (MobileNet), MobileNet build running.
