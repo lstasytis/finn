@@ -21,6 +21,7 @@ from qonnx.custom_op.registry import getCustomOp
 from finn.util.dynarapid.components import (
     axi_channels,
     channels,
+    has_axi,
     is_iodma,
     stream_interfaces,
 )
@@ -159,12 +160,12 @@ def mm_ports(model):
     ids = node_ids(model)
     res = []
     for node in model.graph.node:
-        if not is_iodma(node):
+        if not has_axi(node):
             continue
         nid = ids[node.name]
         s_in, s_out = stream_interfaces(node)
         a_in, a_out = axi_channels(node)
-        entry = {"id": nid, "node": node.name, "in": [], "out": []}
+        entry = {"id": nid, "node": node.name, "iodma": is_iodma(node), "in": [], "out": []}
         for k, c in enumerate(a_in, start=len(s_in)):
             entry["in"].append(
                 dict(
@@ -184,7 +185,15 @@ def mm_ports(model):
                 )
             )
         res.append(entry)
-    return sorted(res, key=lambda e: (e["id"][0] != "i", int(e["id"][4:])))
+    # reading IODMAs, writing IODMAs, then compute nodes with an AXI-Lite slave (graph order)
+    order = {e["id"]: k for k, e in enumerate(res)}
+    return sorted(
+        res,
+        key=lambda e: (
+            0 if e["id"].startswith("idma") else 1 if e["id"].startswith("odma") else 2,
+            int(e["id"][4:]) if e["iodma"] else order[e["id"]],
+        ),
+    )
 
 
 def kernel_wrapper_verilog(wrapper_name, core_name, ins, outs, black_box=True):

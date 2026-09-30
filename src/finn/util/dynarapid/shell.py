@@ -138,15 +138,16 @@ def bridge_verilog(d):
     chans = {}
     for c in d["in"] + d["out"]:
         chans[c["name"]] = c
-    master = [c["name"] for c in d["in"] + d["out"] if c["name"].startswith("m_axi")][0]
+    # IODMAs: AXI master + AXI-Lite control; compute nodes: only an AXI-Lite slave
+    master = [c["name"] for c in d["in"] + d["out"] if c["name"].startswith("m_axi")]
     slave = [c["name"] for c in d["in"] + d["out"] if c["name"].startswith("s_axi")][0]
-    m_if = master.rsplit("_", 1)[0]  # e.g. m_axi_gmem
-    s_if = slave.rsplit("_", 1)[0]  # e.g. s_axi_control
+    m_if = master[0].rsplit("_", 1)[0] if master else None  # e.g. m_axi_gmem
+    s_if = slave.rsplit("_", 1)[0]  # e.g. s_axi_control / s_axilite
     ports, body = [], []
     ports.append(
         '    (* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 ap_clk CLK" *)\n'
-        '    (* X_INTERFACE_PARAMETER = "ASSOCIATED_BUSIF %s:%s, ASSOCIATED_RESET ap_rst_n" *)\n'
-        "    input ap_clk" % (m_if, s_if)
+        '    (* X_INTERFACE_PARAMETER = "ASSOCIATED_BUSIF %s, ASSOCIATED_RESET ap_rst_n" *)\n'
+        "    input ap_clk" % ":".join(x for x in (m_if, s_if) if x)
     )
     ports.append(
         '    (* X_INTERFACE_INFO = "xilinx.com:signal:reset:1.0 ap_rst_n RST" *)\n'
@@ -247,7 +248,8 @@ def bridge_verilog(d):
                             else "    assign %s = 0;" % core_data
                         )
 
-    axi(m_if, True, _MASTER_SIGS)
+    if m_if:
+        axi(m_if, True, _MASTER_SIGS)
     axi(s_if, False, _SLAVE_SIGS)
     return "module %s_bridge (\n%s\n);\n%s\nendmodule\n" % (
         d["id"],
@@ -271,24 +273,32 @@ def shell_tcl(board, part, clk_ns, ports, shell_dir, src_file, jobs):
 
     fclk_mhz = int(1 / (clk_ns * 0.001))
     ps_x = PS_BOUNDARY_INT_X[part] + SHELL_STRIP_COLS
-    n_mm = len(ports)
+    # AXI-Lite slaves: every entry (IODMA control, compute-node parameters); AXI masters: IODMAs
+    n_axilite = len(ports)
+    n_aximm = len([d for d in ports if d.get("iodma", True)])
     # board/PS setup from the regular Zynq shell template (up to the IP instantiations)
     head = templates.custom_zynq_shell_template.split("#custom IP instantiations")[0]
-    head = head % (fclk_mhz, n_mm, n_mm, board, part)
+    head = head % (fclk_mhz, n_axilite, n_aximm, board, part)
     head = head.replace(
         "create_project finn_zynq_link ./ -part $FPGA_PART",
         "create_project finn_zynq_link %s -part $FPGA_PART\nadd_files -norecurse %s\n"
         "update_compile_order -fileset sources_1" % (shell_dir, src_file),
     )
     t = [head]
+    k_mm = 0
     for k, d in enumerate(ports):
+        s_if = [c["name"] for c in d["in"] if c["name"].startswith("s_axi")][0].rsplit("_", 1)[0]
+        t.append("create_bd_cell -type module -reference %s_bridge %s" % (d["id"], d["id"]))
+        if d.get("iodma", True):
+            t.append(
+                "connect_bd_intf_net [get_bd_intf_pins %s/m_axi_gmem] "
+                "[get_bd_intf_pins smartconnect_0/S%02d_AXI]" % (d["id"], k_mm)
+            )
+            k_mm += 1
         t += [
-            "create_bd_cell -type module -reference %s_bridge %s" % (d["id"], d["id"]),
-            "connect_bd_intf_net [get_bd_intf_pins %s/m_axi_gmem] "
-            "[get_bd_intf_pins smartconnect_0/S%02d_AXI]" % (d["id"], k),
-            "connect_bd_intf_net [get_bd_intf_pins %s/s_axi_control] "
-            "[get_bd_intf_pins axi_interconnect_0/M%02d_AXI]" % (d["id"], k),
-            "assign_axi_addr_proc %s/s_axi_control" % d["id"],
+            "connect_bd_intf_net [get_bd_intf_pins %s/%s] "
+            "[get_bd_intf_pins axi_interconnect_0/M%02d_AXI]" % (d["id"], s_if, k),
+            "assign_axi_addr_proc %s/%s" % (d["id"], s_if),
             "connect_bd_net [get_bd_pins %s/ap_clk] [get_bd_pins smartconnect_0/aclk]" % d["id"],
             "connect_bd_net [get_bd_pins %s/ap_rst_n] [get_bd_pins smartconnect_0/aresetn]"
             % d["id"],

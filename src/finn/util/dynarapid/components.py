@@ -103,6 +103,14 @@ def is_iodma(node):
     return node.op_type.startswith("IODMA")
 
 
+def has_axi(node):
+    """IODMA (AXI master + AXI-Lite control) or a compute node with an AXI-Lite slave."""
+    if is_iodma(node):
+        return True
+    intf = getCustomOp(node).get_verilog_top_module_intf_names()
+    return bool(intf.get("axilite"))
+
+
 _IP_ATTRS = ("code_gen_dir_ipgen", "ipgen_path", "ip_path", "ip_vlnv")
 
 
@@ -137,7 +145,9 @@ def stream_interfaces(node):
     Only the AXI streams; the memory-mapped interfaces of IODMA nodes are extra
     channels after these (see channels())."""
     intf = getCustomOp(node).get_verilog_top_module_intf_names()
-    allowed = ("axilite", "aximm") if is_iodma(node) else ()
+    # compute nodes may have an AXI-Lite slave (runtime-writeable weights/thresholds): it is
+    # passed through to the shell like the IODMA control interfaces
+    allowed = ("axilite", "aximm") if is_iodma(node) else ("axilite",)
     unsupported = [
         k for k in ("axilite", "aximm", "ap_none", "clk2x") if intf.get(k) and k not in allowed
     ]
@@ -192,10 +202,62 @@ def hls_top_ports(node):
     return ports
 
 
+def _clog2(v):
+    return max(0, (int(v) - 1).bit_length())
+
+
 def _eval_width(expr, params):
-    expr = re.sub(r"\b[A-Za-z_]\w*\b", lambda m: str(params[m.group(0)]), expr)
-    assert re.fullmatch(r"[\d\s+\-*/()]+", expr), "cannot evaluate %s" % expr
-    return int(eval(expr.replace("/", "//")))
+    expr = expr.replace("$clog2", "_clog2").replace("**", "^^")
+    expr = re.sub(
+        r"\b(?!_clog2\b)[A-Za-z_]\w*\b", lambda m: str(params[m.group(0)]), expr
+    ).replace("^^", "**")
+    assert re.fullmatch(r"[\d\s+\-*/()_clog2]+", expr), "cannot evaluate %s" % expr
+    return int(eval(expr.replace("/", "//"), {"_clog2": _clog2}))
+
+
+def _verilog_ports(path, module=None):
+    """{port: (direction, width)} of an ANSI Verilog module, parameters at their defaults."""
+    txt = open(path).read()
+    params = {}
+    for name, expr in re.findall(r"\bparameter\s+(?:integer\s+)?(\w+)\s*=\s*([^,;\n]+?)\s*[,;\n]", txt):
+        expr = expr.strip().rstrip(",")
+        if expr.startswith('"'):
+            continue
+        try:
+            params[name] = _eval_width(expr, params)
+        except Exception:
+            pass
+    ports = {}
+    for d, rng, name in re.findall(
+        r"\b(input|output)\s+(?:wire\s+|reg\s+)?(\[[^\]]+\])?\s*(\w+)", txt
+    ):
+        width = 1
+        if rng:
+            msb, lsb = rng[1:-1].split(":")
+            try:
+                width = _eval_width(msb, params) - _eval_width(lsb, params) + 1
+            except Exception:
+                continue  # not needed (only the AXI ports are looked up)
+        ports[name] = (d, width)
+    return ports
+
+
+def axi_port_widths(node):
+    """{port: width} of the node's AXI(-Lite) ports: the HLS top module for HLS nodes, else
+    the generated RTL module carrying the AXI-Lite interface (e.g. the memstream wrapper of
+    an MVAU with runtime-writeable weights)."""
+    try:
+        return {p: w for p, (_, w) in hls_top_ports(node).items()}
+    except Exception:
+        pass
+    ifname = getCustomOp(node).get_verilog_top_module_intf_names()["axilite"][0]
+    d = getCustomOp(node).get_nodeattr("code_gen_dir_ipgen")
+    for f in sorted(os.listdir(d)):
+        if f.endswith((".v", ".sv")):
+            path = os.path.join(d, f)
+            if ifname + "_AWADDR" in open(path, errors="ignore").read():
+                return {p: w for p, (_, w) in _verilog_ports(path).items()}
+    raise RuntimeError("%s: AXI-Lite port widths not found" % node.name)
 
 
 def axi_channels(node):
@@ -206,12 +268,14 @@ def axi_channels(node):
     is <interface>_<channel> (e.g. m_axi_gmem_AR). The channels follow the fixed orders
     _AXI_IN_ORDER / _AXI_OUT_ORDER."""
     intf = getCustomOp(node).get_verilog_top_module_intf_names()
-    ifs = {"slave": intf["axilite"][0], "master": intf["aximm"][0][0]}
-    ports = hls_top_ports(node)
+    ifs = {"slave": intf["axilite"][0]}
+    if intf.get("aximm"):
+        ifs["master"] = intf["aximm"][0][0]
+    widths = axi_port_widths(node)
 
     def chan(role, ch):
         pre = "%s_%s" % (ifs[role], ch)
-        sigs = [(pre + s, ports[pre + s][1]) for s in _AXI_CHANNELS[ch][0] if pre + s in ports]
+        sigs = [(pre + s, widths[pre + s]) for s in _AXI_CHANNELS[ch][0] if pre + s in widths]
         return {
             "name": pre,
             "width": sum(w for _, w in sigs),
@@ -220,7 +284,10 @@ def axi_channels(node):
             "signals": sigs,
         }
 
-    return [chan(*c) for c in _AXI_IN_ORDER], [chan(*c) for c in _AXI_OUT_ORDER]
+    return (
+        [chan(*c) for c in _AXI_IN_ORDER if c[0] in ifs],
+        [chan(*c) for c in _AXI_OUT_ORDER if c[0] in ifs],
+    )
 
 
 def channels(node):
@@ -228,14 +295,16 @@ def channels(node):
     The AXI streams come first (in interface order), so that graph connections use the
     stream index; IODMA nodes add their memory-mapped channels after them."""
     ins, outs = stream_interfaces(node)
-    if is_iodma(node):
+    if has_axi(node):
         a_in, a_out = axi_channels(node)
         ins = ins + [(c["name"], c["width"]) for c in a_in]
         outs = outs + [(c["name"], c["width"]) for c in a_out]
     return ins, outs
 
 
-def adapter_verilog(dcp, bd_name, n_in, n_out, in_widths, out_widths):
+def adapter_verilog(dcp, bd_name, n_in, n_out, in_widths, out_widths, axi=None):
+    """axi: (inputs, outputs, bd interface) of an AXI-Lite slave made external in the block
+    design (channels after the streams, BD ports <bd interface>_<channel><signal> lowercase)."""
     ports = ["    input clk", "    input rst"]
     conns = ["        .ap_clk(clk)", "        .ap_rst_n(rst)"]
     for i in range(n_in):
@@ -260,6 +329,41 @@ def adapter_verilog(dcp, bd_name, n_in, n_out, in_widths, out_widths):
             "        .m_axis_%d_tvalid(validArray_%d)" % (j, j),
             "        .m_axis_%d_tready(nReadyArray_%d)" % (j, j),
         ]
+    if axi is not None:
+        a_in, a_out, bd_if = axi
+
+        def bd_port(c, sig):
+            # e.g. s_axilite_AWADDR -> s_axilite_0_awaddr
+            return "%s_%s" % (bd_if, sig[len(c["name"]) - 2 :].lower())
+
+        for k, c in enumerate(a_in, start=n_in):
+            ports += [
+                "    input [%d:0] dataInArray_%d" % (c["width"] - 1, k),
+                "    input pValidArray_%d" % k,
+                "    output readyArray_%d" % k,
+            ]
+            off = 0
+            for sig, w in c["signals"]:
+                conns.append("        .%s(dataInArray_%d[%d:%d])" % (bd_port(c, sig), k, off + w - 1, off))
+                off += w
+            conns += [
+                "        .%s(pValidArray_%d)" % (bd_port(c, c["valid"]), k),
+                "        .%s(readyArray_%d)" % (bd_port(c, c["ready"]), k),
+            ]
+        for k, c in enumerate(a_out, start=n_out):
+            ports += [
+                "    output [%d:0] dataOutArray_%d" % (c["width"] - 1, k),
+                "    output validArray_%d" % k,
+                "    input nReadyArray_%d" % k,
+            ]
+            off = 0
+            for sig, w in c["signals"]:
+                conns.append("        .%s(dataOutArray_%d[%d:%d])" % (bd_port(c, sig), k, off + w - 1, off))
+                off += w
+            conns += [
+                "        .%s(validArray_%d)" % (bd_port(c, c["valid"]), k),
+                "        .%s(nReadyArray_%d)" % (bd_port(c, c["ready"]), k),
+            ]
     return (
         "// DynaRapid adapter, generated by finn.util.dynarapid\n"
         "// NOTE: rst is FINN's active-low ap_rst_n\n"
@@ -335,7 +439,7 @@ def direct_adapter_verilog(dcp, node, top, port_dirs):
     of IODMAs) mapped to elastic ports, channel data packed LSB first, unused inputs tied to
     0 (as in the block design), unused outputs left open."""
     s_in, s_out = stream_interfaces(node)
-    a_in, a_out = axi_channels(node) if is_iodma(node) else ([], [])
+    a_in, a_out = axi_channels(node) if has_axi(node) else ([], [])
     try:
         widths = {p: w for p, (_, w) in hls_top_ports(node).items()}
     except Exception:
@@ -467,12 +571,19 @@ def synth_tcl(model, node, dcp, comp_dir, synth_dir, part, clk_ns, threads, meta
     helper.connect_clk_rst(node)
     helper.connect_s_axis_external(node)
     helper.connect_m_axis_external(node)
+    axi = None
+    if has_axi(node):
+        # AXI-Lite slave of a compute node (runtime-writeable parameters): external port
+        helper.connect_axi(node, model)
+        a_in, a_out = axi_channels(node)
+        bd_if = inst.get_verilog_top_module_intf_names()["axilite"][0] + "_0"
+        axi = (a_in, a_out, bd_if)
     bd_name = dcp + "bd"
     adapter = os.path.join(comp_dir, dcp + ".v")
     with open(adapter, "w") as f:
         f.write(
             adapter_verilog(
-                dcp, bd_name, len(ins), len(outs), [w for _, w in ins], [w for _, w in outs]
+                dcp, bd_name, len(ins), len(outs), [w for _, w in ins], [w for _, w in outs], axi
             )
         )
     ip_dirs = "$::env(FINN_ROOT)/finn-rtllib/memstream %s" % inst.get_nodeattr("ip_path")
