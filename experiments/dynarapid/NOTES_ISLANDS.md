@@ -218,3 +218,26 @@ encrypted IP); estimate 44k LUT, 530 BRAM18, 39 URAM, 684 DSP), VGG10 (`rwi/vgg1
 * MobileNet therefore on the ZCU102 (xczu9eg: 34.3k slices, 912 BRAM36, 2520 DSP, no URAM;
   finn-examples ZCU102 config: no URAM, no runtime-writeable weights). PS on the xczu9eg:
   columns 0-23, rows 0-179 -> PS_BOUNDARY_INT_X 24, SHELL_X0 17. Frontend 133 s.
+
+### 2026-09-30 ~04:10: MobileNet floorplanning attempts, ZCU102 unlicensed, timing batch started
+
+* ZCU102 is not an option here: "A valid license was not found for feature 'Synthesis' and/or
+  device 'xczu9eg'". (xczu7ev and xcu55c are licensed.)
+* MobileNet ZCU104 floorplan, all offline with the real synthesized node resources (script
+  logic in floorplan.py): chain islands with snake lanes (4 or 8 lanes, full-width slabs), a
+  best-fit multi-stack allocator (each lane a stack; hardest islands first), class-based
+  islands (URAM-using nodes - deep FIFOs and 3 MVAUs - grouped into separate islands) and a 2D
+  rectangle packing (any width/position, least scarcity-weighted waste) - none fits for any
+  K in 2..48. Needs vs supply: slices 20.1k / 25.8k, BRAM36 257 / 312 (in 3 separated column
+  groups of the main region + 24 above the PS), URAM 69 / 96 (one column), DSP 696 / 1488.
+  Every rectangle holding a BRAM- or URAM-heavy island spans the logic between memory columns.
+  Conclusion: one rectangle per island cannot pack this design on the xczu7ev; it would need
+  non-rectangular islands whose memory lies apart from their logic, i.e. no CONTAIN_ROUTING
+  and inter-island routing conflicts resolved at stitch/assembly.
+* Fallback implemented: when no floorplan fits, the whole accelerator is one island over the
+  whole region, without CONTAIN_ROUTING (its parts are separated by the shell). MobileNet then
+  gets a bitstream through the same flow, but without parallel place and route. Run queued
+  after the timing batch.
+* Timing batch 1 started 03:41 (`run_islands_timing.sh`, MODELS="tfc cnv cnv1 vgg10",
+  islands then vivado per model, 64 workers, one build at a time, shell cached).
+  TFC islands: 309 s end to end, 0 routing errors, WNS +4.264.
