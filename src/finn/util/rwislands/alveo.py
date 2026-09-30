@@ -136,7 +136,13 @@ def rw_islands_kernel(kernel_model, kernel_name, part, clk_ns, out_dir, islands=
     )
     if fail is not None:
         return done(fail)
+    # reserve only the islands' rectangles (not the whole island region: excluding most of an
+    # SLR made the placement of the rest of the dynamic region slower, 28 vs 22 min on TFC)
+    ranges = []
+    for info in res["islands"].values():
+        for r in info["rects"]:
+            ranges += pblock_ranges(dev.sites_in(*r))
     hook = os.path.join(out_dir, "link_hook.tcl")
     with open(hook, "w") as f:
-        f.write(link_hook_tcl(core_dcp, pblock_ranges(dev.sites_in(*region))))
+        f.write(link_hook_tcl(core_dcp, ranges))
     return done("ok", core_dcp=core_dcp, xo=xo, hook=hook)
