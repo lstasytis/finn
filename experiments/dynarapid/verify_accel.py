@@ -321,6 +321,7 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--frames", type=int, default=2)
     ap.add_argument("--max-polls", type=int, default=200000)
+    ap.add_argument("--variants", default="dr,ref", help="simulations to (re)run; others reused")
     args = ap.parse_args()
     out = os.path.abspath(args.out)
     os.makedirs(out, exist_ok=True)
@@ -367,6 +368,16 @@ def main():
     for variant in ("dr", "ref"):
         sim = os.path.join(out, variant)
         os.makedirs(sim, exist_ok=True)
+        if variant not in args.variants.split(","):
+            log = open(os.path.join(sim, "sim.log"), errors="ignore").read()
+            m = re.search(r"DONE status=(\w+) polls=(\d+) time=(\d+)", log)
+            outf = os.path.join(sim, "out.hex")
+            results[variant] = {
+                "done": m is not None and (int(m.group(1), 16) & 2) != 0,
+                "sim_ns": int(m.group(3)) / 1000.0 if m else None,
+                "out": open(outf).read().split() if os.path.isfile(outf) else None,
+            }
+            continue
         open(os.path.join(sim, "tb.sv"), "w").write(tb)
         for d in dmas:
             if d["dir"] == "in":
@@ -401,7 +412,14 @@ def main():
             open(dut, "w").write(dut_ref(wname, wports, len(ports), gm_dw, gm_names, ctrl_names))
             srcs = [l.strip() for l in open(os.path.join(proj, "all_verilog_srcs.txt")) if l.strip()]
             glbl = os.path.join(os.environ["XILINX_VIVADO"], "data", "verilog", "src", "glbl.v")
-            srcs = sorted(set(srcs) - {glbl}) + [glbl, dut, os.path.join(sim, "tb.sv")]
+            srcs = sorted(set(srcs) - {glbl})
+            # SystemVerilog packages must be compiled before their users (sorting breaks the
+            # order); the SWG package is not always listed
+            swg_pkg = os.path.join(os.environ["FINN_ROOT"], "finn-rtllib", "swg", "swg_pkg.sv")
+            if os.path.isfile(swg_pkg) and not any(f.endswith("swg_pkg.sv") for f in srcs):
+                srcs.append(swg_pkg)
+            srcs = [f for f in srcs if f.endswith("_pkg.sv")] + [f for f in srcs if not f.endswith("_pkg.sv")]
+            srcs += [glbl, dut, os.path.join(sim, "tb.sv")]
             log = run_xsim(sim, srcs, libs=("unisims_ver",))
         m = re.search(r"DONE status=(\w+) polls=(\d+) time=(\d+)", log)
         results[variant] = {
