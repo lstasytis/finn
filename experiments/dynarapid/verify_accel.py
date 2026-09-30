@@ -322,6 +322,7 @@ def main():
     ap.add_argument("--frames", type=int, default=2)
     ap.add_argument("--max-polls", type=int, default=200000)
     ap.add_argument("--variants", default="dr,ref", help="simulations to (re)run; others reused")
+    ap.add_argument("--vary-amplitude", action="store_true", help="scale the input per frame")
     args = ap.parse_args()
     out = os.path.abspath(args.out)
     os.makedirs(out, exist_ok=True)
@@ -363,13 +364,23 @@ def main():
     tb = tb_sv(dmas, None, nin, nout, args.frames, args.max_polls)
     np.random.seed(0)
     data = np.random.randint(0, 256, size=nin)
+    if args.vary_amplitude:
+        # frame f: signed random bytes scaled by (f + 1) / frames, so that the frames exercise
+        # different activation levels (uniform noise alone tends to give one class)
+        per = nin // args.frames
+        sig = data.astype(np.int64) - 256 * (data >= 128)
+        for f in range(args.frames):
+            sl = slice(f * per, (f + 1) * per)
+            sig[sl] = np.round(sig[sl] * (f + 1) / args.frames)
+        data = (sig % 256).astype(np.int64)
 
     results = {}
     for variant in ("dr", "ref"):
         sim = os.path.join(out, variant)
         os.makedirs(sim, exist_ok=True)
         if variant not in args.variants.split(","):
-            log = open(os.path.join(sim, "sim.log"), errors="ignore").read()
+            lf = os.path.join(sim, "sim.log")
+            log = open(lf, errors="ignore").read() if os.path.isfile(lf) else ""
             m = re.search(r"DONE status=(\w+) polls=(\d+) time=(\d+)", log)
             outf = os.path.join(sim, "out.hex")
             results[variant] = {
