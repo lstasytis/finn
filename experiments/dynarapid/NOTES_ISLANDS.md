@@ -177,3 +177,23 @@ encrypted IP); estimate 44k LUT, 530 BRAM18, 39 URAM, 684 DSP), VGG10 (`rwi/vgg1
   distributed RAM) take 5.5-9.5 min to synthesize, the 1024-channel ones > 30 min; the
   round-robin sessions serialized several of them. Now only cheap node types (FIFO, DWC,
   FMPadding) share sessions, all others run individually, longest (FINN LUT estimate) first.
+
+### 2026-09-30 ~03:45: VGG10 rerun with all fixes; assembly overlap experiments; MobileNet fixes
+
+* VGG10 (`vgg10_isl_b`, RuntimeOptimized synthesis, pipelined assembly, concurrent with
+  MobileNet): **island flow 1014 s, end to end 1068 s, 0 routing errors, WNS +2.801 ns.**
+  Synthesis 219 s (critical: the 35k-LUT MVAU_rtl), floorplan u=0.7, 4 islands P&R
+  144/223/352/355 s, stitch 40 s, assembly on the critical path 400 s (read accel 82, route
+  243 (RT build 44, init 83, rip-up 75), reports 40, bitstream 33).
+* Where the assembly router's work comes from (TFC, state after read_checkpoint -cell): partially
+  routed nets = the accelerator/shell boundary nets (expected), conflicts = the GND net's
+  hierarchical segments. The stitched VGG10 accelerator alone has 0 conflicts, 2 unrouted.
+  Experiments: unrouting the islands' clock nets (island Tcl) -> TFC overlaps 41 -> 34, kept;
+  unrouting all static routing in the stitcher (FINN_RWI_STATIC=unroute) -> VGG10 still 495
+  overlaps / 524 partial nets, route 262 s -> no gain, default stays "unlock".
+* MobileNet blockers fixed: (1) a single synthesis session got all 209 cheap nodes (session count
+  derived from left-over slots, MobileNet has more heavy nodes than workers); (2) VVAU_hls in
+  internal_decoupled mode lists its internal weight stream in1_V as an s_axis interface ->
+  dropped in stream_interfaces, BD adapters make only real streams external; (3) AXI-Lite BD
+  port names for the W/R/B channels; (4) BD add_files -copy_to refuses leftovers of an
+  interrupted run -> component dir cleared before each synthesis.
