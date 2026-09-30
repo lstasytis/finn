@@ -148,11 +148,19 @@ def synthesize(accel, dcps, work, part, clk_ns, cpus, slots):
             cheap.append((dcp, n))
         else:
             single.append((dcp, n))
-    single.sort(key=lambda it: -_synth_estimate(it[1]))
-    free = max(1, min(cpus, slots) - len(single))
-    n_sess = max(1, min(len(cheap), free))
-    sessions = [cheap[k::n_sess] for k in range(n_sess)] if cheap else []
     res = {}
+    # checkpoints left by an interrupted run of the same build directory are reused
+    for dcp, n in list(first.items()):
+        f = os.path.join(synth_dir, dcp + "_synth.dcp")
+        u = os.path.join(synth_dir, dcp + ".util")
+        if os.path.isfile(f) and os.path.isfile(u):
+            res[dcp] = {"status": "ok", "synth_s": 0.0, "done_s": 0.0, "util": parse_util(u), "reused": True}
+    single = [it for it in single if it[0] not in res]
+    cheap = [it for it in cheap if it[0] not in res]
+    single.sort(key=lambda it: -_synth_estimate(it[1]))
+    # sessions of a few cheap nodes each (they queue behind the heavy nodes)
+    n_sess = max(1, min(len(cheap), min(cpus, slots)))
+    sessions = [cheap[k::n_sess] for k in range(n_sess)] if cheap else []
 
     def run(tcl_lines, name, items):
         d = os.path.join(work, "components", name)

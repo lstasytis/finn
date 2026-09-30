@@ -128,8 +128,14 @@ public class IslandStitcher {
         top.getNetlist().consolidateAllToWorkLibrary(true);
         // the islands' static (VCC/GND) routing must stay changeable: Vivado has to rip up
         // parts of it where boundary nets need the same site pins / nodes at assembly
-        top.getGndNet().unlockRouting();
-        top.getVccNet().unlockRouting();
+        if ("unroute".equals(System.getenv("FINN_RWI_STATIC"))) {
+            // experiment: leave all static routing to Vivado
+            top.getGndNet().unroute();
+            top.getVccNet().unroute();
+        } else {
+            top.getGndNet().unlockRouting();
+            top.getVccNet().unlockRouting();
+        }
         top.writeCheckpoint(out);
         stamp("write");
     }
