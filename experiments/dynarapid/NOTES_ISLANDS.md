@@ -318,3 +318,42 @@ floorplan (see above). No functional check possible yet: the three URAM MVAUs ne
 written over AXI-Lite at runtime (verify_accel does not do that) and the design is too large
 for gate-level simulation in useful time.
 MobileNet Vivado ZynqBuild baseline (timing/mnv1_vivado): started 06:44, still running at 07:30.
+
+MobileNet Vivado ZynqBuild baseline (timing/mnv1_vivado, 10 ns, 64 workers): **5871 s**, WNS
++3.922 ns (its first ~50 min overlapped with the island run). Island flow (single-island
+fallback) 2088 s -> ~2.8x, but not like for like: (1) runs overlapped; (2) the island flow
+synthesizes nodes with -directive RuntimeOptimized, while the baseline's OOC synthesis of the
+compute partition (default directive, whole stitched IP) alone took ~39 min - largely the
+Thresholding_rtl LUT-ROM cross-boundary optimization (> 40 min for one 1024-channel node with
+the default directive in isolation). A fair split needs the island flow with the default
+directive (FINN_RWI_SYNTH_DIRECTIVE="") or the baseline with RuntimeOptimized synthesis.
+
+## Summary (2026-09-30, end of session)
+
+| model (ZCU104, 100 MHz) | Vivado ZynqBuild | island flow | speedup | K | functional check |
+|---|---|---|---|---|---|
+| TFC | 644 s | 309 s | 2.08x | 3 | verify_accel 16 frames match |
+| CNV (reduced folding) | 891 s | 365 s | 2.44x | 6 | gate-level sim too long |
+| CNV-w1a1 PE=SIMD=1 | 811 s | 358 s | 2.27x | 7 | gate-level sim too long |
+| VGG10 | 2112 s | 1107 s | 1.91x | 4 | verify_accel 8 varied frames match |
+| MobileNetV1 | 5871 s* | 2088 s* | ~2.8x* | 1 (fallback) | not yet (runtime URAM weights) |
+
+\* overlapping runs and different synthesis directive, see above. All island builds: 0 routing
+errors, timing met. Caveats: island flow uses RuntimeOptimized node synthesis (QoR trade the user
+allowed; per-node LUTs were identical to default synthesis on MobileNet's node types, but
+synthesis time differs hugely for LUT-ROM thresholds); the shell is cached (one-time 363-441 s
+per board/clock/DMA interface set) while the Vivado flow builds its block design each time
+(no IP cache in FINN's ZynqBuild); earlier timed island runs had concurrent partition
+preparation (< ~45 s advantage), since fixed.
+
+Open / next:
+1. Floorplanning of memory-dense models (MobileNet on ZCU104): islands whose BRAM/URAM lies
+   apart from their logic would need uncontained routing and conflict resolution at stitch time
+   (RWRoute soft-preserve or Vivado); or a larger device (U55C: needs the Alveo per-model link
+   flow of the DynaRapid branch's Phase 6).
+2. Serial tail: assembly (read accel 20-83 s + route_design 36-312 s, RT build/init fixed cost)
+   and the largest island (VGG10: one 35k-LUT MVAU, 370 s). Stitching is cheap (4-40 s).
+3. Floorplanner: the 2D packing is slow Python (~100 s on MobileNet before the fallback);
+   short-circuit or vectorize it.
+4. MobileNet functional check needs runtime weight loading over AXI-Lite in verify_accel.
+5. Fair MobileNet comparison (same synthesis directive), core-scaling runs of the island flow.
