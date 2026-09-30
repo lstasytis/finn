@@ -1,4 +1,43 @@
-# Agent onboarding: FINN + DynaRapid (branch `feature/dynarapid-pnr`)
+# Agent onboarding: FINN + DynaRapid / RapidWright islands
+
+**Branch `feature/rapidwright-islands` (forked 2026-09-30 from `feature/dynarapid-pnr`):
+RapidWright-only island flow, see the section "Island flow" right below; its log is
+`experiments/dynarapid/NOTES_ISLANDS.md`.** The rest of this file describes the DynaRapid
+flow of the parent branch, whose shell, component synthesis and verification the island flow
+reuses.
+
+## Island flow (`finn.util.rwislands`, this branch)
+
+User goal (2026-09-30): FINN bitstreams fast via parallel out-of-context P&R + stitching,
+RapidWright only, QoR may drop but functional correctness must hold, 100 MHz; models in the
+order TFC/CNV -> VGG10 -> MobileNetV1 (ZCU104). DynaRapid is not used: its library,
+relocation database and placer only pay off with component reuse (cold builds are the norm).
+
+```
+ZynqBuild(dynarapid={"flow": "islands", "islands": "auto"|K, "out_dir", "shell_lib", "workers"})
+  rwislands/flow.py rw_islands_zynq_build:
+    shell (dynarapid.shell.build_shell, cached)  ||  node synthesis (synthesize: heavy nodes
+      individually longest-first, cheap FIFO/DWC/FMPadding in sessions; synth_design
+      -directive RuntimeOptimized, FINN_RWI_SYNTH_DIRECTIVE="" for default)
+    -> assembly Vivado starts, opens the shell, unfixes its static nets, waits for a trigger file
+    -> floorplan.py: K contiguous islands (min-max cost DP), snake over ~10-column lanes,
+       rows grown in 5-row steps to the resources at utilization u (0.5..0.9)
+    -> island P&R in parallel (read_verilog island.v + node synth DCPs, pblock
+       CONTAIN_ROUTING, opt/place/route, clock net unrouted)  ||  top synthesis (islands = black boxes)
+    -> IslandStitcher.java (RapidWright populateBlackBox + PartialRouter on top-cell nets,
+       one EDIF library, static nets unlocked) -> trigger "go" -> route_design + bitstream
+experiments/dynarapid/run_bitfile_experiment.py --mode islands --clk 10 --islands auto
+experiments/dynarapid/run_islands_timing.sh    (timed comparison vs FINN's Vivado ZynqBuild)
+```
+
+Models (100 MHz, `$FINN_BUILD_DIR/rwi`): tfc/, cnv/ (prepare_model.py --clk 10), cnv1/ (CNV-w1a1
+PE=SIMD=1, run_bnn.py), vgg10/ (run_vgg10.py --clk 10), mnv1/ (run_mobilenet.py). Compute nodes
+with AXI-Lite (runtime-writeable URAM weights, MobileNet) are passed through the shell like
+IODMA control interfaces. Pitfalls found: RapidWright needs IS_IMPORTED on Vivado black boxes;
+merged EDIF must be one library; never query `get_nets -hier` on the full design (use the
+shell-only static unfix); Vivado-native read_checkpoint -cell of islands is much slower than
+RapidWright stitching; `route_design -directive Quick` leaves hold violations.
+
 
 Read this first; it is meant to replace re-reading the code. Deeper history and all
 measurements: `experiments/dynarapid/NOTES.md` (long; read only the section you need).
