@@ -357,3 +357,25 @@ Open / next:
    short-circuit or vectorize it.
 4. MobileNet functional check needs runtime weight loading over AXI-Lite in verify_accel.
 5. Fair MobileNet comparison (same synthesis directive), core-scaling runs of the island flow.
+
+## 2026-09-30 (morning): U55C with a per-model v++ link (option a)
+
+User decision: island-built compute kernel inserted into the per-model `v++ --link`, start with
+TFC and CNV (finn-examples bnn-pynq foldings, U55C, 10 ns; `run_bnn.py --board U55C`).
+
+Implementation (`finn.util.rwislands.alveo`, `alveo_build.py`):
+* `flow.islands_and_stitch` (floorplan, island P&R, top synthesis, stitching) is shared by the
+  Zynq and the Alveo flow.
+* `PrepareForLinking(islands={...})` (builder option `rw_islands_pnr`): IODMA partitions as
+  usual (stitched IP + xo); the compute partition: node synthesis -> islands in
+  ISLAND_REGION (xcu55c SLR1, tile columns 3-108 = SLICE X4-X170, rows 245-474) -> stitched
+  core (module finn_accel_core); kernel .xo = FINN's kernel interface (s_axis_i/m_axis_j,
+  stream args as CreateVitisXO) around a black-box core (`kernel_wrapper_verilog`,
+  `placeholder_xo_tcl` of the DynaRapid branch).
+* `VitisLink`: `[vivado] prop=run.impl_1.STEPS.OPT_DESIGN.TCL.PRE=<hook>`; the hook finds the
+  black box, `read_checkpoint -cell`, `lock_design -level placement`, pblock over the island
+  region with EXCLUDE_PLACEMENT (no other pblocks, v++'s SLR pblocks untouched).
+
+TFC (`rwu/tfc-w1a1/islands`): compute kernel built in 297 s (synthesis 81, 3 islands P&R
+151-176, stitch 40), 0 routing errors, 0 unrouted pins; v++ link running.
+Baselines (FINN's Vitis flow, same settings) running concurrently for TFC and CNV.
