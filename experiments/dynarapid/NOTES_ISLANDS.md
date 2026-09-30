@@ -250,3 +250,11 @@ encrypted IP); estimate 44k LUT, 530 BRAM18, 39 URAM, 684 DSP), VGG10 (`rwi/vgg1
 | CNV | 891 s | 365 s | 2.44x | 6 | 74 | 114 | 9 | 113 | +3.726 / +1.632 | 0 |
 
 (island times end to end incl. ZynqBuild's partitioning and IODMA HLS, ~55 s; `summarize_islands.py`)
+| CNV-w1a1 PE=SIMD=1 | (pending) | 615 s (**invalid**: island_1 split across the shell, see below) | | 7 | 72 | 385 | 6 | 99 | +3.618 / | 0 |
+
+Bug found in the cnv1 timed run: the snake let island_1 continue from the above-PS lane
+(x 0-19) into the main region (x 30-40); the two rectangles are separated by the shell, so with
+CONTAIN_ROUTING the connections between them are nearly unroutable (route 294 s instead of
+~13 s; it did finish with 0 errors). Fixed (04:30): an island restarts in the next lane when
+that lane is not adjacent; the snake is tried at all utilizations before the 2D packing.
+cnv1 islands to be re-timed.
