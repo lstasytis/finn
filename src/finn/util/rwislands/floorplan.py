@@ -120,13 +120,20 @@ def allocate(dev, lanes, needs, step=5):
     bottom to top, odd lanes top to bottom). needs: per-island site requirements. Returns, per
     island, a list of tile rectangles (x0, x1, ya, yb), or None if the region is too small."""
     # the snake as a sequence of row bands (lane, ya, yb), in walking order
-    bands = []
+    bands, lane_of = [], []
     for li, (lx0, lx1, y0, y1) in enumerate(lanes):
         rows = list(range(y0, y1 + 1, step))
         if li % 2:
             rows = rows[::-1]
         bands += [(lx0, lx1, r, min(r + step - 1, y1)) for r in rows]
+        lane_of += [li] * len(rows)
     caps = [capacity(dev.sites_in(*b)) for b in bands]
+
+    def adjacent(la, lb):
+        # an island may only continue into a lane that touches its current one (a pblock
+        # with CONTAIN_ROUTING must be connected, e.g. not across the shell)
+        return lanes[la][1] + 1 >= lanes[lb][0] and lanes[lb][1] + 1 >= lanes[la][0]
+
     res, pos = [], 0
     for req in needs:
         got = dict.fromkeys(req, 0)
@@ -134,6 +141,10 @@ def allocate(dev, lanes, needs, step=5):
         while not _fits(got, req):
             if pos >= len(bands):
                 return None
+            if rects and lane_of[pos] != lane_of[pos - 1] and not adjacent(lane_of[pos - 1], lane_of[pos]):
+                # restart the island in the next lane (the rest of the previous lane stays unused)
+                got = dict.fromkeys(req, 0)
+                rects = []
             b, c = bands[pos], caps[pos]
             pos += 1
             for k in got:
@@ -273,12 +284,15 @@ def floorplan(dev, island_res, region, n_lanes=None, utils=None, first_lanes=())
         # lanes of about 10 tile columns (a few BRAM/DSP columns each)
         n_lanes = max(1, round((x1 - x0 + 1) / 10))
     lanes = list(first_lanes) + [(a, b, y0, y1) for a, b in make_lanes(dev, x0, x1, n_lanes)]
-    for u in utils or (0.5, 0.6, 0.7, 0.8, 0.9, 0.95):
+    # the snake (consecutive islands adjacent) at any utilization before the 2D packing
+    tries = [(u, alloc) for alloc in ("snake", "rects") for u in (utils or (0.5, 0.6, 0.7, 0.8, 0.9, 0.95))]
+    for u, alloc in tries:
         # BRAM/DSP/URAM are counted exactly (whole primitives); margin only at low utilization
         util = {"lut": u, "bram": min(1.0, u + 0.4), "dsp": min(1.0, u + 0.4), "uram": 1.0}
         needs = [need(r, util) for r in island_res]
-        rects = allocate(dev, lanes, needs)
-        if rects is None:
+        if alloc == "snake":
+            rects = allocate(dev, lanes, needs)
+        else:
             rects = allocate_rects(dev, needs, list(lanes))
         if rects is not None:
             # one set of ranges per rectangle (an island continuing into the next lane has
