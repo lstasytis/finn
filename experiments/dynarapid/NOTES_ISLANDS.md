@@ -299,3 +299,7 @@ shell cells. Fallback changed to one island in the main region only (one rectang
 routing; 88 % LUT / 88 % BRAM / 72 % URAM of that region): run `bit/mnv1_isl_c`, started 06:46
 **concurrently with the MobileNet Vivado baseline** (timing/mnv1_vivado, started 06:44) - both
 times therefore only indicative.
+
+**VGG10 functional check, stronger (8 frames, input amplitude scaled per frame,
+`verify_accel.py --frames 8 --vary-amplitude`): outputs match FINN's RTL for all 8 frames, with
+different classes (00 00 00 15 15 12 00 00 hex)** -> the island-flow VGG10 build is verified.
