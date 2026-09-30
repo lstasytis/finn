@@ -105,6 +105,25 @@ def parse_util(f):
     return res
 
 
+_CHEAP_OPS = {
+    "StreamingFIFO_rtl",
+    "StreamingDataWidthConverter_rtl",
+    "StreamingDataWidthConverter_hls",
+    "FMPadding_rtl",
+    "FMPadding_hls",
+}
+
+
+def _synth_estimate(node):
+    """Rough synthesis effort of a node (FINN's LUT estimate; unknown -> large)."""
+    from qonnx.custom_op.registry import getCustomOp
+
+    try:
+        return float(getCustomOp(node).lut_estimation())
+    except Exception:
+        return 1e9
+
+
 def synthesize(accel, dcps, work, part, clk_ns, cpus, slots):
     """Out-of-context synthesis of every distinct component, in parallel. Nodes with plain HDL
     are synthesized in shared Vivado sessions (the start and device load are paid once per
@@ -115,12 +134,19 @@ def synthesize(accel, dcps, work, part, clk_ns, cpus, slots):
     first = {}
     for n in accel.graph.node:
         first.setdefault(dcps[n.name], n)
-    direct, bd = [], []
+    # only small, fast node types share sessions; every other node (compute layers, whose
+    # synthesis can take minutes, e.g. thresholds in distributed RAM) gets its own Vivado run
+    # so that no heavy node waits behind others; longest (estimated) first
+    single, cheap = [], []
     for dcp, n in first.items():
-        (direct if direct_sources(n) is not None else bd).append((dcp, n))
-    # as many sessions as CPUs left over by the block-design runs
-    n_sess = max(1, min(len(direct), max(1, min(cpus, slots) - len(bd))))
-    sessions = [direct[k::n_sess] for k in range(n_sess)] if direct else []
+        if direct_sources(n) is not None and n.op_type in _CHEAP_OPS:
+            cheap.append((dcp, n))
+        else:
+            single.append((dcp, n))
+    single.sort(key=lambda it: -_synth_estimate(it[1]))
+    free = max(1, min(cpus, slots) - len(single))
+    n_sess = max(1, min(len(cheap), free))
+    sessions = [cheap[k::n_sess] for k in range(n_sess)] if cheap else []
     res = {}
 
     def run(tcl_lines, name, items):
@@ -140,11 +166,15 @@ def synthesize(accel, dcps, work, part, clk_ns, cpus, slots):
                 "util": parse_util(os.path.join(synth_dir, dcp + ".util")),
             }
 
-    def bd_job(item):
+    def single_job(item):
         dcp, n = item
         d = os.path.join(work, "components", dcp)
         os.makedirs(d, exist_ok=True)
-        body = synth_tcl(accel, n, dcp, d, synth_dir, part, clk_ns, 1, metadata=False)
+        direct = direct_sources(n)
+        if direct is not None:
+            body = direct_synth_tcl(n, dcp, d, synth_dir, part, 1, direct[0], direct[1], metadata=False)
+        else:
+            body = synth_tcl(accel, n, dcp, d, synth_dir, part, clk_ns, 1, metadata=False)
         run(body.splitlines(), dcp, [item])
 
     def sess_job(items):
@@ -158,8 +188,8 @@ def synthesize(accel, dcps, work, part, clk_ns, cpus, slots):
             lines += ["close_design", "remove_files -quiet [get_files -quiet]"]
         run(lines, "session_" + items[0][0], items)
 
-    with ThreadPoolExecutor(max_workers=max(1, min(slots, len(bd) + len(sessions)))) as ex:
-        futs = [ex.submit(bd_job, it) for it in bd] + [ex.submit(sess_job, s) for s in sessions]
+    with ThreadPoolExecutor(max_workers=max(1, min(slots, len(single) + len(sessions)))) as ex:
+        futs = [ex.submit(single_job, it) for it in single] + [ex.submit(sess_job, s) for s in sessions]
         for f in futs:
             f.result()
     return res

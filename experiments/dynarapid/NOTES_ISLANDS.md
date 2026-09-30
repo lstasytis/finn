@@ -154,3 +154,26 @@ encrypted IP); estimate 44k LUT, 530 BRAM18, 39 URAM, 684 DSP), VGG10 (`rwi/vgg1
   28-98). Assembly: read_checkpoint -cell of the stitched accelerator 89 s (Vivado parsing the
   RapidWright-written EDIF of a 98k-LUT design) - now the largest fixed chunk after the islands.
 * AXI-Lite pass-through for compute nodes implemented (MobileNet), MobileNet build running.
+
+### 2026-09-30 ~03:10: VGG10 bitstream (10 ns); static-net fix; synthesis scheduling
+
+* Assembly hang on VGG10: `set_property IS_ROUTE_FIXED 0 [get_nets -hier -filter {TYPE ==
+  POWER || TYPE == GROUND}]` after reading the accelerator ran > 28 min (hierarchical net query on
+  the full 98k-LUT netlist; killed). Needed because the shell's `lock_design -level routing`
+  also locks its VCC/GND nets, which the accelerator's static pins join (without it: Route 35-341
+  "Fixed routing constraint on net VCCNet conflicts with pin ...", route_design aborts). Fix:
+  unfix the static nets right after opening the shell (0.4 s, accelerator still a black box)
+  and unlock the accelerator's static routing in the stitcher (`Net.unlockRouting()` on
+  GND/VCC). cnv1 re-check: 0 routing errors, WNS +2.774, WHS +0.010 (unchanged).
+* **VGG10 island bitstream: 0 routing errors, WNS +3.638 ns, WHS +0.009 ns.** Stages (first run,
+  concurrent with MobileNet): node synthesis 203 s (129 components), floorplan u=0.8 (DSP 64 %
+  of the device), 4 islands P&R 146 / 267 / 306 / 342 s (island_1 = the single 35k-LUT,
+  384-DSP MVAU_rtl), stitch 38 s (re-run with the site-pin fix), assembly (re-run by hand with
+  the static-net fix) 460 s: open shell 21, read accel 83, route 284, reports 40, bitstream 32.
+  Estimated island flow with pipelining ~1020 s (vs Vivado ZynqBuild 2382 s at 4 ns, Phase 3;
+  10 ns baseline pending). The assembly route_design is now VGG10's biggest serial stage: RT
+  build 44 s, init 80 s, 668 node overlaps / 561 partial nets initially, rip-up 2 min.
+* Synthesis scheduling: MobileNet's Thresholding_rtl nodes (512-1024 channels x 15 steps in
+  distributed RAM) take 5.5-9.5 min to synthesize, the 1024-channel ones > 30 min; the
+  round-robin sessions serialized several of them. Now only cheap node types (FIFO, DWC,
+  FMPadding) share sessions, all others run individually, longest (FINN LUT estimate) first.
