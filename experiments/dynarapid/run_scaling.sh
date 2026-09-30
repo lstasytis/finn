@@ -9,9 +9,11 @@
 #
 # Environment (all optional):
 #   MODELS     models to run (default "cnv tfc"; prepared by prepare_model.py if missing)
+#   MODES      flows to run at each core count (default "vivado dynarapid")
 #   CORES      core counts, largest first (default: nproc, then halving down to 4)
 #   PART       FPGA part (default xczu7ev-ffvc1156-2-e, ZCU104)
 #   D          data directory (default $FINN_BUILD_DIR/dr_scaling)
+#   O          output directory of the timed runs (default $D/scaling)
 #   MAX_SLOTS  memory bound on concurrent Vivado runs (default from free memory, as
 #              finn.util.dynarapid.tools.vivado_slots: 0.85 * 0.6 * free GB / 4.5 GB)
 #
@@ -27,6 +29,7 @@ EXP=$REPO/experiments/dynarapid
 D=${D:-$FINN_BUILD_DIR/dr_scaling}
 PART=${PART:-xczu7ev-ffvc1156-2-e}
 MODELS=${MODELS:-"cnv tfc"}
+MODES=${MODES:-"vivado dynarapid"}
 if [ -z "${CORES:-}" ]; then
     CORES=""; n=$(nproc); while [ $n -ge 4 ]; do CORES="$CORES $n"; n=$((n / 2)); done
 fi
@@ -34,7 +37,7 @@ if [ -z "${MAX_SLOTS:-}" ]; then
     free_gb=$(awk '/MemAvailable/{print int($2 / 1048576)}' /proc/meminfo)
     MAX_SLOTS=$(python3 -c "print(max(1, int(0.85 * 0.6 * $free_gb / 4.5)))")
 fi
-O=$D/scaling
+O=${O:-$D/scaling}
 S=$D/lib/shells
 INIT=$HOME/.Xilinx/Vivado/Vivado_init.tcl
 mkdir -p $O/bit $(dirname $INIT)
@@ -42,7 +45,7 @@ mkdir -p $O/bit $(dirname $INIT)
 restore() { if [ -f $INIT.scaling_backup ]; then mv $INIT.scaling_backup $INIT; else rm -f $INIT; fi; }
 trap restore EXIT
 cd $EXP
-echo "MODELS=$MODELS CORES=$CORES MAX_SLOTS=$MAX_SLOTS PART=$PART D=$D $(date -Is)"
+echo "MODELS=$MODELS MODES=$MODES CORES=$CORES MAX_SLOTS=$MAX_SLOTS PART=$PART D=$D $(date -Is)"
 
 # models (front end + HLS IP generation; not timed)
 for m in $MODELS; do
@@ -86,8 +89,7 @@ run() { # model mode N
 
 for m in $MODELS; do
     for n in $CORES; do
-        run $m vivado $n
-        run $m dynarapid $n
+        for mode in $MODES; do run $m $mode $n; done
     done
 done
 python $EXP/summarize_scaling.py $O

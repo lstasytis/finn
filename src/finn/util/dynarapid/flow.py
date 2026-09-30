@@ -40,7 +40,57 @@ from finn.util.dynarapid.tools import (
     vivado_slots,
     run_java,
     run_vivado,
+    usable_cpus,
 )
+
+# cost model of one batched pblock run (GenerateBatchPblocks, xczu7ev, Vivado 2024.2, CNV):
+# ~140 s for 1 component, ~230 s for 6 - the fixed cost (Vivado start, device, placer)
+# dominates, the components add little each. That is on an idle machine: when the runs (and
+# the large components and syntheses going on beside them) outnumber the CPUs, every run
+# slows down; median run time over its idle value: 1.0 at 56 runs on 128 CPUs, 1.17 at 27 on
+# 32, 1.7 at 14 on 16 (CNV, 128-thread EPYC) ~ BATCH_CPU_LOAD * concurrent runs / CPUs
+BATCH_RUN_S = 120.0
+BATCH_ITEM_S = 20.0
+BATCH_CPU_LOAD = 1.3
+
+
+def batch_plan(n_items, slots, ncpu, jvms):
+    """How to spread n_items small components over batched pblock runs on this machine.
+
+    slots: concurrent Vivado runs allowed (memory, tools.vivado_slots); ncpu: usable CPUs;
+    jvms: DynaRapid JVMs that fit into memory. Chooses the components per Vivado run k that
+    minimizes the estimated makespan waves * (BATCH_RUN_S + k * BATCH_ITEM_S) * CPU load
+    (with many slots and CPUs: small batches, all in parallel; with few: large batches, fewer
+    fixed costs), then how many of those runs share one JVM (group = k * per_jvm)."""
+    n = max(1, n_items)
+
+    def load(runs):
+        return max(1.0, BATCH_CPU_LOAD * min(slots, runs) / max(1, ncpu))
+
+    best = None
+    # at most 8 per run: larger batches were not tried (congestion, packing on the device)
+    for k in range(1, 9):
+        runs = -(-n // k)
+        cost = -(-runs // slots) * (BATCH_RUN_S + k * BATCH_ITEM_S) * load(runs)
+        # ties: the larger batch (less CPU time and memory)
+        if best is None or cost <= best[0]:
+            best = (cost, k)
+    k = best[1]
+    runs = -(-n // k)
+    # every group (task of the batch pool) holds one JVM while its runs go on
+    pool = max(1, min(jvms, slots))
+    per_jvm = max(1, min(3, -(-runs // pool)))
+    # Vivado threads per batch run: the CPUs spread over the runs that go on at once (more
+    # threads than CPUs slow all runs down, see BATCH_CPU_LOAD)
+    threads = max(1, min(4, ncpu // max(1, min(slots, runs))))
+    # time limit of a batched run, after which it is retried at lower utilization (the
+    # DynaRapid default is a fixed 300 s): twice the expected time under the CPU load; a
+    # limit hit by a healthy but slow run costs a retry and an individual rebuild at the end
+    expected = (BATCH_RUN_S + k * BATCH_ITEM_S) * load(runs)
+    timeout = max(300, int(2 * expected))
+    return dict(
+        k=k, group=k * per_jvm, per_jvm=per_jvm, pool=pool, threads=threads, timeout_s=timeout
+    )
 
 
 def build_library(
@@ -57,7 +107,7 @@ def build_library(
     batch=True,
     batch_util=0.6,
     large_luts=5000,
-    large_bram=3,
+    large_bram=2,
 ):
     """Build (or reuse) the components of all nodes. Returns ({node: dcp}, [results]).
 
@@ -72,13 +122,16 @@ def build_library(
     for n in model.graph.node:
         uniq.setdefault(dcps[n.name], n)
 
-    # spare workers are used for speculative pblock attempts at lower utilization
-    # (the densest successful one is kept), which avoids sequential retries
-    ncpu = os.cpu_count() or workers
-    pblock_parallel = max(1, min(3, ncpu // max(1, len(uniq))))
+    # spare Vivado slots are used for speculative pblock attempts of the large (individually
+    # built) components at lower utilization (the densest successful one is kept), which
+    # avoids sequential retries after a hedge delay of 150 s each; the large ones are ~10 %
+    # of the components (CNV 8 of 63, TFC 2 of 17), the others go into batched runs
+    ncpu = usable_cpus()
+    pblock_parallel = max(1, min(3, vivado_slots()[1] // 10))
     # every job holds a JVM with the device model while its Vivado runs are going on; the
     # Vivado runs themselves are limited machine-wide (tools.vivado_slots)
-    mem_workers = max(1, int(0.85 * avail_memory_gb() * 0.4 / JVM_GB))
+    jvms = max(1, int(0.85 * avail_memory_gb() * 0.4 / JVM_GB))
+    mem_workers = jvms
     if mem_workers < workers:
         print("DynaRapid: limiting parallel component jobs to %d (memory)" % mem_workers)
         workers = mem_workers
@@ -126,9 +179,13 @@ def build_library(
         else:
             todo.append(it)
     slots = vivado_slots()[1]
-    # a few groups (each one DynaRapid run with 1-3 batches): small groups mean many batches,
-    # each paying the fixed place-and-route cost
-    group = max(6, min(16, (len(todo) + 5) // 6))
+    # groups (each one DynaRapid run with 1-3 batched Vivado runs) sized for this machine
+    plan = batch_plan(len(todo), slots, ncpu, jvms)
+    group = plan["group"]
+    print(
+        "DynaRapid library plan: %d components, %d Vivado slots, %d CPUs: %s"
+        % (len(todo), slots, ncpu, plan)
+    )
     batched_ok = set()
     timeline = {}
 
@@ -146,8 +203,9 @@ def build_library(
             part,
             clk_ns,
             util=batch_util,
-            batches=max(1, (len(need) + 5) // 6),
-            threads=4,
+            batches=max(1, -(-len(need) // plan["k"])),
+            threads=plan["threads"],
+            timeout_s=plan["timeout_s"],
         )
         batched_ok.update(ok)
         db = [d for d in dcps if has_pblocks(library_dir, d)]
@@ -156,7 +214,7 @@ def build_library(
 
     # each group holds a DynaRapid JVM (device model) while its batches run
     with ThreadPoolExecutor(max_workers=max(1, workers)) as synth_ex, ThreadPoolExecutor(
-        max_workers=max(1, min(6, slots // 2))
+        max_workers=plan["pool"]
     ) as batch_ex:
         # directly synthesizable components in sessions (several per Vivado run), the others
         # (block design) individually
@@ -173,7 +231,9 @@ def build_library(
         # large components (many LUTs / BRAMs) are implemented individually as soon as they
         # are synthesized: batching does not save much for them, and a large congested
         # component slows down (and can fail) the whole batch (Vivado 2024.2: the TFC 784x64
-        # MVAU with 3.5 BRAM tiles kept a 7-component batch routing until its time limit)
+        # MVAU with 3.5 BRAM tiles kept a 7-component batch routing until its time limit;
+        # the TFC input IODMA with 2 BRAM tiles congests at the batch utilization 0.6 even
+        # alone, the individual path's hedged lower-utilization attempt avoids the limit)
         by_node = dict(todo)
         batch_futs, ready = [], []
         for f in as_completed(synth_futs):
@@ -226,7 +286,7 @@ def build_library(
             else:
                 r["status"] = "built" if built else "database_failed"
             r["batched"] = d in batched_ok
-    stats = dict(timeline, group=group, batched=len(batched_ok), fallback=len(fallback))
+    stats = dict(timeline, batched=len(batched_ok), fallback=len(fallback), **plan)
     print("DynaRapid library:", stats)
     for r in by_dcp.values():
         r["library_stats"] = stats

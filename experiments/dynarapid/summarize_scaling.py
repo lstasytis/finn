@@ -70,6 +70,8 @@ def summarize(d):
                 r["synth_done_s"] = st.get("synth_done_s")
                 r["batches_done_s"] = st.get("batches_done_s")
                 r["fallback"] = st.get("fallback")
+                # components per batched Vivado run (library plan; fixed ~5-6 before it)
+                r["batch_k"] = st.get("k")
         r["peak_mem_gb"] = _mem(os.path.join(d, "mem_%s.txt" % name))
         if "user_s" in r and r.get("total_s"):
             r["cpu_s"] = r["user_s"] + r.get("sys_s", 0)
@@ -86,7 +88,7 @@ def main():
     cols = [
         "model", "mode", "cores", "total_s", "library_s", "synth_done_s", "stitch_s",
         "assembly_s", "cpu_s", "avg_cores", "peak_mem_gb", "wns_ns", "routing_errors",
-        "fallback",
+        "fallback", "batch_k",
     ]
     print(" | ".join(cols))
     for r in sorted(rows, key=lambda r: (r["model"], r["mode"], -r["cores"])):

@@ -192,21 +192,45 @@ CNV, critical-path-bound for TFC. DynaRapid beats Vivado only for TFC at >= 16 c
 Extrapolated CNV ~505 s at 64 cores given ~6-7 GB RAM per core. To repeat on a bigger machine
 see "Scaling experiment on another machine" above.
 
+Core-scaling experiment, second machine (Phase 4b, details in
+`experiments/dynarapid/NOTES_SCALING.md`): EPYC 9554P, 64 cores / 128 threads, 755 GB. The
+library's batching was tuned for 13 slots (~12 cores busy on the big machine); now sized per
+machine (`batch_plan` in flow.py: batch size from a makespan model with CPU load, pools from
+memory/slots, adaptive batch time limit; >= 2-BRAM components and large ones individually,
+hedged attempts from slots). Results (s, cold):
+
+| N | CNV Vivado | CNV DynaRapid | TFC Vivado | TFC DynaRapid |
+|---|---|---|---|---|
+| 128 (SMT) | 894 | 635 | 652 | 444 |
+| 64 | 890 | 612 | 651 | 614 (variance; 483 at 32) |
+| 16 | 878 | 1376 | 641 | 774 |
+| 4 | 950 | 2743 | 697 | 1379 |
+
+Vivado flat; DynaRapid 1.45x faster than Vivado at 64+ cores, crossover ~32 cores, 128
+threads no better than 64 cores. Floor now = slowest component P&R + serial assembly (~150 s).
+Weak spot: 16 cores (a small CNV MVAU fails its batch and is rebuilt at the end). All 0
+routing errors; TFC verified. On this machine `FINN_BUILD_DIR=/home/lstasytis/finn/build/
+finn_build` (/tmp too small), repo at /home/lstasytis/finn, no screen/tmux (setsid nohup).
+
 U55C (VGG10): Vitis baseline 9566 s (WNS +0.003 ns). DynaRapid library + stitching work on the
 xcu55c (region SLR2+SLR1); the cached-shell assembly is blocked by DFX rules. **Next: Phase 6 in
 the task file (per-model v++ link with the locked DynaRapid kernel) - a fresh agent implements
 it; all artifacts to start from are listed there.**
 
 Open / next (task file: `experiments/dynarapid/TASK_scaling_and_examples.md`):
-1. (done) Scaling experiment on the ZCU104; repeat on the bigger server with run_scaling.sh.
-2. **Phase 6: U55C per-model v++ link** (user decision 2026-09-30), then VGG10 timed runs and
-   `run_u55c_vgg10.sh` for the user's 128-core server; then the finn-examples models on U55C.
+1. Scaling experiment done on both machines. Optional: batch robustness (NOTES_SCALING.md
+   "Open"): speculative lower-utilization retry of long batches, immediate individual
+   fallback, 2 parallel attempts at <= 16 slots.
+2. **Phase 6: U55C per-model v++ link** (user decision 2026-09-30; supersedes the cached-shell
+   plan of 2026-09-29), then VGG10 timed runs and `run_u55c_vgg10.sh` for the user's 128-core
+   server; then the finn-examples models on U55C.
 3. Builder: an `accel_dynarapid_failed` result still ends the build with rc=0 (should raise).
 
 ## Conventions
 
 * Commit with the attribution trailer from the system prompt; regenerate the patches with any
-  Java change; append results to NOTES.md (dated section), not to this file — update the
+  Java change; append results to NOTES.md (dated section; core-scaling results to
+  NOTES_SCALING.md), not to this file — update the
   Status section here when the state changes.
 * Experiment outputs stay in `$FINN_BUILD_DIR`; small logs/JSON are archived (gitignored) in
   `experiments/dynarapid/results/`.

@@ -632,12 +632,19 @@ def has_pblocks(library_dir, dcp):
     return os.path.isdir(d) and any(f.endswith("_placedRouted_0_metadata.txt") for f in os.listdir(d))
 
 
-def batch_pblocks(dcps, work_dir, library_dir, part, clk_ns, util=0.6, batches=4, threads=4):
+def batch_pblocks(
+    dcps, work_dir, library_dir, part, clk_ns, util=0.6, batches=4, threads=4, timeout_s=None
+):
     """Generate the pblocks of several synthesized components in shared Vivado runs
-    (DynaRapid GenerateBatchPblocks). Returns (set of components with pblocks, seconds)."""
+    (DynaRapid GenerateBatchPblocks). Returns (set of components with pblocks, seconds).
+
+    timeout_s: time limit of one batched Vivado run, after which its components are retried
+    at lower utilization (default in DynaRapid: 300 s)."""
     if not dcps:
         return set(), 0.0
     env = dynarapid_env(work_dir, library_dir, part, clk_ns, threads)
+    if timeout_s is not None:
+        env["DYNARAPID_BATCH_TIMEOUT_S"] = str(int(timeout_s))
     os.makedirs(os.path.join(work_dir, "batches"), exist_ok=True)
     lst = os.path.join(work_dir, "batches", "components_%s.txt" % uuid.uuid4().hex[:8])
     with open(lst, "w") as f:
