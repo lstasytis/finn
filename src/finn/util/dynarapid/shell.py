@@ -419,7 +419,15 @@ def build_shell(board, part, clk_ns, ports, shell_lib, jobs=8):
 
 
 def assemble_tcl(
-    shell_dir, accel_dcp, out_dir, bitfile, threads=16, keep_dcp=False, reports="full", trigger=None
+    shell_dir,
+    accel_dcp,
+    out_dir,
+    bitfile,
+    threads=16,
+    keep_dcp=False,
+    reports="full",
+    trigger=None,
+    unfix_static="after_read",
 ):
     """Fill the shell's accelerator cell with the DynaRapid-routed accelerator, route the
     remaining (boundary and clock) nets and write the bitstream. trigger: the script opens the
@@ -433,6 +441,15 @@ def assemble_tcl(
         "open_checkpoint %s/shell_routed.dcp" % shell_dir,
         "stamp open_shell",
     ]
+    # the shell's routing is locked, its static (VCC/GND) nets included; the accelerator's
+    # static pins join these nets, so the router must be able to change them. unfix_static:
+    # "shell" = only the shell's static nets, before the accelerator is read (fast: small
+    # design; the island flow's stitcher unlocks the accelerator's own static routing),
+    # "after_read" = all static nets after reading the accelerator (DynaRapid: relocated
+    # components' static routing comes in fixed; slow on large designs)
+    unfix = "set_property IS_ROUTE_FIXED 0 [get_nets -hier -quiet -filter {TYPE == POWER || TYPE == GROUND}]"
+    if unfix_static == "shell":
+        t.append(unfix)
     if trigger is not None:
         t += [
             "while {![file exists %s]} {after 200}" % trigger,
@@ -445,10 +462,10 @@ def assemble_tcl(
     t += [
         "read_checkpoint -cell %s %s" % (rp, accel_dcp),
         "stamp read_accel",
-        # RapidWright's static nets (VCC/GND) come in as fixed routing; where they collide with
-        # signal routing of the relocated components (e.g. a shared FF clock enable site pin)
-        # the router must be able to rip them up
-        "set_property IS_ROUTE_FIXED 0 [get_nets -hier -quiet -filter {TYPE == POWER || TYPE == GROUND}]",
+    ]
+    if unfix_static == "after_read":
+        t.append(unfix)
+    t += [
         "route_design",
         "stamp route",
         "report_route_status -file %s/route_status.rpt" % out_dir,

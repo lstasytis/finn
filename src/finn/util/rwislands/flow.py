@@ -292,6 +292,7 @@ def rw_islands_zynq_build(
             assemble_tcl(
                 shell_dir, accel_dcp, asm_dir, bitfile, threads=min(16, cpus), reports="min",
                 trigger=trigger,
+                unfix_static="shell",
             )
         )
     asm_pool = ThreadPoolExecutor(max_workers=1)

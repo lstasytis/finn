@@ -126,6 +126,10 @@ public class IslandStitcher {
         // the islands' netlists come with their own libraries (xil_defaultlib, work_<node>):
         // one work library, so that no library refers to one written after it
         top.getNetlist().consolidateAllToWorkLibrary(true);
+        // the islands' static (VCC/GND) routing must stay changeable: Vivado has to rip up
+        // parts of it where boundary nets need the same site pins / nodes at assembly
+        top.getGndNet().unlockRouting();
+        top.getVccNet().unlockRouting();
         top.writeCheckpoint(out);
         stamp("write");
     }
