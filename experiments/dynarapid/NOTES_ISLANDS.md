@@ -407,3 +407,7 @@ Baselines (FINN's Vitis flow, same settings) running concurrently for TFC and CN
 * Sequential U55C timing started 13:25 (`run_u55c_timing.sh`: tfc bitfile, tfc islands, cnv
   bitfile, cnv islands; 64 workers; nothing else running except the single-core gate-level
   simulation of verify_kernel on CNV until it finishes).
+* CNV U55C island kernel check (`verify_kernel.py`, 4 frames): outputs match and the cycle count
+  is identical (316511 over 4 frames), but all 4 outputs are class 06 -> weak (a stuck output
+  would pass). The amplitude scaling treats CNV's unsigned image bytes as signed; a better-varied
+  input check follows after the timed runs.
