@@ -247,6 +247,15 @@ class DataflowBuildConfig:
     #: Defaults to NUM_DEFAULT_WORKERS (or the number of CPUs).
     dynarapid_workers: Optional[int] = None
 
+    #: (Optional) Alveo (Vitis) flow: build the compute kernel with the RapidWright island
+    #: flow (finn.util.rwislands: per-node synthesis, parallel out-of-context place and route
+    #: of node groups at their final location, RapidWright stitching) and link it into the
+    #: per-model v++ link as a pre-implemented, placement-locked core.
+    rw_islands_pnr: Optional[bool] = False
+
+    #: (Optional) Number of islands for rw_islands_pnr ("auto": from size and cores).
+    rw_islands_count: Optional[str] = "auto"
+
     #: Insert a signature node to the stitched-IP to read/write information
     #: to the design: e.g. Customer signature, application signature, version
     signature: Optional[List[int]] = None

@@ -217,6 +217,7 @@ class PrepareForLinking(Transformation):
         platform,
         floorplan_file=None,
         partition_model_dir=None,
+        islands=None,
     ):
         super().__init__()
         self.fpga_part = fpga_part
@@ -224,6 +225,10 @@ class PrepareForLinking(Transformation):
         self.platform = platform
         self.floorplan_file = floorplan_file
         self.partition_model_dir = partition_model_dir
+        # islands: None (regular flow) or a dict of finn.util.rwislands.alveo options
+        # ("islands", "workers", "out_dir"): the compute partition is then built with the
+        # RapidWright island flow and linked as a pre-implemented core
+        self.islands = islands
 
     def apply(self, model):
         if self.platform not in ["vitis-xrt", "slash-vrt"]:
@@ -258,13 +263,44 @@ class PrepareForLinking(Transformation):
             kernel_model.save(dataflow_model_filename)
             kernel_model = kernel_model.transform(PrepareIP(self.fpga_part, self.period_ns))
             kernel_model = kernel_model.transform(HLSSynthIP())
-            kernel_model = kernel_model.transform(
-                CreateStitchedIP(
-                    self.fpga_part, self.period_ns, sdp_node.onnx_node.name, run_synth=True
+            is_dma = any(n.op_type.startswith("IODMA") for n in kernel_model.graph.node)
+            if self.islands is not None and self.platform == "vitis-xrt" and not is_dma:
+                from finn.util.rwislands.alveo import rw_islands_kernel
+
+                opts = dict(self.islands)
+                out_dir = os.path.join(
+                    opts.get("out_dir") or make_build_dir("rwislands_"), sdp_node.onnx_node.name
                 )
-            )
-            if self.platform == "vitis-xrt":
-                kernel_model = kernel_model.transform(CreateVitisXO(sdp_node.onnx_node.name))
+                res = rw_islands_kernel(
+                    kernel_model,
+                    sdp_node.onnx_node.name,
+                    self.fpga_part,
+                    self.period_ns,
+                    out_dir,
+                    islands=opts.get("islands", "auto"),
+                    workers=opts.get("workers"),
+                )
+                assert res["status"] == "ok", "island flow failed (%s), see %s" % (
+                    res["status"],
+                    out_dir,
+                )
+                assert model.get_metadata_prop("rwi_link_hook") is None, (
+                    "the island flow supports one compute kernel"
+                )
+                kernel_model.set_metadata_prop("vitis_xo", res["xo"])
+                kernel_model.set_metadata_prop("rwi_core_dcp", res["core_dcp"])
+                model.set_metadata_prop("rwi_link_hook", res["hook"])
+                model.set_metadata_prop("rwi_result", json.dumps(
+                    {k: v for k, v in res.items() if k != "synth"}
+                ))
+            else:
+                kernel_model = kernel_model.transform(
+                    CreateStitchedIP(
+                        self.fpga_part, self.period_ns, sdp_node.onnx_node.name, run_synth=True
+                    )
+                )
+                if self.platform == "vitis-xrt":
+                    kernel_model = kernel_model.transform(CreateVitisXO(sdp_node.onnx_node.name))
             kernel_model.set_metadata_prop("platform", self.platform)
             kernel_model.save(dataflow_model_filename)
         model.set_metadata_prop("platform", self.platform)
@@ -397,6 +433,12 @@ class VitisLink(Transformation):
             config.append("prop=run.impl_1.STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE=Explore")
             config.append("prop=run.impl_1.STEPS.ROUTE_DESIGN.ARGS.DIRECTIVE=Explore")
 
+        hook = model.get_metadata_prop("rwi_link_hook")
+        if hook is not None:
+            # island flow: the pre-implemented compute core is read in before opt_design
+            if "[vivado]" not in config:
+                config.append("[vivado]")
+            config.append("prop=run.impl_1.STEPS.OPT_DESIGN.TCL.PRE=%s" % hook)
         config = "\n".join(config) + "\n"
         with open(link_dir + "/config.txt", "w") as f:
             f.write(config)

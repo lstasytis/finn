@@ -1358,6 +1358,13 @@ def step_synthesize_bitfile(model: ModelWrapper, cfg: DataflowBuildConfig):
             copy(timing_rpt, report_dir + "/post_route_timing.rpt")
 
         elif cfg.shell_flow_type == ShellFlowType.VITIS_ALVEO:
+            islands = None
+            if cfg.rw_islands_pnr:
+                islands = {
+                    "islands": cfg.rw_islands_count,
+                    "workers": cfg.dynarapid_workers,
+                    "out_dir": cfg.output_dir + "/rwislands",
+                }
             model = model.transform(
                 PrepareForLinking(
                     cfg._resolve_fpga_part(),
@@ -1365,6 +1372,7 @@ def step_synthesize_bitfile(model: ModelWrapper, cfg: DataflowBuildConfig):
                     "vitis-xrt",
                     floorplan_file=cfg.vitis_floorplan_file,
                     partition_model_dir=partition_model_dir,
+                    islands=islands,
                 )
             )
             model = model.transform(

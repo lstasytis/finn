@@ -283,6 +283,150 @@ def choose_islands(n_nodes, total_cost, slots, islands):
     return max(1, min(n_nodes, slots, int(total_cost // 6000) + 1))
 
 
+def islands_and_stitch(
+    accel, g, dcps, synth, dev, part, clk_ns, work, cpus, slots, islands, region, first, res, stamp,
+    rwroute_max_iter=30,
+):
+    """Islands, floorplan (region + first lanes), island P&R in parallel with the top synthesis,
+    RapidWright stitching. Fills res; returns (failure status or None, stitched accelerator dcp)."""
+    names = [n.name for n in accel.graph.node]
+    node_res = {n: synth[dcps[n]]["util"] for n in names}
+    # 2. islands and floorplan
+    costs = [island_cost(node_res[n]) for n in names]
+    k = choose_islands(len(names), sum(costs), slots, islands)
+    segs = partition(costs, k)
+    isl = {"island_%d" % i: names[a:b] for i, (a, b) in enumerate(segs)}
+    isl_res = []
+    for mem in isl.values():
+        tot = {}
+        for n in mem:
+            for kk, v in node_res[n].items():
+                tot[kk] = tot.get(kk, 0) + v
+        isl_res.append(tot)
+    contain = True
+    try:
+        rects, ranges, util, lanes = floorplan(dev, isl_res, region, first_lanes=first)
+    except RuntimeError as e:
+        # too dense for one rectangle per island (e.g. BRAM/URAM in few columns): the whole
+        # accelerator as one island in the main region (one connected rectangle, so its
+        # routing stays contained; without containment its routing used shell tiles and the
+        # assembly lost the shell's placement)
+        from finn.util.rwislands.device import pblock_ranges
+
+        res["floorplan_fallback"] = str(e)
+        isl = {"island_0": names}
+        tot = {}
+        for n in names:
+            for kk, v in node_res[n].items():
+                tot[kk] = tot.get(kk, 0) + v
+        isl_res = [tot]
+        lanes = [region]
+        rects = [lanes]
+        ranges = [[g for r in lanes for g in pblock_ranges(dev.sites_in(*r))]]
+        util = None
+    stamp("floorplan")
+    res["islands"] = {
+        name: {"nodes": mem, "res": r, "cost": sum(costs[names.index(n)] for n in mem), "rects": rc}
+        for (name, mem), r, rc in zip(isl.items(), isl_res, rects)
+    }
+    res["floorplan"] = {"util": util, "lanes": lanes, "region": region}
+
+    # 3. island place and route + accelerator top, in parallel
+    isl_dir = os.path.join(work, "islands")
+    threads = max(1, min(8, cpus // max(1, len(isl))))
+    synth_dir = os.path.join(work, "synth")
+
+    def island_job(name):
+        mem = isl[name]
+        d = os.path.join(isl_dir, name)
+        os.makedirs(d, exist_ok=True)
+        v = os.path.join(d, name + ".v")
+        with open(v, "w") as f:
+            f.write(island_verilog(name, g, mem, dcps))
+        files = [os.path.join(synth_dir, dc + "_synth.dcp") for dc in sorted({dcps[n] for n in mem})]
+        r0 = res["islands"][name]["rects"][0]
+        cr = next(s.cr for s in dev.sites_in(*r0) if s.type.startswith("SLICE"))
+        tcl = os.path.join(d, "island.tcl")
+        with open(tcl, "w") as f:
+            f.write(
+                island_tcl(
+                    name, v, files, part, clk_ns, ranges[list(isl).index(name)], cr, threads, d, contain
+                )
+            )
+        rc, t = run_vivado(tcl, os.path.join(d, "island.log"), d)
+        info = {"pnr_s": t, "rc": rc}
+        info.update(_island_reports(d))
+        info["stamps"] = {
+            kk: float(vv)
+            for kk, vv in re.findall(r"^STAMP (\w+) ([\d.]+)", open(os.path.join(d, "island.log")).read(), re.M)
+        }
+        info["dcp"] = os.path.join(d, name + "_routed.dcp")
+        info["ok"] = rc == 0 and os.path.isfile(info["dcp"]) and info.get("routing_errors") == 0
+        return name, info
+
+    def top_job():
+        d = os.path.join(work, "top")
+        os.makedirs(d, exist_ok=True)
+        v = os.path.join(d, "top.v")
+        with open(v, "w") as f:
+            f.write(top_verilog(g, isl))
+        tcl = os.path.join(d, "top.tcl")
+        with open(tcl, "w") as f:
+            f.write(top_tcl(v, part, d))
+        rc, t = run_vivado(tcl, os.path.join(d, "top.log"), d)
+        return rc, t, d
+
+    with ThreadPoolExecutor(max_workers=max(1, min(slots, len(isl) + 1))) as ex:
+        f_top = ex.submit(top_job)
+        # largest islands first
+        order = sorted(isl, key=lambda n: -res["islands"][n]["cost"])
+        infos = dict(f.result() for f in [ex.submit(island_job, n) for n in order])
+        top_rc, top_s, top_dir = f_top.result()
+    stamp("islands")
+    for name, info in infos.items():
+        res["islands"][name].update(info)
+    res["top_s"] = top_s
+    bad = [n for n, i in infos.items() if not i["ok"]]
+    if bad or top_rc != 0:
+        res.update(failed=bad, top_rc=top_rc)
+        return "island_failed", None
+
+    # 4. stitch with RapidWright
+    st_dir = os.path.join(work, "stitch")
+    os.makedirs(st_dir, exist_ok=True)
+    accel_dcp = os.path.join(st_dir, "accel_routed.dcp")
+    cmd = [
+        java_bin(),
+        "-Xmx32G",
+        "-cp",
+        stitcher_classpath(),
+        "IslandStitcher",
+        os.path.join(top_dir, "top_bb.dcp"),
+        os.path.join(top_dir, "top_bb.edf"),
+        accel_dcp,
+        str(rwroute_max_iter),
+        str(max(1, min(16, cpus))),
+    ]
+    cmd += ["%s=%s,%s" % (n, i["dcp"], i["dcp"].replace(".dcp", ".edf")) for n, i in infos.items()]
+    t0 = time.time()
+    log = os.path.join(st_dir, "stitch.log")
+    env = dict(os.environ, RW_QUIET_MESSAGE="1")
+    with open(log, "w") as f:
+        f.write(" ".join(cmd) + "\n")
+        f.flush()
+        rc = subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT, env=env).returncode
+    res["stitch_s"] = time.time() - t0
+    txt = open(log, errors="ignore").read()
+    res["stitch_stamps"] = {kk: float(vv) for kk, vv in re.findall(r"^STAMP (\w+) ([\d.]+)", txt, re.M)}
+    m = re.search(r"RESULT unrouted_pins (\d+)", txt)
+    res["stitch_unrouted_pins"] = int(m.group(1)) if m else None
+    stamp("stitch")
+    if rc != 0 or not os.path.isfile(accel_dcp):
+        return "stitch_failed", None
+
+    return None, accel_dcp
+
+
 def rw_islands_zynq_build(
     kernel_models,
     board,
@@ -373,20 +517,7 @@ def rw_islands_zynq_build(
         res.update(status=status, **kw)
         return _done(res, stamps, out_dir, t_total)
 
-    # 2. islands and floorplan
-    names = [n.name for n in accel.graph.node]
-    node_res = {n: synth[dcps[n]]["util"] for n in names}
-    costs = [island_cost(node_res[n]) for n in names]
-    k = choose_islands(len(names), sum(costs), slots, islands)
-    segs = partition(costs, k)
-    isl = {"island_%d" % i: names[a:b] for i, (a, b) in enumerate(segs)}
-    isl_res = []
-    for mem in isl.values():
-        tot = {}
-        for n in mem:
-            for kk, v in node_res[n].items():
-                tot[kk] = tot.get(kk, 0) + v
-        isl_res.append(tot)
+    # 2.-4. islands, floorplan, island P&R, stitching
     x0 = PS_BOUNDARY_INT_X[part] + SHELL_STRIP_COLS
     region = (x0, dev.xmax, 0, dev.ymax)
     first = []
@@ -395,124 +526,13 @@ def rw_islands_zynq_build(
         # the fabric left of the shell (above the PS): its rows are those with sites there
         ys = [st.y for st in dev.sites if st.x < sx0]
         first = [(0, sx0 - 1, min(ys) - min(ys) % 5, dev.ymax)]
-    contain = True
-    try:
-        rects, ranges, util, lanes = floorplan(dev, isl_res, region, first_lanes=first)
-    except RuntimeError as e:
-        # too dense for one rectangle per island (e.g. BRAM/URAM in few columns): the whole
-        # accelerator as one island in the main region (one connected rectangle, so its
-        # routing stays contained; without containment its routing used shell tiles and the
-        # assembly lost the shell's placement)
-        from finn.util.rwislands.device import pblock_ranges
-
-        res["floorplan_fallback"] = str(e)
-        isl = {"island_0": names}
-        tot = {}
-        for n in names:
-            for kk, v in node_res[n].items():
-                tot[kk] = tot.get(kk, 0) + v
-        isl_res = [tot]
-        lanes = [region]
-        rects = [lanes]
-        ranges = [[g for r in lanes for g in pblock_ranges(dev.sites_in(*r))]]
-        util = None
-    stamp("floorplan")
-    res["islands"] = {
-        name: {"nodes": mem, "res": r, "cost": sum(costs[names.index(n)] for n in mem), "rects": rc}
-        for (name, mem), r, rc in zip(isl.items(), isl_res, rects)
-    }
-    res["floorplan"] = {"util": util, "lanes": lanes, "region": region}
-
-    # 3. island place and route + accelerator top, in parallel
-    isl_dir = os.path.join(work, "islands")
-    threads = max(1, min(8, cpus // max(1, len(isl))))
-    synth_dir = os.path.join(work, "synth")
-
-    def island_job(name):
-        mem = isl[name]
-        d = os.path.join(isl_dir, name)
-        os.makedirs(d, exist_ok=True)
-        v = os.path.join(d, name + ".v")
-        with open(v, "w") as f:
-            f.write(island_verilog(name, g, mem, dcps))
-        files = [os.path.join(synth_dir, dc + "_synth.dcp") for dc in sorted({dcps[n] for n in mem})]
-        r0 = res["islands"][name]["rects"][0]
-        cr = next(s.cr for s in dev.sites_in(*r0) if s.type.startswith("SLICE"))
-        tcl = os.path.join(d, "island.tcl")
-        with open(tcl, "w") as f:
-            f.write(
-                island_tcl(
-                    name, v, files, part, clk_ns, ranges[list(isl).index(name)], cr, threads, d, contain
-                )
-            )
-        rc, t = run_vivado(tcl, os.path.join(d, "island.log"), d)
-        info = {"pnr_s": t, "rc": rc}
-        info.update(_island_reports(d))
-        info["stamps"] = {
-            kk: float(vv)
-            for kk, vv in re.findall(r"^STAMP (\w+) ([\d.]+)", open(os.path.join(d, "island.log")).read(), re.M)
-        }
-        info["dcp"] = os.path.join(d, name + "_routed.dcp")
-        info["ok"] = rc == 0 and os.path.isfile(info["dcp"]) and info.get("routing_errors") == 0
-        return name, info
-
-    def top_job():
-        d = os.path.join(work, "top")
-        os.makedirs(d, exist_ok=True)
-        v = os.path.join(d, "top.v")
-        with open(v, "w") as f:
-            f.write(top_verilog(g, isl))
-        tcl = os.path.join(d, "top.tcl")
-        with open(tcl, "w") as f:
-            f.write(top_tcl(v, part, d))
-        rc, t = run_vivado(tcl, os.path.join(d, "top.log"), d)
-        return rc, t, d
-
-    with ThreadPoolExecutor(max_workers=max(1, min(slots, len(isl) + 1))) as ex:
-        f_top = ex.submit(top_job)
-        # largest islands first
-        order = sorted(isl, key=lambda n: -res["islands"][n]["cost"])
-        infos = dict(f.result() for f in [ex.submit(island_job, n) for n in order])
-        top_rc, top_s, top_dir = f_top.result()
-    stamp("islands")
-    for name, info in infos.items():
-        res["islands"][name].update(info)
-    res["top_s"] = top_s
-    bad = [n for n, i in infos.items() if not i["ok"]]
-    if bad or top_rc != 0:
-        return abort("island_failed", failed=bad, top_rc=top_rc)
-
-    # 4. stitch with RapidWright
-    st_dir = os.path.join(work, "stitch")
-    os.makedirs(st_dir, exist_ok=True)
-    cmd = [
-        java_bin(),
-        "-Xmx32G",
-        "-cp",
-        stitcher_classpath(),
-        "IslandStitcher",
-        os.path.join(top_dir, "top_bb.dcp"),
-        os.path.join(top_dir, "top_bb.edf"),
-        accel_dcp,
-        str(rwroute_max_iter),
-        str(max(1, min(16, cpus))),
-    ]
-    cmd += ["%s=%s,%s" % (n, i["dcp"], i["dcp"].replace(".dcp", ".edf")) for n, i in infos.items()]
-    t0 = time.time()
-    log = os.path.join(st_dir, "stitch.log")
-    env = dict(os.environ, RW_QUIET_MESSAGE="1")
-    with open(log, "w") as f:
-        f.write(" ".join(cmd) + "\n")
-        f.flush()
-        rc = subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT, env=env).returncode
-    res["stitch_s"] = time.time() - t0
-    txt = open(log, errors="ignore").read()
-    res["stitch_stamps"] = {kk: float(vv) for kk, vv in re.findall(r"^STAMP (\w+) ([\d.]+)", txt, re.M)}
-    m = re.search(r"RESULT unrouted_pins (\d+)", txt)
-    res["stitch_unrouted_pins"] = int(m.group(1)) if m else None
-    stamp("stitch")
-    if rc != 0 or not os.path.isfile(accel_dcp):
-        return abort("stitch_failed")
+    fail, accel_dcp2 = islands_and_stitch(
+        accel, g, dcps, synth, dev, part, clk_ns, work, cpus, slots, islands, region, first, res,
+        stamp, rwroute_max_iter,
+    )
+    if fail is not None:
+        return abort(fail)
+    assert accel_dcp2 == accel_dcp
 
     # 5. assembly (the shell is already open in the waiting Vivado)
     t0 = time.time()
