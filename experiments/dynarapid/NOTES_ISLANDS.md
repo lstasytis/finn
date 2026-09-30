@@ -398,3 +398,7 @@ Baselines (FINN's Vitis flow, same settings) running concurrently for TFC and CN
   min(CPUs, memory)); v++ and FINN's baseline Vivado are outside it. L3 (8 x 32 MB for 128
   threads) and 4 KB pages (THP madvise) make per-process speed drop under heavy concurrency.
   Plan: functional validation in parallel, then every timed run alone.
+* **TFC U55C island kernel verified** (`verify_kernel.py`, new: post-route netlist of the
+  stitched core in the kernel wrapper vs FINN's stitched-IP RTL of the compute partition,
+  stream I/O only): 16 amplitude-varied frames, all outputs match (classes vary), identical
+  cycle count (1295).
