@@ -155,7 +155,23 @@ def stream_interfaces(node):
         node.name,
         unsupported,
     )
-    return [(n, int(w)) for n, w in intf["s_axis"]], [(n, int(w)) for n, w in intf["m_axis"]]
+    drop = internal_streams(node)
+    ins = [(n, int(w)) for n, w in intf["s_axis"] if n not in drop]
+    return ins, [(n, int(w)) for n, w in intf["m_axis"]]
+
+
+def internal_streams(node):
+    """Input streams listed by get_verilog_top_module_intf_names() that are fed inside the
+    node's block-design hierarchy (e.g. VVAU in1_V from its weight streamer in
+    internal_decoupled mode), i.e. not ports of the component."""
+    inst = getCustomOp(node)
+    try:
+        mem_mode = inst.get_nodeattr("mem_mode")
+    except AttributeError:
+        return set()
+    if mem_mode in ("internal_decoupled", "internal_embedded"):
+        return {"in1_V"}
+    return set()
 
 
 # AXI channels: signals carried as channel data (besides VALID/READY), and whether the
@@ -333,8 +349,9 @@ def adapter_verilog(dcp, bd_name, n_in, n_out, in_widths, out_widths, axi=None):
         a_in, a_out, bd_if = axi
 
         def bd_port(c, sig):
-            # e.g. s_axilite_AWADDR -> s_axilite_0_awaddr
-            return "%s_%s" % (bd_if, sig[len(c["name"]) - 2 :].lower())
+            # e.g. s_axilite_AWADDR -> s_axilite_0_awaddr (c["name"] = s_axilite_AW)
+            prefix = c["name"].rsplit("_", 1)[0]
+            return "%s_%s" % (bd_if, sig[len(prefix) + 1 :].lower())
 
         for k, c in enumerate(a_in, start=n_in):
             ports += [
@@ -573,7 +590,10 @@ def synth_tcl(
     helper = CreateStitchedIP(part, clk_ns)
     helper.create_cmds += inst.code_generation_ipi()
     helper.connect_clk_rst(node)
-    helper.connect_s_axis_external(node)
+    drop = internal_streams(node)
+    for i, (name, _) in enumerate(inst.get_verilog_top_module_intf_names()["s_axis"]):
+        if name not in drop:
+            helper.connect_s_axis_external(node, idx=i)
     helper.connect_m_axis_external(node)
     axi = None
     if has_axi(node):
