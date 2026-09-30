@@ -36,7 +36,23 @@ with AXI-Lite (runtime-writeable URAM weights, MobileNet) are passed through the
 IODMA control interfaces. Pitfalls found: RapidWright needs IS_IMPORTED on Vivado black boxes;
 merged EDIF must be one library; never query `get_nets -hier` on the full design (use the
 shell-only static unfix); Vivado-native read_checkpoint -cell of islands is much slower than
-RapidWright stitching; `route_design -directive Quick` leaves hold violations.
+RapidWright stitching; `route_design -directive Quick` leaves hold violations; never fork
+multiprocessing pools from threads (PrepareIP per partition deadlocked).
+
+Status 2026-09-30 (ZCU104, 100 MHz, 64 workers, timed one at a time, shell cached; details and
+caveats in NOTES_ISLANDS.md):
+
+| model | Vivado ZynqBuild | island flow | speedup | functional check |
+|---|---|---|---|---|
+| TFC | 644 s | 309 s | 2.08x | verify_accel 16 frames match |
+| CNV | 891 s | 365 s | 2.44x | (gate-level sim too long) |
+| CNV-w1a1 PE=SIMD=1 | 811 s | 358 s | 2.27x | (gate-level sim too long) |
+| VGG10 | 2112 s | 1107 s | 1.91x | verify_accel 8 varied frames match |
+
+All island builds 0 routing errors, timing met (WNS +2.9..+4.3 ns). MobileNetV1 (ZCU104): too
+dense for one rectangle per island (BRAM 87 %, URAM 72 % in few columns); single-island
+fallback in progress. ZCU102 not licensed here. Serial floor: synthesis of the largest node,
+the largest island's P&R, assembly (read accel + route_design + bitstream, 80-440 s).
 
 
 Read this first; it is meant to replace re-reading the code. Deeper history and all
