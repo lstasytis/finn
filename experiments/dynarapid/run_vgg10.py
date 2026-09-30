@@ -58,14 +58,14 @@ def shell_flow(board):
     return build_cfg.ShellFlowType.VIVADO_ZYNQ
 
 
-def config(out, steps, board, **kw):
+def config(out, steps, board, clk=4.0, **kw):
     return build_cfg.DataflowBuildConfig(
         output_dir=out,
         steps=steps,
         folding_config_file=BENCH + "/folding_config/vgg10radioml_folding_config.json",
         specialize_layers_config_file=BENCH
         + "/specialize_layers_config/vgg10radioml_specialize_layers.json",
-        synth_clk_period_ns=4.0,
+        synth_clk_period_ns=clk,
         board=board,
         shell_flow_type=shell_flow(board),
         standalone_thresholds=True,
@@ -84,11 +84,12 @@ def main():
     ap.add_argument("--mode", choices=["frontend", "vivado", "dynarapid"], required=True)
     ap.add_argument("--library", default=None)
     ap.add_argument("--board", default="ZCU104")
+    ap.add_argument("--clk", type=float, default=4.0)
     args = ap.parse_args()
     front = os.path.join(args.out, "frontend")
     t0 = time.time()
     if args.mode == "frontend":
-        build.build_dataflow_cfg(args.model, config(front, FRONTEND_STEPS, args.board))
+        build.build_dataflow_cfg(args.model, config(front, FRONTEND_STEPS, args.board, args.clk))
     else:
         out = os.path.join(args.out, args.mode)
         # start from the front end's FIFO-sized model
@@ -99,7 +100,7 @@ def main():
         kw = {"start_step": BACKEND_STEPS[args.mode][0]}
         if args.mode == "dynarapid":
             kw.update(dynarapid_pnr=True, dynarapid_library_dir=args.library)
-        build.build_dataflow_cfg(src, config(out, steps, args.board, **kw))
+        build.build_dataflow_cfg(src, config(out, steps, args.board, args.clk, **kw))
     res = {"mode": args.mode, "total_s": time.time() - t0}
     with open(os.path.join(args.out, "vgg10_%s.json" % args.mode), "w") as f:
         json.dump(res, f, indent=2)

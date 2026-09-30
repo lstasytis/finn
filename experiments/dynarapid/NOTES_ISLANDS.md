@@ -98,3 +98,12 @@ Result: 0 routing errors, WNS +2.774 ns, WHS +0.010 ns. Estimated end-to-end wit
 ~320 s (stitch/assembly were re-run by hand after the fixes; next runs give the real total).
 Assembly route_design: RT build 16 s + init 12 s fixed, 283 unrouted + 130 partial nets, 100
 node overlaps -> the serial tail is now mostly Vivado fixed cost.
+
+### 2026-09-30 ~01:50: TFC (reduced folding, 10 ns) island flow + functional check
+
+`rwi/bit/tfc_isl_a`: K=auto -> 3 islands (1/4/12 nodes). Island flow 278 s (end to end incl.
+ZynqBuild's IODMA HLS/partitioning 331 s): synth 67, island P&R 94-98, stitch 6, assembly 107
+(open shell 21, read accel 19, route 36, reports 5, bitstream 21). Shell cached (same IODMA
+widths as CNV-pe1). 0 routing errors, WNS +3.92 ns.
+**verify_accel 16 frames: outputs match FINN's stitched-IP RTL** (post-route netlist of the
+RapidWright-stitched accelerator + shell bridges).
