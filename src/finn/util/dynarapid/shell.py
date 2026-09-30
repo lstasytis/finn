@@ -474,6 +474,14 @@ def assemble_tcl(
     t += [
         "route_design",
         "stamp route",
+    ]
+    if reports == "min":
+        # bitstream first (the result); the reports follow in the same session
+        t += [
+            "write_bitstream -force -no_partial_bitfile %s" % bitfile,
+            "stamp bitstream",
+        ]
+    t += [
         "report_route_status -file %s/route_status.rpt" % out_dir,
         "report_timing_summary -file %s/timing_summary.rpt" % out_dir,
         # the same hierarchical report as the regular Zynq flow (post-synthesis resources)
@@ -487,11 +495,12 @@ def assemble_tcl(
             "report_utilization -hierarchical -hierarchical_depth 6 -format xml -file %s/utilization.xml"
             % out_dir,
         ]
-    t += [
-        "stamp reports",
-        "write_bitstream -force -no_partial_bitfile %s" % bitfile,
-        "stamp bitstream",
-    ]
+    t.append("stamp reports")
+    if reports != "min":
+        t += [
+            "write_bitstream -force -no_partial_bitfile %s" % bitfile,
+            "stamp bitstream",
+        ]
     if keep_dcp:
         t.append("write_checkpoint -force %s/final_routed.dcp" % out_dir)
     return "\n".join(t) + "\n"
