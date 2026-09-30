@@ -411,3 +411,18 @@ Baselines (FINN's Vitis flow, same settings) running concurrently for TFC and CN
   is identical (316511 over 4 frames), but all 4 outputs are class 06 -> weak (a stuck output
   would pass). The amplitude scaling treats CNV's unsigned image bytes as signed; a better-varied
   input check follows after the timed runs.
+
+#### U55C timed runs (alone on the machine, 100 MHz, 64 workers; `summarize_u55c.py`)
+
+| run | wall | v++ platform synth | hook | opt | place | route | bitstream | kernel build (islands) | routing errors | WNS/WHS |
+|---|---|---|---|---|---|---|---|---|---|---|
+| TFC Vitis flow | 4860 s | 740 | - | 182 | 1335 | 425 | 668 | (FINN prep ~990 s total) | 0 | +0.003/+0.009 |
+| TFC islands | 5426 s | 742 | 209 | 212 | 1518 | 455 | 698 | 259 (synth 81, 3 islands 171, stitch 6) | 0 | +0.003/+0.009 |
+
+TFC: the island flow is 12 % slower. The kernel is a tiny part of the design, so there is
+nothing to parallelize away, and the flow adds the hook's read_checkpoint -cell (209 s into the
+unplaced platform netlist) and still ~14 % longer placement of the rest of the dynamic region
+(pblock over the islands' rectangles with EXCLUDE_PLACEMENT, locked core). For the U55C the
+per-model link is a ~65-75 min platform floor (IP synthesis 12 min, placement 22-25 min, routing
+7 min, bitstream 11 min); the island flow can only pay off when the compute kernel's own
+synthesis and P&R are a large share (big models).
