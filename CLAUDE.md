@@ -54,7 +54,10 @@ caveats in NOTES_ISLANDS.md):
 All island builds 0 routing errors, timing met (WNS +2.7..+4.3 ns). *MobileNet runs overlapped
 and the island flow's RuntimeOptimized synthesis skips the baseline's ~39 min threshold synthesis. MobileNetV1 (ZCU104): too
 dense for one rectangle per island (BRAM 87 %, URAM 72 % in few columns), built with the
-single-island fallback (no parallel P&R). ZCU102 not licensed here. Serial floor: synthesis of the largest node,
+single-island fallback (no parallel P&R). ZCU102 not licensed here. U55C (per-model v++ link, island-built compute kernel read in before opt_design and
+placement-locked, `rw_islands_pnr`): TFC/CNV xclbins OK and kernels verified (`verify_kernel.py`),
+but 5426/5562 s vs 4860/5458 s for FINN's Vitis flow - the ~75 min per-model platform link
+dominates small models; only large kernels (U250-class) can gain. Serial floor: synthesis of the largest node,
 the largest island's P&R, assembly (read accel + route_design + bitstream, 80-440 s).
 
 

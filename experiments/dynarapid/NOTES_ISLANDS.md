@@ -441,3 +441,13 @@ region (option b, nested DFX) to remove the per-model platform work.
   in 74 s vs 83 s for the RapidWright DCP (-11 %) -> not worth the conversion; the cost is
   read_checkpoint -cell of a large netlist itself (on the U55C ~210 s for TFC/CNV into the
   unplaced platform netlist).
+* **CNV U55C island kernel verified** (`verify_kernel.py --frames 8 --vary-unsigned`, pixel bytes
+  scaled per frame): all 8 outputs match FINN's RTL with varying classes (03 06 06 06 06 02 06 06),
+  identical cycle count (559787).
+
+Status U55C (end of 2026-09-30): the per-model v++ link with an island-built, placement-locked
+compute kernel works end to end for TFC and CNV (xclbins, 0 routing errors, timing met, both
+kernels functionally verified at the stream level). It is 2-12 % slower than FINN's Vitis flow
+for these small models, because the ~75 min platform work per link stays and the hook adds
+~3.5 min (read_checkpoint -cell). Open: hook without EXCLUDE_PLACEMENT pblock (placement effect),
+U250-class models (where the kernel's own synthesis/P&R dominates), nested-DFX platform caching.
