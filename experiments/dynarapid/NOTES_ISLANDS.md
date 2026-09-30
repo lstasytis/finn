@@ -258,3 +258,10 @@ CONTAIN_ROUTING the connections between them are nearly unroutable (route 294 s 
 ~13 s; it did finish with 0 errors). Fixed (04:30): an island restarts in the next lane when
 that lane is not adjacent; the snake is tried at all utilizations before the 2D packing.
 cnv1 islands to be re-timed.
+| CNV-w1a1 PE=SIMD=1 (Vivado) | 811 s | | | | | | | | / +3.657 | |
+| VGG10 | (running) | **1107 s** | | 4 | 203 | 370 (152/235/355/370) | 38 | 442 (read 83, route 285, reports 40, bitstream 32) | +3.497 / | 0 |
+
+VGG10 timed island run: a gate-level verify_accel (2 frames, single core) ran concurrently.
+MobileNet shell (with the three MVAU AXI-Lite bridges, new region) pre-built untimed: 441 s.
+Assembly now writes the bitstream before the reports (VGG10: bitstream ~40 s earlier).
+Batch 2 queued: cnv1 islands (re-time), mnv1 islands (single-island fallback) + mnv1 Vivado.
