@@ -46,6 +46,10 @@ from finn.util.dynarapid.tools import java_bin, run_vivado, usable_cpus, vivado_
 from finn.util.dynarapid.zynq import _reports, merge_partitions
 from finn.util.rwislands.device import load_device
 from finn.util.rwislands.floorplan import floorplan, island_cost, partition
+
+# INT column where the island flow's shell region starts (it spans [SHELL_X0, PS boundary +
+# strip)); the fabric left of it (above the PS on the xczu7ev) is an extra island lane
+SHELL_X0 = {"xczu7ev-ffvc1156-2-e": 20}
 from finn.util.rwislands.netlist import TOP_MODULE, channel_graph, island_verilog, top_verilog
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -316,7 +320,14 @@ def rw_islands_zynq_build(
     # 1. shell (cached) and node synthesis, concurrently
     with ThreadPoolExecutor(max_workers=2) as ex:
         f_shell = ex.submit(
-            build_shell, board, part, clk_ns, ports, shell_lib, max(1, min(8, cpus // 4))
+            build_shell,
+            board,
+            part,
+            clk_ns,
+            ports,
+            shell_lib,
+            max(1, min(8, cpus // 4)),
+            SHELL_X0.get(part, 0),
         )
         synth = synthesize(accel, dcps, work, part, clk_ns, cpus, slots)
         stamp("synth")
@@ -375,8 +386,14 @@ def rw_islands_zynq_build(
         isl_res.append(tot)
     x0 = PS_BOUNDARY_INT_X[part] + SHELL_STRIP_COLS
     region = (x0, dev.xmax, 0, dev.ymax)
+    first = []
+    sx0 = SHELL_X0.get(part, 0)
+    if sx0 > 0:
+        # the fabric left of the shell (above the PS): its rows are those with sites there
+        ys = [st.y for st in dev.sites if st.x < sx0]
+        first = [(0, sx0 - 1, min(ys) - min(ys) % 5, dev.ymax)]
     try:
-        rects, ranges, util, lanes = floorplan(dev, isl_res, region)
+        rects, ranges, util, lanes = floorplan(dev, isl_res, region, first_lanes=first)
     except RuntimeError as e:
         return abort("floorplan_failed", error=str(e))
     stamp("floorplan")

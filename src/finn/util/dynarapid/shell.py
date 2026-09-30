@@ -66,7 +66,7 @@ PS_BOUNDARY_INT_X = {
 }
 
 
-def shell_key(board, part, clk_ns, ports):
+def shell_key(board, part, clk_ns, ports, shell_x0=0):
     sig = {
         "board": board,
         "part": part,
@@ -82,6 +82,9 @@ def shell_key(board, part, clk_ns, ports):
         "version": 4,
         "vivado": vivado_version(),
     }
+    if shell_x0:
+        # shell confined to INT columns [shell_x0, PS boundary + strip) (island flow)
+        sig["shell_x0"] = shell_x0
     h = hashlib.sha256(json.dumps(sig, sort_keys=True).encode()).hexdigest()[:12]
     return "shell%s" % h
 
@@ -265,7 +268,7 @@ def _offsets(c):
         off += w
 
 
-def shell_tcl(board, part, clk_ns, ports, shell_dir, src_file, jobs):
+def shell_tcl(board, part, clk_ns, ports, shell_dir, src_file, jobs, shell_x0=0):
     """Vivado script building and implementing the shell with the accelerator as a DFX
     partition. Writes shell_routed.dcp (partition empty, static routing locked) and
     top.hwh into shell_dir."""
@@ -337,7 +340,7 @@ def shell_tcl(board, part, clk_ns, ports, shell_dir, src_file, jobs):
         "  set res {}",
         "  foreach s [get_sites -filter \"SITE_TYPE =~ $type\"] {",
         "    regexp {_X(\\d+)Y} [get_tiles -of $s] -> tx",
-        "    if {[expr $tx $cmp $x]} {lappend res $s}",
+        "    if {[expr $tx $cmp $x] && $tx >= %d} {lappend res $s}" % shell_x0,
         "  }",
         "  return $res",
         "}",
@@ -385,9 +388,10 @@ def shell_tcl(board, part, clk_ns, ports, shell_dir, src_file, jobs):
     return "\n".join(t) + "\n"
 
 
-def build_shell(board, part, clk_ns, ports, shell_lib, jobs=8):
-    """Build (or reuse) the pre-implemented shell. Returns (shell_dir, result dict)."""
-    key = shell_key(board, part, clk_ns, ports)
+def build_shell(board, part, clk_ns, ports, shell_lib, jobs=8, shell_x0=0):
+    """Build (or reuse) the pre-implemented shell. Returns (shell_dir, result dict).
+    shell_x0: lowest INT column of the shell region (0: all columns left of the strip)."""
+    key = shell_key(board, part, clk_ns, ports, shell_x0)
     shell_dir = os.path.join(shell_lib, key)
     done = os.path.join(shell_dir, "shell_routed.dcp")
     res = {"shell": key, "shell_dir": shell_dir}
@@ -407,7 +411,7 @@ def build_shell(board, part, clk_ns, ports, shell_lib, jobs=8):
         json.dump(ports, f, indent=2)
     tcl = os.path.join(shell_dir, "shell.tcl")
     with open(tcl, "w") as f:
-        f.write(shell_tcl(board, part, clk_ns, ports, shell_dir, src, jobs))
+        f.write(shell_tcl(board, part, clk_ns, ports, shell_dir, src, jobs, shell_x0))
     rc, res["shell_s"] = run_vivado(tcl, os.path.join(shell_dir, "shell.log"), shell_dir)
     ok = rc == 0 and os.path.isfile(done) and os.path.isfile(os.path.join(shell_dir, "top.hwh"))
     res["status"] = "built" if ok else "shell_failed"

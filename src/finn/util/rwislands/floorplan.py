@@ -100,12 +100,13 @@ def _fits(cap, req):
     return all(cap[k] >= req[k] for k in req)
 
 
-def allocate(dev, lanes, y0, y1, needs, step=5):
-    """Snake allocation. needs: list of per-island site requirements. Returns, per island, a
-    list of tile rectangles (x0, x1, ya, yb), or None if the region is too small."""
+def allocate(dev, lanes, needs, step=5):
+    """Snake allocation. lanes: tile rectangles (x0, x1, y0, y1) in walking order (even lanes
+    bottom to top, odd lanes top to bottom). needs: per-island site requirements. Returns, per
+    island, a list of tile rectangles (x0, x1, ya, yb), or None if the region is too small."""
     # the snake as a sequence of row bands (lane, ya, yb), in walking order
     bands = []
-    for li, (lx0, lx1) in enumerate(lanes):
+    for li, (lx0, lx1, y0, y1) in enumerate(lanes):
         rows = list(range(y0, y1 + 1, step))
         if li % 2:
             rows = rows[::-1]
@@ -132,18 +133,20 @@ def allocate(dev, lanes, y0, y1, needs, step=5):
     return res
 
 
-def floorplan(dev, island_res, region, n_lanes=None, utils=None):
+def floorplan(dev, island_res, region, n_lanes=None, utils=None, first_lanes=()):
     """Place the islands (list of summed resource dicts, in chain order) in the region
-    (x0, x1, y0, y1). Tries increasing utilization until everything fits. Returns
+    (x0, x1, y0, y1), preceded by the lanes first_lanes ((x0, x1, y0, y1) each, e.g. the
+    fabric above the PS). Tries increasing utilization until everything fits. Returns
     (rects per island, pblock ranges per island, utilization used, lanes)."""
     x0, x1, y0, y1 = region
     if n_lanes is None:
         # lanes of about 10 tile columns (a few BRAM/DSP columns each)
         n_lanes = max(1, round((x1 - x0 + 1) / 10))
-    lanes = make_lanes(dev, x0, x1, n_lanes)
-    for u in utils or (0.5, 0.6, 0.7, 0.8, 0.9):
-        util = {"lut": u, "bram": min(0.95, u + 0.35), "dsp": min(0.95, u + 0.35), "uram": 0.95}
-        rects = allocate(dev, lanes, y0, y1, [need(r, util) for r in island_res])
+    lanes = list(first_lanes) + [(a, b, y0, y1) for a, b in make_lanes(dev, x0, x1, n_lanes)]
+    for u in utils or (0.5, 0.6, 0.7, 0.8, 0.9, 0.95):
+        # BRAM/DSP/URAM are counted exactly (whole primitives); margin only at low utilization
+        util = {"lut": u, "bram": min(1.0, u + 0.4), "dsp": min(1.0, u + 0.4), "uram": 1.0}
+        rects = allocate(dev, lanes, [need(r, util) for r in island_res])
         if rects is not None:
             # one set of ranges per rectangle (an island continuing into the next lane has
             # two rectangles, whose bounding box would overlap other islands)
