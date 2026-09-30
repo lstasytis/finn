@@ -266,3 +266,4 @@ MobileNet shell (with the three MVAU AXI-Lite bridges, new region) pre-built unt
 Assembly now writes the bitstream before the reports (VGG10: bitstream ~40 s earlier).
 Batch 2 queued: cnv1 islands (re-time), mnv1 islands (single-island fallback) + mnv1 Vivado.
 | VGG10 (Vivado) | 2112 s | | **1.91x** vs 1107 s | | | | | | / +3.337 | |
+| CNV-w1a1 PE=SIMD=1 (re-timed with the lane fix) | 811 s | 358 s | **2.27x** | 7 | 72 | 130 | 6 | 94 | +2.939 / +3.657 | 0 |
