@@ -265,3 +265,4 @@ VGG10 timed island run: a gate-level verify_accel (2 frames, single core) ran co
 MobileNet shell (with the three MVAU AXI-Lite bridges, new region) pre-built untimed: 441 s.
 Assembly now writes the bitstream before the reports (VGG10: bitstream ~40 s earlier).
 Batch 2 queued: cnv1 islands (re-time), mnv1 islands (single-island fallback) + mnv1 Vivado.
+| VGG10 (Vivado) | 2112 s | | **1.91x** vs 1107 s | | | | | | / +3.337 | |
