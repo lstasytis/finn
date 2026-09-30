@@ -49,9 +49,11 @@ caveats in NOTES_ISLANDS.md):
 | CNV-w1a1 PE=SIMD=1 | 811 s | 358 s | 2.27x | (gate-level sim too long) |
 | VGG10 | 2112 s | 1107 s | 1.91x | verify_accel 8 varied frames match |
 
-All island builds 0 routing errors, timing met (WNS +2.9..+4.3 ns). MobileNetV1 (ZCU104): too
-dense for one rectangle per island (BRAM 87 %, URAM 72 % in few columns); single-island
-fallback in progress. ZCU102 not licensed here. Serial floor: synthesis of the largest node,
+| MobileNetV1 | (running) | 2088 s (single island, concurrent with the baseline) | - | not possible yet (runtime URAM weights) |
+
+All island builds 0 routing errors, timing met (WNS +2.7..+4.3 ns). MobileNetV1 (ZCU104): too
+dense for one rectangle per island (BRAM 87 %, URAM 72 % in few columns), built with the
+single-island fallback (no parallel P&R). ZCU102 not licensed here. Serial floor: synthesis of the largest node,
 the largest island's P&R, assembly (read accel + route_design + bitstream, 80-440 s).
 
 
