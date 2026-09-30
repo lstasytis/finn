@@ -133,6 +133,46 @@ def allocate(dev, lanes, needs, step=5):
     return res
 
 
+def allocate_bestfit(dev, lanes, needs, step=5):
+    """Fallback for dense designs: every lane is a stack filled bottom to top, each island
+    goes into the lane where its resources fit with the least waste (so islands needing a
+    scarce column type, e.g. URAM, end up in the lane that has it). Consecutive islands are no
+    longer necessarily adjacent (longer inter-island nets). Returns rects per island or None."""
+    bands = []  # per lane: list of (band rect, capacity)
+    for lx0, lx1, y0, y1 in lanes:
+        rows = list(range(y0, y1 + 1, step))
+        bands.append([((lx0, lx1, r, min(r + step - 1, y1)), capacity(dev.sites_in(lx0, lx1, r, min(r + step - 1, y1)))) for r in rows])
+    ptr = [0] * len(lanes)
+    total = [sum(c["slice"] for _, c in lb) for lb in bands]
+    res, prev = [], None
+    for req in needs:
+        best = None
+        for li, lb in enumerate(bands):
+            got = dict.fromkeys(req, 0)
+            k = ptr[li]
+            while k < len(lb) and not _fits(got, req):
+                for key in got:
+                    got[key] += lb[k][1][key]
+                k += 1
+            if not _fits(got, req):
+                continue
+            # waste: slices taken beyond the need (relative), then distance to the previous island
+            waste = (got["slice"] - req["slice"]) / max(1, total[li])
+            dist = 0 if prev is None else abs(lanes[li][0] - lanes[prev[0]][0])
+            key = (round(waste, 3), dist)
+            if best is None or key < best[0]:
+                best = (key, li, k)
+        if best is None:
+            return None
+        _, li, k = best
+        lb = bands[li]
+        r0, r1 = lb[ptr[li]][0], lb[k - 1][0]
+        res.append([(r0[0], r0[1], r0[2], r1[3])])
+        ptr[li] = k
+        prev = (li,)
+    return res
+
+
 def floorplan(dev, island_res, region, n_lanes=None, utils=None, first_lanes=()):
     """Place the islands (list of summed resource dicts, in chain order) in the region
     (x0, x1, y0, y1), preceded by the lanes first_lanes ((x0, x1, y0, y1) each, e.g. the
@@ -146,7 +186,10 @@ def floorplan(dev, island_res, region, n_lanes=None, utils=None, first_lanes=())
     for u in utils or (0.5, 0.6, 0.7, 0.8, 0.9, 0.95):
         # BRAM/DSP/URAM are counted exactly (whole primitives); margin only at low utilization
         util = {"lut": u, "bram": min(1.0, u + 0.4), "dsp": min(1.0, u + 0.4), "uram": 1.0}
-        rects = allocate(dev, lanes, [need(r, util) for r in island_res])
+        needs = [need(r, util) for r in island_res]
+        rects = allocate(dev, lanes, needs)
+        if rects is None:
+            rects = allocate_bestfit(dev, lanes, needs)
         if rects is not None:
             # one set of ranges per rectangle (an island continuing into the next lane has
             # two rectangles, whose bounding box would overlap other islands)
