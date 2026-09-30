@@ -527,7 +527,9 @@ def direct_adapter_verilog(dcp, node, top, port_dirs):
     )
 
 
-def direct_synth_tcl(node, dcp, comp_dir, synth_dir, part, threads, files, top, metadata=True):
+def direct_synth_tcl(
+    node, dcp, comp_dir, synth_dir, part, threads, files, top, metadata=True, directive=None
+):
     """Vivado script for a directly synthesized component: HDL + adapter, OOC synthesis
     (non-project: no project, IP catalog or block design). metadata: also write DynaRapid's
     metadata file (needs DynaRapid's RapidWright Tcl)."""
@@ -546,8 +548,8 @@ def direct_synth_tcl(node, dcp, comp_dir, synth_dir, part, threads, files, top, 
         "read_verilog %s" % adapter,
         # no BRAM cascades: a cascade must stay within a clock region (DRC CASC-31), which
         # restricts the relocation of the component to clock-region aligned positions
-        "synth_design -top %s -part %s -mode out_of_context -max_bram_cascade_height 1"
-        % (dcp, part),
+        "synth_design -top %s -part %s -mode out_of_context -max_bram_cascade_height 1%s"
+        % (dcp, part, " -directive %s" % directive if directive else ""),
         "write_checkpoint -force %s" % dcp_file,
         "write_edif -force %s" % dcp_file.replace(".dcp", ".edf"),
         "report_utilization -packthru -file %s" % os.path.join(synth_dir, dcp + ".util"),
@@ -562,7 +564,9 @@ def _metadata_tcl(dcp_file, synth_dir):
     return ["source %s" % rw_tcl, "generate_metadata %s %s 0" % (dcp_file, synth_dir)]
 
 
-def synth_tcl(model, node, dcp, comp_dir, synth_dir, part, clk_ns, threads, metadata=True):
+def synth_tcl(
+    model, node, dcp, comp_dir, synth_dir, part, clk_ns, threads, metadata=True, directive=None
+):
     """Vivado script: single-node block design + adapter, OOC synthesis, util + metadata."""
     inst = getCustomOp(node)
     ins, outs = stream_interfaces(node)
@@ -611,8 +615,8 @@ def synth_tcl(model, node, dcp, comp_dir, synth_dir, part, clk_ns, threads, meta
         "generate_target all [get_files %s]" % bd_file,
         # no BRAM cascades: a cascade must stay within a clock region (DRC CASC-31), which
         # restricts the relocation of the component to clock-region aligned positions
-        "synth_design -top %s -part %s -mode out_of_context -max_bram_cascade_height 1"
-        % (dcp, part),
+        "synth_design -top %s -part %s -mode out_of_context -max_bram_cascade_height 1%s"
+        % (dcp, part, " -directive %s" % directive if directive else ""),
         "write_checkpoint -force %s" % dcp_file,
         "write_edif -force %s" % dcp_file.replace(".dcp", ".edf"),
         "report_utilization -packthru -file %s" % os.path.join(synth_dir, dcp + ".util"),

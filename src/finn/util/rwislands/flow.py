@@ -105,6 +105,11 @@ def parse_util(f):
     return res
 
 
+# node synthesis directive: RuntimeOptimized skips cross-boundary/area optimization, e.g. a
+# MobileNet Thresholding_rtl (1024 channels in LUT ROM) synthesizes in 18 s instead of > 40 min
+# at ~2x its LUTs; FINN_RWI_SYNTH_DIRECTIVE="" restores Vivado's default
+SYNTH_DIRECTIVE = os.environ.get("FINN_RWI_SYNTH_DIRECTIVE", "RuntimeOptimized") or None
+
 _CHEAP_OPS = {
     "StreamingFIFO_rtl",
     "StreamingDataWidthConverter_rtl",
@@ -172,9 +177,13 @@ def synthesize(accel, dcps, work, part, clk_ns, cpus, slots):
         os.makedirs(d, exist_ok=True)
         direct = direct_sources(n)
         if direct is not None:
-            body = direct_synth_tcl(n, dcp, d, synth_dir, part, 1, direct[0], direct[1], metadata=False)
+            body = direct_synth_tcl(
+                n, dcp, d, synth_dir, part, 1, direct[0], direct[1], metadata=False, directive=SYNTH_DIRECTIVE
+            )
         else:
-            body = synth_tcl(accel, n, dcp, d, synth_dir, part, clk_ns, 1, metadata=False)
+            body = synth_tcl(
+                accel, n, dcp, d, synth_dir, part, clk_ns, 1, metadata=False, directive=SYNTH_DIRECTIVE
+            )
         run(body.splitlines(), dcp, [item])
 
     def sess_job(items):
@@ -183,7 +192,9 @@ def synthesize(accel, dcps, work, part, clk_ns, cpus, slots):
             d = os.path.join(work, "components", dcp)
             os.makedirs(d, exist_ok=True)
             files, top = direct_sources(n)
-            body = direct_synth_tcl(n, dcp, d, synth_dir, part, 1, files, top, metadata=False)
+            body = direct_synth_tcl(
+                n, dcp, d, synth_dir, part, 1, files, top, metadata=False, directive=SYNTH_DIRECTIVE
+            )
             lines += [l for l in body.splitlines() if not l.startswith("set_param")]
             lines += ["close_design", "remove_files -quiet [get_files -quiet]"]
         run(lines, "session_" + items[0][0], items)
@@ -224,6 +235,9 @@ def island_tcl(name, island_v, dcp_files, part, clk_ns, ranges, cr, threads, out
         'if {[catch {route_design} err]} {puts "INFO: route_design error: $err"}',
         "stamp route",
         "report_route_status -file %s/route_status.rpt" % out_dir,
+        # the clock routing of the out-of-context run starts at a stand-in BUFGCE; the real
+        # clock tree comes from the shell, so leave the clock net to the assembly
+        "route_design -unroute -nets [get_nets -of_objects [get_ports clk]]",
         "report_utilization -file %s/utilization.rpt" % out_dir,
         "write_checkpoint -force %s/%s_routed.dcp" % (out_dir, name),
         "write_edif -force %s/%s_routed.edf" % (out_dir, name),
