@@ -418,7 +418,6 @@ class ZynqBuild(Transformation):
         """The whole accelerator (IODMAs and compute layers) is placed and routed by
         DynaRapid and inserted into a pre-implemented shell (finn.util.dynarapid.zynq):
         no stitched IP, no accelerator block design, no Vivado P&R of the accelerator."""
-        from concurrent.futures import ThreadPoolExecutor
 
         from finn.util.fpgadataflow import is_hls_node
         from finn.util.dynarapid.components import (
