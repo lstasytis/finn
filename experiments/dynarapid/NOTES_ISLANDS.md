@@ -379,3 +379,22 @@ Implementation (`finn.util.rwislands.alveo`, `alveo_build.py`):
 TFC (`rwu/tfc-w1a1/islands`): compute kernel built in 297 s (synthesis 81, 3 islands P&R
 151-176, stitch 40), 0 routing errors, 0 unrouted pins; v++ link running.
 Baselines (FINN's Vitis flow, same settings) running concurrently for TFC and CNV.
+
+### 2026-09-30 ~12:45: first U55C island xclbin (TFC), functional-validation phase
+
+* First link attempt: Vivado segfault right after the hook's read_checkpoint (stale Tcl cell
+  object used by lock_design) -> the hook re-queries the cell by name. Second attempt:
+  **TFC U55C island xclbin written, 0 routing errors, WNS +0.003 ns / WHS +0.009 ns** (platform
+  clocks); the hook read the stitched core into level0_i/ulp/StreamingDataflowPartition_1/inst/core
+  in 205.6 s (read_checkpoint -cell into the unplaced platform netlist), lock + pblock 2 s.
+* All U55C runs so far overlapped (TFC/CNV islands and both baselines) -> times indicative only:
+  baselines TFC 4834 s, CNV 5387 s (xclbins written); TFC islands 5641 s.
+* v++ link stages, baseline TFC vs island TFC: platform IP synthesis ~12 / ~12.5 min, link+opt
+  ~8 / ~15 min (incl. the 3.5 min hook), placement ~22 / ~28 min, routing ~7 / ~8.6 min,
+  bitstream ~11 / ~12 min. For a TFC-size kernel the per-model link is almost all platform work;
+  the island flow can only shorten the kernel's part. The hook had reserved the whole island
+  region (most of SLR1) with EXCLUDE_PLACEMENT - now only the islands' rectangles.
+* Resource use (user question): my Vivado runs go through the machine-wide slot limit (81 here:
+  min(CPUs, memory)); v++ and FINN's baseline Vivado are outside it. L3 (8 x 32 MB for 128
+  threads) and 4 KB pages (THP madvise) make per-process speed drop under heavy concurrency.
+  Plan: functional validation in parallel, then every timed run alone.
