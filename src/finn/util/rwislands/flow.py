@@ -182,6 +182,8 @@ def synthesize(accel, dcps, work, part, clk_ns, cpus, slots):
     def single_job(item):
         dcp, n = item
         d = os.path.join(work, "components", dcp)
+        # leftovers of an interrupted run (block-design sources are copied in with add_files)
+        shutil.rmtree(d, ignore_errors=True)
         os.makedirs(d, exist_ok=True)
         direct = direct_sources(n)
         if direct is not None:
