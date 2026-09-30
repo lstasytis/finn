@@ -175,14 +175,19 @@ the sites when a pblock was grown by many small calls - the main cold-build slow
 Serial parts of the DynaRapid flow (cap the scaling): IODMA HLS ~45 s, stitching 6-32 s,
 assembly 120-170 s (Vivado: open shell, route boundary/clock nets, bitstream).
 
-Core-scaling experiment, first machine (Phase 4, 32 cores / 125 GB, 13 slots): Vivado flat
-(CNV 962-1013 s); DynaRapid cold CNV 3135 / 1731 / 1083 / 1178 s at 4 / 8 / 16 / 32 cores.
+Core-scaling experiment (Phase 4, ZCU104, 2024.2, done; NOTES.md "2026-09-29: Phase 4"): Vivado
+flow flat (CNV 962-1013 s, TFC 703-764 s at 4-32 cores). DynaRapid cold CNV 3135/1731/1083/1178 s,
+TFC 1314/920/649/651 s at 4/8/16/32 cores; memory-bound (13 Vivado slots) from 16 cores for
+CNV, critical-path-bound for TFC. DynaRapid beats Vivado only for TFC at >= 16 cores (-9 %).
+Extrapolated CNV ~505 s at 64 cores given ~6-7 GB RAM per core. To repeat on a bigger machine
+see "Scaling experiment on another machine" above.
 
 Core-scaling experiment, second machine (Phase 4b, details in
-`experiments/dynarapid/NOTES_SCALING.md`): EPYC 9554P, 64 cores / 128 threads, 755 GB. The library's batching was tuned for 13 slots (~12 cores
-busy on the big machine); now sized per machine (`batch_plan` in flow.py: batch size from a
-makespan model with CPU load, pools from memory/slots, adaptive batch time limit; >= 2-BRAM
-components and large ones individually, hedged attempts from slots). Results (s, cold):
+`experiments/dynarapid/NOTES_SCALING.md`): EPYC 9554P, 64 cores / 128 threads, 755 GB. The
+library's batching was tuned for 13 slots (~12 cores busy on the big machine); now sized per
+machine (`batch_plan` in flow.py: batch size from a makespan model with CPU load, pools from
+memory/slots, adaptive batch time limit; >= 2-BRAM components and large ones individually,
+hedged attempts from slots). Results (s, cold):
 
 | N | CNV Vivado | CNV DynaRapid | TFC Vivado | TFC DynaRapid |
 |---|---|---|---|---|
@@ -198,8 +203,9 @@ routing errors; TFC verified. On this machine `FINN_BUILD_DIR=/home/lstasytis/fi
 finn_build` (/tmp too small), repo at /home/lstasytis/finn, no screen/tmux (setsid nohup).
 
 Open / next (task file: `experiments/dynarapid/TASK_scaling_and_examples.md`):
-1. Batch robustness (NOTES_SCALING.md "Open"): speculative lower-utilization retry of long
-   batches, immediate individual fallback, 2 parallel attempts at <= 16 slots.
+1. Scaling experiment done on both machines. Next: batch robustness (NOTES_SCALING.md "Open"):
+   speculative lower-utilization retry of long batches, immediate individual fallback,
+   2 parallel attempts at <= 16 slots.
 2. **User decision 2026-09-29: VGG10 and the finn-examples models move to the Alveo U55C**
    (VGG10 does not fit DynaRapid's pblocks on the ZCU104: 64 % DSPs). Plan in the task file
    ("Update 2026-09-29"): Vitis shell (v++ link with DMA kernels + placeholder compute kernel,
