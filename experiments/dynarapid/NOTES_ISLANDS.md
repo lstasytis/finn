@@ -285,3 +285,17 @@ threads - the classic fork-in-threads deadlock. Now sequential, like the regular
 (the Vivado baseline). Earlier timed island runs had concurrent partition preparation (up to
 ~45 s shorter prep than sequential); their comparison is therefore slightly favourable to the
 island flow by at most that. MobileNet timing (islands, then Vivado) relaunched 06:20.
+
+### 2026-09-30 ~06:45: MobileNet single-island fallback (first attempt) - assembly failed
+
+`timing/mnv1_islands` (timed, alone on the machine): floorplan fallback (one island, whole
+region = above-PS lane + main region, no CONTAIN_ROUTING): synthesis 154 s, the single island's
+P&R 1204 s (link 56, opt 103, place 439, route 547) with 0 routing errors, stitch 39 s, then the
+assembly failed: route_design "10161 unplaced non Vcc/Gnd instances" - shell cells (AXI
+interconnect/downsizers, reset block) lost their placement when the accelerator was inserted;
+the MobileNet shell alone is fine (0 unplaced of 20936). Presumably the uncontained island
+routing used shell tiles (e.g. slice route-throughs), which Vivado resolves by unplacing the
+shell cells. Fallback changed to one island in the main region only (one rectangle, contained
+routing; 88 % LUT / 88 % BRAM / 72 % URAM of that region): run `bit/mnv1_isl_c`, started 06:46
+**concurrently with the MobileNet Vivado baseline** (timing/mnv1_vivado, started 06:44) - both
+times therefore only indicative.
