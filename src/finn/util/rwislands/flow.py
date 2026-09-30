@@ -398,7 +398,7 @@ def rw_islands_zynq_build(
     bitfile = os.path.join(out_dir, "resizer.bit")
     tcl = os.path.join(asm_dir, "assemble.tcl")
     with open(tcl, "w") as f:
-        f.write(assemble_tcl(shell_dir, accel_dcp, asm_dir, bitfile, threads=min(16, cpus)))
+        f.write(assemble_tcl(shell_dir, accel_dcp, asm_dir, bitfile, threads=min(16, cpus), reports="min"))
     log = os.path.join(asm_dir, "assemble.log")
     rc, res["assembly_s"] = run_vivado(tcl, log, asm_dir)
     stamp("assembly")

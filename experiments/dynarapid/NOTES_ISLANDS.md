@@ -121,3 +121,21 @@ Assembly variants on cnv1 (concurrent load): no utilization reports saves ~5 s;
 Frontends at 10 ns done: MobileNetV1 (`rwi/mnv1`, 132 s, 281 nodes: 141 FIFO, 55 DWC, 27
 Thresholding, 15 SWG, 15 MVAU_rtl, 13 FMPadding, 13 VVAU_hls, Pool, ElementwiseAdd_hls (no
 encrypted IP); estimate 44k LUT, 530 BRAM18, 39 URAM, 684 DSP), VGG10 (`rwi/vgg10`, 483 s).
+
+### 2026-09-30 ~02:15: U55C baseline done; Vivado-native assembly rejected; MobileNet needs AXI-Lite
+
+* U55C (CNV-w1a1 PE=SIMD=1, FINN default Vitis flow, 10 ns): **xclbin written**
+  (`$FINN_BUILD_DIR/u55c_test/cnv1/bitfile/bitfile/finn-accel.xclbin`), step_synthesize_bitfile
+  5117 s (under heavy concurrent load from island builds: indicative only). U55C bitstream
+  generation works on this machine (platform from the 2025.1 install).
+* Vivado-native stitching instead of RapidWright (cnv1: open shell, read_checkpoint -cell the
+  top netlist, then each of the 7 routed islands, route_design): the 7 island reads took 141 s
+  (vs 9 s stitch + 21 s accel read with RapidWright) and route_design aborted ("6 unrouted pins
+  that are still reachable", Route 35-8: OOC partition-pin routing of the islands). RapidWright
+  stitching stays.
+* MobileNetV1: the finn-examples ZCU104 config has runtime_writeable_weights=1 on MVAU_rtl_12/13/14
+  - required by FINN: "Layer with URAM weights must have runtime_writeable_weights=1 if
+  Ultrascale device is targeted" (URAM cannot be initialized by the bitstream; the driver loads
+  the weights over AXI-Lite). A fixed-weights variant is therefore not possible (BRAM would not
+  fit: 265 BRAM36 + 39 URAM). -> the island flow must pass compute-node AXI-Lite interfaces
+  through the shell (like the IODMA control interfaces). In progress.

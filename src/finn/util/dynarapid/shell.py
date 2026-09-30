@@ -408,7 +408,7 @@ def build_shell(board, part, clk_ns, ports, shell_lib, jobs=8):
     return shell_dir, res
 
 
-def assemble_tcl(shell_dir, accel_dcp, out_dir, bitfile, threads=16, keep_dcp=False):
+def assemble_tcl(shell_dir, accel_dcp, out_dir, bitfile, threads=16, keep_dcp=False, reports="full"):
     """Fill the shell's accelerator cell with the DynaRapid-routed accelerator, route the
     remaining (boundary and clock) nets and write the bitstream."""
     rp = open(os.path.join(shell_dir, "rp_cell.txt")).read().strip()
@@ -428,13 +428,18 @@ def assemble_tcl(shell_dir, accel_dcp, out_dir, bitfile, threads=16, keep_dcp=Fa
         "stamp route",
         "report_route_status -file %s/route_status.rpt" % out_dir,
         "report_timing_summary -file %s/timing_summary.rpt" % out_dir,
-        "report_utilization -file %s/utilization.rpt" % out_dir,
         # the same hierarchical report as the regular Zynq flow (post-synthesis resources)
         "report_utilization -hierarchical -hierarchical_depth 4 -format xml -file %s/synth_report.xml"
         % out_dir,
-        # per-cell resources in the format of FINN's synthesis report (post_synth_res)
-        "report_utilization -hierarchical -hierarchical_depth 6 -format xml -file %s/utilization.xml"
-        % out_dir,
+    ]
+    if reports == "full":
+        t += [
+            "report_utilization -file %s/utilization.rpt" % out_dir,
+            # per-cell resources in the format of FINN's synthesis report (post_synth_res)
+            "report_utilization -hierarchical -hierarchical_depth 6 -format xml -file %s/utilization.xml"
+            % out_dir,
+        ]
+    t += [
         "stamp reports",
         "write_bitstream -force -no_partial_bitfile %s" % bitfile,
         "stamp bitstream",
