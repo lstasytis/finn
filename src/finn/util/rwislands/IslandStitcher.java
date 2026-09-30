@@ -10,6 +10,9 @@ import com.xilinx.rapidwright.design.DesignTools;
 import com.xilinx.rapidwright.design.Net;
 import com.xilinx.rapidwright.design.SitePinInst;
 import com.xilinx.rapidwright.edif.EDIFCellInst;
+import com.xilinx.rapidwright.edif.EDIFHierNet;
+import com.xilinx.rapidwright.edif.EDIFNet;
+import com.xilinx.rapidwright.edif.EDIFNetlist;
 import com.xilinx.rapidwright.rwroute.PartialRouter;
 
 import java.util.ArrayList;
@@ -78,12 +81,21 @@ public class IslandStitcher {
         stamp("populate");
 
         DesignTools.makePhysNetNamesConsistent(top);
-        DesignTools.createMissingSitePinInsts(top);
-        // pins between islands: nets with a driver inside the accelerator and unrouted sinks
+        stamp("names");
+        // the islands' own nets are complete; only the nets of the top cell (between islands,
+        // to the top-level ports) need site pins and routing
+        EDIFNetlist nl = top.getNetlist();
         List<SitePinInst> pins = new ArrayList<>();
         int nets = 0;
-        for (Net net : top.getNets()) {
-            if (net.isClockNet() || net.isStaticNet() || net.getSource() == null) continue;
+        java.util.Set<Net> seen = new java.util.HashSet<>();
+        for (EDIFNet en : nl.getTopCell().getNets()) {
+            EDIFHierNet parent = nl.getParentNet(new EDIFHierNet(nl.getTopHierCellInst(), en));
+            if (parent == null) continue;
+            Net net = top.getNet(parent.getHierarchicalNetName());
+            if (net == null || !seen.add(net)) continue;
+            if (net.isClockNet() || net.isStaticNet()) continue;
+            DesignTools.createMissingSitePinInsts(top, net);
+            if (net.getSource() == null) continue;
             boolean any = false;
             for (SitePinInst p : net.getSinkPins()) {
                 if (!p.isRouted()) {
@@ -93,6 +105,7 @@ public class IslandStitcher {
             }
             if (any) nets++;
         }
+        stamp("site_pins");
         System.out.println("INFO: routing " + pins.size() + " pins of " + nets + " nets between islands");
         stamp("prepare_route");
 
