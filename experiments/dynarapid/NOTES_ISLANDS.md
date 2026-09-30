@@ -107,3 +107,17 @@ ZynqBuild's IODMA HLS/partitioning 331 s): synth 67, island P&R 94-98, stitch 6,
 widths as CNV-pe1). 0 routing errors, WNS +3.92 ns.
 **verify_accel 16 frames: outputs match FINN's stitched-IP RTL** (post-route netlist of the
 RapidWright-stitched accelerator + shell bridges).
+
+### 2026-09-30 ~02:00: CNV (reduced folding, 10 ns), assembly variants
+
+`rwi/bit/cnv_isl_a`: 6 islands, island flow 365 s (end to end 417 s; other builds running
+concurrently, so indicative): synth 78, island P&R 97-112, stitch 24 (RWRoute left 7 pins,
+Vivado finished them), assembly 151. 0 routing errors, WNS +2.595 ns.
+
+Assembly variants on cnv1 (concurrent load): no utilization reports saves ~5 s;
+`route_design -directive Quick` saves ~15 s but leaves hold violations (WHS -0.070 ns, THS
+-0.737) -> rejected (hold failures are functional failures at any clock).
+
+Frontends at 10 ns done: MobileNetV1 (`rwi/mnv1`, 132 s, 281 nodes: 141 FIFO, 55 DWC, 27
+Thresholding, 15 SWG, 15 MVAU_rtl, 13 FMPadding, 13 VVAU_hls, Pool, ElementwiseAdd_hls (no
+encrypted IP); estimate 44k LUT, 530 BRAM18, 39 URAM, 684 DSP), VGG10 (`rwi/vgg10`, 483 s).
