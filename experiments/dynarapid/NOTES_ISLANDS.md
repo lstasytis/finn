@@ -197,3 +197,24 @@ encrypted IP); estimate 44k LUT, 530 BRAM18, 39 URAM, 684 DSP), VGG10 (`rwi/vgg1
   dropped in stream_interfaces, BD adapters make only real streams external; (3) AXI-Lite BD
   port names for the W/R/B channels; (4) BD add_files -copy_to refuses leftovers of an
   interrupted run -> component dir cleared before each synthesis.
+
+### 2026-09-30 ~03:45: MobileNet on ZCU104 does not fit rectangular islands; smaller shell; ZCU102
+
+* MobileNet ZCU104 (finn-examples config, URAM MVAUs with AXI-Lite weights): synthesized per node
+  152.7k LUT, 123k FF, 254 BRAM36, 69 URAM, 696 DSP (RuntimeOptimized and default synthesis give
+  the same LUTs per node type: MVAU_rtl 60k, Thresholding 32k, DWC 31k (55 DWCs), FIFO 12k).
+  The accelerator region (x >= 30) has 21.6k slices, 288 BRAM36, 96 URAM (one URAM column).
+* Shell region reduced from all columns left of the strip (7200 slices for a 7.3k-LUT shell)
+  to INT columns 20-29 on the xczu7ev (3000 slices); the fabric above the PS (x 0-19, rows
+  240-359: 4200 slices, 24 BRAM36) is now the first island lane (new shell key via
+  `shell_x0`). TFC (`tfc_isl_d`): islands in the above-PS lane, 0 routing errors, WNS +4.26;
+  new shell 363 s (one-time).
+* Still no fit for MobileNet ZCU104 at any K / lane layout (slabs or 10-column lanes): BRAM 87 %
+  and URAM 72 % of the device, both in few columns; each island's rectangle is sized by its
+  scarcest memory type, which wastes logic (trace: island needing 31 URAM takes a third of the
+  URAM column's height). Decoupling memory from logic (BRAM/URAM runs anywhere) would need
+  pblocks without CONTAIN_ROUTING, i.e. inter-island routing collisions at stitch time - not
+  pursued now. Same class of problem as DynaRapid's VGG10 on ZCU104 (DSPs).
+* MobileNet therefore on the ZCU102 (xczu9eg: 34.3k slices, 912 BRAM36, 2520 DSP, no URAM;
+  finn-examples ZCU102 config: no URAM, no runtime-writeable weights). PS on the xczu9eg:
+  columns 0-23, rows 0-179 -> PS_BOUNDARY_INT_X 24, SHELL_X0 17. Frontend 133 s.
