@@ -275,3 +275,13 @@ check is weak (a constant-output fault would pass); real RadioML samples would m
 conclusive. The reference RTL sim first failed ("'swg' is not declared"): verify_accel sorted
 the sources, putting swg_pkg.sv after its users - packages now first (also the reason CNV
 could not be verified in the DynaRapid branch).
+
+### 2026-09-30 ~06:20: MobileNet timed run hung (fork in threads); fixed
+
+The MobileNet island run hung for 30 min in ZynqBuild's partition preparation (all processes in
+futex waits, no output since start): the shell flows prepared the partitions in threads, and
+PrepareIP/HLSSynthIP (qonnx NodeLocalTransformation) fork multiprocessing pools from those
+threads - the classic fork-in-threads deadlock. Now sequential, like the regular ZynqBuild path
+(the Vivado baseline). Earlier timed island runs had concurrent partition preparation (up to
+~45 s shorter prep than sequential); their comparison is therefore slightly favourable to the
+island flow by at most that. MobileNet timing (islands, then Vivado) relaunched 06:20.
