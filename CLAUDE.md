@@ -178,8 +178,8 @@ assembly 120-170 s (Vivado: open shell, route boundary/clock nets, bitstream).
 Core-scaling experiment, first machine (Phase 4, 32 cores / 125 GB, 13 slots): Vivado flat
 (CNV 962-1013 s); DynaRapid cold CNV 3135 / 1731 / 1083 / 1178 s at 4 / 8 / 16 / 32 cores.
 
-Core-scaling experiment, second machine (Phase 4b, NOTES.md "2026-09-29: Phase 4b"): EPYC
-9554P, 64 cores / 128 threads, 755 GB. The library's batching was tuned for 13 slots (~12 cores
+Core-scaling experiment, second machine (Phase 4b, details in
+`experiments/dynarapid/NOTES_SCALING.md`): EPYC 9554P, 64 cores / 128 threads, 755 GB. The library's batching was tuned for 13 slots (~12 cores
 busy on the big machine); now sized per machine (`batch_plan` in flow.py: batch size from a
 makespan model with CPU load, pools from memory/slots, adaptive batch time limit; >= 2-BRAM
 components and large ones individually, hedged attempts from slots). Results (s, cold):
@@ -198,7 +198,7 @@ routing errors; TFC verified. On this machine `FINN_BUILD_DIR=/home/lstasytis/fi
 finn_build` (/tmp too small), repo at /home/lstasytis/finn, no screen/tmux (setsid nohup).
 
 Open / next (task file: `experiments/dynarapid/TASK_scaling_and_examples.md`):
-1. Batch robustness (NOTES.md Phase 4b "Open"): speculative lower-utilization retry of long
+1. Batch robustness (NOTES_SCALING.md "Open"): speculative lower-utilization retry of long
    batches, immediate individual fallback, 2 parallel attempts at <= 16 slots.
 2. **User decision 2026-09-29: VGG10 and the finn-examples models move to the Alveo U55C**
    (VGG10 does not fit DynaRapid's pblocks on the ZCU104: 64 % DSPs). Plan in the task file
@@ -210,7 +210,8 @@ Open / next (task file: `experiments/dynarapid/TASK_scaling_and_examples.md`):
 ## Conventions
 
 * Commit with the attribution trailer from the system prompt; regenerate the patches with any
-  Java change; append results to NOTES.md (dated section), not to this file — update the
+  Java change; append results to NOTES.md (dated section; core-scaling results to
+  NOTES_SCALING.md), not to this file — update the
   Status section here when the state changes.
 * Experiment outputs stay in `$FINN_BUILD_DIR`; small logs/JSON are archived (gitignored) in
   `experiments/dynarapid/results/`.
