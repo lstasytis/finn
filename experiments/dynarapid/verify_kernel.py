@@ -75,7 +75,8 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--frames", type=int, default=4)
     ap.add_argument("--max-cycles", type=int, default=5000000)
-    ap.add_argument("--vary-amplitude", action="store_true")
+    ap.add_argument("--vary-amplitude", action="store_true", help="scale signed bytes per frame")
+    ap.add_argument("--vary-unsigned", action="store_true", help="scale unsigned bytes per frame")
     args = ap.parse_args()
     out = os.path.abspath(args.out)
     os.makedirs(out, exist_ok=True)
@@ -98,6 +99,11 @@ def main():
         for fr in range(args.frames):
             sig[fr * per : (fr + 1) * per] = np.round(sig[fr * per : (fr + 1) * per] * (fr + 1) / args.frames)
         data = sig % 256
+    if args.vary_unsigned:
+        # e.g. image pixels (UINT8): frame f uses bytes scaled by (f + 1) / frames, no wraparound
+        per = n_in // args.frames
+        for fr in range(args.frames):
+            data[fr * per : (fr + 1) * per] = (data[fr * per : (fr + 1) * per] * (fr + 1)) // args.frames
     mask = (1 << win) - 1
     words = []
     for row in data:
