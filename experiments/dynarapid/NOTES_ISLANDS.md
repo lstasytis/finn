@@ -601,3 +601,10 @@ User: test VGG10, then MobileNet (U55C), cache the platform region.
   opt_pre.tcl/hook (see var_* under vitis_link_proj_vogutg95).
 * Now: MobileNet half-PE per-model islands link + baseline running; VGG10 per-model islands
   run started; VGG10 kernel verification (verify_kernel, 4 varied frames) running.
+* **MobileNet half-PE on the U55C with the island kernel (per-model link): works.** Kernel 351 s
+  (12 islands, LUT 0.55, v2 geometry, synthesis reused), link 2h03 (vpl synth 761 s, opt 455,
+  place 2549, route 1214, bitstream 1335, hook 375), xclbin, 0 routing errors, WNS +0.003 /
+  WHS +0.009. Total 8429 s, concurrent with the baseline and replays (not a timing result).
+* VGG10 U55C kernel verified: verify_kernel 4 frames (varied amplitude), outputs and cycle
+  counts (6115) identical to FINN's stitched IP. MobileNet kernel verification started (1 frame,
+  gate-level xsim, expected to take hours).

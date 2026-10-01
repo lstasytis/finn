@@ -1,9 +1,11 @@
 #!/bin/bash
 # Timed comparison on the Alveo U55C (100 MHz): FINN's Vitis flow vs the island flow (compute
 # kernel built with islands, linked per model with v++). One build at a time; nothing else
-# should run on the machine. Frontends (run_bnn.py --mode frontend) must exist in $D/<model>.
+# should run on the machine. Frontends must exist in $D/<model> (run_bnn.py / run_vgg10.py /
+# run_mobilenet.py --mode frontend). Models: tfc-w1a1, cnv-w1a1, vgg10, mnv1h (MobileNetV1
+# with half the U250 PE, island region v2 geometry).
 #
-#   MODELS="tfc-w1a1 cnv-w1a1" MODES="bitfile islands" experiments/dynarapid/run_u55c_timing.sh
+#   MODELS="tfc-w1a1 cnv-w1a1 vgg10 mnv1h" MODES="bitfile islands" experiments/dynarapid/run_u55c_timing.sh
 #
 # Results: $D/timing/runs.txt (one JSON line per run), per run $D/timing/<model>_<mode>.log.
 set -u
@@ -20,18 +22,30 @@ mkdir -p $D/timing
 
 for m in $MODELS; do
   for mode in $MODES; do
-    rm -rf $D/$m/$mode $D/$m/$mode.json
+    # output dir name of the mode (run_vgg10.py calls FINN's flow "vivado")
+    odir=$mode
+    case $m in
+      vgg10)
+        [ $mode = bitfile ] && odir=vivado
+        cmd="python $HERE/run_vgg10.py --model $FINN_ROOT/tests/benchmark/models/radioml_w4a4_small_tidy.onnx --board U55C --clk 10 --out $D/$m --mode $odir" ;;
+      mnv1h)
+        cmd="python $HERE/run_mobilenet.py --board U55C --clk 10 --folding $HERE/folding_mobilenet_U250_halfpe.json --out $D/$m --mode $mode --workers $WORKERS" ;;
+      *)
+        cmd="python $HERE/run_bnn.py --model $m --board U55C --clk 10 --out $D/$m --mode $mode --workers $WORKERS" ;;
+    esac
+    region=v1
+    [ $m = mnv1h ] && region=v2
+    rm -rf $D/$m/$odir $D/$m/$odir.json
     log=$D/timing/${m}_${mode}.log
     echo "$(date +%T) start $m $mode"
     t0=$(date +%s)
-    /usr/bin/time -v python $HERE/run_bnn.py --model $m --board U55C --clk 10 --out $D/$m \
-      --mode $mode --workers $WORKERS > $log 2>&1
+    FINN_RWI_REGION=$region /usr/bin/time -v $cmd > $log 2>&1
     rc=$?
     t1=$(date +%s)
-    python - $D $m $mode $rc $((t1 - t0)) >> $D/timing/runs.txt <<'EOF'
+    python - $D $m $mode $rc $((t1 - t0)) $odir >> $D/timing/runs.txt <<'EOF'
 import glob, json, os, re, sys
-D, m, mode, rc, wall = sys.argv[1:]
-out = os.path.join(D, m, mode)
+D, m, mode, rc, wall, odir = sys.argv[1:]
+out = os.path.join(D, m, odir)
 res = {"model": m, "mode": mode, "rc": int(rc), "wall_s": int(wall)}
 res["xclbin"] = os.path.isfile(os.path.join(out, "bitfile", "finn-accel.xclbin"))
 # the v++ link project of this run (the newest one whose config matches the mode)
