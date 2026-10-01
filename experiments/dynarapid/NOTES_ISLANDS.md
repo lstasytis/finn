@@ -451,3 +451,30 @@ kernels functionally verified at the stream level). It is 2-12 % slower than FIN
 for these small models, because the ~75 min platform work per link stays and the hook adds
 ~3.5 min (read_checkpoint -cell). Open: hook without EXCLUDE_PLACEMENT pblock (placement effect),
 U250-class models (where the kernel's own synthesis/P&R dominates), nested-DFX platform caching.
+
+## 2026-10-01: VGG10 and MobileNet on the U55C; cached platform region (nested DFX)
+
+User: test VGG10, then MobileNet (U55C), cache the platform region.
+
+* Correction: MobileNet ZCU104 runs of 09-30 used FINN's default layer specialization; the
+  finn-examples ZCU104 specialize config existed (`tests/benchmark/mobilenet_v1/
+  specialize_layers_config/`), I had missed it. Both flows used the same model, so the
+  comparison holds. `run_mobilenet.py` now uses the per-board finn-examples configs (U55C:
+  U250 configs; standalone thresholds only on ZCU102/104, as in the finn-examples test).
+* Nested-DFX feasibility (replaying CNV's v++ impl script up to link_design, then
+  write_checkpoint -cell level0_i/ulp, update_design -black_box, pr_subdivide -subcells core):
+  **pr_subdivide works** - the core (black box of the island kernel .xo) becomes a
+  reconfigurable partition inside the ULP (240 s; ULP netlist save 23 s).
+* Cached platform region implemented (`rwislands.alveo`, builder `rw_islands_cache_shell`,
+  drivers `--cache-shell`): shell key = platform, clock, IODMA parameters, compute kernel
+  stream widths. Miss: the v++ hook saves the ULP, black-boxes it, pr_subdivide, pblock
+  (SNAPPING_MODE ON) over the island region for the core partition, reads + locks the core;
+  after the link the routed design with the core emptied (update_design -black_box, legal for
+  an RP), routing locked and static nets unfixed, plus the xclbin = shell. Hit: no IODMA
+  packaging, no v++: open shell, read_checkpoint -cell core, route_design, write_bitstream
+  -cell level0_i/ulp, xclbinutil --replace-section BITSTREAM:RAW on the shell's xclbin.
+* U55C island region now SLR1 + SLR2 (one rectangle each, lanes per SLR; an island never
+  crosses the SLR gap). MobileNet (U250 folding) estimate: 362k LUT, 574 BRAM36, 100 DSP.
+* Runs started (validation, concurrent): VGG10 islands + shell build, VGG10 Vitis baseline,
+  TFC islands + shell build (then a second TFC run tests the cached path), MobileNet islands +
+  shell build, MobileNet Vitis baseline.
