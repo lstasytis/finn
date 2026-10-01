@@ -57,7 +57,13 @@ dense for one rectangle per island (BRAM 87 %, URAM 72 % in few columns), built 
 single-island fallback (no parallel P&R). ZCU102 not licensed here. U55C (per-model v++ link, island-built compute kernel read in before opt_design and
 placement-locked, `rw_islands_pnr`): TFC/CNV xclbins OK and kernels verified (`verify_kernel.py`),
 but 5426/5562 s vs 4860/5458 s for FINN's Vitis flow - the ~75 min per-model platform link
-dominates small models; only large kernels (U250-class) can gain. Serial floor: synthesis of the largest node,
+dominates small models; only large kernels (U250-class) can gain. Cached platform region (nested DFX:
+pr_subdivide of v++'s ULP, `rw_islands_cache_shell`) was tried 2026-10-01 and stopped: the
+U55C platform hits one HPR rule after the other (HMSS SLR-crossing pblock column outside the
+container, LAGUNA ownership, ULP clock partitioning in phys_opt, black-box insertions at the BLP
+boundary; NOTES_ISLANDS.md 2026-10-01). U55C island region = v1 (SLR1+SLR2), region version
+switch FINN_RWI_REGION; MobileNet on U55C uses half the U250 PE (folding_mobilenet_U250_halfpe.json).
+Serial floor: synthesis of the largest node,
 the largest island's P&R, assembly (read accel + route_design + bitstream, 80-440 s).
 
 
