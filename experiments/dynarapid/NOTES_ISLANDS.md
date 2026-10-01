@@ -529,3 +529,22 @@ User: test VGG10, then MobileNet (U55C), cache the platform region.
   first with margin, then exact (BRAM-bound islands no longer force a denser LUT level on all);
   for MobileNet still 0.6 (the snake wastes area); 2D packing at 0.5 takes 220 s and scatters
   islands (one 3-column strip) - not used.
+* v2 (core partition with SLR0 rows 120-299) failed twice in the shell-building link:
+  VGG10 at placement with `Place 30-864 SLLs required = 210, available = 0` for
+  pblock_core_rp (the pblock had no LAGUNA sites; fixed: the partition pblock now contains the
+  LAGUNA sites inside its rectangles, `device.load_laguna`, shell key version 2), and TFC at
+  phys_opt with `Place 30-834 clock partitioning failed ... clock region X6Y2` between the
+  BLP's and the ULP's debug-bridge `tck` (locked BUFGCE sources on the same track): with
+  SLR0's rows 2-3 given to the core, the ULP's SLR0 logic is squeezed into few clock regions.
+  -> v2 is not usable; **default region v1** (SLR1+SLR2 minus the HMSS crossing area).
+* Floorplanner: the snake now also tries lane widths 14/20/7 columns and LUT levels in 0.05
+  steps (MobileNet half-PE on v2: 0.55 instead of 0.65).
+* MobileNet half-PE does not fit v1 with the snake (needs 228k LUT = 42 %, 612 BRAM36 = 66 % of
+  v1): its 20 deep FIFOs are URAM (`ram_style: ultra` in the U250 config) and 9 of 12 islands
+  need 1-3 URAMs, but only 4 of 18 lanes have URAM columns. With those FIFOs in BRAM it fits only
+  at LUT 0.75 (the 0.6-0.7 islands already needed 20-36 min of routing and kept overlaps). The
+  BRAM is mostly weights (near the minimum, independent of PE). Per the user ("decrease the
+  folding so it roughly fits"): `folding_mobilenet_U55C_quarterpe.json` = PE of MVAU_hls / VVAU
+  (with their FMPadding/SWG SIMD) a quarter of U250's, deep FIFOs `ram_style: block`; estimated
+  fit on v1 at LUT 0.40-0.45. Baseline and islands restarted on that model (`rwu/mnv1q`); the
+  half-PE baseline (1.5 h into the link) was stopped.
