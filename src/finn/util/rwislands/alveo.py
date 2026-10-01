@@ -91,9 +91,16 @@ def core_rp_sites(part, dev):
             if st.name not in seen:
                 seen.add(st.name)
                 out.append(st)
+    # only the crossings of SLR boundaries the partition spans: a boundary's LAGUNA column
+    # (tiles on both sides) is included if all its tiles are inside the partition (taking the
+    # SLR0/SLR1 crossings next to a partition that only starts in SLR1 left the ULP's SLR0
+    # logic short of crossings: Place 30-834 clock partitioning failure in phys_opt_design)
+    groups = defaultdict(list)
     for st in load_laguna(part):
-        if any(x0 <= st.x <= x1 and y0 <= st.y <= y1 for x0, x1, y0, y1 in rects):
-            out.append(st)
+        groups[(st.sx, st.sy // 240)].append(st)
+    for sts in groups.values():
+        if all(any(x0 <= st.x <= x1 and y0 <= st.y <= y1 for x0, x1, y0, y1 in rects) for st in sts):
+            out += sts
     return out
 
 
@@ -280,6 +287,7 @@ def rw_islands_kernel(
                     core_dcp,
                     pblock_ranges(core_rp_sites(part, dev)),
                     os.path.join(out_dir, "ulp_bb.dcp"),
+                    ULP_PROHIBIT.get(part, ()),
                 )
             )
         else:
@@ -298,7 +306,17 @@ def rw_islands_kernel(
 ULP_CELL = "level0_i/ulp"
 
 
-def subdivide_hook_tcl(core_dcp, region_ranges, ulp_dcp):
+# sites that v++'s ULP sub-pblocks (pblock_dynamic_SLR<n>, HBM subsystem SLR crossing) allow
+# but that lie outside the dynamic region's container: harmless in v++'s flow, but with the core
+# as a nested partition a ULP cell there makes its GND/VCC routing static routing (route_design:
+# HPR Routing Violation 18-5229 "unlocked site pin ... used by power or ground net outside
+# container area"); unused ones are prohibited in the shell-building link
+ULP_PROHIBIT = {
+    "xcu55c-fsvh2892-2L-e": [("SLICE_X117Y60", "SLICE_X117Y119"), ("SLICE_X117Y240", "SLICE_X117Y299")],
+}
+
+
+def subdivide_hook_tcl(core_dcp, region_ranges, ulp_dcp, prohibit=()):
     """Hook before opt_design of the shell-building v++ link: the core black box becomes a
     reconfigurable partition (pr_subdivide of the dynamic region, from the linked netlist saved
     to ulp_dcp), gets a pblock over the whole island region (so that later models fit), and is
@@ -318,6 +336,13 @@ def subdivide_hook_tcl(core_dcp, region_ranges, ulp_dcp):
             "pr_subdivide -cell %s -subcells [list $core_name] %s" % (ULP_CELL, ulp_dcp),
             "rwi_stamp pr_subdivide",
             'puts "RWI_HOOK partitions: [get_cells -hier -quiet -filter {HD.RECONFIGURABLE}]"',
+        ]
+        + [
+            "set_property PROHIBIT 1 [set ps [get_sites -quiet -filter {IS_USED == 0} -range {%s %s}]]; "
+            'puts "RWI_HOOK prohibit [llength $ps] %s:%s"' % (r + r)
+            for r in prohibit
+        ]
+        + [
             "create_pblock pblock_core_rp",
             "resize_pblock pblock_core_rp -add {%s}" % " ".join(region_ranges),
             "add_cells_to_pblock pblock_core_rp [get_cells $core_name]",

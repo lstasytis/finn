@@ -244,31 +244,35 @@ def allocate_rects(dev, needs, allowed, step=5):
         po = np.zeros((nx + 1, nb + 1), dtype=np.int64)
         po[1:, 1:] = occ.cumsum(0).cumsum(1)
         best = None
-        for a in range(nx):
-            for b in range(a, nx):
-                # capacity of columns a..b per band, cumulative over bands
-                colsum = pc[:, b + 1, :] - pc[:, a, :]  # (kinds, nb+1) prefix over bands
-                if np.any(colsum[:, -1] < req):
-                    continue
-                occ_col = po[b + 1, :] - po[a, :]  # prefix over bands of occupied cells
-                for y0 in range(nb):
-                    # smallest y1 with enough capacity (bisect on the prefix)
-                    lo, hi = y0 + 1, nb
-                    if np.any(colsum[:, hi] - colsum[:, y0] < req):
+        # candidates lie inside one allowed rectangle (they touch, e.g. one per SLR, and an
+        # island must not cross an SLR boundary)
+        for rx0, rx1, ry0, ry1 in allowed:
+            ba, bb = ry0 // step, ry1 // step + 1
+            for a in range(rx0 - xs0, rx1 - xs0 + 1):
+                for b in range(a, rx1 - xs0 + 1):
+                    # capacity of columns a..b per band, cumulative over bands
+                    colsum = pc[:, b + 1, :] - pc[:, a, :]  # (kinds, nb+1) prefix over bands
+                    if np.any(colsum[:, bb] - colsum[:, ba] < req):
                         continue
-                    while lo < hi:
-                        mid = (lo + hi) // 2
-                        if np.all(colsum[:, mid] - colsum[:, y0] >= req):
-                            hi = mid
-                        else:
-                            lo = mid + 1
-                    y1 = lo
-                    if occ_col[y1] - occ_col[y0] > 0:
-                        continue
-                    got = colsum[:, y1] - colsum[:, y0]
-                    waste = float(np.sum((got - req) / total))
-                    if best is None or waste < best[0]:
-                        best = (waste, a, b, y0, y1)
+                    occ_col = po[b + 1, :] - po[a, :]  # prefix over bands of occupied cells
+                    for y0 in range(ba, bb):
+                        # smallest y1 with enough capacity (bisect on the prefix)
+                        lo, hi = y0 + 1, bb
+                        if np.any(colsum[:, hi] - colsum[:, y0] < req):
+                            continue
+                        while lo < hi:
+                            mid = (lo + hi) // 2
+                            if np.all(colsum[:, mid] - colsum[:, y0] >= req):
+                                hi = mid
+                            else:
+                                lo = mid + 1
+                        y1 = lo
+                        if occ_col[y1] - occ_col[y0] > 0:
+                            continue
+                        got = colsum[:, y1] - colsum[:, y0]
+                        waste = float(np.sum((got - req) / total))
+                        if best is None or waste < best[0]:
+                            best = (waste, a, b, y0, y1)
         if best is None:
             return None
         _, a, b, y0, y1 = best

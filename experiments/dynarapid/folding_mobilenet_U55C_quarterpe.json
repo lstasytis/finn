@@ -30,7 +30,8 @@
   },
   "VVAU_hls_0": {
     "PE": 8,
-    "resType": "lut"
+    "resType": "lut",
+    "ram_style": "distributed"
   },
   "MVAU_hls_1": {
     "PE": 4,
@@ -53,7 +54,8 @@
   },
   "VVAU_hls_1": {
     "PE": 8,
-    "resType": "lut"
+    "resType": "lut",
+    "ram_style": "distributed"
   },
   "StreamingFIFO_rtl_12": {
     "ram_style": "auto",
@@ -81,7 +83,8 @@
   },
   "VVAU_hls_2": {
     "PE": 16,
-    "resType": "lut"
+    "resType": "lut",
+    "ram_style": "distributed"
   },
   "StreamingFIFO_rtl_18": {
     "ram_style": "block",
@@ -114,7 +117,8 @@
   },
   "VVAU_hls_3": {
     "PE": 4,
-    "resType": "lut"
+    "resType": "lut",
+    "ram_style": "distributed"
   },
   "StreamingFIFO_rtl_23": {
     "ram_style": "auto",
@@ -142,7 +146,8 @@
   },
   "VVAU_hls_4": {
     "PE": 8,
-    "resType": "lut"
+    "resType": "lut",
+    "ram_style": "distributed"
   },
   "StreamingFIFO_rtl_29": {
     "ram_style": "block",
@@ -175,7 +180,8 @@
   },
   "VVAU_hls_5": {
     "PE": 2,
-    "resType": "lut"
+    "resType": "lut",
+    "ram_style": "distributed"
   },
   "StreamingFIFO_rtl_35": {
     "ram_style": "auto",
@@ -203,7 +209,8 @@
   },
   "VVAU_hls_6": {
     "PE": 4,
-    "resType": "lut"
+    "resType": "lut",
+    "ram_style": "distributed"
   },
   "StreamingFIFO_rtl_39": {
     "ram_style": "block",
@@ -236,7 +243,8 @@
   },
   "VVAU_hls_7": {
     "PE": 4,
-    "resType": "lut"
+    "resType": "lut",
+    "ram_style": "distributed"
   },
   "StreamingFIFO_rtl_44": {
     "ram_style": "block",
@@ -269,7 +277,8 @@
   },
   "VVAU_hls_8": {
     "PE": 4,
-    "resType": "lut"
+    "resType": "lut",
+    "ram_style": "distributed"
   },
   "StreamingFIFO_rtl_49": {
     "ram_style": "block",
@@ -302,7 +311,8 @@
   },
   "VVAU_hls_9": {
     "PE": 4,
-    "resType": "lut"
+    "resType": "lut",
+    "ram_style": "distributed"
   },
   "StreamingFIFO_rtl_54": {
     "ram_style": "block",
@@ -335,7 +345,8 @@
   },
   "VVAU_hls_10": {
     "PE": 4,
-    "resType": "lut"
+    "resType": "lut",
+    "ram_style": "distributed"
   },
   "StreamingFIFO_rtl_59": {
     "ram_style": "block",
@@ -368,7 +379,8 @@
   },
   "VVAU_hls_11": {
     "PE": 1,
-    "resType": "lut"
+    "resType": "lut",
+    "ram_style": "distributed"
   },
   "StreamingFIFO_rtl_65": {
     "ram_style": "auto",
@@ -401,7 +413,8 @@
   },
   "VVAU_hls_12": {
     "PE": 2,
-    "resType": "lut"
+    "resType": "lut",
+    "ram_style": "distributed"
   },
   "StreamingFIFO_rtl_71": {
     "ram_style": "block",

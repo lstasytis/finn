@@ -548,3 +548,23 @@ User: test VGG10, then MobileNet (U55C), cache the platform region.
   (with their FMPadding/SWG SIMD) a quarter of U250's, deep FIFOs `ram_style: block`; estimated
   fit on v1 at LUT 0.40-0.45. Baseline and islands restarted on that model (`rwu/mnv1q`); the
   half-PE baseline (1.5 h into the link) was stopped.
+* v1 shell-building links after the corridor + LAGUNA changes: TFC failed in phys_opt_design
+  with `Place 30-834` (clock region X4Y2: ULP user debug bridge `tck` vs `aclk_kernel_01`
+  Clk_Out_Cont, locked BUFGCE sources); VGG10 passed placement but failed in route_design with
+  HPR 18-5229 again (`INT_X74Y270`). Isolated with replays of v++'s own impl script up to
+  phys_opt_design (sibling dirs of impl_1, variant hook per dir, TFC core; 4 variants in
+  parallel, ~45 min): A corridor + all LAGUNA in the rectangles -> Place 30-834 (reproduced);
+  B corridor only, C LAGUNA only (old rectangle), D neither -> pass. Cause: A's partition held
+  the SLR0/SLR1 LAGUNA columns (tile rows 180-299) although the core never crosses into SLR0.
+  Fix: a boundary's LAGUNA column only if all its tiles are inside the partition (v1: only
+  `LAGUNA_X0Y240:LAGUNA_X23Y479`, the SLR1/SLR2 crossing). Variant E (that rule) replaying.
+* HPR 18-5229 root cause (corrected): not the partition squeezing the HMSS registers as such -
+  v++'s `pblock_dynamic_SLR0/1` allow SLICE_X117 (tile column 74) in rows 60-119 / 240-299,
+  which is outside the dynamic region's container (its DERIVED_RANGES). In v++'s own flow a ULP
+  cell there is fine; with the core as a nested partition, the GND/VCC routing to such a cell
+  counts as static routing -> violation. Fix: the shell-building hook prohibits the unused
+  sites of those two ranges (`ULP_PROHIBIT`, `set_property PROHIBIT`, placement constraint
+  only). Variant F (E + prohibit) replaying through route_design.
+* 2D packing bug: candidates could span two touching region rectangles (SLR1 rows 240-479 and
+  SLR2 480-719) -> MobileNet quarter-PE got 3 SLR-crossing islands. Candidates now lie inside
+  one region rectangle.
