@@ -478,3 +478,10 @@ User: test VGG10, then MobileNet (U55C), cache the platform region.
 * Runs started (validation, concurrent): VGG10 islands + shell build, VGG10 Vitis baseline,
   TFC islands + shell build (then a second TFC run tests the cached path), MobileNet islands +
   shell build, MobileNet Vitis baseline.
+* First shell-building link (TFC): the hook worked inside v++ (ULP saved 10 s, pr_subdivide
+  260 s, core read 197 s; the core is a reconfigurable partition), but DRC HDPR-29 at
+  placement: 101 core cells "outside reconfigurable Pblock" - SNAPPING_MODE shrinks the
+  partition pblock to whole clock-region rows (UltraScale+ frames span a clock region), the
+  islands in rows 245-299 lay outside. Island region now clock-region aligned (SLR1 rows
+  240-479, SLR2 480-719, columns 6-105), core partition pblock 3 columns wider. VGG10/MobileNet
+  island runs (old region) stopped and relaunched together with TFC (~12:30).
