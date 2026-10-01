@@ -1364,6 +1364,9 @@ def step_synthesize_bitfile(model: ModelWrapper, cfg: DataflowBuildConfig):
                     "islands": cfg.rw_islands_count,
                     "workers": cfg.dynarapid_workers,
                     "out_dir": cfg.output_dir + "/rwislands",
+                    "cache_shell": cfg.rw_islands_cache_shell,
+                    "platform": cfg._resolve_vitis_platform(),
+                    "shell_lib": os.path.join(os.environ["FINN_BUILD_DIR"], "rwislands", "ushells"),
                 }
             model = model.transform(
                 PrepareForLinking(

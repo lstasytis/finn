@@ -84,6 +84,7 @@ def main():
     ap.add_argument("--folding", default=None, help="folding config (default: finn-examples)")
     ap.add_argument("--mode", choices=["frontend", "bitfile", "islands"], default="frontend")
     ap.add_argument("--workers", type=int, default=None)
+    ap.add_argument("--cache-shell", action="store_true", help="islands: cache the platform region")
     args = ap.parse_args()
     front = os.path.join(args.out, "frontend")
     t0 = time.time()
@@ -97,7 +98,7 @@ def main():
         shutil.copy(src, os.path.join(out, "intermediate_models", "step_set_fifo_depths.onnx"))
         kw = {"start_step": BITFILE_STEPS[0]}
         if args.mode == "islands":
-            kw.update(rw_islands_pnr=True, dynarapid_workers=args.workers)
+            kw.update(rw_islands_pnr=True, rw_islands_cache_shell=args.cache_shell, dynarapid_workers=args.workers)
         build.build_dataflow_cfg(src, config(args, out, ["step_set_fifo_depths"] + BITFILE_STEPS, **kw))
     res = {"mode": args.mode, "board": args.board, "total_s": time.time() - t0}
     json.dump(res, open(os.path.join(args.out, "%s.json" % args.mode), "w"), indent=2)

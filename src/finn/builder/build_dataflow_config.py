@@ -256,6 +256,12 @@ class DataflowBuildConfig:
     #: (Optional) Number of islands for rw_islands_pnr ("auto": from size and cores).
     rw_islands_count: Optional[str] = "auto"
 
+    #: (Optional) rw_islands_pnr on Alveo: cache the platform region. The first build of a
+    #: kernel interface (platform, clock, IODMA and stream widths) subdivides the dynamic
+    #: region so that the compute core is a reconfigurable partition of its own and keeps the
+    #: routed result; later builds only fill that partition (no v++ link).
+    rw_islands_cache_shell: Optional[bool] = False
+
     #: Insert a signature node to the stitched-IP to read/write information
     #: to the design: e.g. Customer signature, application signature, version
     signature: Optional[List[int]] = None

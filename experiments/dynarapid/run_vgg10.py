@@ -86,6 +86,7 @@ def main():
     ap.add_argument("--library", default=None)
     ap.add_argument("--board", default="ZCU104")
     ap.add_argument("--clk", type=float, default=4.0)
+    ap.add_argument("--cache-shell", action="store_true", help="islands: cache the platform region")
     args = ap.parse_args()
     front = os.path.join(args.out, "frontend")
     t0 = time.time()
@@ -103,7 +104,7 @@ def main():
             kw.update(dynarapid_pnr=True, dynarapid_library_dir=args.library)
         if args.mode == "islands":
             # Alveo: compute kernel built with the RapidWright island flow
-            kw.update(rw_islands_pnr=True)
+            kw.update(rw_islands_pnr=True, rw_islands_cache_shell=args.cache_shell)
         build.build_dataflow_cfg(src, config(out, steps, args.board, args.clk, **kw))
     res = {"mode": args.mode, "total_s": time.time() - t0}
     with open(os.path.join(args.out, "vgg10_%s.json" % args.mode), "w") as f:

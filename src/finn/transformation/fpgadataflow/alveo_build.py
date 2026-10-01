@@ -261,6 +261,35 @@ class PrepareForLinking(Transformation):
             kernel_model = kernel_model.transform(RemoveUnusedTensors())
             kernel_model = kernel_model.transform(GiveUniqueNodeNames(prefix))
             kernel_model.save(dataflow_model_filename)
+        # island flow with a cached platform region: is there a shell for this interface?
+        shell = None
+        if self.islands is not None and self.islands.get("cache_shell"):
+            from finn.util.rwislands.alveo import partition_signature, shell_key
+
+            sig = [
+                partition_signature(
+                    ModelWrapper(getCustomOp(n).get_nodeattr("model")), n.name
+                )
+                for n in sdp_nodes
+            ]
+            platform = self.islands["platform"]
+            key = shell_key(platform, self.period_ns, sig)
+            shell_dir = os.path.join(self.islands["shell_lib"], key)
+            shell = {
+                "key": key,
+                "dir": shell_dir,
+                "cached": os.path.isfile(os.path.join(shell_dir, "shell.json")),
+                "signature": sig,
+            }
+            model.set_metadata_prop("rwi_shell", json.dumps(shell))
+        for sdp_node in sdp_nodes:
+            sdp_node = getCustomOp(sdp_node)
+            dataflow_model_filename = sdp_node.get_nodeattr("model")
+            kernel_model = ModelWrapper(dataflow_model_filename)
+            is_dma = any(n.op_type.startswith("IODMA") for n in kernel_model.graph.node)
+            if shell is not None and shell["cached"] and is_dma:
+                # the IODMAs are part of the cached shell
+                continue
             kernel_model = kernel_model.transform(PrepareIP(self.fpga_part, self.period_ns))
             kernel_model = kernel_model.transform(HLSSynthIP())
             is_dma = any(n.op_type.startswith("IODMA") for n in kernel_model.graph.node)
@@ -279,6 +308,7 @@ class PrepareForLinking(Transformation):
                     out_dir,
                     islands=opts.get("islands", "auto"),
                     workers=opts.get("workers"),
+                    subdivide=shell is not None and not shell["cached"],
                 )
                 assert res["status"] == "ok", "island flow failed (%s), see %s" % (
                     res["status"],
@@ -293,6 +323,18 @@ class PrepareForLinking(Transformation):
                 model.set_metadata_prop("rwi_result", json.dumps(
                     {k: v for k, v in res.items() if k != "synth"}
                 ))
+                if shell is not None and shell["cached"]:
+                    # no v++ link: fill the cached shell's core partition
+                    from finn.util.rwislands.alveo import assemble_cached
+
+                    asm = assemble_cached(shell["dir"], res["core_dcp"], os.path.join(out_dir, "assembly"))
+                    model.set_metadata_prop("rwi_assembly", json.dumps(asm))
+                    assert asm["status"] == "ok", "cached-shell assembly failed (%s), see %s" % (
+                        asm["status"],
+                        os.path.join(out_dir, "assembly"),
+                    )
+                    model.set_metadata_prop("rwi_xclbin", asm["xclbin"])
+                    model.set_metadata_prop("rwi_synth_report", asm["synth_report"])
             else:
                 kernel_model = kernel_model.transform(
                     CreateStitchedIP(
@@ -331,6 +373,11 @@ class VitisLink(Transformation):
 
     def apply(self, model):
         _check_vitis_envvars()
+        if model.get_metadata_prop("rwi_xclbin") is not None:
+            # island flow with a cached platform region: already assembled, no link
+            model.set_metadata_prop("bitfile", model.get_metadata_prop("rwi_xclbin"))
+            model.set_metadata_prop("vivado_synth_rpt", model.get_metadata_prop("rwi_synth_report"))
+            return (model, False)
         # create a config file and empty list of xo files
         config = ["[connectivity]"]
         object_files = []
@@ -484,6 +531,17 @@ class VitisLink(Transformation):
             "Vitis .xclbin file not created, check logs under %s" % link_dir
         )
         model.set_metadata_prop("bitfile", xclbin)
+        shell = model.get_metadata_prop("rwi_shell")
+        if shell is not None:
+            shell = json.loads(shell)
+            if not shell["cached"]:
+                # first link of this interface: keep the routed platform with an empty core
+                from finn.util.rwislands.alveo import extract_shell
+
+                sres = extract_shell(
+                    link_dir, shell["dir"], {"key": shell["key"], "signature": shell["signature"]}
+                )
+                model.set_metadata_prop("rwi_shell_result", json.dumps(sres))
 
         # run Vivado to gen xml report
         gen_rep_xml_sh = link_dir + "/gen_report_xml.sh"
