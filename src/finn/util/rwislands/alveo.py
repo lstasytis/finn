@@ -45,9 +45,11 @@ from finn.util.rwislands.netlist import TOP_MODULE, channel_graph
 # pins its pipeline registers to tiles x 74-92, rows 240-299; the path from SLR0 runs through
 # rows 120-239 there): a partition covering it squeezes those registers into the static column 74
 # and route_design fails (HPR Routing Violation 18-5229, GND pin outside the container).
-# Versions (FINN_RWI_REGION, default v2; part of the shell key):
+# Versions (FINN_RWI_REGION, default v1; part of the shell key):
 #   v1: SLR1 + SLR2, tile columns 6-105
 #   v2: also SLR0's clock-region rows 2-3 (above the HBM rows), columns 6-107
+#       not usable: the ULP's SLR0 logic is squeezed into few clock regions and placement fails
+#       on locked debug-bridge clock sources (Place 30-834 in clock region X6Y2)
 ISLAND_REGIONS = {
     "xcu55c-fsvh2892-2L-e": {
         "v1": {
@@ -63,7 +65,7 @@ ISLAND_REGIONS = {
 
 
 def region_version():
-    return os.environ.get("FINN_RWI_REGION", "v2")
+    return os.environ.get("FINN_RWI_REGION", "v1")
 
 
 class _Regions(dict):
