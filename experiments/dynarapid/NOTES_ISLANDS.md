@@ -568,3 +568,36 @@ User: test VGG10, then MobileNet (U55C), cache the platform region.
 * 2D packing bug: candidates could span two touching region rectangles (SLR1 rows 240-479 and
   SLR2 480-719) -> MobileNet quarter-PE got 3 SLR-crossing islands. Candidates now lie inside
   one region rectangle.
+* Replays continued: E (corridor + only the SLR1/SLR2 LAGUNA) and F (E + ULP prohibits) still
+  fail with Place 30-834 in phys_opt_design (X4Y2, ULP debug-bridge tck vs aclk_kernel_01
+  throttling clock); only B (no LAGUNA at all) passed with the corridor - i.e. it is not one
+  specific LAGUNA range but some interaction of the partition shape with the ULP's clock
+  placement. G = F without phys_opt_design (v++ `STEPS.PHYS_OPT_DESIGN.IS_ENABLED=0`, standard
+  option): placement and routing complete (prohibits: 60 + 60 sites), but the DFX DRC at the end
+  of route_design reports one `HPR Routing Violation - 9 (18-5239): routing node
+  INT_X138Y543/EE1_E_BEG2 used by power or ground net is outside the region of container
+  pblock_dynamic_SLR0` (tile column 138, SLR2, outside the island region).
+* MobileNet quarter-PE dropped: lower PE makes the VVAUs' threshold memories (tmem 128-512)
+  BRAM (30 BRAM36 each, no ram_style for VVAU thresholds in FINN), total 799 BRAM36 (> half-PE's
+  612); VVAU weights ram_style distributed did not help. MobileNet now runs with half-PE and the
+  per-model link (no nested partition, islands EXCLUDE_PLACEMENT only) on the v2 geometry
+  (SLR0 rows 2-3 usable without a partition): kernel ok, 12 islands at LUT 0.55, 351 s.
+* H (G + `lock_design -level routing` after the ULP black-boxing, standard DFX recipe) and I
+  (H with phys_opt): I fails with Place 30-834 as before; H completes placement/routing but
+  the DFX DRC reports the same 18-5239 node (INT_X138Y543). Cells there: SLICE_X220Y54x hold
+  `level0_i/ulp/HD_PR_DrivenByBlackBox_InsertedInst_BLP_M_AXI_DATA_C2H_00_*` - LUTs Vivado
+  inserted for the ULP's (unused) DMA C2H outputs when the hook black-boxed the ULP; they
+  survive pr_subdivide and sit in v++'s 2-column strip SLICE_X220-X221 Y540-599 next to the
+  BLP, whose GND routing leaves the container. Removing Vivado-inserted cells would be exactly
+  the kind of tool hack the user ruled out.
+* **Decision: nested DFX (cached platform region) on the U55C stopped.** Each fix exposes the
+  next platform-specific HPR rule (HMSS SLR-crossing pblock column outside the container,
+  LAGUNA ownership, ULP clock partitioning in phys_opt, black-box insertions at the BLP
+  boundary), each test costs ~1 h of link replay. What works and is used: the per-model v++
+  link with the island-built, placement-locked compute kernel (TFC/CNV verified earlier). The
+  subdivide/extract/assemble code stays in `rwislands.alveo` (documented as not working on
+  xilinx_u55c_gen3x16_xdma_3_202210_1). Replay setup for future attempts: sibling dirs of a
+  link's impl_1 with v++'s level0_wrapper.tcl cut after the step of interest and a variant
+  opt_pre.tcl/hook (see var_* under vitis_link_proj_vogutg95).
+* Now: MobileNet half-PE per-model islands link + baseline running; VGG10 per-model islands
+  run started; VGG10 kernel verification (verify_kernel, 4 varied frames) running.
