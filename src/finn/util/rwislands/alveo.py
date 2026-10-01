@@ -77,12 +77,21 @@ def core_rp_rects(part):
 
 
 def core_rp_sites(part, dev):
+    """Sites of the core partition's pblock: the rectangles' logic sites plus the LAGUNA sites
+    in them (nets between islands in different SLRs cross there; without them: Place 30-864,
+    no SLLs available to the pblock)."""
+    from finn.util.rwislands.device import load_laguna
+
+    rects = core_rp_rects(part)
     seen, out = set(), []
-    for r in core_rp_rects(part):
+    for r in rects:
         for st in dev.sites_in(*r):
             if st.name not in seen:
                 seen.add(st.name)
                 out.append(st)
+    for st in load_laguna(part):
+        if any(x0 <= st.x <= x1 and y0 <= st.y <= y1 for x0, x1, y0, y1 in rects):
+            out.append(st)
     return out
 
 
@@ -324,7 +333,8 @@ def shell_key(platform, clk_ns, signature, part=None):
 
     from finn.util.dynarapid.tools import vivado_version
 
-    sig = {"platform": platform, "clk_ns": clk_ns, "kernels": signature, "version": 1, "vivado": vivado_version()}
+    # version 2: the core partition's pblock includes the LAGUNA sites of its rectangles
+    sig = {"platform": platform, "clk_ns": clk_ns, "kernels": signature, "version": 2, "vivado": vivado_version()}
     if part is not None:
         # the core partition's pblock
         sig["region"] = [region_version(), ISLAND_REGIONS[part][region_version()]]

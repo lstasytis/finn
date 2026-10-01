@@ -106,6 +106,35 @@ def pblock_ranges(sites):
     return ranges
 
 
+_LAGUNA_TCL = r"""
+link_design -part %s
+set f [open %s w]
+foreach s [get_sites -quiet LAGUNA*] {
+  regexp {_X(\d+)Y(\d+)$} [get_tiles -of $s] -> tx ty
+  puts $f "$s LAGUNA [get_property CLOCK_REGION $s] $tx $ty"
+}
+close $f
+"""
+
+
+def load_laguna(part, cache_dir=None):
+    """LAGUNA sites (SLR crossings) of a part, same format as the site map; separate from the
+    floorplanner's site map (a reconfigurable partition that spans an SLR boundary needs them in
+    its pblock)."""
+    cache_dir = cache_dir or os.path.join(os.environ["FINN_BUILD_DIR"], "rwislands", "devices")
+    os.makedirs(cache_dir, exist_ok=True)
+    f = os.path.join(cache_dir, part + ".laguna")
+    if not os.path.isfile(f):
+        tcl = os.path.join(cache_dir, part + "_laguna.tcl")
+        with open(tcl, "w") as t:
+            t.write(_LAGUNA_TCL % (part, f + ".tmp"))
+        rc, _ = run_vivado(tcl, os.path.join(cache_dir, part + "_laguna.log"), cache_dir)
+        assert rc == 0 and os.path.isfile(f + ".tmp"), "LAGUNA dump of %s failed" % part
+        os.replace(f + ".tmp", f)
+    with open(f) as fh:
+        return [Site(*v) for v in (line.split() for line in fh) if len(v) == 5]
+
+
 def load_device(part, cache_dir=None):
     cache_dir = cache_dir or os.path.join(os.environ["FINN_BUILD_DIR"], "rwislands", "devices")
     os.makedirs(cache_dir, exist_ok=True)
