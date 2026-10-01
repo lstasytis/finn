@@ -360,8 +360,8 @@ def shell_key(platform, clk_ns, signature, part=None):
 
     from finn.util.dynarapid.tools import vivado_version
 
-    # version 2: the core partition's pblock includes the LAGUNA sites of its rectangles
-    sig = {"platform": platform, "clk_ns": clk_ns, "kernels": signature, "version": 2, "vivado": vivado_version()}
+    # version 3: partition pblock with the LAGUNA sites of spanned SLR boundaries, ULP prohibits
+    sig = {"platform": platform, "clk_ns": clk_ns, "kernels": signature, "version": 3, "vivado": vivado_version()}
     if part is not None:
         # the core partition's pblock
         sig["region"] = [region_version(), ISLAND_REGIONS[part][region_version()]]
