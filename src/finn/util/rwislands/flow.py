@@ -293,19 +293,62 @@ def islands_and_stitch(
     node_res = {n: synth[dcps[n]]["util"] for n in names}
     # 2. islands and floorplan
     costs = [island_cost(node_res[n]) for n in names]
-    k = choose_islands(len(names), sum(costs), slots, islands)
-    segs = partition(costs, k)
-    isl = {"island_%d" % i: names[a:b] for i, (a, b) in enumerate(segs)}
-    isl_res = []
-    for mem in isl.values():
-        tot = {}
-        for n in mem:
-            for kk, v in node_res[n].items():
-                tot[kk] = tot.get(kk, 0) + v
-        isl_res.append(tot)
+    rect_list = region if isinstance(region, list) else [region]
+
+    def islands_of(k):
+        segs = partition(costs, k)
+        isl_k = {"island_%d" % i: names[a:b] for i, (a, b) in enumerate(segs)}
+        res_k = []
+        for mem in isl_k.values():
+            tot = {}
+            for n in mem:
+                for kk, v in node_res[n].items():
+                    tot[kk] = tot.get(kk, 0) + v
+            res_k.append(tot)
+        return isl_k, res_k
+
+    # island counts to try: the automatic (or requested) one, then halving; the snake first
+    # (fast) at <= 0.8 utilization for every count, then the 2D packing for small counts
+    k0 = choose_islands(len(names), sum(costs), slots, islands)
+    ks = []
+    k = k0
+    while k >= 1:
+        ks.append(k)
+        k //= 2
+    ks = sorted(set(ks), reverse=True)
+    plan, tried = None, []
+    for allocs, kmax, utils in ((("snake",), None, (0.5, 0.6, 0.7, 0.8)), (("rects",), 8, None)):
+        for k in ks:
+            if kmax is not None and k > kmax:
+                continue
+            isl, isl_res = islands_of(k)
+            try:
+                plan = floorplan(dev, isl_res, region, first_lanes=first, allocators=allocs, utils=utils)
+                break
+            except RuntimeError:
+                tried.append((k, len(isl), allocs[0]))
+        if plan is not None:
+            break
+    res["floorplan_tries"] = tried
     contain = True
+    if plan is None and len(rect_list) > 1:
+        # one island per region rectangle (e.g. per SLR), chain cut by cost
+        from finn.util.rwislands.device import capacity, pblock_ranges
+        from finn.util.rwislands.floorplan import need
+
+        isl, isl_res = islands_of(len(rect_list))
+        util = {"lut": 0.9, "bram": 1.0, "dsp": 1.0, "uram": 1.0}
+        if len(isl) == len(rect_list) and all(
+            all(capacity(dev.sites_in(*rc))[kk] >= v for kk, v in need(r, util).items())
+            for r, rc in zip(isl_res, rect_list)
+        ):
+            res["floorplan_fallback"] = "one island per region rectangle"
+            lanes = list(rect_list)
+            plan = ([[rc] for rc in rect_list], [pblock_ranges(dev.sites_in(*rc)) for rc in rect_list], util, lanes)
     try:
-        rects, ranges, util, lanes = floorplan(dev, isl_res, region, first_lanes=first)
+        if plan is None:
+            raise RuntimeError("the islands do not fit into the region %s (tried %s)" % (region, tried))
+        rects, ranges, util, lanes = plan
     except RuntimeError as e:
         # too dense for one rectangle per island (e.g. BRAM/URAM in few columns): the whole
         # accelerator as one island in the main region (one connected rectangle, so its

@@ -277,7 +277,7 @@ def allocate_rects(dev, needs, allowed, step=5):
     return res
 
 
-def floorplan(dev, island_res, region, n_lanes=None, utils=None, first_lanes=()):
+def floorplan(dev, island_res, region, n_lanes=None, utils=None, first_lanes=(), allocators=("snake", "rects")):
     """Place the islands (list of summed resource dicts, in chain order) in the region
     (x0, x1, y0, y1), preceded by the lanes first_lanes ((x0, x1, y0, y1) each, e.g. the
     fabric above the PS). Tries increasing utilization until everything fits. Returns
@@ -289,7 +289,7 @@ def floorplan(dev, island_res, region, n_lanes=None, utils=None, first_lanes=())
         nl = n_lanes or max(1, round((x1 - x0 + 1) / 10))
         lanes += [(a, b, y0, y1) for a, b in make_lanes(dev, x0, x1, nl)]
     # the snake (consecutive islands adjacent) at any utilization before the 2D packing
-    tries = [(u, alloc) for alloc in ("snake", "rects") for u in (utils or (0.5, 0.6, 0.7, 0.8, 0.9, 0.95))]
+    tries = [(u, alloc) for alloc in allocators for u in (utils or (0.5, 0.6, 0.7, 0.8, 0.9, 0.95))]
     for u, alloc in tries:
         # BRAM/DSP/URAM are counted exactly (whole primitives); margin only at low utilization
         util = {"lut": u, "bram": min(1.0, u + 0.4), "dsp": min(1.0, u + 0.4), "uram": 1.0}
