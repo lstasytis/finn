@@ -46,6 +46,7 @@ FRONTEND_STEPS = [
 BACKEND_STEPS = {
     "vivado": ["step_create_stitched_ip", "step_synthesize_bitfile"],
     "dynarapid": ["step_synthesize_bitfile"],
+    "islands": ["step_synthesize_bitfile"],
 }
 
 
@@ -81,7 +82,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True)
     ap.add_argument("--out", required=True)
-    ap.add_argument("--mode", choices=["frontend", "vivado", "dynarapid"], required=True)
+    ap.add_argument("--mode", choices=["frontend", "vivado", "dynarapid", "islands"], required=True)
     ap.add_argument("--library", default=None)
     ap.add_argument("--board", default="ZCU104")
     ap.add_argument("--clk", type=float, default=4.0)
@@ -100,6 +101,9 @@ def main():
         kw = {"start_step": BACKEND_STEPS[args.mode][0]}
         if args.mode == "dynarapid":
             kw.update(dynarapid_pnr=True, dynarapid_library_dir=args.library)
+        if args.mode == "islands":
+            # Alveo: compute kernel built with the RapidWright island flow
+            kw.update(rw_islands_pnr=True)
         build.build_dataflow_cfg(src, config(out, steps, args.board, args.clk, **kw))
     res = {"mode": args.mode, "total_s": time.time() - t0}
     with open(os.path.join(args.out, "vgg10_%s.json" % args.mode), "w") as f:
