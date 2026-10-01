@@ -41,7 +41,27 @@ from finn.util.rwislands.netlist import TOP_MODULE, channel_graph
 # Rows are whole clock regions (60 tile rows): with the cached platform region the core is a
 # reconfigurable partition, whose pblock Vivado snaps to whole clock-region rows (SNAPPING_MODE);
 # columns keep a margin inside the partition pblock (core_rp_rect) for the horizontal snapping.
-ISLAND_REGION = {"xcu55c-fsvh2892-2L-e": [(6, 105, 240, 479), (6, 105, 480, 719)]}
+# Versions (FINN_RWI_REGION, default v2; part of the shell key):
+#   v1: SLR1 + SLR2, tile columns 6-105
+#   v2: also SLR0's clock-region rows 2-3 (above the HBM rows), columns 6-107
+ISLAND_REGIONS = {
+    "xcu55c-fsvh2892-2L-e": {
+        "v1": [(6, 105, 240, 479), (6, 105, 480, 719)],
+        "v2": [(6, 107, 120, 239), (6, 107, 240, 479), (6, 107, 480, 719)],
+    }
+}
+
+
+def region_version():
+    return os.environ.get("FINN_RWI_REGION", "v2")
+
+
+class _Regions(dict):
+    def __getitem__(self, part):
+        return ISLAND_REGIONS[part][region_version()]
+
+
+ISLAND_REGION = _Regions()
 RP_MARGIN_COLS = 3
 
 
@@ -59,7 +79,8 @@ def island_region(part, dev):
     from finn.util.rwislands.device import Device
 
     rects = ISLAND_REGION[part]
-    data = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", part + "_core_rp.json")
+    suffix = "" if region_version() == "v1" else "_" + region_version()
+    data = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", part + "_core_rp%s.json" % suffix)
     if not os.path.isfile(data):
         return rects, dev
     d = json.load(open(data))
@@ -274,12 +295,15 @@ def subdivide_hook_tcl(core_dcp, region_ranges, ulp_dcp):
     ) + "\n"
 
 
-def shell_key(platform, clk_ns, signature):
+def shell_key(platform, clk_ns, signature, part=None):
     import hashlib
 
     from finn.util.dynarapid.tools import vivado_version
 
     sig = {"platform": platform, "clk_ns": clk_ns, "kernels": signature, "version": 1, "vivado": vivado_version()}
+    if part is not None and region_version() != "v1":
+        # the core partition's pblock (v1 shells were keyed without it)
+        sig["region"] = [region_version(), ISLAND_REGION[part]]
     return "ushell" + hashlib.sha256(json.dumps(sig, sort_keys=True).encode()).hexdigest()[:12]
 
 

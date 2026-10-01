@@ -273,7 +273,7 @@ class PrepareForLinking(Transformation):
                 for n in sdp_nodes
             ]
             platform = self.islands["platform"]
-            key = shell_key(platform, self.period_ns, sig)
+            key = shell_key(platform, self.period_ns, sig, self.fpga_part)
             shell_dir = os.path.join(self.islands["shell_lib"], key)
             shell = {
                 "key": key,
