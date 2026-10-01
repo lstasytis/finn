@@ -75,16 +75,34 @@ def capacity(sites):
 
 
 def pblock_ranges(sites):
-    """Vivado pblock ranges (one per site name prefix) covering exactly the given sites,
-    assuming they form a rectangle of the tile grid (site indices are monotonic in it)."""
-    by = defaultdict(list)
+    """Vivado pblock ranges covering exactly the given sites (no other site of the device):
+    per site name prefix, per site column the runs of consecutive site rows, merged across
+    adjacent site columns with identical runs. For a full tile rectangle this is one range per
+    prefix and contiguous column block; for a rectangle with notches (sites excluded, e.g. by
+    a reconfigurable partition's snapping) the notches stay out."""
+    by = defaultdict(lambda: defaultdict(list))
     for s in sites:
-        by[s.prefix].append(s)
+        by[s.prefix][s.sx].append(s.sy)
     ranges = []
     for p in sorted(by):
-        xs = [s.sx for s in by[p]]
-        ys = [s.sy for s in by[p]]
-        ranges.append("%s_X%dY%d:%s_X%dY%d" % (p, min(xs), min(ys), p, max(xs), max(ys)))
+        runs = {}
+        for sx, ys in by[p].items():
+            ys = sorted(set(ys))
+            rr, start = [], ys[0]
+            for a, b in zip(ys, ys[1:] + [None]):
+                if b != a + 1:
+                    rr.append((start, a))
+                    start = b
+            runs[sx] = tuple(rr)
+        cols = sorted(runs)
+        i = 0
+        while i < len(cols):
+            j = i
+            while j + 1 < len(cols) and cols[j + 1] == cols[j] + 1 and runs[cols[j + 1]] == runs[cols[i]]:
+                j += 1
+            for y0, y1 in runs[cols[i]]:
+                ranges.append("%s_X%dY%d:%s_X%dY%d" % (p, cols[i], y0, p, cols[j], y1))
+            i = j + 1
     return ranges
 
 

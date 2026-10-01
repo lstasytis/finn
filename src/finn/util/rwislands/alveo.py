@@ -25,6 +25,7 @@ Instead, per model:
 import json
 import os
 import time
+from collections import defaultdict
 
 from finn.util.dynarapid.components import component_name, vendor_ip_cores
 from finn.util.dynarapid.graph import external_ports, kernel_wrapper_verilog
@@ -42,6 +43,58 @@ from finn.util.rwislands.netlist import TOP_MODULE, channel_graph
 # columns keep a margin inside the partition pblock (core_rp_rect) for the horizontal snapping.
 ISLAND_REGION = {"xcu55c-fsvh2892-2L-e": [(6, 105, 240, 479), (6, 105, 480, 719)]}
 RP_MARGIN_COLS = 3
+
+
+def island_region(part, dev):
+    """(region rectangles, device restricted to the core partition's sites) for a part.
+
+    The core partition pblock (core_rp_rect) is fixed per part, so its DERIVED_RANGES after
+    Vivado's snapping are too (queried once, stored in data/<part>_core_rp.json). Snapping drops
+    a few columns entirely and others only in the clock-region rows next to SLR boundaries
+    (Laguna columns). Columns dropped in every row separate the region rectangles (one set per
+    SLR); the partially dropped sites are removed from the device view, so the islands' pblocks
+    get notches there (exact pblock_ranges) and stay connected through the remaining rows."""
+    import re
+
+    from finn.util.rwislands.device import Device
+
+    rects = ISLAND_REGION[part]
+    data = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", part + "_core_rp.json")
+    if not os.path.isfile(data):
+        return rects, dev
+    d = json.load(open(data))
+    assert tuple(d["rp_rect"]) == core_rp_rect(rects), "stored derived ranges are for another pblock"
+    rr = []
+    for r in d["derived_ranges"]:
+        m = re.match(r"(\w+?)_X(\d+)Y(\d+):\w+?_X(\d+)Y(\d+)$", r)
+        if m:
+            rr.append((m.group(1),) + tuple(int(x) for x in m.groups()[1:]))
+
+    def inside(st):
+        return any(p == st.prefix and a <= st.sx <= c and b <= st.sy <= e for p, a, b, c, e in rr)
+
+    x0r, x1r, y0r, y1r = core_rp_rect(rects)
+    allowed = [st for st in dev.sites if not (x0r <= st.x <= x1r and y0r <= st.y <= y1r) or inside(st)]
+    adev = Device(part, allowed)
+    out = []
+    for x0, x1, y0, y1 in rects:
+        in_rect = [st for st in dev.sites_in(x0, x1, y0, y1)]
+        total = defaultdict(int)
+        kept = defaultdict(int)
+        for st in in_rect:
+            total[st.x] += 1
+            kept[st.x] += inside(st)
+        # columns without any partition site separate the rectangles
+        cols = [x for x in range(x0, x1 + 1) if total[x] == 0 or kept[x] > 0]
+        start = None
+        for i, x in enumerate(cols):
+            if start is None:
+                start = x
+            if i + 1 == len(cols) or cols[i + 1] != x + 1:
+                if x - start + 1 >= 3:
+                    out.append((start, x, y0, y1))
+                start = None
+    return out, adev
 
 
 def core_rp_rect(region):
@@ -149,9 +202,10 @@ def rw_islands_kernel(
     if failed:
         return done("synth_failed", failed=failed)
 
-    region = ISLAND_REGION[part]
+    region, adev = island_region(part, dev)
+    res["island_rects"] = region
     fail, core_dcp = islands_and_stitch(
-        km, g, dcps, synth, dev, part, clk_ns, work, cpus, slots, islands, region, [], res, stamp
+        km, g, dcps, synth, adev, part, clk_ns, work, cpus, slots, islands, region, [], res, stamp
     )
     if fail is not None:
         return done(fail)
@@ -167,7 +221,9 @@ def rw_islands_kernel(
             # shell-building link: the core partition gets the whole island region
             f.write(
                 subdivide_hook_tcl(
-                    core_dcp, pblock_ranges(dev.sites_in(*core_rp_rect(region))), os.path.join(out_dir, "ulp_bb.dcp")
+                    core_dcp,
+                    pblock_ranges(dev.sites_in(*core_rp_rect(ISLAND_REGION[part]))),
+                    os.path.join(out_dir, "ulp_bb.dcp"),
                 )
             )
         else:
