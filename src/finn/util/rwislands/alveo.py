@@ -37,7 +37,17 @@ from finn.util.rwislands.netlist import TOP_MODULE, channel_graph
 # island region per part: rectangles (tile x0, x1, y0, y1), one per SLR (islands do not cross
 # SLR boundaries). xcu55c: SLR1 then SLR2 (tile rows 240-479 / 480-719, 5-row margins), left of
 # the static base logic (SLICE X4-X170 = tile columns 3-108); SLR0 holds the HBM and the IODMAs
-ISLAND_REGION = {"xcu55c-fsvh2892-2L-e": [(3, 108, 245, 474), (3, 108, 485, 714)]}
+# Rows are whole clock regions (60 tile rows): with the cached platform region the core is a
+# reconfigurable partition, whose pblock Vivado snaps to whole clock-region rows (SNAPPING_MODE);
+# columns keep a margin inside the partition pblock (core_rp_rect) for the horizontal snapping.
+ISLAND_REGION = {"xcu55c-fsvh2892-2L-e": [(6, 105, 240, 479), (6, 105, 480, 719)]}
+RP_MARGIN_COLS = 3
+
+
+def core_rp_rect(region):
+    """Pblock of the core partition: the island region's bounding box, a few columns wider."""
+    x0, x1, y0, y1 = bounding(region)
+    return (max(0, x0 - RP_MARGIN_COLS), x1 + RP_MARGIN_COLS, y0, y1)
 
 
 def bounding(rects):
@@ -157,7 +167,7 @@ def rw_islands_kernel(
             # shell-building link: the core partition gets the whole island region
             f.write(
                 subdivide_hook_tcl(
-                    core_dcp, pblock_ranges(dev.sites_in(*bounding(region))), os.path.join(out_dir, "ulp_bb.dcp")
+                    core_dcp, pblock_ranges(dev.sites_in(*core_rp_rect(region))), os.path.join(out_dir, "ulp_bb.dcp")
                 )
             )
         else:
