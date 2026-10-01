@@ -35,19 +35,29 @@ from finn.util.rwislands.device import load_device, pblock_ranges
 from finn.util.rwislands.flow import islands_and_stitch, synthesize
 from finn.util.rwislands.netlist import TOP_MODULE, channel_graph
 
-# island region per part: rectangles (tile x0, x1, y0, y1), one per SLR (islands do not cross
-# SLR boundaries). xcu55c: SLR1 then SLR2 (tile rows 240-479 / 480-719, 5-row margins), left of
-# the static base logic (SLICE X4-X170 = tile columns 3-108); SLR0 holds the HBM and the IODMAs
-# Rows are whole clock regions (60 tile rows): with the cached platform region the core is a
-# reconfigurable partition, whose pblock Vivado snaps to whole clock-region rows (SNAPPING_MODE);
-# columns keep a margin inside the partition pblock (core_rp_rect) for the horizontal snapping.
+# island region per part: rectangles (tile x0, x1, y0, y1), one set per SLR (islands do not
+# cross SLR boundaries), left of the static base logic (SLICE X4-X170 = tile columns 3-108).
+# With the cached platform region the core is a reconfigurable partition inside the dynamic
+# region, whose pblock ("rp" rectangles) Vivado snaps (SNAPPING_MODE) to whole clock-region rows
+# and legal columns; its DERIVED_RANGES are stored per part and version (data/), the islands use
+# only those sites. Columns keep a margin inside the partition pblock for the snapping.
+# The partition must stay out of v++'s SLR-crossing area of the HBM subsystem (pblock_dynamic_SLR1
+# pins its pipeline registers to tiles x 74-92, rows 240-299; the path from SLR0 runs through
+# rows 120-239 there): a partition covering it squeezes those registers into the static column 74
+# and route_design fails (HPR Routing Violation 18-5229, GND pin outside the container).
 # Versions (FINN_RWI_REGION, default v2; part of the shell key):
 #   v1: SLR1 + SLR2, tile columns 6-105
 #   v2: also SLR0's clock-region rows 2-3 (above the HBM rows), columns 6-107
 ISLAND_REGIONS = {
     "xcu55c-fsvh2892-2L-e": {
-        "v1": [(6, 105, 240, 479), (6, 105, 480, 719)],
-        "v2": [(6, 107, 120, 239), (6, 107, 240, 479), (6, 107, 480, 719)],
+        "v1": {
+            "islands": [(6, 73, 240, 479), (74, 105, 300, 479), (6, 105, 480, 719)],
+            "rp": [(3, 73, 240, 299), (3, 108, 300, 719)],
+        },
+        "v2": {
+            "islands": [(6, 73, 120, 239), (6, 73, 240, 479), (74, 107, 300, 479), (6, 107, 480, 719)],
+            "rp": [(3, 73, 120, 299), (3, 110, 300, 719)],
+        },
     }
 }
 
@@ -58,18 +68,36 @@ def region_version():
 
 class _Regions(dict):
     def __getitem__(self, part):
-        return ISLAND_REGIONS[part][region_version()]
+        return ISLAND_REGIONS[part][region_version()]["islands"]
+
+
+def core_rp_rects(part):
+    """Rectangles of the core partition's pblock (before snapping)."""
+    return ISLAND_REGIONS[part][region_version()]["rp"]
+
+
+def core_rp_sites(part, dev):
+    seen, out = set(), []
+    for r in core_rp_rects(part):
+        for st in dev.sites_in(*r):
+            if st.name not in seen:
+                seen.add(st.name)
+                out.append(st)
+    return out
 
 
 ISLAND_REGION = _Regions()
-RP_MARGIN_COLS = 3
+# islands may keep a few nets with overlaps (local congestion in a pblock with CONTAIN_ROUTING):
+# the core's placement is locked in the link (or the cached-shell assembly), its routing is not,
+# and route_design there re-routes them with the whole device available
+MAX_ISLAND_OVERLAPS = 32
 
 
 def island_region(part, dev):
     """(region rectangles, device restricted to the core partition's sites) for a part.
 
-    The core partition pblock (core_rp_rect) is fixed per part, so its DERIVED_RANGES after
-    Vivado's snapping are too (queried once, stored in data/<part>_core_rp.json). Snapping drops
+    The core partition pblock (core_rp_rects) is fixed per part and region version, so its
+    DERIVED_RANGES after Vivado's snapping are too (queried once, data/<part>_core_rp_<v>.json). Snapping drops
     a few columns entirely and others only in the clock-region rows next to SLR boundaries
     (Laguna columns). Columns dropped in every row separate the region rectangles (one set per
     SLR); the partially dropped sites are removed from the device view, so the islands' pblocks
@@ -79,12 +107,15 @@ def island_region(part, dev):
     from finn.util.rwislands.device import Device
 
     rects = ISLAND_REGION[part]
-    suffix = "" if region_version() == "v1" else "_" + region_version()
-    data = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", part + "_core_rp%s.json" % suffix)
+    data = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "data", "%s_core_rp_%s.json" % (part, region_version())
+    )
     if not os.path.isfile(data):
         return rects, dev
     d = json.load(open(data))
-    assert tuple(d["rp_rect"]) == core_rp_rect(rects), "stored derived ranges are for another pblock"
+    assert [tuple(r) for r in d["rp_rects"]] == [tuple(r) for r in core_rp_rects(part)], (
+        "stored derived ranges are for another pblock"
+    )
     rr = []
     for r in d["derived_ranges"]:
         m = re.match(r"(\w+?)_X(\d+)Y(\d+):\w+?_X(\d+)Y(\d+)$", r)
@@ -94,8 +125,12 @@ def island_region(part, dev):
     def inside(st):
         return any(p == st.prefix and a <= st.sx <= c and b <= st.sy <= e for p, a, b, c, e in rr)
 
-    x0r, x1r, y0r, y1r = core_rp_rect(rects)
-    allowed = [st for st in dev.sites if not (x0r <= st.x <= x1r and y0r <= st.y <= y1r) or inside(st)]
+    rp = core_rp_rects(part)
+
+    def in_rp(st):
+        return any(x0 <= st.x <= x1 and y0 <= st.y <= y1 for x0, x1, y0, y1 in rp)
+
+    allowed = [st for st in dev.sites if not in_rp(st) or inside(st)]
     adev = Device(part, allowed)
     out = []
     for x0, x1, y0, y1 in rects:
@@ -116,18 +151,6 @@ def island_region(part, dev):
                     out.append((start, x, y0, y1))
                 start = None
     return out, adev
-
-
-def core_rp_rect(region):
-    """Pblock of the core partition: the island region's bounding box, a few columns wider."""
-    x0, x1, y0, y1 = bounding(region)
-    return (max(0, x0 - RP_MARGIN_COLS), x1 + RP_MARGIN_COLS, y0, y1)
-
-
-def bounding(rects):
-    """Bounding rectangle of one or several tile rectangles (the core partition's pblock)."""
-    rects = rects if isinstance(rects, list) else [rects]
-    return (min(r[0] for r in rects), max(r[1] for r in rects), min(r[2] for r in rects), max(r[3] for r in rects))
 
 
 def link_hook_tcl(core_dcp, ranges):
@@ -226,7 +249,8 @@ def rw_islands_kernel(
     region, adev = island_region(part, dev)
     res["island_rects"] = region
     fail, core_dcp = islands_and_stitch(
-        km, g, dcps, synth, adev, part, clk_ns, work, cpus, slots, islands, region, [], res, stamp
+        km, g, dcps, synth, adev, part, clk_ns, work, cpus, slots, islands, region, [], res, stamp,
+        max_island_overlaps=MAX_ISLAND_OVERLAPS,
     )
     if fail is not None:
         return done(fail)
@@ -243,7 +267,7 @@ def rw_islands_kernel(
             f.write(
                 subdivide_hook_tcl(
                     core_dcp,
-                    pblock_ranges(dev.sites_in(*core_rp_rect(ISLAND_REGION[part]))),
+                    pblock_ranges(core_rp_sites(part, dev)),
                     os.path.join(out_dir, "ulp_bb.dcp"),
                 )
             )
@@ -301,9 +325,9 @@ def shell_key(platform, clk_ns, signature, part=None):
     from finn.util.dynarapid.tools import vivado_version
 
     sig = {"platform": platform, "clk_ns": clk_ns, "kernels": signature, "version": 1, "vivado": vivado_version()}
-    if part is not None and region_version() != "v1":
-        # the core partition's pblock (v1 shells were keyed without it)
-        sig["region"] = [region_version(), ISLAND_REGION[part]]
+    if part is not None:
+        # the core partition's pblock
+        sig["region"] = [region_version(), ISLAND_REGIONS[part][region_version()]]
     return "ushell" + hashlib.sha256(json.dumps(sig, sort_keys=True).encode()).hexdigest()[:12]
 
 

@@ -286,6 +286,7 @@ def choose_islands(n_nodes, total_cost, slots, islands):
 def islands_and_stitch(
     accel, g, dcps, synth, dev, part, clk_ns, work, cpus, slots, islands, region, first, res, stamp,
     rwroute_max_iter=30,
+    max_island_overlaps=0,
 ):
     """Islands, floorplan (region + first lanes), island P&R in parallel with the top synthesis,
     RapidWright stitching. Fills res; returns (failure status or None, stitched accelerator dcp)."""
@@ -405,7 +406,10 @@ def islands_and_stitch(
             for kk, vv in re.findall(r"^STAMP (\w+) ([\d.]+)", open(os.path.join(d, "island.log")).read(), re.M)
         }
         info["dcp"] = os.path.join(d, name + "_routed.dcp")
-        info["ok"] = rc == 0 and os.path.isfile(info["dcp"]) and info.get("routing_errors") == 0
+        # a few nets with overlaps are acceptable when the final route_design re-routes the
+        # whole design with only the islands' placement locked (Alveo flows)
+        errs = info.get("routing_errors")
+        info["ok"] = rc == 0 and os.path.isfile(info["dcp"]) and errs is not None and errs <= max_island_overlaps
         return name, info
 
     def top_job():

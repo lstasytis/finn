@@ -504,3 +504,28 @@ User: test VGG10, then MobileNet (U55C), cache the platform region.
 * VGG10 U55C Vitis baseline (concurrent with other builds, so not a timing result): 7532 s,
   0 routing errors, WNS +0.003, WHS +0.009 (vpl synth 738 s, opt 457, place 1944, route 941,
   bitstream 1094).
+* Shell-building links (TFC, VGG10; v1 region) got through the hook (ULP saved 10 s,
+  pr_subdivide 265 s, core read ~200-330 s) and placement (no HDPR-29 with the stored derived
+  ranges), but TFC failed in route_design: `HPR Routing Violation 18-5229: unlocked site pin
+  INT_X74Y299/CTRL_E2 used by power or ground net outside container area`. The cell there
+  (SLICE_X117Y299, static column 74, outside the dynamic region's derived ranges) is a ULP
+  register of the HBM subsystem's SLR crossing (`hmss_0/.../triple_slr.fwd.slr_middle`), which v++
+  constrains by `pblock_dynamic_SLR1` to SLICE X117-X145 / DSP / RAMB columns in tile rows
+  240-299 (tiles x 74-92). The core partition covered that area, so the crossing registers were
+  squeezed into the left-over notch columns, including static column 74 -> illegal in nested
+  DFX. Fix: the core partition's pblock leaves out tiles x 74-92 in rows 240-299 (and, for v2,
+  the corridor rows 120-239 the path from SLR0 runs through). Regions are now explicit
+  (`ISLAND_REGIONS[part][v] = {"islands": [...], "rp": [...]}`), the shell key always contains
+  the region, derived ranges recomputed (`data/<part>_core_rp_<v>.json`) with the replay of the
+  link's impl script up to pr_subdivide (hdfx_rp_<v>.tcl). VGG10 shell link stopped (same
+  geometry). New v2: islands (6,73,120,239), (6,73,240,479), (74,107,300,479), (6,107,480,719);
+  partition (3,73,120,299) + (3,110,300,719).
+* MobileNet half-PE islands (old v2 region, 12 islands at LUT 0.6): synthesis 161 s, but 3 of 12
+  islands ended with 2-4 nets with overlaps after 7-25 min of routing (localized congestion at
+  LUTRAM address pins of SWG window buffers / an MVAU DSP input; global congestion low). For the
+  Alveo flow the core's placement is locked, its routing not, and route_design in the link (or
+  the cached-shell assembly) re-routes with the whole device -> islands with <= 32 nets with
+  overlaps are accepted there (`MAX_ISLAND_OVERLAPS`). Floorplan: at every LUT level, BRAM/DSP
+  first with margin, then exact (BRAM-bound islands no longer force a denser LUT level on all);
+  for MobileNet still 0.6 (the snake wastes area); 2D packing at 0.5 takes 220 s and scatters
+  islands (one 3-column strip) - not used.

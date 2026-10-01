@@ -289,10 +289,16 @@ def floorplan(dev, island_res, region, n_lanes=None, utils=None, first_lanes=(),
         nl = n_lanes or max(1, round((x1 - x0 + 1) / 10))
         lanes += [(a, b, y0, y1) for a, b in make_lanes(dev, x0, x1, nl)]
     # the snake (consecutive islands adjacent) at any utilization before the 2D packing
-    tries = [(u, alloc) for alloc in allocators for u in (utils or (0.5, 0.6, 0.7, 0.8, 0.9, 0.95))]
-    for u, alloc in tries:
-        # BRAM/DSP/URAM are counted exactly (whole primitives); margin only at low utilization
-        util = {"lut": u, "bram": min(1.0, u + 0.4), "dsp": min(1.0, u + 0.4), "uram": 1.0}
+    # BRAM/DSP/URAM are counted exactly (whole primitives); margin only at low utilization, and
+    # at each LUT level first with the margin, then without (BRAM-bound islands must not force
+    # a denser LUT packing on all islands)
+    tries = []
+    for alloc in allocators:
+        for u in utils or (0.5, 0.6, 0.7, 0.8, 0.9, 0.95):
+            for m in sorted({min(1.0, u + 0.4), 1.0}):
+                tries.append((u, m, alloc))
+    for u, m, alloc in tries:
+        util = {"lut": u, "bram": m, "dsp": m, "uram": 1.0}
         needs = [need(r, util) for r in island_res]
         if alloc == "snake":
             rects = allocate(dev, lanes, needs)
