@@ -608,3 +608,13 @@ User: test VGG10, then MobileNet (U55C), cache the platform region.
 * VGG10 U55C kernel verified: verify_kernel 4 frames (varied amplitude), outputs and cycle
   counts (6115) identical to FINN's stitched IP. MobileNet kernel verification started (1 frame,
   gate-level xsim, expected to take hours).
+* VGG10 per-model islands link (v1 region): xclbin, 0 routing errors, WNS +0.003 / WHS +0.009
+  (vpl synth 771 s, opt 455, place 2154, route 1154, bitstream 1093, hook 375).
+* MobileNet half-PE Vitis baseline (concurrent with the islands run): 10919 s total, link 1h57
+  (synth 750, opt 363, place 2279, route 1338, bitstream 1277), 0 routing errors, WNS +0.003.
+  Islands run: 8429 s (link 2h03). The link phases are about equal (the locked island core does
+  not shorten v++'s placement: 2549 vs 2279 s); the islands gain is before the link: ~1076 s
+  (kernel synthesis/P&R in parallel, black-box XO, IODMA packaging) vs ~3920 s for FINN's
+  stitched IP + XO packaging of the 230k-LUT compute partition. 1.30x end to end (concurrent).
+* Timed runs started 2026-10-01 23:03 (`run_u55c_timing.sh`, MODELS="vgg10 mnv1h", MODES="islands
+  bitfile", one at a time; only the 1-core MobileNet verification xsim runs alongside).
