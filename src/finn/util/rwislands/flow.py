@@ -318,7 +318,7 @@ def islands_and_stitch(
         k //= 2
     ks = sorted(set(ks), reverse=True)
     plan, tried = None, []
-    for allocs, kmax, utils in ((("snake",), None, (0.5, 0.6, 0.7, 0.8)), (("rects",), 8, None)):
+    for allocs, kmax, utils in ((("snake",), None, (0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8)), (("rects",), 8, None)):
         for k in ks:
             if kmax is not None and k > kmax:
                 continue

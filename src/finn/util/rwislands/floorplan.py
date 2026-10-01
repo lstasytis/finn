@@ -283,11 +283,23 @@ def floorplan(dev, island_res, region, n_lanes=None, utils=None, first_lanes=(),
     fabric above the PS). Tries increasing utilization until everything fits. Returns
     (rects per island, pblock ranges per island, utilization used, lanes)."""
     # region: one rectangle (x0, x1, y0, y1) or a list of them (e.g. one per SLR), each cut
-    # into lanes of about 10 tile columns (a few BRAM/DSP columns each)
-    lanes = list(first_lanes)
-    for x0, x1, y0, y1 in region if isinstance(region, list) else [region]:
-        nl = n_lanes or max(1, round((x1 - x0 + 1) / 10))
-        lanes += [(a, b, y0, y1) for a, b in make_lanes(dev, x0, x1, nl)]
+    # into lanes of about 10 tile columns (a few BRAM/DSP columns each); without a given lane
+    # count, wider/narrower lanes are tried too (BRAM-bound islands waste less in other widths)
+    rlist = region if isinstance(region, list) else [region]
+
+    def lanes_for(width):
+        ls = list(first_lanes)
+        for x0, x1, y0, y1 in rlist:
+            nl = n_lanes or max(1, round((x1 - x0 + 1) / width))
+            ls += [(a, b, y0, y1) for a, b in make_lanes(dev, x0, x1, nl)]
+        return ls
+
+    widths = (10,) if n_lanes else (10, 14, 20, 7)
+    lane_sets = []
+    for w in widths:
+        ls = lanes_for(w)
+        if ls not in lane_sets:
+            lane_sets.append(ls)
     # the snake (consecutive islands adjacent) at any utilization before the 2D packing
     # BRAM/DSP/URAM are counted exactly (whole primitives); margin only at low utilization, and
     # at each LUT level first with the margin, then without (BRAM-bound islands must not force
@@ -296,8 +308,9 @@ def floorplan(dev, island_res, region, n_lanes=None, utils=None, first_lanes=(),
     for alloc in allocators:
         for u in utils or (0.5, 0.6, 0.7, 0.8, 0.9, 0.95):
             for m in sorted({min(1.0, u + 0.4), 1.0}):
-                tries.append((u, m, alloc))
-    for u, m, alloc in tries:
+                for lanes in lane_sets if alloc == "snake" else lane_sets[:1]:
+                    tries.append((u, m, alloc, lanes))
+    for u, m, alloc, lanes in tries:
         util = {"lut": u, "bram": m, "dsp": m, "uram": 1.0}
         needs = [need(r, util) for r in island_res]
         if alloc == "snake":
