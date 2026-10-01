@@ -485,3 +485,22 @@ User: test VGG10, then MobileNet (U55C), cache the platform region.
   islands in rows 245-299 lay outside. Island region now clock-region aligned (SLR1 rows
   240-479, SLR2 480-719, columns 6-105), core partition pblock 3 columns wider. VGG10/MobileNet
   island runs (old region) stopped and relaunched together with TFC (~12:30).
+* HDPR-29 again with clock-region-aligned islands: snapping also drops whole columns (7, 8,
+  74) and Laguna-adjacent columns in SLR-boundary clock-region rows. Fix: the partition
+  pblock's DERIVED_RANGES are stored per part (`rwislands/data/<part>_core_rp[_v2].json`),
+  `island_region` restricts the floorplanner's device to those sites and splits the region at
+  site-less columns; `pblock_ranges` emits exact (notched) ranges.
+* Region versions (`FINN_RWI_REGION`, default v2, part of the shell key from v2 on):
+  v1 = SLR1+SLR2 columns 6-105 (RP rect (3,108,240,719); 68k slices, 960 BRAM36);
+  v2 = adds SLR0 clock-region rows 2-3 above the HBM rows, columns 6-107 (RP rect
+  (3,110,120,719); 87k slices, 1200 BRAM36, 640 URAM). The running TFC/VGG10 shell builds
+  use v1; the TFC cached-hit test must run with FINN_RWI_REGION=v1.
+* MobileNet U250 folding (synthesized: 398k LUT, 651 BRAM36, 22 URAM, 100 DSP) did not fit the
+  v1 region; on v2 only with 2D packing. User: reduce the folding so it roughly fits ->
+  `folding_mobilenet_U250_halfpe.json`: PE of every MVAU_hls halved, VVAU PE halved together
+  with its FMPadding/SWG SIMD; first SWG, pool, MVAU_rtl, FIFOs unchanged. The full-folding
+  MobileNet baseline (in routing after 1h48) was stopped; baseline + islands rerun on the
+  half-PE model (`rwu/mnv1h`).
+* VGG10 U55C Vitis baseline (concurrent with other builds, so not a timing result): 7532 s,
+  0 routing errors, WNS +0.003, WHS +0.009 (vpl synth 738 s, opt 457, place 1944, route 941,
+  bitstream 1094).
