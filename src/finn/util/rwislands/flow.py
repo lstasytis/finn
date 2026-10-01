@@ -320,7 +320,8 @@ def islands_and_stitch(
             for kk, v in node_res[n].items():
                 tot[kk] = tot.get(kk, 0) + v
         isl_res = [tot]
-        lanes = [region]
+        # the first rectangle of the region (one SLR on Alveo)
+        lanes = [region[0] if isinstance(region, list) else region]
         rects = [lanes]
         ranges = [[g for r in lanes for g in pblock_ranges(dev.sites_in(*r))]]
         util = None

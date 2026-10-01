@@ -34,9 +34,16 @@ from finn.util.rwislands.device import load_device, pblock_ranges
 from finn.util.rwislands.flow import islands_and_stitch, synthesize
 from finn.util.rwislands.netlist import TOP_MODULE, channel_graph
 
-# island region (tile x0, x1, y0, y1) per part: xcu55c SLR1 (tile rows 240-479, 5-row margins),
-# left of the static base logic (SLICE X4-X170 = tile columns 3-108)
-ISLAND_REGION = {"xcu55c-fsvh2892-2L-e": (3, 108, 245, 474)}
+# island region per part: rectangles (tile x0, x1, y0, y1), one per SLR (islands do not cross
+# SLR boundaries). xcu55c: SLR1 then SLR2 (tile rows 240-479 / 480-719, 5-row margins), left of
+# the static base logic (SLICE X4-X170 = tile columns 3-108); SLR0 holds the HBM and the IODMAs
+ISLAND_REGION = {"xcu55c-fsvh2892-2L-e": [(3, 108, 245, 474), (3, 108, 485, 714)]}
+
+
+def bounding(rects):
+    """Bounding rectangle of one or several tile rectangles (the core partition's pblock)."""
+    rects = rects if isinstance(rects, list) else [rects]
+    return (min(r[0] for r in rects), max(r[1] for r in rects), min(r[2] for r in rects), max(r[3] for r in rects))
 
 
 def link_hook_tcl(core_dcp, ranges):
@@ -150,7 +157,7 @@ def rw_islands_kernel(
             # shell-building link: the core partition gets the whole island region
             f.write(
                 subdivide_hook_tcl(
-                    core_dcp, pblock_ranges(dev.sites_in(*region)), os.path.join(out_dir, "ulp_bb.dcp")
+                    core_dcp, pblock_ranges(dev.sites_in(*bounding(region))), os.path.join(out_dir, "ulp_bb.dcp")
                 )
             )
         else:

@@ -131,8 +131,11 @@ def allocate(dev, lanes, needs, step=5):
 
     def adjacent(la, lb):
         # an island may only continue into a lane that touches its current one (a pblock
-        # with CONTAIN_ROUTING must be connected, e.g. not across the shell)
-        return lanes[la][1] + 1 >= lanes[lb][0] and lanes[lb][1] + 1 >= lanes[la][0]
+        # with CONTAIN_ROUTING must be connected, e.g. not across the shell or an SLR gap)
+        a, b = lanes[la], lanes[lb]
+        x_touch = a[1] + 1 >= b[0] and b[1] + 1 >= a[0]
+        y_touch = a[3] + 1 >= b[2] and b[3] + 1 >= a[2]
+        return x_touch and y_touch
 
     res, pos = [], 0
     for req in needs:
@@ -279,11 +282,12 @@ def floorplan(dev, island_res, region, n_lanes=None, utils=None, first_lanes=())
     (x0, x1, y0, y1), preceded by the lanes first_lanes ((x0, x1, y0, y1) each, e.g. the
     fabric above the PS). Tries increasing utilization until everything fits. Returns
     (rects per island, pblock ranges per island, utilization used, lanes)."""
-    x0, x1, y0, y1 = region
-    if n_lanes is None:
-        # lanes of about 10 tile columns (a few BRAM/DSP columns each)
-        n_lanes = max(1, round((x1 - x0 + 1) / 10))
-    lanes = list(first_lanes) + [(a, b, y0, y1) for a, b in make_lanes(dev, x0, x1, n_lanes)]
+    # region: one rectangle (x0, x1, y0, y1) or a list of them (e.g. one per SLR), each cut
+    # into lanes of about 10 tile columns (a few BRAM/DSP columns each)
+    lanes = list(first_lanes)
+    for x0, x1, y0, y1 in region if isinstance(region, list) else [region]:
+        nl = n_lanes or max(1, round((x1 - x0 + 1) / 10))
+        lanes += [(a, b, y0, y1) for a, b in make_lanes(dev, x0, x1, nl)]
     # the snake (consecutive islands adjacent) at any utilization before the 2D packing
     tries = [(u, alloc) for alloc in ("snake", "rects") for u in (utils or (0.5, 0.6, 0.7, 0.8, 0.9, 0.95))]
     for u, alloc in tries:
