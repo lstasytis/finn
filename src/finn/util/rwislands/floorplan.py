@@ -390,10 +390,10 @@ def allocate_skyline(
                 d = c
                 while d + 1 <= b and sky[d + 1] == sky[c]:
                     d += 1
-                rr.append((xs[c], xs[d], (b0 + sky[c]) * step, (b0 + lo) * step - 1))
+                rr.append((int(xs[c]), int(xs[d]), int((b0 + sky[c]) * step), int((b0 + lo) * step - 1)))
                 c = d + 1
         else:
-            rr = [(xs[a], xs[b], (b0 + top) * step, (b0 + lo) * step - 1)]
+            rr = [(int(xs[a]), int(xs[b]), int((b0 + top) * step), int((b0 + lo) * step - 1))]
         sky[a : b + 1] = lo
         out[i] = rr
         prev = (cx, cy)
