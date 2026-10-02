@@ -34,9 +34,10 @@ def island_cost(res):
     )
 
 
-def partition(costs, k):
+def partition(costs, k, exact=False):
     """Cut the sequence of node costs into at most k contiguous segments minimizing the largest
-    segment cost. Returns a list of (start, end) index ranges (end exclusive)."""
+    segment cost (exact: exactly k segments, i.e. smaller islands than the optimum needs, which
+    pack better). Returns a list of (start, end) index ranges (end exclusive)."""
     n = len(costs)
     k = max(1, min(k, n))
     pre = [0.0]
@@ -54,7 +55,7 @@ def partition(costs, k):
                 if v < best[j][i]:
                     best[j][i], cut[j][i] = v, m
     # the smallest number of segments reaching the optimum (fewer Vivado runs)
-    j = min(range(1, k + 1), key=lambda jj: (round(best[jj][n], 6), jj))
+    j = k if exact else min(range(1, k + 1), key=lambda jj: (round(best[jj][n], 6), jj))
     segs, i = [], n
     while j > 0:
         m = cut[j][i]
@@ -281,6 +282,111 @@ def allocate_rects(dev, needs, allowed, step=5):
     return res
 
 
+def allocate_skyline(dev, needs, rects, step=5, max_width=None, order="chain", pull=0.05, stair=True):
+    """Variable-size islands by skyline packing: every island gets one tile rectangle (any
+    width, over the columns whose resource mix suits it) inside one region rectangle, on top of
+    what is already used there (bottom-left fill). Among all positions and widths the one with
+    the least waste is taken: resources covered beyond the need plus resources left in holes
+    under the new island, each weighted by scarcity (1 / total of that kind), and a small pull
+    towards the previous island of the chain (short stitching nets). With stair, an island
+    covers every column from that column's skyline up to a common top (a staircase of column
+    rectangles sharing the top rows, no holes below it); otherwise one rectangle on top of the
+    highest column. needs in chain order;
+    order "chain" places them in that order, "hard" scarcest-share first. Returns one rectangle
+    list per island, or None."""
+    import numpy as np
+
+    kinds = list(needs[0])
+    regions = []
+    totals = np.zeros(len(kinds))
+    for x0, x1, y0, y1 in rects:
+        xs = [x for x in range(x0, x1 + 1) if x in dev.cols]
+        b0, nb = y0 // step, (y1 - y0 + 1) // step
+        cap = np.zeros((len(kinds), len(xs), nb))
+        for ci, x in enumerate(xs):
+            for st in dev.cols[x]:
+                b = st.y // step - b0
+                if 0 <= b < nb and y0 <= st.y <= y1:
+                    c = capacity([st])
+                    for ki, k in enumerate(kinds):
+                        cap[ki, ci, b] += c[k]
+        totals += cap.sum(axis=(1, 2))
+        # prefix sums over columns and bands
+        pc = np.zeros((len(kinds), len(xs) + 1, nb + 1))
+        pc[:, 1:, 1:] = cap.cumsum(1).cumsum(2)
+        regions.append({"xs": xs, "b0": b0, "nb": nb, "cap": cap, "pc": pc, "sky": np.zeros(len(xs), dtype=int)})
+    w = 1.0 / np.maximum(1.0, totals)
+    reqs = [np.array([nd[k] for k in kinds], dtype=float) for nd in needs]
+    idx = list(range(len(needs)))
+    if order == "hard":
+        idx.sort(key=lambda i: -float(np.max(reqs[i] * w)))
+    out = [None] * len(needs)
+    prev = None
+    for i in idx:
+        req = reqs[i]
+        best = None
+        for ri, rg in enumerate(regions):
+            xs, nb, pc, sky = rg["xs"], rg["nb"], rg["pc"], rg["sky"]
+            ncol = len(xs)
+            # capacity below each column's skyline, cumulative over columns (staircase base)
+            base = np.zeros((len(kinds), ncol + 1))
+            for c in range(ncol):
+                base[:, c + 1] = base[:, c] + pc[:, c + 1, sky[c]] - pc[:, c, sky[c]]
+            for a in range(ncol):
+                top = 0
+                low = nb
+                for b in range(a, min(ncol, a + (max_width or ncol))):
+                    top = max(top, sky[b])
+                    low = min(low, sky[b])
+                    if top >= nb:
+                        break
+                    col = pc[:, b + 1, :] - pc[:, a, :]  # (kinds, nb+1) band prefix of cols a..b
+                    floor = (base[:, b + 1] - base[:, a]) if stair else col[:, top]
+                    if np.any(col[:, nb] - floor < req):
+                        continue
+                    lo, hi = top + 1, nb
+                    while lo < hi:
+                        mid = (lo + hi) // 2
+                        if np.all(col[:, mid] - floor >= req):
+                            hi = mid
+                        else:
+                            lo = mid + 1
+                    got = col[:, lo] - floor
+                    hole = np.zeros(len(kinds))
+                    if not stair:
+                        # holes: capacity between each column's skyline and the island's bottom
+                        for c in range(a, b + 1):
+                            if sky[c] < top:
+                                hole += pc[:, c + 1, top] - pc[:, c, top] - pc[:, c + 1, sky[c]] + pc[:, c, sky[c]]
+                    waste = float(np.sum((got - req + hole) * w))
+                    cx = (xs[a] + xs[b]) / 2.0
+                    cy = (rg["b0"] + ((low if stair else top) + lo) / 2.0) * step
+                    if prev is not None and order == "chain":
+                        waste += pull * (abs(cx - prev[0]) + abs(cy - prev[1])) / 100.0
+                    if best is None or waste < best[0]:
+                        best = (waste, ri, a, b, top, lo, cx, cy)
+        if best is None:
+            return None
+        _, ri, a, b, top, lo, cx, cy = best
+        rg = regions[ri]
+        xs, sky, b0 = rg["xs"], rg["sky"], rg["b0"]
+        if stair:
+            # one rectangle per run of columns with the same skyline (they share the top rows)
+            rr, c = [], a
+            while c <= b:
+                d = c
+                while d + 1 <= b and sky[d + 1] == sky[c]:
+                    d += 1
+                rr.append((xs[c], xs[d], (b0 + sky[c]) * step, (b0 + lo) * step - 1))
+                c = d + 1
+        else:
+            rr = [(xs[a], xs[b], (b0 + top) * step, (b0 + lo) * step - 1)]
+        sky[a : b + 1] = lo
+        out[i] = rr
+        prev = (cx, cy)
+    return out
+
+
 def floorplan(dev, island_res, region, n_lanes=None, utils=None, first_lanes=(), allocators=("snake", "rects")):
     """Place the islands (list of summed resource dicts, in chain order) in the region
     (x0, x1, y0, y1), preceded by the lanes first_lanes ((x0, x1, y0, y1) each, e.g. the
@@ -319,6 +425,10 @@ def floorplan(dev, island_res, region, n_lanes=None, utils=None, first_lanes=(),
         needs = [need(r, util) for r in island_res]
         if alloc == "snake":
             rects = allocate(dev, lanes, needs)
+        elif alloc.startswith("skyline"):
+            # "skyline" (chain order, then scarcest first) or "skyline_hard" (scarcest first)
+            rects = None if alloc == "skyline_hard" else allocate_skyline(dev, needs, rlist, pull=0.0)
+            rects = rects or allocate_skyline(dev, needs, rlist, order="hard", pull=0.0)
         else:
             rects = allocate_rects(dev, needs, list(lanes))
         if rects is not None:

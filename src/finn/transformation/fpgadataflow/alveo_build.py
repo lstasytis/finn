@@ -309,6 +309,7 @@ class PrepareForLinking(Transformation):
                     islands=opts.get("islands", "auto"),
                     workers=opts.get("workers"),
                     subdivide=shell is not None and not shell["cached"],
+                    cache_shell=shell is not None,
                 )
                 assert res["status"] == "ok", "island flow failed (%s), see %s" % (
                     res["status"],

@@ -60,22 +60,37 @@ ISLAND_REGIONS = {
             "islands": [(6, 73, 120, 239), (6, 73, 240, 479), (74, 107, 300, 479), (6, 107, 480, 719)],
             "rp": [(3, 73, 120, 299), (3, 110, 300, 719)],
         },
+        # per-model link (no core partition, islands only reserved by EXCLUDE_PLACEMENT): the
+        # dynamic region's clock regions X0-X6 except SLR0's row 0 (HBM subsystem), the HMSS
+        # SLR-crossing corridor (tile columns 74-92, rows 60-299) and the base logic (X7)
+        "pm": {
+            "islands": [
+                (6, 73, 60, 239),
+                (93, 111, 60, 239),
+                (6, 73, 240, 479),
+                (93, 111, 240, 299),
+                (74, 111, 300, 479),
+                (6, 127, 480, 719),
+            ],
+        },
     }
 }
 
 
-def region_version():
-    return os.environ.get("FINN_RWI_REGION", "v1")
+def region_version(cached=False):
+    """Island region version: FINN_RWI_REGION, else v1 for the cached shell (core partition)
+    and pm for the per-model link."""
+    return os.environ.get("FINN_RWI_REGION", "v1" if cached else "pm")
 
 
 class _Regions(dict):
     def __getitem__(self, part):
-        return ISLAND_REGIONS[part][region_version()]["islands"]
+        return ISLAND_REGIONS[part][region_version(cached=True)]["islands"]
 
 
 def core_rp_rects(part):
     """Rectangles of the core partition's pblock (before snapping)."""
-    return ISLAND_REGIONS[part][region_version()]["rp"]
+    return ISLAND_REGIONS[part][region_version(cached=True)]["rp"]
 
 
 def core_rp_sites(part, dev):
@@ -111,9 +126,11 @@ ISLAND_REGION = _Regions()
 MAX_ISLAND_OVERLAPS = 32
 
 
-def island_region(part, dev):
-    """(region rectangles, device restricted to the core partition's sites) for a part.
+def island_region(part, dev, cached=False):
+    """(region rectangles, device view) for a part. Per-model link (region without a core
+    partition): the region's rectangles and the whole device.
 
+    Cached shell (core as a reconfigurable partition):
     The core partition pblock (core_rp_rects) is fixed per part and region version, so its
     DERIVED_RANGES after Vivado's snapping are too (queried once, data/<part>_core_rp_<v>.json). Snapping drops
     a few columns entirely and others only in the clock-region rows next to SLR boundaries
@@ -124,9 +141,12 @@ def island_region(part, dev):
 
     from finn.util.rwislands.device import Device
 
-    rects = ISLAND_REGION[part]
+    spec = ISLAND_REGIONS[part][region_version(cached)]
+    rects = spec["islands"]
+    if "rp" not in spec:
+        return rects, dev
     data = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "data", "%s_core_rp_%s.json" % (part, region_version())
+        os.path.dirname(os.path.abspath(__file__)), "data", "%s_core_rp_%s.json" % (part, region_version(cached))
     )
     if not os.path.isfile(data):
         return rects, dev
@@ -203,7 +223,8 @@ def link_hook_tcl(core_dcp, ranges):
 
 
 def rw_islands_kernel(
-    kernel_model, kernel_name, part, clk_ns, out_dir, islands="auto", workers=None, subdivide=False
+    kernel_model, kernel_name, part, clk_ns, out_dir, islands="auto", workers=None, subdivide=False,
+    cache_shell=False,
 ):
     """Build the compute kernel with the island flow. kernel_model: a compute partition (AXI
     streams only) whose nodes carry generated IP. Returns a result dict with status, the stitched
@@ -264,11 +285,12 @@ def rw_islands_kernel(
     if failed:
         return done("synth_failed", failed=failed)
 
-    region, adev = island_region(part, dev)
+    region, adev = island_region(part, dev, cached=cache_shell)
     res["island_rects"] = region
     fail, core_dcp = islands_and_stitch(
         km, g, dcps, synth, adev, part, clk_ns, work, cpus, slots, islands, region, [], res, stamp,
         max_island_overlaps=MAX_ISLAND_OVERLAPS,
+        packing="skyline",
     )
     if fail is not None:
         return done(fail)
@@ -364,7 +386,7 @@ def shell_key(platform, clk_ns, signature, part=None):
     sig = {"platform": platform, "clk_ns": clk_ns, "kernels": signature, "version": 3, "vivado": vivado_version()}
     if part is not None:
         # the core partition's pblock
-        sig["region"] = [region_version(), ISLAND_REGIONS[part][region_version()]]
+        sig["region"] = [region_version(cached=True), ISLAND_REGIONS[part][region_version(cached=True)]]
     return "ushell" + hashlib.sha256(json.dumps(sig, sort_keys=True).encode()).hexdigest()[:12]
 
 

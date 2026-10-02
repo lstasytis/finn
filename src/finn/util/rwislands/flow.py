@@ -287,17 +287,21 @@ def islands_and_stitch(
     accel, g, dcps, synth, dev, part, clk_ns, work, cpus, slots, islands, region, first, res, stamp,
     rwroute_max_iter=30,
     max_island_overlaps=0,
+    packing="snake",
 ):
     """Islands, floorplan (region + first lanes), island P&R in parallel with the top synthesis,
-    RapidWright stitching. Fills res; returns (failure status or None, stitched accelerator dcp)."""
+    RapidWright stitching. Fills res; returns (failure status or None, stitched accelerator dcp).
+    packing "snake": consecutive islands in lanes (Zynq flow); "skyline": variable-size
+    staircase islands packed by resource mix (floorplan.allocate_skyline), searched over the
+    utilization and the island count."""
     names = [n.name for n in accel.graph.node]
     node_res = {n: synth[dcps[n]]["util"] for n in names}
     # 2. islands and floorplan
     costs = [island_cost(node_res[n]) for n in names]
     rect_list = region if isinstance(region, list) else [region]
 
-    def islands_of(k):
-        segs = partition(costs, k)
+    def islands_of(k, exact=False):
+        segs = partition(costs, k, exact)
         isl_k = {"island_%d" % i: names[a:b] for i, (a, b) in enumerate(segs)}
         res_k = []
         for mem in isl_k.values():
@@ -318,7 +322,30 @@ def islands_and_stitch(
         k //= 2
     ks = sorted(set(ks), reverse=True)
     plan, tried = None, []
+    if packing == "skyline":
+        # lowest utilization first, at each level the fewest islands (exact counts: more,
+        # smaller islands pack better); scarcest-first order for the search, chain order (closer
+        # neighbours) if it fits at the same level
+        kmax = min(len(names), max(k0, slots))
+        kc = sorted({min(kmax, max(1, int(round(k0 * f)))) for f in (1, 1.5, 2, 3)} | ({20, 28, 40} if kmax >= 20 else set()))
+        kc = [k for k in kc if k <= kmax]
+        for u in (0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85):
+            for k in kc:
+                isl, isl_res = islands_of(k, exact=True)
+                try:
+                    plan = floorplan(dev, isl_res, region, allocators=("skyline_hard",), utils=(u,))
+                except RuntimeError:
+                    tried.append((u, k, "skyline"))
+                    continue
+                # chain order if it fits at this level (else floorplan falls back to scarcest first)
+                plan = floorplan(dev, isl_res, region, allocators=("skyline",), utils=(u,))
+                break
+            if plan is not None:
+                break
+        res["skyline"] = {"candidates": kc}
     for allocs, kmax, utils in ((("snake",), None, (0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8)), (("rects",), 8, None)):
+        if plan is not None:
+            break
         for k in ks:
             if kmax is not None and k > kmax:
                 continue
