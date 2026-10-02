@@ -282,7 +282,10 @@ def allocate_rects(dev, needs, allowed, step=5):
     return res
 
 
-def allocate_skyline(dev, needs, rects, step=5, max_width=None, order="chain", pull=0.05, stair=True, min_rows=30):
+def allocate_skyline(
+    dev, needs, rects, step=5, max_width=None, order="chain", pull=0.05, stair=True, min_rows=30, compact=0.02,
+    min_fill=0.6,
+):
     """Variable-size islands by skyline packing: every island gets one tile rectangle (any
     width, over the columns whose resource mix suits it) inside one region rectangle, on top of
     what is already used there (bottom-left fill). Among all positions and widths the one with
@@ -291,7 +294,9 @@ def allocate_skyline(dev, needs, rects, step=5, max_width=None, order="chain", p
     towards the previous island of the chain (short stitching nets). With stair, an island
     covers every column from that column's skyline up to a common top (a staircase of column
     rectangles sharing the top rows, no holes below it), at least min_rows high in every column
-    (thin slivers along the top congest); otherwise one rectangle on top of the highest column.
+    (thin slivers along the top congest), and compact: compact weighs the part of the bounding
+    box the staircase does not cover (U- or L-shaped islands spread a node over a long bridge), at least min_fill of it covered;
+    otherwise one rectangle on top of the highest column.
     needs in chain order;
     order "chain" places them in that order, "hard" scarcest-share first. Returns one rectangle
     list per island, or None."""
@@ -362,6 +367,11 @@ def allocate_skyline(dev, needs, rects, step=5, max_width=None, order="chain", p
                             if sky[c] < top:
                                 hole += pc[:, c + 1, top] - pc[:, c, top] - pc[:, c + 1, sky[c]] + pc[:, c, sky[c]]
                     waste = float(np.sum((got - req + hole) * w))
+                    if stair:
+                        fill = float(np.sum(lo - sky[a : b + 1])) / ((b - a + 1) * (lo - low))
+                        if fill < min_fill:
+                            continue
+                        waste += compact * (1.0 - fill)
                     cx = (xs[a] + xs[b]) / 2.0
                     cy = (rg["b0"] + ((low if stair else top) + lo) / 2.0) * step
                     if prev is not None and order == "chain":
