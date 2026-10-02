@@ -61,8 +61,10 @@ ISLAND_REGIONS = {
             "rp": [(3, 73, 120, 299), (3, 110, 300, 719)],
         },
         # per-model link (no core partition, islands only reserved by EXCLUDE_PLACEMENT): the
-        # dynamic region's clock regions X0-X6 except SLR0's row 0 (HBM subsystem), the HMSS
-        # SLR-crossing corridor (tile columns 74-92, rows 60-299) and the base logic (X7)
+        # dynamic region's clock regions X0-X5 except SLR0's row 0 (HBM subsystem) and the HMSS
+        # SLR-crossing corridor (tile columns 74-92, rows 60-299); not X6, next to the base logic
+        # (X7), whose locked control nets cross X6 (full MobileNet: 2 unresolvable nodes at
+        # INT_X116Y540/INT_X124Y540 between locked island cells and locked static routes)
         "pm": {
             "islands": [
                 (6, 73, 60, 239),
@@ -70,7 +72,7 @@ ISLAND_REGIONS = {
                 (6, 73, 240, 479),
                 (93, 111, 240, 299),
                 (74, 111, 300, 479),
-                (6, 127, 480, 719),
+                (6, 111, 480, 719),
             ],
         },
     }
