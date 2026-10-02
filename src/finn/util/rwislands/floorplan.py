@@ -282,7 +282,7 @@ def allocate_rects(dev, needs, allowed, step=5):
     return res
 
 
-def allocate_skyline(dev, needs, rects, step=5, max_width=None, order="chain", pull=0.05, stair=True):
+def allocate_skyline(dev, needs, rects, step=5, max_width=None, order="chain", pull=0.05, stair=True, min_rows=30):
     """Variable-size islands by skyline packing: every island gets one tile rectangle (any
     width, over the columns whose resource mix suits it) inside one region rectangle, on top of
     what is already used there (bottom-left fill). Among all positions and widths the one with
@@ -290,8 +290,9 @@ def allocate_skyline(dev, needs, rects, step=5, max_width=None, order="chain", p
     under the new island, each weighted by scarcity (1 / total of that kind), and a small pull
     towards the previous island of the chain (short stitching nets). With stair, an island
     covers every column from that column's skyline up to a common top (a staircase of column
-    rectangles sharing the top rows, no holes below it); otherwise one rectangle on top of the
-    highest column. needs in chain order;
+    rectangles sharing the top rows, no holes below it), at least min_rows high in every column
+    (thin slivers along the top congest); otherwise one rectangle on top of the highest column.
+    needs in chain order;
     order "chain" places them in that order, "hard" scarcest-share first. Returns one rectangle
     list per island, or None."""
     import numpy as np
@@ -344,7 +345,9 @@ def allocate_skyline(dev, needs, rects, step=5, max_width=None, order="chain", p
                     floor = (base[:, b + 1] - base[:, a]) if stair else col[:, top]
                     if np.any(col[:, nb] - floor < req):
                         continue
-                    lo, hi = top + 1, nb
+                    lo, hi = top + (max(1, min_rows // step) if stair else 1), nb
+                    if lo > nb:
+                        continue
                     while lo < hi:
                         mid = (lo + hi) // 2
                         if np.all(col[:, mid] - floor >= req):
