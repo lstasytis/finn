@@ -329,19 +329,31 @@ def islands_and_stitch(
         kmax = min(len(names), max(k0, slots))
         kc = sorted({min(kmax, max(1, int(round(k0 * f)))) for f in (1, 1.5, 2, 3)} | ({20, 28, 40} if kmax >= 20 else set()))
         kc = [k for k in kc if k <= kmax]
-        for u in (0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85):
+        def fewest(u):
             for k in kc:
-                isl, isl_res = islands_of(k, exact=True)
+                isl_k, res_k = islands_of(k, exact=True)
                 try:
-                    plan = floorplan(dev, isl_res, region, allocators=("skyline_hard",), utils=(u,))
+                    floorplan(dev, res_k, region, allocators=("skyline_hard",), utils=(u,))
+                    return k
                 except RuntimeError:
                     tried.append((u, k, "skyline"))
-                    continue
-                # chain order if it fits at this level (else floorplan falls back to scarcest first)
-                plan = floorplan(dev, isl_res, region, allocators=("skyline",), utils=(u,))
-                break
-            if plan is not None:
-                break
+            return None
+
+        levels = (0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85)
+        for li, u in enumerate(levels):
+            k = fewest(u)
+            if k is None:
+                continue
+            # the next level if it needs at most half the islands (the stitching cost grows with
+            # the island count: 82 islands took 555 s to stitch)
+            if li + 1 < len(levels):
+                k2 = fewest(levels[li + 1])
+                if k2 is not None and k2 * 2 <= k:
+                    u, k = levels[li + 1], k2
+            isl, isl_res = islands_of(k, exact=True)
+            # chain order if it fits at this level (else floorplan falls back to scarcest first)
+            plan = floorplan(dev, isl_res, region, allocators=("skyline",), utils=(u,))
+            break
         res["skyline"] = {"candidates": kc}
     for allocs, kmax, utils in ((("snake",), None, (0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8)), (("rects",), 8, None)):
         if plan is not None:
