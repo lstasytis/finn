@@ -645,3 +645,10 @@ any reuse of earlier implementations: the metric is from-scratch model -> bitstr
 * Result offline: full MobileNet at LUT 0.6 with 28 islands (min fill 0.6), search ~40 s.
   First build: 18/20 islands routed in ~25 min, 2 sliver islands stuck -> min rows; second:
   27/28 in 13 min, 1 U-shaped island stuck -> min fill; third build running.
+* Third build (min rows 30 + min fill 0.6): the search chose 82 islands at LUT 0.55 (the
+  lowest level; 28 islands need 0.6). Kernel ok in 1249 s with synthesis reused: floorplan
+  search 70 s, island P&R 630 s (all 82 routed, 0 routing errors, the slowest ~10 min), RapidWright
+  stitch 548 s (populate 223 s, partial route of the inter-island nets 320 s, 62 pins left for
+  v++). The stitch grows with the island count -> the search now takes the next level if it
+  halves the island count (here 28 islands at 0.6). (A JSON crash on numpy ints in the
+  staircase rectangles cost one rerun.) Per-model v++ link running.
