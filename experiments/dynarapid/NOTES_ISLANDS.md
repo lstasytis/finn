@@ -618,3 +618,30 @@ User: test VGG10, then MobileNet (U55C), cache the platform region.
   stitched IP + XO packaging of the 230k-LUT compute partition. 1.30x end to end (concurrent).
 * Timed runs started 2026-10-01 23:03 (`run_u55c_timing.sh`, MODELS="vgg10 mnv1h", MODES="islands
   bitfile", one at a time; only the 1-core MobileNet verification xsim runs alongside).
+
+## 2026-10-02: tighter, variable-size islands; full U250 MobileNet on the U55C
+
+User: a 400k-LUT MobileNet must fit the island region; make islands composable / variable
+size, resource-aware, then build the larger MobileNet for the U55C. (The user also ruled out
+any reuse of earlier implementations: the metric is from-scratch model -> bitstream.)
+
+* Full U250-folding MobileNet (157 nodes): 398k LUT, 295k FF, 55k LUTRAM, 651 BRAM36, 100 DSP,
+  22 URAM (deep FIFOs). Offline lab (`fp_lab.py` in the scratchpad: node utils from a kernel
+  dir's synth .util files + the partition/floorplan functions) to iterate without builds.
+* Old snake: no fit (URAM needs of 11 islands vs 4 of 18 lanes with URAM columns, BRAM-bound
+  islands consuming whole lanes). 2D rectangle packing: slow, scattered.
+* New `allocate_skyline` (floorplan.py): every island gets a staircase (one column-range
+  rectangle per run of equal skyline, sharing the top rows; no holes) inside one region
+  rectangle, any width; among all positions/widths the least scarcity-weighted waste (+ a
+  compactness term), at least 30 rows in every column (thin top slivers congested: two islands
+  of the first run with 10/40-row strips were still routing after an hour) and >= 60 % of the
+  bounding box covered (a U-shaped single-MVAU island never converged). Islands: exact-K
+  partitions (more, smaller islands pack better); search: utilization 0.5..0.85 x island
+  counts {k0, 1.5k0, 2k0, 3k0, 20, 28, 40}, scarcest-first order, chain order if it fits at the
+  same level. Zynq flow keeps the snake (`packing="snake"`), Alveo uses `packing="skyline"`.
+* U55C region for the per-model link (no core partition any more): `pm` = clock regions X0-X6
+  minus SLR0 row 0 (HBM subsystem), the HMSS crossing corridor (tile cols 74-92, rows 60-299)
+  and the base logic (X7): 105k slices, 1404 BRAM36, 704 URAM, 6336 DSP. (v2 was 81k slices.)
+* Result offline: full MobileNet at LUT 0.6 with 28 islands (min fill 0.6), search ~40 s.
+  First build: 18/20 islands routed in ~25 min, 2 sliver islands stuck -> min rows; second:
+  27/28 in 13 min, 1 U-shaped island stuck -> min fill; third build running.
