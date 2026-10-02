@@ -487,6 +487,12 @@ class VitisLink(Transformation):
             if "[vivado]" not in config:
                 config.append("[vivado]")
             config.append("prop=run.impl_1.STEPS.OPT_DESIGN.TCL.PRE=%s" % hook)
+            shell = model.get_metadata_prop("rwi_shell")
+            if shell is not None and not json.loads(shell)["cached"]:
+                # shell-building link (core as a nested partition): phys_opt_design's clock
+                # re-partitioning fails on two locked ULP debug/throttling clocks (Place 30-834)
+                config = [c for c in config if not c.startswith("prop=run.impl_1.STEPS.PHYS_OPT_DESIGN")]
+                config.append("prop=run.impl_1.STEPS.PHYS_OPT_DESIGN.IS_ENABLED=false")
         config = "\n".join(config) + "\n"
         with open(link_dir + "/config.txt", "w") as f:
             f.write(config)

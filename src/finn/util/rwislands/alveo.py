@@ -335,8 +335,19 @@ ULP_CELL = "level0_i/ulp"
 # as a nested partition a ULP cell there makes its GND/VCC routing static routing (route_design:
 # HPR Routing Violation 18-5229 "unlocked site pin ... used by power or ground net outside
 # container area"); unused ones are prohibited in the shell-building link
+# The 2-column strip next to the base logic in SLR2 (SLICE_X220-X221, rows 540-599) is inside
+# the container, but its interconnect tiles are not: Vivado placed the LUTs it inserts for the
+# ULP's unused outputs (HD_PR_DrivenByBlackBox_InsertedInst_*) there, and their GND routing
+# failed the DFX DRC (HPR 18-5239 at INT_X138Y543); the other ranges are v++ ULP-pblock sites
+# outside the container (rows 0-59 next to the base logic).
 ULP_PROHIBIT = {
-    "xcu55c-fsvh2892-2L-e": [("SLICE_X117Y60", "SLICE_X117Y119"), ("SLICE_X117Y240", "SLICE_X117Y299")],
+    "xcu55c-fsvh2892-2L-e": [
+        ("SLICE_X117Y60", "SLICE_X117Y119"),
+        ("SLICE_X117Y240", "SLICE_X117Y299"),
+        ("SLICE_X220Y540", "SLICE_X221Y599"),
+        ("SLICE_X220Y0", "SLICE_X221Y59"),
+        ("SLICE_X232Y0", "SLICE_X232Y59"),
+    ],
 }
 
 
@@ -357,12 +368,15 @@ def subdivide_hook_tcl(core_dcp, region_ranges, ulp_dcp, prohibit=()):
             "write_checkpoint -force -cell %s %s" % (ULP_CELL, ulp_dcp),
             "rwi_stamp ulp_saved",
             "update_design -cell %s -black_box" % ULP_CELL,
+            # standard DFX recipe: the static routing stays locked
+            "lock_design -level routing",
             "pr_subdivide -cell %s -subcells [list $core_name] %s" % (ULP_CELL, ulp_dcp),
             "rwi_stamp pr_subdivide",
             'puts "RWI_HOOK partitions: [get_cells -hier -quiet -filter {HD.RECONFIGURABLE}]"',
         ]
         + [
-            "set_property PROHIBIT 1 [set ps [get_sites -quiet -filter {IS_USED == 0} -range {%s %s}]]; "
+            "set ps [get_sites -quiet -filter {IS_USED == 0} -range {%s %s}]; "
+            "if {[llength $ps]} {set_property PROHIBIT 1 $ps}; "
             'puts "RWI_HOOK prohibit [llength $ps] %s:%s"' % (r + r)
             for r in prohibit
         ]
