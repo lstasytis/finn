@@ -652,3 +652,12 @@ any reuse of earlier implementations: the metric is from-scratch model -> bitstr
   v++). The stitch grows with the island count -> the search now takes the next level if it
   halves the island count (here 28 islands at 0.6). (A JSON crash on numpy ints in the
   staircase rectangles cost one rerun.) Per-model v++ link running.
+* Full MobileNet link #1 (82 islands, region pm incl. column X6): placement 67 min, then
+  route_design failed with 2 unresolvable nodes (INT_X116Y540, INT_X124Y540) between locked
+  island cells (islands at tile cols 99-127, SLR2) and locked base-logic control nets crossing
+  clock-region column X6 next to the BLP (X7). Region pm now ends at column 111 (X0-X5): 99.5k
+  slices; the search then picks 20 islands at LUT 0.65 (0.6 needs 60-81 islands).
+* **Full U250-folding MobileNet (398k LUT) on the U55C with the island kernel: works.** Kernel
+  686 s (synthesis reused; floorplan 61 s, 20 islands P&R 468 s, stitch 156 s), link: hook 500 s,
+  vpl synth 739, opt 637, place 3672, route 1670, bitstream 1670; xclbin, 0 routing errors, WNS
+  +0.003 / WHS +0.009. Total 11045 s, concurrent with the Vitis baseline (not a timing result).
