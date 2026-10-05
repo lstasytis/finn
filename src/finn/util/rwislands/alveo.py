@@ -340,11 +340,20 @@ ULP_CELL = "level0_i/ulp"
 # ULP's unused outputs (HD_PR_DrivenByBlackBox_InsertedInst_*) there, and their GND routing
 # failed the DFX DRC (HPR 18-5239 at INT_X138Y543). (The ULP-pblock ranges at rows 0-59 next to
 # the base logic hold locked static PCIe cells: prohibiting them fails placement, Place 30-25.)
+# Generally: the dynamic region's edge slice columns facing static logic (from its derived
+# ranges; LAGUNA notches are not static), e.g. INT_X131Y496 next to SLICE_X205 in SLR2.
 ULP_PROHIBIT = {
     "xcu55c-fsvh2892-2L-e": [
         ("SLICE_X117Y60", "SLICE_X117Y119"),
         ("SLICE_X117Y240", "SLICE_X117Y299"),
         ("SLICE_X220Y540", "SLICE_X221Y599"),
+        ("SLICE_X196Y60", "SLICE_X196Y479"),
+        ("SLICE_X205Y480", "SLICE_X205Y659"),
+        ("SLICE_X213Y660", "SLICE_X213Y719"),
+        ("SLICE_X215Y660", "SLICE_X215Y719"),
+        ("SLICE_X224Y660", "SLICE_X224Y719"),
+        ("SLICE_X226Y660", "SLICE_X226Y719"),
+        ("SLICE_X232Y660", "SLICE_X232Y719"),
     ],
 }
 
