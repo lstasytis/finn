@@ -718,3 +718,23 @@ Floorplanner (2026-10-02): skyline packing of variable-size staircase islands by
 search, fewer islands preferred for the stitch); U55C region pm (X0-X5 minus HBM row and HMSS
 corridor). Full U250 MobileNet (398k LUT, 651 BRAM36) did not fit before; now 20 islands at
 LUT 0.65, island P&R 463 s, stitch 158 s.
+
+## 2026-10-05: plan A (cached shell via nested partition), time-boxed - stopped
+
+* J (TFC core, v1 partition, prohibits X117 + BLP strip X220-221 Y540-599, static routing
+  locked after black-boxing, no phys_opt): first attempt hit Place 30-25 - the prohibits on the
+  rows 0-59 ULP-pblock ranges covered LOC-constrained static PCIe cells that are unplaced at hook
+  time (IS_USED == 0 does not exclude them); dropped. Second attempt: placement ok, route_design
+  DFX DRC: `HPR 18-5239 INT_X131Y496/WW2_W_BEG7` (GND node in the static column next to the
+  ULP's edge slice column X205, where hmss_0 interconnect FIFOs were placed). The real TFC
+  shell-building link (same hook) failed on exactly the same node (deterministic).
+* K = J + prohibits on every edge slice column of the dynamic region facing static logic (X196
+  rows 60-479, X205 rows 480-659, X213/215/224/226/232 rows 660-719): placement ok, route_design
+  DFX DRC: `HPR 18-5239 INT_X131Y516/WW1_W_BEG2` - the router still drives GND pins of ULP cells
+  near the boundary from tie-offs in the static column X131, one node further. This is router
+  behaviour in nested DFX, not placement; prohibiting further columns only moves it.
+* Stopped (time box ~2.5 h, as agreed). Over both attempts the nested-partition shell on
+  xilinx_u55c_gen3x16_xdma_3_202210_1 needed: HMSS column prohibits, LAGUNA ownership rules,
+  phys_opt off (clock partitioning), and still fails the DFX DRC on GND routing at the ULP/BLP
+  boundary. Remaining option for a fast U55C flow: our own Vivado shell outside Vitis (plan B,
+  not XRT-compatible).
