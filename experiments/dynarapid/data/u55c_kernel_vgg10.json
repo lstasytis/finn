@@ -1,0 +1,892 @@
+{
+ "kernel": "StreamingDataflowPartition_1",
+ "part": "xcu55c-fsvh2892-2L-e",
+ "clk_ns": 10.0,
+ "status": "ok",
+ "total_s": 775.6280176639557,
+ "stamps": {
+  "synth": 222.25623774528503,
+  "floorplan": 239.0652551651001,
+  "islands": 669.9376678466797,
+  "stitch": 775.5996472835541
+ },
+ "floorplan": {
+  "util": {
+   "lut": 0.5,
+   "bram": 0.9,
+   "dsp": 0.9,
+   "uram": 1.0
+  },
+  "lanes": [
+   [
+    6,
+    16,
+    60,
+    239
+   ],
+   [
+    17,
+    26,
+    60,
+    239
+   ],
+   [
+    27,
+    35,
+    60,
+    239
+   ],
+   [
+    36,
+    45,
+    60,
+    239
+   ],
+   [
+    46,
+    53,
+    60,
+    239
+   ],
+   [
+    54,
+    63,
+    60,
+    239
+   ],
+   [
+    64,
+    73,
+    60,
+    239
+   ],
+   [
+    93,
+    102,
+    60,
+    239
+   ],
+   [
+    103,
+    111,
+    60,
+    239
+   ],
+   [
+    6,
+    16,
+    240,
+    479
+   ],
+   [
+    17,
+    26,
+    240,
+    479
+   ],
+   [
+    27,
+    35,
+    240,
+    479
+   ],
+   [
+    36,
+    45,
+    240,
+    479
+   ],
+   [
+    46,
+    53,
+    240,
+    479
+   ],
+   [
+    54,
+    63,
+    240,
+    479
+   ],
+   [
+    64,
+    73,
+    240,
+    479
+   ],
+   [
+    93,
+    102,
+    240,
+    299
+   ],
+   [
+    103,
+    111,
+    240,
+    299
+   ],
+   [
+    74,
+    84,
+    300,
+    479
+   ],
+   [
+    85,
+    93,
+    300,
+    479
+   ],
+   [
+    94,
+    103,
+    300,
+    479
+   ],
+   [
+    104,
+    111,
+    300,
+    479
+   ],
+   [
+    6,
+    16,
+    480,
+    719
+   ],
+   [
+    17,
+    26,
+    480,
+    719
+   ],
+   [
+    27,
+    35,
+    480,
+    719
+   ],
+   [
+    36,
+    44,
+    480,
+    719
+   ],
+   [
+    45,
+    53,
+    480,
+    719
+   ],
+   [
+    54,
+    63,
+    480,
+    719
+   ],
+   [
+    64,
+    73,
+    480,
+    719
+   ],
+   [
+    74,
+    83,
+    480,
+    719
+   ],
+   [
+    84,
+    92,
+    480,
+    719
+   ],
+   [
+    93,
+    102,
+    480,
+    719
+   ],
+   [
+    103,
+    111,
+    480,
+    719
+   ]
+  ],
+  "region": [
+   [
+    6,
+    73,
+    60,
+    239
+   ],
+   [
+    93,
+    111,
+    60,
+    239
+   ],
+   [
+    6,
+    73,
+    240,
+    479
+   ],
+   [
+    93,
+    111,
+    240,
+    299
+   ],
+   [
+    74,
+    111,
+    300,
+    479
+   ],
+   [
+    6,
+    111,
+    480,
+    719
+   ]
+  ]
+ },
+ "floorplan_tries": [],
+ "skyline": {
+  "candidates": [
+   20,
+   28,
+   40,
+   48,
+   72,
+   83
+  ]
+ },
+ "stitch_s": 105.66047072410583,
+ "stitch_stamps": {
+  "read_top": 2.062,
+  "populate": 65.803,
+  "names": 70.305,
+  "site_pins": 71.176,
+  "prepare_route": 71.19,
+  "route": 100.532,
+  "write": 103.309
+ },
+ "stitch_unrouted_pins": 7,
+ "top_s": 42.95567035675049,
+ "islands": {
+  "island_0": {
+   "nodes": [
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_0"
+   ],
+   "res": {
+    "lut": 24.0,
+    "lutram": 16.0,
+    "ff": 21.0,
+    "carry": 0.0,
+    "bram": 0.0,
+    "dsp": 0.0,
+    "uram": 0.0
+   },
+   "rects": [
+    [
+     13,
+     13,
+     240,
+     304
+    ]
+   ],
+   "pnr_s": 145.08811140060425,
+   "routing_errors": 0
+  },
+  "island_1": {
+   "nodes": [
+    "StreamingDataflowPartition_1_FMPadding_rtl_0"
+   ],
+   "res": {
+    "lut": 44.0,
+    "lutram": 0.0,
+    "ff": 47.0,
+    "carry": 2.0,
+    "bram": 0.0,
+    "dsp": 0.0,
+    "uram": 0.0
+   },
+   "rects": [
+    [
+     8,
+     8,
+     60,
+     89
+    ]
+   ],
+   "pnr_s": 148.6892557144165,
+   "routing_errors": 0
+  },
+  "island_2": {
+   "nodes": [
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_1"
+   ],
+   "res": {
+    "lut": 24.0,
+    "lutram": 16.0,
+    "ff": 21.0,
+    "carry": 0.0,
+    "bram": 0.0,
+    "dsp": 0.0,
+    "uram": 0.0
+   },
+   "rects": [
+    [
+     24,
+     24,
+     240,
+     304
+    ]
+   ],
+   "pnr_s": 145.01697707176208,
+   "routing_errors": 0
+  },
+  "island_3": {
+   "nodes": [
+    "StreamingDataflowPartition_1_ConvolutionInputGenerator_rtl_0"
+   ],
+   "res": {
+    "lut": 80.0,
+    "lutram": 0.0,
+    "ff": 91.0,
+    "carry": 4.0,
+    "bram": 0.0,
+    "dsp": 0.0,
+    "uram": 0.0
+   },
+   "rects": [
+    [
+     8,
+     8,
+     90,
+     119
+    ]
+   ],
+   "pnr_s": 148.7781593799591,
+   "routing_errors": 0
+  },
+  "island_4": {
+   "nodes": [
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_2"
+   ],
+   "res": {
+    "lut": 56.0,
+    "lutram": 48.0,
+    "ff": 53.0,
+    "carry": 0.0,
+    "bram": 0.0,
+    "dsp": 0.0,
+    "uram": 0.0
+   },
+   "rects": [
+    [
+     7,
+     7,
+     60,
+     89
+    ]
+   ],
+   "pnr_s": 149.05589199066162,
+   "routing_errors": 0
+  },
+  "island_5": {
+   "nodes": [
+    "StreamingDataflowPartition_1_MVAU_rtl_0"
+   ],
+   "res": {
+    "lut": 3994.0,
+    "lutram": 839.0,
+    "ff": 5456.0,
+    "carry": 373.0,
+    "bram": 0.0,
+    "dsp": 66.0,
+    "uram": 0.0
+   },
+   "rects": [
+    [
+     15,
+     17,
+     240,
+     449
+    ]
+   ],
+   "pnr_s": 180.56921458244324,
+   "routing_errors": 0
+  },
+  "island_6": {
+   "nodes": [
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_3"
+   ],
+   "res": {
+    "lut": 455.0,
+    "lutram": 448.0,
+    "ff": 453.0,
+    "carry": 0.0,
+    "bram": 0.0,
+    "dsp": 0.0,
+    "uram": 0.0
+   },
+   "rects": [
+    [
+     7,
+     7,
+     90,
+     204
+    ]
+   ],
+   "pnr_s": 146.67911767959595,
+   "routing_errors": 0
+  },
+  "island_7": {
+   "nodes": [
+    "StreamingDataflowPartition_1_Thresholding_rtl_0"
+   ],
+   "res": {
+    "lut": 1581.0,
+    "lutram": 128.0,
+    "ff": 4108.0,
+    "carry": 128.0,
+    "bram": 0.0,
+    "dsp": 0.0,
+    "uram": 0.0
+   },
+   "rects": [
+    [
+     52,
+     53,
+     240,
+     384
+    ]
+   ],
+   "pnr_s": 158.94866633415222,
+   "routing_errors": 0
+  },
+  "island_8": {
+   "nodes": [
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_4"
+   ],
+   "res": {
+    "lut": 135.0,
+    "lutram": 128.0,
+    "ff": 133.0,
+    "carry": 0.0,
+    "bram": 0.0,
+    "dsp": 0.0,
+    "uram": 0.0
+   },
+   "rects": [
+    [
+     7,
+     7,
+     205,
+     239
+    ]
+   ],
+   "pnr_s": 148.6931164264679,
+   "routing_errors": 0
+  },
+  "island_9": {
+   "nodes": [
+    "StreamingDataflowPartition_1_ConvolutionInputGenerator_rtl_1"
+   ],
+   "res": {
+    "lut": 79.0,
+    "lutram": 0.0,
+    "ff": 296.0,
+    "carry": 4.0,
+    "bram": 0.0,
+    "dsp": 0.0,
+    "uram": 0.0
+   },
+   "rects": [
+    [
+     8,
+     8,
+     120,
+     159
+    ]
+   ],
+   "pnr_s": 144.8943054676056,
+   "routing_errors": 0
+  },
+  "island_10": {
+   "nodes": [
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_5"
+   ],
+   "res": {
+    "lut": 263.0,
+    "lutram": 256.0,
+    "ff": 261.0,
+    "carry": 0.0,
+    "bram": 0.0,
+    "dsp": 0.0,
+    "uram": 0.0
+   },
+   "rects": [
+    [
+     7,
+     7,
+     240,
+     309
+    ]
+   ],
+   "pnr_s": 146.765367269516,
+   "routing_errors": 0
+  },
+  "island_11": {
+   "nodes": [
+    "StreamingDataflowPartition_1_StreamingDataWidthConverter_rtl_0"
+   ],
+   "res": {
+    "lut": 401.0,
+    "lutram": 0.0,
+    "ff": 391.0,
+    "carry": 0.0,
+    "bram": 0.0,
+    "dsp": 0.0,
+    "uram": 0.0
+   },
+   "rects": [
+    [
+     26,
+     26,
+     60,
+     164
+    ]
+   ],
+   "pnr_s": 148.5628161430359,
+   "routing_errors": 0
+  },
+  "island_12": {
+   "nodes": [
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_6"
+   ],
+   "res": {
+    "lut": 135.0,
+    "lutram": 128.0,
+    "ff": 133.0,
+    "carry": 0.0,
+    "bram": 0.0,
+    "dsp": 0.0,
+    "uram": 0.0
+   },
+   "rects": [
+    [
+     7,
+     7,
+     310,
+     344
+    ]
+   ],
+   "pnr_s": 147.27582716941833,
+   "routing_errors": 0
+  },
+  "island_13": {
+   "nodes": [
+    "StreamingDataflowPartition_1_Pool_hls_0"
+   ],
+   "res": {
+    "lut": 488.0,
+    "lutram": 0.0,
+    "ff": 668.0,
+    "carry": 0.0,
+    "bram": 0.0,
+    "dsp": 0.0,
+    "uram": 0.0
+   },
+   "rects": [
+    [
+     65,
+     65,
+     60,
+     184
+    ]
+   ],
+   "pnr_s": 148.77327013015747,
+   "routing_errors": 0
+  },
+  "island_14": {
+   "nodes": [
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_7"
+   ],
+   "res": {
+    "lut": 135.0,
+    "lutram": 128.0,
+    "ff": 133.0,
+    "carry": 0.0,
+    "bram": 0.0,
+    "dsp": 0.0,
+    "uram": 0.0
+   },
+   "rects": [
+    [
+     7,
+     7,
+     345,
+     379
+    ]
+   ],
+   "pnr_s": 146.90059971809387,
+   "routing_errors": 0
+  },
+  "island_15": {
+   "nodes": [
+    "StreamingDataflowPartition_1_FMPadding_rtl_1"
+   ],
+   "res": {
+    "lut": 94.0,
+    "lutram": 0.0,
+    "ff": 270.0,
+    "carry": 2.0,
+    "bram": 0.0,
+    "dsp": 0.0,
+    "uram": 0.0
+   },
+   "rects": [
+    [
+     8,
+     8,
+     160,
+     194
+    ]
+   ],
+   "pnr_s": 147.48233699798584,
+   "routing_errors": 0
+  },
+  "island_16": {
+   "nodes": [
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_8",
+    "StreamingDataflowPartition_1_ConvolutionInputGenerator_rtl_2",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_9"
+   ],
+   "res": {
+    "lut": 602.0,
+    "lutram": 512.0,
+    "ff": 946.0,
+    "carry": 4.0,
+    "bram": 0.0,
+    "dsp": 0.0,
+    "uram": 0.0
+   },
+   "rects": [
+    [
+     7,
+     7,
+     480,
+     634
+    ]
+   ],
+   "pnr_s": 150.89699292182922,
+   "routing_errors": 0
+  },
+  "island_17": {
+   "nodes": [
+    "StreamingDataflowPartition_1_MVAU_rtl_1"
+   ],
+   "res": {
+    "lut": 35237.0,
+    "lutram": 12716.0,
+    "ff": 64308.0,
+    "carry": 2936.0,
+    "bram": 0.0,
+    "dsp": 384.0,
+    "uram": 0.0
+   },
+   "rects": [
+    [
+     29,
+     53,
+     480,
+     694
+    ]
+   ],
+   "pnr_s": 430.8531243801117,
+   "routing_errors": 0
+  },
+  "island_18": {
+   "nodes": [
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_10",
+    "StreamingDataflowPartition_1_Thresholding_rtl_1",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_11",
+    "StreamingDataflowPartition_1_StreamingDataWidthConverter_rtl_1",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_12",
+    "StreamingDataflowPartition_1_ConvolutionInputGenerator_rtl_3",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_13",
+    "StreamingDataflowPartition_1_StreamingDataWidthConverter_rtl_2",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_14",
+    "StreamingDataflowPartition_1_Pool_hls_1",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_15",
+    "StreamingDataflowPartition_1_FMPadding_rtl_2",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_16",
+    "StreamingDataflowPartition_1_ConvolutionInputGenerator_rtl_4",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_17",
+    "StreamingDataflowPartition_1_MVAU_rtl_2"
+   ],
+   "res": {
+    "lut": 20465.0,
+    "lutram": 7196.0,
+    "ff": 30806.0,
+    "carry": 1542.0,
+    "bram": 0.0,
+    "dsp": 192.0,
+    "uram": 0.0
+   },
+   "rects": [
+    [
+     40,
+     51,
+     240,
+     439
+    ],
+    [
+     52,
+     53,
+     385,
+     439
+    ],
+    [
+     54,
+     55,
+     240,
+     439
+    ]
+   ],
+   "pnr_s": 306.14539194107056,
+   "routing_errors": 0
+  },
+  "island_19": {
+   "nodes": [
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_18",
+    "StreamingDataflowPartition_1_Thresholding_rtl_2",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_19",
+    "StreamingDataflowPartition_1_StreamingDataWidthConverter_rtl_3",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_20",
+    "StreamingDataflowPartition_1_ConvolutionInputGenerator_rtl_5",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_21",
+    "StreamingDataflowPartition_1_StreamingDataWidthConverter_rtl_4",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_22",
+    "StreamingDataflowPartition_1_Pool_hls_2",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_23",
+    "StreamingDataflowPartition_1_FMPadding_rtl_3",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_24",
+    "StreamingDataflowPartition_1_ConvolutionInputGenerator_rtl_6",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_25",
+    "StreamingDataflowPartition_1_MVAU_rtl_3",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_26",
+    "StreamingDataflowPartition_1_Thresholding_rtl_3",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_27",
+    "StreamingDataflowPartition_1_StreamingDataWidthConverter_rtl_5",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_28",
+    "StreamingDataflowPartition_1_ConvolutionInputGenerator_rtl_7",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_29",
+    "StreamingDataflowPartition_1_Pool_hls_3",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_30",
+    "StreamingDataflowPartition_1_FMPadding_rtl_4",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_31",
+    "StreamingDataflowPartition_1_ConvolutionInputGenerator_rtl_8",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_32",
+    "StreamingDataflowPartition_1_StreamingDataWidthConverter_rtl_6",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_33",
+    "StreamingDataflowPartition_1_MVAU_rtl_4",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_34",
+    "StreamingDataflowPartition_1_Thresholding_rtl_4",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_35",
+    "StreamingDataflowPartition_1_StreamingDataWidthConverter_rtl_7",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_36",
+    "StreamingDataflowPartition_1_ConvolutionInputGenerator_rtl_9",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_37",
+    "StreamingDataflowPartition_1_Pool_hls_4",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_38",
+    "StreamingDataflowPartition_1_FMPadding_rtl_5",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_39",
+    "StreamingDataflowPartition_1_ConvolutionInputGenerator_rtl_10",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_40",
+    "StreamingDataflowPartition_1_StreamingDataWidthConverter_rtl_8",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_41",
+    "StreamingDataflowPartition_1_MVAU_rtl_5",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_42",
+    "StreamingDataflowPartition_1_Thresholding_rtl_5",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_43",
+    "StreamingDataflowPartition_1_StreamingDataWidthConverter_rtl_9",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_44",
+    "StreamingDataflowPartition_1_ConvolutionInputGenerator_rtl_11",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_45",
+    "StreamingDataflowPartition_1_Pool_hls_5",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_46",
+    "StreamingDataflowPartition_1_FMPadding_rtl_6",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_47",
+    "StreamingDataflowPartition_1_ConvolutionInputGenerator_rtl_12",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_48",
+    "StreamingDataflowPartition_1_StreamingDataWidthConverter_rtl_10",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_49",
+    "StreamingDataflowPartition_1_MVAU_rtl_6",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_50",
+    "StreamingDataflowPartition_1_Thresholding_rtl_6",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_51",
+    "StreamingDataflowPartition_1_StreamingDataWidthConverter_rtl_11",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_52",
+    "StreamingDataflowPartition_1_ConvolutionInputGenerator_rtl_13",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_53",
+    "StreamingDataflowPartition_1_Pool_hls_6",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_54",
+    "StreamingDataflowPartition_1_MVAU_rtl_7",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_55",
+    "StreamingDataflowPartition_1_Thresholding_rtl_7",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_56",
+    "StreamingDataflowPartition_1_StreamingDataWidthConverter_rtl_12",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_57",
+    "StreamingDataflowPartition_1_MVAU_rtl_8",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_58",
+    "StreamingDataflowPartition_1_Thresholding_rtl_8",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_59",
+    "StreamingDataflowPartition_1_StreamingDataWidthConverter_rtl_13",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_60",
+    "StreamingDataflowPartition_1_MVAU_rtl_9",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_61",
+    "StreamingDataflowPartition_1_ElementwiseAdd_hls_0",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_62",
+    "StreamingDataflowPartition_1_LabelSelect_hls_0",
+    "StreamingDataflowPartition_1_StreamingFIFO_rtl_63"
+   ],
+   "res": {
+    "lut": 32723.0,
+    "lutram": 13504.0,
+    "ff": 47026.0,
+    "carry": 1759.0,
+    "bram": 14.5,
+    "dsp": 456.0,
+    "uram": 0.0
+   },
+   "rects": [
+    [
+     27,
+     62,
+     60,
+     204
+    ]
+   ],
+   "pnr_s": 430.76952266693115,
+   "routing_errors": 0
+  }
+ },
+ "synth_total": {
+  "lut": 97015.0,
+  "lutram": 36063.0,
+  "ff": 155621.0,
+  "carry": 6754.0,
+  "bram": 14.5,
+  "dsp": 1098.0,
+  "uram": 0.0
+ }
+}

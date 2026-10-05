@@ -63,6 +63,12 @@ U55C platform hits one HPR rule after the other (HMSS SLR-crossing pblock column
 container, LAGUNA ownership, ULP clock partitioning in phys_opt, black-box insertions at the BLP
 boundary; NOTES_ISLANDS.md 2026-10-01). U55C island region = v1 (SLR1+SLR2), region version
 switch FINN_RWI_REGION; MobileNet on U55C uses half the U250 PE (folding_mobilenet_U250_halfpe.json).
+U55C timed alone (2026-10-02, region pm, skyline floorplanner): VGG10 7307 s Vitis vs 8112 s
+islands, full U250 MobileNet 10756 s vs 11327 s (kernel 917 s; the 2-2.4 h v++ link dominates
+and is slower with the locked core). Floorplanner since 2026-10-02: skyline packing of
+variable-size staircase islands (`packing="skyline"`, Alveo; Zynq keeps the snake). Plan A
+(user decision 2026-10-02): cached shell via a nested partition, in progress. Results summary
+and raw data: NOTES_ISLANDS.md "Results summary", experiments/dynarapid/data/.
 Serial floor: synthesis of the largest node,
 the largest island's P&R, assembly (read accel + route_design + bitstream, 80-440 s).
 

@@ -675,3 +675,46 @@ any reuse of earlier implementations: the metric is from-scratch model -> bitstr
   routing after black-boxing, phys_opt disabled in the shell-building link; replay variant J.
 * MobileNet half-PE U55C kernel verified (verify_kernel, 1 frame, gate-level xsim ~13 h): all
   1000 outputs and the cycle count (551439) identical to FINN's stitched IP.
+
+## Results summary (as of 2026-10-05)
+
+Raw data (committed): `data/u55c_timing_runs.jsonl`, `data/zcu104_islands_timing_runs.jsonl`
+(one JSON line per timed run, written by run_u55c_timing.sh / run_islands_timing.sh), and
+`data/u55c_kernel_{vgg10,mnv1}.json` (island kernel results: islands, rectangles, per-island
+P&R time, stage stamps, synthesized totals).
+
+ZCU104 (Vivado shell flow, shell cached per board/clock/IODMA widths), 100 MHz, timed alone:
+
+| model | Vivado ZynqBuild | island flow | speedup | check |
+|---|---|---|---|---|
+| TFC | 644 s | 309 s | 2.08x | verify_accel 16 frames |
+| CNV | 891 s | 365 s | 2.44x | - |
+| CNV PE=SIMD=1 | 811 s | 358 s | 2.27x | - |
+| VGG10 | 2112 s | 1107 s | 1.91x | verify_accel 8 frames |
+
+U55C (Vitis platform, per-model v++ link with the island-built, placement-locked core),
+100 MHz, timed alone:
+
+| model | kernel LUTs | Vitis baseline | island flow | ratio | island kernel |
+|---|---|---|---|---|---|
+| TFC | ~8k | 4860 s | 5426 s | 0.90x | - |
+| CNV | ~22k | 5458 s | 5562 s | 0.98x | - |
+| VGG10 | ~80k | 7307 s | 8112 s | 0.90x | 776 s |
+| MobileNet U250 folding | ~400k | 10756 s | 11327 s | 0.95x | 917 s (20 islands) |
+
+All U55C builds: xclbin, 0 routing errors, WNS +0.003 ns. Functional checks (verify_kernel,
+gate-level netlist vs FINN stitched IP): TFC 16 frames, CNV 8 frames, VGG10 4 frames,
+MobileNet half-PE 1 frame (1000 outputs), identical outputs and cycle counts.
+
+Why the U55C does not speed up: every v++ link re-synthesizes the platform IPs (~12 min) and
+implements the whole dynamic region (HBM subsystem, interconnect, SLR crossings) plus the full
+ULP bitstream: 2-2.4 h per model regardless of the kernel; the locked island core makes v++'s
+placement slower, not faster (MobileNet 61 vs 51 min). The island kernel itself replaces FINN's
+stitched IP + XO packaging (MobileNet ~4400 s -> ~900 s). Only skipping the per-model platform
+implementation (cached shell, plan A: nested partition) can change that; in progress.
+
+Floorplanner (2026-10-02): skyline packing of variable-size staircase islands by resource mix
+(min 30 rows per column, >= 60 % bounding-box fill, exact island counts, utilization x count
+search, fewer islands preferred for the stitch); U55C region pm (X0-X5 minus HBM row and HMSS
+corridor). Full U250 MobileNet (398k LUT, 651 BRAM36) did not fit before; now 20 islands at
+LUT 0.65, island P&R 463 s, stitch 158 s.

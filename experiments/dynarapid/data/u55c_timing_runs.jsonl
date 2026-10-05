@@ -1,0 +1,9 @@
+{"model": "tfc-w1a1", "mode": "bitfile", "rc": 0, "wall_s": 4860, "xclbin": true}
+{"model": "tfc-w1a1", "mode": "islands", "rc": 0, "wall_s": 5426, "xclbin": true, "kernel": {"status": "ok", "total_s": 258.664386510849, "stamps": {"synth": 81.42839622497559, "floorplan": 81.7022430896759, "islands": 252.75522637367249, "stitch": 258.66174030303955}, "islands": 3, "stitch_unrouted_pins": 0}}
+{"model": "cnv-w1a1", "mode": "bitfile", "rc": 0, "wall_s": 5458, "xclbin": true}
+{"model": "cnv-w1a1", "mode": "islands", "rc": 0, "wall_s": 5562, "xclbin": true, "kernel": {"status": "ok", "total_s": 275.81963562965393, "stamps": {"synth": 86.77001094818115, "floorplan": 87.05256772041321, "islands": 267.3650236129761, "stitch": 275.80390882492065}, "islands": 6, "stitch_unrouted_pins": 0}}
+{"model": "vgg10", "mode": "islands", "rc": 0, "wall_s": 7999, "xclbin": true, "kernel": {"status": "ok", "total_s": 686.6306917667389, "stamps": {"synth": 214.19373679161072, "floorplan": 215.29342222213745, "islands": 645.9199841022491, "stitch": 686.6097373962402}, "islands": 4, "stitch_unrouted_pins": 2}}
+{"model": "vgg10", "mode": "islands", "rc": 0, "wall_s": 8112, "xclbin": true, "kernel": {"status": "ok", "total_s": 775.6280176639557, "stamps": {"synth": 222.25623774528503, "floorplan": 239.0652551651001, "islands": 669.9376678466797, "stitch": 775.5996472835541}, "islands": 20, "stitch_unrouted_pins": 7}}
+{"model": "vgg10", "mode": "bitfile", "rc": 0, "wall_s": 7307, "xclbin": true}
+{"model": "mnv1", "mode": "islands", "rc": 0, "wall_s": 11327, "xclbin": true, "kernel": {"status": "ok", "total_s": 916.8772413730621, "stamps": {"synth": 243.77569890022278, "floorplan": 295.97564601898193, "islands": 758.83957862854, "stitch": 916.7986786365509}, "islands": 20, "stitch_unrouted_pins": 16}}
+{"model": "mnv1", "mode": "bitfile", "rc": 0, "wall_s": 10756, "xclbin": true}
