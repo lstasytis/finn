@@ -661,3 +661,15 @@ any reuse of earlier implementations: the metric is from-scratch model -> bitstr
   686 s (synthesis reused; floorplan 61 s, 20 islands P&R 468 s, stitch 156 s), link: hook 500 s,
   vpl synth 739, opt 637, place 3672, route 1670, bitstream 1670; xclbin, 0 routing errors, WNS
   +0.003 / WHS +0.009. Total 11045 s, concurrent with the Vitis baseline (not a timing result).
+* **Clean timed batch (2026-10-02, one build at a time, U55C 100 MHz, region pm, skyline):**
+  VGG10 baseline 7307 s vs islands 8112 s (kernel 776 s: synth 222, floorplan 17, 20 islands
+  431, stitch 106); full MobileNet baseline 10756 s vs islands 11327 s (kernel 917 s: synth
+  244, floorplan 52, 20 islands 463, stitch 158). With the per-model v++ link the island flow is
+  5-11 % slower: the v++ link (platform synthesis + full implementation of the dynamic region +
+  bitstream, 2-2.4 h) is the same or slower with the locked island core (placement 61 vs 51
+  min for MobileNet) and dwarfs what the island kernel saves before the link.
+* User decision: plan A = cached shell via partial reconfiguration (nested partition for the
+  core inside v++'s ULP, implemented once per platform/interface/clock), after the timing
+  batch. Prepared: prohibits for the BLP-adjacent strip SLICE_X220-X221 Y540-599 (inserted
+  DrivenByBlackBox LUTs) and other ULP-pblock sites outside the container, lock_design -level
+  routing after black-boxing, phys_opt disabled in the shell-building link; replay variant J.
