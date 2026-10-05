@@ -673,3 +673,5 @@ any reuse of earlier implementations: the metric is from-scratch model -> bitstr
   batch. Prepared: prohibits for the BLP-adjacent strip SLICE_X220-X221 Y540-599 (inserted
   DrivenByBlackBox LUTs) and other ULP-pblock sites outside the container, lock_design -level
   routing after black-boxing, phys_opt disabled in the shell-building link; replay variant J.
+* MobileNet half-PE U55C kernel verified (verify_kernel, 1 frame, gate-level xsim ~13 h): all
+  1000 outputs and the cycle count (551439) identical to FINN's stitched IP.
