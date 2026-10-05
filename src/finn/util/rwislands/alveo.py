@@ -338,15 +338,13 @@ ULP_CELL = "level0_i/ulp"
 # The 2-column strip next to the base logic in SLR2 (SLICE_X220-X221, rows 540-599) is inside
 # the container, but its interconnect tiles are not: Vivado placed the LUTs it inserts for the
 # ULP's unused outputs (HD_PR_DrivenByBlackBox_InsertedInst_*) there, and their GND routing
-# failed the DFX DRC (HPR 18-5239 at INT_X138Y543); the other ranges are v++ ULP-pblock sites
-# outside the container (rows 0-59 next to the base logic).
+# failed the DFX DRC (HPR 18-5239 at INT_X138Y543). (The ULP-pblock ranges at rows 0-59 next to
+# the base logic hold locked static PCIe cells: prohibiting them fails placement, Place 30-25.)
 ULP_PROHIBIT = {
     "xcu55c-fsvh2892-2L-e": [
         ("SLICE_X117Y60", "SLICE_X117Y119"),
         ("SLICE_X117Y240", "SLICE_X117Y299"),
         ("SLICE_X220Y540", "SLICE_X221Y599"),
-        ("SLICE_X220Y0", "SLICE_X221Y59"),
-        ("SLICE_X232Y0", "SLICE_X232Y59"),
     ],
 }
 
