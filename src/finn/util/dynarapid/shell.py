@@ -667,8 +667,10 @@ def assemble_tcl(
         # accelerator's loads on the clock the skew changes and a few locked shell paths miss
         # hold (Alveo shell: encrypted interconnect IP in the kernel clock domain). Their nets
         # are unlocked, unrouted and routed again (hold-aware); nothing happens if hold is met.
-        "set hp [get_timing_paths -quiet -hold -slack_lesser_than 0 -max_paths 10000 -nworst 1]",
-        "if {[llength $hp]} {",
+        # (up to three passes, each only while violations remain)
+        "for {set i 0} {$i < 3} {incr i} {",
+        "  set hp [get_timing_paths -quiet -hold -slack_lesser_than 0 -max_paths 10000 -nworst 1]",
+        "  if {![llength $hp]} {break}",
         "  set hn [get_nets -quiet -of $hp -filter {TYPE != GLOBAL_CLOCK}]",
         '  puts "HOLD_REPAIR [llength $hp] paths [llength $hn] nets"',
         "  set_property IS_ROUTE_FIXED 0 $hn",
