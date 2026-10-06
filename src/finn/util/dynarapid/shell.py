@@ -103,7 +103,8 @@ def shell_key(board, part, clk_ns, ports, shell_x0=0):
         "vivado": vivado_version(),
     }
     if part in ALVEO_SHELL:
-        sig["alveo_shell"] = ALVEO_SHELL[part]
+        # (2: kernel-domain nets left unlocked for the assembly's hold fixing)
+        sig["alveo_shell"] = dict(ALVEO_SHELL[part], shell_version=2)
     if shell_x0:
         # shell confined to INT columns [shell_x0, PS boundary + strip) (island flow)
         sig["shell_x0"] = shell_x0
@@ -558,6 +559,14 @@ def alveo_shell_tcl(part, clk_ns, ports, shell_dir, src_file, jobs):
         "update_design -cell $rp -black_box",
         "route_design -unroute -nets [get_nets -of [get_pins $rpname/*] -filter {TYPE != GLOBAL_CLOCK}]",
         "lock_design -level routing",
+        # the kernel clock gets the accelerator's loads at assembly, which changes its skew:
+        # the nets into the shell's kernel-clock flip-flops stay unlocked so that the
+        # assembly's route_design can fix their hold (locked, a few missed hold by ~50 ps)
+        "set kff [all_fanout -quiet -flat -endpoints_only -only_cells [get_pins -hier -filter {NAME =~ */clk_kernel/clk_out1}]]",
+        "set kn [get_nets -quiet -of [get_pins -quiet -of $kff -filter {DIRECTION == IN && !IS_CLOCK}] "
+        "-filter {TYPE == SIGNAL}]",
+        'puts "KERNEL_DOMAIN_UNLOCKED [llength $kn] nets"',
+        "if {[llength $kn]} {set_property IS_ROUTE_FIXED 0 $kn}",
         "write_checkpoint -force %s/shell_routed.dcp" % shell_dir,
         "set f [open %s/rp_cell.txt w]; puts $f [get_property NAME $rp]; close $f" % shell_dir,
     ]
@@ -654,6 +663,19 @@ def assemble_tcl(
     t += [
         "route_design",
         "stamp route",
+        # hold repair: the shell's routing was locked with its own clock tree; with the
+        # accelerator's loads on the clock the skew changes and a few locked shell paths miss
+        # hold (Alveo shell: encrypted interconnect IP in the kernel clock domain). Their nets
+        # are unlocked, unrouted and routed again (hold-aware); nothing happens if hold is met.
+        "set hp [get_timing_paths -quiet -hold -slack_lesser_than 0 -max_paths 10000 -nworst 1]",
+        "if {[llength $hp]} {",
+        "  set hn [get_nets -quiet -of $hp -filter {TYPE != GLOBAL_CLOCK}]",
+        '  puts "HOLD_REPAIR [llength $hp] paths [llength $hn] nets"',
+        "  set_property IS_ROUTE_FIXED 0 $hn",
+        "  route_design -unroute -nets $hn",
+        "  route_design",
+        "  stamp hold_repair",
+        "}",
     ]
     if reports == "min":
         # bitstream first (the result); the reports follow in the same session
