@@ -774,3 +774,39 @@ User: Zynq-style flow on the U55C without the Xilinx platform, to see how quick 
   handling (earlier functional runs, WHS -0.05 ns on ~50 endpoints) MobileNet's assembly was
   1412 s (total ~2250 s, ~4.8x): hold closure at the shell/accelerator boundary is now the
   largest serial cost.
+
+## 2026-10-06 (evening): baseline-consistent Vivado settings, fixed kernel clock root
+
+User: phys_opt_design is useful; fix the kernel clock root; keep the Vivado steps consistent
+with the baseline (an optimization only one flow needs may stay flow-specific).
+
+* Baselines (from their generated run scripts): FINN Zynq = synth `Flow_PerfOptimized_high`,
+  `opt_design -directive Explore`, `place_design -directive ExtraTimingOpt`,
+  `phys_opt_design -directive AggressiveExplore`, `route_design -directive NoTimingRelaxation`,
+  post-route `phys_opt_design -directive AggressiveExplore`; Vitis (v++) = default synthesis,
+  opt/place/phys_opt/route with default directives, no post-route phys_opt.
+* `rwislands.flow.PROFILES` / `profile(part)`: node synthesis, island opt/place/phys_opt/route
+  (+ post-route phys_opt) and the assembly's route (+ post-route phys_opt) use the platform
+  baseline's settings (xcu* = Vitis, else Zynq). Before, the island flow used synthesis
+  RuntimeOptimized and default opt/place/route without phys_opt - lighter than both baselines
+  (FINN_RWI_SYNTH_DIRECTIVE still overrides the synthesis options).
+* Flow-specific (only the island flow needs it): hold at the shell boundary. Shell v3: the
+  kernel clock's USER_CLOCK_ROOT is fixed (X3Y5, the island region's centre) when the shell is
+  built, kernel-domain nets left unlocked; the assembly's repair pass remains as a fallback
+  (no longer triggered). The 0.1 ns router hold margin was dropped (slower routing, still
+  needed repair passes).
+* With phys_opt in the islands, MobileNet's RWRoute stitch got stuck at 10 overlaps (pins boxed
+  in by island routing, which RWRoute keeps) from iteration 11 to 29 at ~78 s each: stitch at
+  most 10 iterations, leftovers routed at assembly.
+* **Timed alone, U55C, cached shells (v3), baseline-consistent settings**
+  (`data/u55c_vivado_shell_timing_runs_v3.jsonl`):
+
+| model | Vitis flow | island flow, Vivado-only shell | speedup | synth / islands / stitch / assembly |
+|---|---|---|---|---|
+| TFC | 4860 s | 738 s | 6.6x | 87 / 229 / 11 / 286 s |
+| VGG10 | 7307 s | 1697 s | 4.3x | 231 / 517 / 98 / 708 s |
+| MobileNet U250 | 10756 s | 2713 s | 4.0x | 263 / 475 / 249 / 1548 s |
+
+  All: full-device bitstream, 0 routing errors, WNS +0.12..+2.9 ns, WHS +0.010 ns, no hold
+  repair needed. (Stage times from the flow's stamps; the rest of the wall time is FINN's
+  partition preparation, IODMA HLS etc.)
