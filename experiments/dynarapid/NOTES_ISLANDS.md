@@ -738,3 +738,39 @@ LUT 0.65, island P&R 463 s, stitch 158 s.
   phys_opt off (clock partitioning), and still fails the DFX DRC on GND routing at the ULP/BLP
   boundary. Remaining option for a fast U55C flow: our own Vivado shell outside Vitis (plan B,
   not XRT-compatible).
+
+## 2026-10-06: Vivado-only U55C shell (no Vitis platform) - link time study
+
+User: Zynq-style flow on the U55C without the Xilinx platform, to see how quick linking is.
+
+* Shell (`dynarapid.shell.ALVEO_SHELL`, `alveo_shell_tcl`): XDMA PCIe Gen3 x16 at PCIE4C_X1Y1
+  (from the board files in the platform's XSA: refclk AR15/AR14, PERST# BF41; the board
+  interface property forced x1, so the XDMA is configured by hand, parameters one call each),
+  kernel clock from an MMCM on the XDMA clock, AXI interconnect (XDMA AXI-Lite master -> IODMA
+  bridges), SmartConnect (XDMA AXI master + IODMAs -> AXI BRAM controller, 256 KB on-chip memory
+  instead of HBM), the FINN bridges and the register placeholder as in the Zynq shell. Shell
+  pblock CLOCKREGION_X6Y0:X7Y3 (PCIe block and its GT quads X1Y0-3). Not XRT-compatible.
+  `ZynqBuild(board="U55C", dynarapid={"flow": "islands"})` uses it (512-bit IODMAs); island
+  region `VIVADO_ALVEO_REGION` = SLR0 cols 6-108, SLR1/SLR2 cols 6-130, skyline packing.
+* Shell placement pitfalls: with EXCLUDE_PLACEMENT, every shell cell must be in the pblock
+  (GT clock buffers, GT commons, IBUFDS_GTE4 too) - cells left out cannot use the pblock's
+  sites (Place 30-753 BUFG_GT_SYNC, 30-739 IBUFDS_GT/GT); only the PERST# input buffer and the
+  MMCM stay out. Shell build ~19-21 min (once per board/clock/IODMA interface).
+* Hold: the shell is routed and locked with its own kernel clock tree; with the accelerator's
+  loads the skew changes and a few interconnect paths (encrypted SmartConnect/AXI interconnect)
+  miss hold by 4-60 ps. Shell v2 leaves the nets into kernel-clock flip-flops unlocked; the
+  assembly routes with a 0.1 ns hold margin (removed before sign-off) and repairs leftovers
+  (unlock, unroute, route, up to 3 passes). Hold met, but expensive (see below).
+* Timed alone (cached shells, 2026-10-06, `run_vshell_timing.sh`,
+  `data/u55c_vivado_shell_timing_runs.jsonl`):
+
+| model | Vitis flow | island flow, Vivado-only shell | speedup | assembly (route / hold repair) |
+|---|---|---|---|---|
+| TFC | 4860 s | 929 s | 5.2x | 482 s (246 / 71) |
+| VGG10 | 7307 s | 2467 s | 3.0x | 1505 s (735 / 457) |
+| MobileNet U250 | 10756 s | 3825 s | 2.8x | 2929 s (1361 / 1108) |
+
+  All: full-device bitstream, 0 routing errors, WNS +0.10..+3.49 ns, WHS >= 0. Without the hold
+  handling (earlier functional runs, WHS -0.05 ns on ~50 endpoints) MobileNet's assembly was
+  1412 s (total ~2250 s, ~4.8x): hold closure at the shell/accelerator boundary is now the
+  largest serial cost.
