@@ -623,6 +623,7 @@ def assemble_tcl(
     reports="full",
     trigger=None,
     unfix_static="after_read",
+    hold_margin_ns=0.0,
 ):
     """Fill the shell's accelerator cell with the DynaRapid-routed accelerator, route the
     remaining (boundary and clock) nets and write the bitstream. trigger: the script opens the
@@ -661,8 +662,12 @@ def assemble_tcl(
     if unfix_static == "after_read":
         t.append(unfix)
     t += [
+        # hold margin for the router only (removed again before the reports): the shell's
+        # interconnect paths see a different clock skew once the accelerator loads the clock
+        "set_clock_uncertainty -hold %s [get_clocks]" % hold_margin_ns if hold_margin_ns else "",
         "route_design",
         "stamp route",
+        "set_clock_uncertainty -hold 0 [get_clocks]" if hold_margin_ns else "",
         # hold repair: the shell's routing was locked with its own clock tree; with the
         # accelerator's loads on the clock the skew changes and a few locked shell paths miss
         # hold (Alveo shell: encrypted interconnect IP in the kernel clock domain). Their nets

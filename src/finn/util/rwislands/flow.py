@@ -598,6 +598,8 @@ def rw_islands_zynq_build(
                 shell_dir, accel_dcp, asm_dir, bitfile, threads=min(16, cpus), reports="min",
                 trigger=trigger,
                 unfix_static="shell",
+                # Vivado-only Alveo shell: the kernel clock's skew changes with the accelerator
+                hold_margin_ns=0.1 if part in VIVADO_ALVEO_REGION else 0.0,
             )
         )
     asm_pool = ThreadPoolExecutor(max_workers=1)
