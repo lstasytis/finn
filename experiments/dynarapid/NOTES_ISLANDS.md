@@ -810,3 +810,21 @@ with the baseline (an optimization only one flow needs may stay flow-specific).
   All: full-device bitstream, 0 routing errors, WNS +0.12..+2.9 ns, WHS +0.010 ns, no hold
   repair needed. (Stage times from the flow's stamps; the rest of the wall time is FINN's
   partition preparation, IODMA HLS etc.)
+* **ZCU104 island flow re-timed with FINN's Zynq strategies** (synthesis Flow_PerfOptimized_high,
+  island and assembly P&R Performance_ExtraTimingOpt steps; cached shells; timed alone;
+  `data/zcu104_islands_timing_zprofile.jsonl`), baselines unchanged:
+
+| model | Vivado ZynqBuild | island flow (Zynq strategies) | speedup | before (lighter settings) |
+|---|---|---|---|---|
+| TFC | 644 s | 369 s | 1.75x | 309 s |
+| CNV | 891 s | 436 s | 2.04x | 365 s |
+| CNV PE=SIMD=1 | 811 s | 425 s | 1.91x | 358 s |
+| VGG10 | 2112 s | 1434 s | 1.47x | 1107 s |
+| MobileNet (ZCU104) | 5871 s | 5801 s | 1.01x | 2088 s (concurrent) |
+
+  All: 0 routing errors, WNS +1.06..+4.30 ns, WHS +0.008..+0.010 ns, no hold repair. MobileNet:
+  synthesis 3135 s (the 1024-channel Thresholding_rtl in LUT ROM under PerformanceOptimized
+  dominates; RuntimeOptimized did it in 18 s) and a single island (the snake does not fit the
+  dense ZCU104 MobileNet; the skyline packing is only enabled for the Alveo region), so
+  neither synthesis nor P&R parallelize. Earlier ZCU104 numbers used lighter settings than the
+  baseline (RuntimeOptimized synthesis, no phys_opt) and are superseded by these.
