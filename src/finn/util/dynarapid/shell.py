@@ -81,6 +81,10 @@ ALVEO_SHELL = {
         "perst": "BF41",
         "perst_iostandard": "LVCMOS18",
         "shell_crs": "CLOCKREGION_X6Y0:CLOCKREGION_X7Y3",
+        # kernel clock root in the middle of the island region: fixed when the shell is built, so
+        # that the accelerator's clock loads (added at assembly) change the skew of the shell's
+        # locked paths as little as possible
+        "kernel_clock_root": "X3Y5",
         "mem_kb": 256,
     }
 }
@@ -103,8 +107,8 @@ def shell_key(board, part, clk_ns, ports, shell_x0=0):
         "vivado": vivado_version(),
     }
     if part in ALVEO_SHELL:
-        # (2: kernel-domain nets left unlocked for the assembly's hold fixing)
-        sig["alveo_shell"] = dict(ALVEO_SHELL[part], shell_version=2)
+        # (2: kernel-domain nets left unlocked for the assembly's hold fixing; 3: kernel clock root)
+        sig["alveo_shell"] = dict(ALVEO_SHELL[part], shell_version=3)
     if shell_x0:
         # shell confined to INT columns [shell_x0, PS boundary + strip) (island flow)
         sig["shell_x0"] = shell_x0
@@ -548,6 +552,10 @@ def alveo_shell_tcl(part, clk_ns, ports, shell_dir, src_file, jobs):
         "}",
         "add_cells_to_pblock pb_shell $sh_cells",
         "resize_pblock pb_shell -add {%s}" % a["shell_crs"],
+        "set kbuf [get_cells -hier -filter {REF_NAME =~ BUFG* && NAME =~ *clk_kernel*}]",
+        "set kclk_net [get_nets -of [get_pins -of $kbuf -filter {DIRECTION == OUT}]]",
+        'puts "KERNEL_CLOCK_ROOT $kclk_net"',
+        "set_property USER_CLOCK_ROOT %s $kclk_net" % a["kernel_clock_root"],
         "set_property CONTAIN_ROUTING true [get_pblocks pb_shell]",
         "set_property EXCLUDE_PLACEMENT true [get_pblocks pb_shell]",
         "opt_design",
@@ -624,6 +632,8 @@ def assemble_tcl(
     trigger=None,
     unfix_static="after_read",
     hold_margin_ns=0.0,
+    route_cmd="route_design",
+    post_route=None,
 ):
     """Fill the shell's accelerator cell with the DynaRapid-routed accelerator, route the
     remaining (boundary and clock) nets and write the bitstream. trigger: the script opens the
@@ -665,7 +675,7 @@ def assemble_tcl(
         # hold margin for the router only (removed again before the reports): the shell's
         # interconnect paths see a different clock skew once the accelerator loads the clock
         "set_clock_uncertainty -hold %s [get_clocks]" % hold_margin_ns if hold_margin_ns else "",
-        "route_design",
+        route_cmd,
         "stamp route",
         "set_clock_uncertainty -hold 0 [get_clocks]" if hold_margin_ns else "",
         # hold repair: the shell's routing was locked with its own clock tree; with the
@@ -680,10 +690,13 @@ def assemble_tcl(
         '  puts "HOLD_REPAIR [llength $hp] paths [llength $hn] nets"',
         "  set_property IS_ROUTE_FIXED 0 $hn",
         "  route_design -unroute -nets $hn",
-        "  route_design",
+        "  %s" % route_cmd,
         "  stamp hold_repair",
         "}",
     ]
+    if post_route:
+        # the baseline's post-route phys_opt
+        t += [post_route, "stamp post_route_phys_opt"]
     if reports == "min":
         # bitstream first (the result); the reports follow in the same session
         t += [

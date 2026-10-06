@@ -544,6 +544,13 @@ def direct_adapter_verilog(dcp, node, top, port_dirs):
     )
 
 
+def _synth_args(directive):
+    """synth_design options: a directive name or a full option string (e.g. a strategy's)."""
+    if not directive:
+        return ""
+    return " " + directive if directive.lstrip().startswith("-") else " -directive %s" % directive
+
+
 def direct_synth_tcl(
     node, dcp, comp_dir, synth_dir, part, threads, files, top, metadata=True, directive=None
 ):
@@ -566,7 +573,7 @@ def direct_synth_tcl(
         # no BRAM cascades: a cascade must stay within a clock region (DRC CASC-31), which
         # restricts the relocation of the component to clock-region aligned positions
         "synth_design -top %s -part %s -mode out_of_context -max_bram_cascade_height 1%s"
-        % (dcp, part, " -directive %s" % directive if directive else ""),
+        % (dcp, part, _synth_args(directive)),
         "write_checkpoint -force %s" % dcp_file,
         "write_edif -force %s" % dcp_file.replace(".dcp", ".edf"),
         "report_utilization -packthru -file %s" % os.path.join(synth_dir, dcp + ".util"),
@@ -636,7 +643,7 @@ def synth_tcl(
         # no BRAM cascades: a cascade must stay within a clock region (DRC CASC-31), which
         # restricts the relocation of the component to clock-region aligned positions
         "synth_design -top %s -part %s -mode out_of_context -max_bram_cascade_height 1%s"
-        % (dcp, part, " -directive %s" % directive if directive else ""),
+        % (dcp, part, _synth_args(directive)),
         "write_checkpoint -force %s" % dcp_file,
         "write_edif -force %s" % dcp_file.replace(".dcp", ".edf"),
         "report_utilization -packthru -file %s" % os.path.join(synth_dir, dcp + ".util"),

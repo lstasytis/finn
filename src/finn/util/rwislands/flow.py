@@ -115,10 +115,44 @@ def parse_util(f):
     return res
 
 
-# node synthesis directive: RuntimeOptimized skips cross-boundary/area optimization, e.g. a
-# MobileNet Thresholding_rtl (1024 channels in LUT ROM) synthesizes in 18 s instead of > 40 min
-# at ~2x its LUTs; FINN_RWI_SYNTH_DIRECTIVE="" restores Vivado's default
-SYNTH_DIRECTIVE = os.environ.get("FINN_RWI_SYNTH_DIRECTIVE", "RuntimeOptimized") or None
+# Vivado settings of the platform's regular FINN flow (the baseline); node synthesis, island P&R
+# and assembly use the same ones, so that both flows get the same optimizations:
+#  zynq:  FINN's Zynq template, synth_1 Flow_PerfOptimized_high, impl_1 Performance_ExtraTimingOpt
+#         (steps as in its generated impl script)
+#  vitis: v++ defaults (opt, place, phys_opt, route; no post-route phys_opt), default synthesis
+PROFILES = {
+    "zynq": {
+        "synth": "-directive PerformanceOptimized -flatten_hierarchy rebuilt -fsm_extraction one_hot "
+        "-keep_equivalent_registers -resource_sharing off -no_lc -shreg_min_size 5",
+        "opt": "opt_design -directive Explore",
+        "place": "place_design -directive ExtraTimingOpt",
+        "phys_opt": "phys_opt_design -directive AggressiveExplore",
+        "route": "route_design -directive NoTimingRelaxation",
+        "post_route_phys_opt": "phys_opt_design -directive AggressiveExplore",
+    },
+    "vitis": {
+        "synth": "",
+        "opt": "opt_design",
+        "place": "place_design",
+        "phys_opt": "phys_opt_design",
+        "route": "route_design",
+        "post_route_phys_opt": None,
+    },
+}
+
+
+def profile(part):
+    """Baseline flow of a part: Alveo parts (xcu*) are built with Vitis, the others with FINN's
+    Zynq flow."""
+    return PROFILES["vitis" if part.startswith("xcu") else "zynq"]
+
+
+def synth_args(part):
+    """Node synthesis options: the baseline's, unless FINN_RWI_SYNTH_DIRECTIVE overrides them
+    (e.g. RuntimeOptimized: a MobileNet Thresholding_rtl with 1024 channels in LUT ROM
+    synthesizes in 18 s instead of > 40 min, at ~2x its LUTs)."""
+    env = os.environ.get("FINN_RWI_SYNTH_DIRECTIVE")
+    return env if env is not None else profile(part)["synth"]
 
 _CHEAP_OPS = {
     "StreamingFIFO_rtl",
@@ -198,11 +232,11 @@ def synthesize(accel, dcps, work, part, clk_ns, cpus, slots):
         direct = direct_sources(n)
         if direct is not None:
             body = direct_synth_tcl(
-                n, dcp, d, synth_dir, part, 1, direct[0], direct[1], metadata=False, directive=SYNTH_DIRECTIVE
+                n, dcp, d, synth_dir, part, 1, direct[0], direct[1], metadata=False, directive=synth_args(part)
             )
         else:
             body = synth_tcl(
-                accel, n, dcp, d, synth_dir, part, clk_ns, 1, metadata=False, directive=SYNTH_DIRECTIVE
+                accel, n, dcp, d, synth_dir, part, clk_ns, 1, metadata=False, directive=synth_args(part)
             )
         run(body.splitlines(), dcp, [item])
 
@@ -213,7 +247,7 @@ def synthesize(accel, dcps, work, part, clk_ns, cpus, slots):
             os.makedirs(d, exist_ok=True)
             files, top = direct_sources(n)
             body = direct_synth_tcl(
-                n, dcp, d, synth_dir, part, 1, files, top, metadata=False, directive=SYNTH_DIRECTIVE
+                n, dcp, d, synth_dir, part, 1, files, top, metadata=False, directive=synth_args(part)
             )
             lines += [l for l in body.splitlines() if not l.startswith("set_param")]
             lines += ["close_design", "remove_files -quiet [get_files -quiet]"]
@@ -227,6 +261,7 @@ def synthesize(accel, dcps, work, part, clk_ns, cpus, slots):
 
 
 def island_tcl(name, island_v, dcp_files, part, clk_ns, ranges, cr, threads, out_dir, contain=True):
+    steps = profile(part)
     t = [
         "set_param general.maxThreads %d" % threads,
         "set t0 [clock milliseconds]",
@@ -251,12 +286,18 @@ def island_tcl(name, island_v, dcp_files, part, clk_ns, ranges, cr, threads, out
     if contain:
         t.append("set_property CONTAIN_ROUTING 1 [get_pblocks pb]")
     t += [
-        "opt_design",
+        steps["opt"],
         "stamp opt",
-        "place_design",
+        steps["place"],
         "stamp place",
-        'if {[catch {route_design} err]} {puts "INFO: route_design error: $err"}',
+        steps["phys_opt"],
+        "stamp phys_opt",
+        'if {[catch {%s} err]} {puts "INFO: route_design error: $err"}' % steps["route"],
         "stamp route",
+    ]
+    if steps["post_route_phys_opt"]:
+        t += [steps["post_route_phys_opt"], "stamp post_route_phys_opt"]
+    t += [
         "report_route_status -file %s/route_status.rpt" % out_dir,
         # the clock routing of the out-of-context run starts at a stand-in BUFGCE; the real
         # clock tree comes from the shell, so leave the clock net to the assembly
@@ -598,8 +639,8 @@ def rw_islands_zynq_build(
                 shell_dir, accel_dcp, asm_dir, bitfile, threads=min(16, cpus), reports="min",
                 trigger=trigger,
                 unfix_static="shell",
-                # Vivado-only Alveo shell: the kernel clock's skew changes with the accelerator
-                hold_margin_ns=0.1 if part in VIVADO_ALVEO_REGION else 0.0,
+                route_cmd=profile(part)["route"],
+                post_route=profile(part)["post_route_phys_opt"],
             )
         )
     asm_pool = ThreadPoolExecutor(max_workers=1)
