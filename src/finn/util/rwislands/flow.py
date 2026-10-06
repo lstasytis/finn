@@ -332,7 +332,11 @@ def choose_islands(n_nodes, total_cost, slots, islands):
 
 def islands_and_stitch(
     accel, g, dcps, synth, dev, part, clk_ns, work, cpus, slots, islands, region, first, res, stamp,
-    rwroute_max_iter=30,
+    # the stitch only pre-routes the inter-island nets; pins boxed in by island routing (which
+    # RWRoute keeps) stay unrouted after a few iterations and are routed at assembly, where
+    # Vivado may rip up island routes (MobileNet: stuck at 10 overlaps from iteration 11 to 29,
+    # ~78 s per iteration)
+    rwroute_max_iter=10,
     max_island_overlaps=0,
     packing="snake",
 ):
@@ -570,7 +574,7 @@ def rw_islands_zynq_build(
     shell_lib,
     islands="auto",
     workers=None,
-    rwroute_max_iter=30,
+    rwroute_max_iter=10,
 ):
     """Build the bitfile of a ZynqBuild design (partition models with generated IP).
     Returns a result dict with the bitfile, hwh and per-stage times."""
