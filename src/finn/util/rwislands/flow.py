@@ -49,6 +49,12 @@ from finn.util.rwislands.floorplan import floorplan, island_cost, partition
 
 # INT column where the island flow's shell region starts (it spans [SHELL_X0, PS boundary +
 # strip)); the fabric left of it (above the PS on the xczu7ev) is an extra island lane
+# island region of the Vivado-only Alveo shell (dynarapid.shell.ALVEO_SHELL; the shell takes
+# clock regions X6-X7 of SLR0 around the PCIe block, the islands one rectangle per SLR; tile
+# columns 131-147 (X7) hold transceivers/IO in SLR1/SLR2)
+VIVADO_ALVEO_REGION = {
+    "xcu55c-fsvh2892-2L-e": [(6, 108, 0, 239), (6, 130, 240, 479), (6, 130, 480, 719)],
+}
 SHELL_X0 = {"xczu7ev-ffvc1156-2-e": 20, "xczu9eg-ffvb1156-2-e": 17}
 from finn.util.rwislands.netlist import TOP_MODULE, channel_graph, island_verilog, top_verilog
 
@@ -605,17 +611,23 @@ def rw_islands_zynq_build(
         return _done(res, stamps, out_dir, t_total)
 
     # 2.-4. islands, floorplan, island P&R, stitching
-    x0 = PS_BOUNDARY_INT_X[part] + SHELL_STRIP_COLS
-    region = (x0, dev.xmax, 0, dev.ymax)
     first = []
     sx0 = SHELL_X0.get(part, 0)
+    packing = "snake"
+    if part in VIVADO_ALVEO_REGION:
+        # Vivado-only Alveo shell (around the PCIe block): one rectangle per SLR
+        region = VIVADO_ALVEO_REGION[part]
+        packing = "skyline"
+    else:
+        x0 = PS_BOUNDARY_INT_X[part] + SHELL_STRIP_COLS
+        region = (x0, dev.xmax, 0, dev.ymax)
     if sx0 > 0:
         # the fabric left of the shell (above the PS): its rows are those with sites there
         ys = [st.y for st in dev.sites if st.x < sx0]
         first = [(0, sx0 - 1, min(ys) - min(ys) % 5, dev.ymax)]
     fail, accel_dcp2 = islands_and_stitch(
         accel, g, dcps, synth, dev, part, clk_ns, work, cpus, slots, islands, region, first, res,
-        stamp, rwroute_max_iter,
+        stamp, rwroute_max_iter, packing=packing,
     )
     if fail is not None:
         return abort(fail)
@@ -640,7 +652,10 @@ def rw_islands_zynq_build(
         res["status"] = "assembly_failed"
         return _done(res, stamps, out_dir, t_total)
     hwh = os.path.join(out_dir, "resizer.hwh")
-    shutil.copy(os.path.join(shell_dir, "top.hwh"), hwh)
+    if os.path.isfile(os.path.join(shell_dir, "top.hwh")):
+        shutil.copy(os.path.join(shell_dir, "top.hwh"), hwh)
+    else:
+        hwh = None  # Vivado-only Alveo shell: no PYNQ hardware handoff
     res.update(status="ok", bitfile=bitfile, hwh=hwh)
     return _done(res, stamps, out_dir, t_total)
 

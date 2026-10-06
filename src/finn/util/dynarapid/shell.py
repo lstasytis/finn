@@ -68,6 +68,24 @@ PS_BOUNDARY_INT_X = {
 }
 
 
+# Vivado-only shell for Alveo parts (no Vitis platform; study of the island flow's link time):
+# XDMA PCIe endpoint (host access: AXI-Lite master for the IODMA / compute-node control, AXI
+# master for host DMA), the kernel clock from an MMCM on the XDMA clock, a SmartConnect from the
+# IODMAs and the host DMA to on-chip memory (AXI BRAM controller) instead of HBM. Not
+# XRT-compatible. Per part: PCIe block, pins (from the card's board files) and the shell's
+# clock regions (around the PCIe block and its transceivers).
+ALVEO_SHELL = {
+    "xcu55c-fsvh2892-2L-e": {
+        "pcie_blk_locn": "PCIE4C_X1Y1",
+        "refclk_p": "AR15",
+        "perst": "BF41",
+        "perst_iostandard": "LVCMOS18",
+        "shell_crs": "CLOCKREGION_X6Y0:CLOCKREGION_X7Y3",
+        "mem_kb": 256,
+    }
+}
+
+
 def shell_key(board, part, clk_ns, ports, shell_x0=0):
     sig = {
         "board": board,
@@ -84,6 +102,8 @@ def shell_key(board, part, clk_ns, ports, shell_x0=0):
         "version": 4,
         "vivado": vivado_version(),
     }
+    if part in ALVEO_SHELL:
+        sig["alveo_shell"] = ALVEO_SHELL[part]
     if shell_x0:
         # shell confined to INT columns [shell_x0, PS boundary + strip) (island flow)
         sig["shell_x0"] = shell_x0
@@ -390,6 +410,160 @@ def shell_tcl(board, part, clk_ns, ports, shell_dir, src_file, jobs, shell_x0=0)
     return "\n".join(t) + "\n"
 
 
+def alveo_shell_tcl(part, clk_ns, ports, shell_dir, src_file, jobs):
+    """Vivado script building and implementing the Vivado-only Alveo shell (ALVEO_SHELL) with
+    the accelerator placeholder; writes shell_routed.dcp (accelerator a black box with
+    unrouted boundary nets, shell routing locked) like shell_tcl."""
+    a = ALVEO_SHELL[part]
+    fclk_mhz = int(round(1000.0 / clk_ns))
+    n_axilite = len(ports)
+    mm = [d for d in ports if d.get("iodma", True)]
+    xdc = os.path.join(shell_dir, "shell_pins.xdc")
+    with open(xdc, "w") as f:
+        f.write("set_property PACKAGE_PIN %s [get_ports pcie_refclk_clk_p]\n" % a["refclk_p"])
+        f.write("set_property PACKAGE_PIN %s [get_ports pcie_perstn]\n" % a["perst"])
+        f.write("set_property IOSTANDARD %s [get_ports pcie_perstn]\n" % a["perst_iostandard"])
+        f.write("set_false_path -from [get_ports pcie_perstn]\n")
+    t = [
+        "create_project finn_alveo_link %s -part %s" % (shell_dir, part),
+        "add_files -norecurse %s" % src_file,
+        "add_files -fileset constrs_1 -norecurse %s" % xdc,
+        "update_compile_order -fileset sources_1",
+        "create_bd_design top",
+        # PCIe endpoint with DMA: parameters one after the other (validated in order)
+        "create_bd_cell -type ip -vlnv xilinx.com:ip:xdma xdma_0",
+        "set x [get_bd_cells xdma_0]",
+        "set_property CONFIG.mode_selection {Advanced} $x",
+        "set_property CONFIG.pcie_blk_locn {%s} $x" % a["pcie_blk_locn"],
+        "set_property -dict [list CONFIG.pl_link_cap_max_link_width {X16} "
+        "CONFIG.pl_link_cap_max_link_speed {8.0_GT/s}] $x",
+        "set_property -dict [list CONFIG.axi_data_width {512_bit} CONFIG.axisten_freq {250}] $x",
+        "set_property -dict [list CONFIG.axilite_master_en {true} CONFIG.axilite_master_size {32}] $x",
+        "create_bd_cell -type ip -vlnv xilinx.com:ip:util_ds_buf refclk_buf",
+        "set_property CONFIG.C_BUF_TYPE {IBUFDSGTE} [get_bd_cells refclk_buf]",
+        "create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:diff_clock_rtl:1.0 pcie_refclk",
+        "set_property CONFIG.FREQ_HZ 100000000 [get_bd_intf_ports pcie_refclk]",
+        "connect_bd_intf_net [get_bd_intf_ports pcie_refclk] [get_bd_intf_pins refclk_buf/CLK_IN_D]",
+        "connect_bd_net [get_bd_pins refclk_buf/IBUF_DS_ODIV2] [get_bd_pins xdma_0/sys_clk]",
+        "connect_bd_net [get_bd_pins refclk_buf/IBUF_OUT] [get_bd_pins xdma_0/sys_clk_gt]",
+        "create_bd_port -dir I -type rst pcie_perstn",
+        "set_property CONFIG.POLARITY ACTIVE_LOW [get_bd_ports pcie_perstn]",
+        "connect_bd_net [get_bd_ports pcie_perstn] [get_bd_pins xdma_0/sys_rst_n]",
+        "create_bd_intf_port -mode Master -vlnv xilinx.com:interface:pcie_7x_mgt_rtl:1.0 pci_express",
+        "connect_bd_intf_net [get_bd_intf_ports pci_express] [get_bd_intf_pins xdma_0/pcie_mgt]",
+        # kernel clock and reset
+        "create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wiz clk_kernel",
+        "set_property -dict [list CONFIG.PRIM_IN_FREQ {250} CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {%d} "
+        "CONFIG.USE_RESET {false}] [get_bd_cells clk_kernel]" % fclk_mhz,
+        "connect_bd_net [get_bd_pins xdma_0/axi_aclk] [get_bd_pins clk_kernel/clk_in1]",
+        "create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset rst_kernel",
+        "connect_bd_net [get_bd_pins clk_kernel/clk_out1] [get_bd_pins rst_kernel/slowest_sync_clk]",
+        "connect_bd_net [get_bd_pins xdma_0/axi_aresetn] [get_bd_pins rst_kernel/ext_reset_in]",
+        "connect_bd_net [get_bd_pins clk_kernel/locked] [get_bd_pins rst_kernel/dcm_locked]",
+        "set kclk [get_bd_pins clk_kernel/clk_out1]",
+        "set krst [get_bd_pins rst_kernel/peripheral_aresetn]",
+        # control: XDMA AXI-Lite master -> every bridge's AXI-Lite slave
+        "create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect axi_interconnect_0",
+        "set_property CONFIG.NUM_MI {%d} [get_bd_cells axi_interconnect_0]" % n_axilite,
+        "connect_bd_intf_net [get_bd_intf_pins xdma_0/M_AXI_LITE] [get_bd_intf_pins axi_interconnect_0/S00_AXI]",
+        "connect_bd_net [get_bd_pins xdma_0/axi_aclk] [get_bd_pins axi_interconnect_0/ACLK] "
+        "[get_bd_pins axi_interconnect_0/S00_ACLK]",
+        "connect_bd_net [get_bd_pins xdma_0/axi_aresetn] [get_bd_pins axi_interconnect_0/ARESETN] "
+        "[get_bd_pins axi_interconnect_0/S00_ARESETN]",
+        # memory: host DMA and IODMAs -> on-chip memory
+        "create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect smartconnect_0",
+        "set_property -dict [list CONFIG.NUM_SI {%d} CONFIG.NUM_MI {1} CONFIG.NUM_CLKS {2}] "
+        "[get_bd_cells smartconnect_0]" % (len(mm) + 1),
+        "connect_bd_net $kclk [get_bd_pins smartconnect_0/aclk]",
+        "connect_bd_net [get_bd_pins xdma_0/axi_aclk] [get_bd_pins smartconnect_0/aclk1]",
+        "connect_bd_net $krst [get_bd_pins smartconnect_0/aresetn]",
+        "connect_bd_intf_net [get_bd_intf_pins xdma_0/M_AXI] [get_bd_intf_pins smartconnect_0/S00_AXI]",
+        "create_bd_cell -type ip -vlnv xilinx.com:ip:axi_bram_ctrl mem_ctrl",
+        "set_property -dict [list CONFIG.DATA_WIDTH {512} CONFIG.SINGLE_PORT_BRAM {1}] [get_bd_cells mem_ctrl]",
+        "create_bd_cell -type ip -vlnv xilinx.com:ip:blk_mem_gen mem",
+        "connect_bd_intf_net [get_bd_intf_pins mem_ctrl/BRAM_PORTA] [get_bd_intf_pins mem/BRAM_PORTA]",
+        "connect_bd_intf_net [get_bd_intf_pins smartconnect_0/M00_AXI] [get_bd_intf_pins mem_ctrl/S_AXI]",
+        "connect_bd_net $kclk [get_bd_pins mem_ctrl/s_axi_aclk]",
+        "connect_bd_net $krst [get_bd_pins mem_ctrl/s_axi_aresetn]",
+    ]
+    k_mm = 1
+    for k, d in enumerate(ports):
+        s_if = [c["name"] for c in d["in"] if c["name"].startswith("s_axi")][0].rsplit("_", 1)[0]
+        t.append("create_bd_cell -type module -reference %s_bridge %s" % (d["id"], d["id"]))
+        if d.get("iodma", True):
+            t.append(
+                "connect_bd_intf_net [get_bd_intf_pins %s/m_axi_gmem] "
+                "[get_bd_intf_pins smartconnect_0/S%02d_AXI]" % (d["id"], k_mm)
+            )
+            k_mm += 1
+        t += [
+            "connect_bd_intf_net [get_bd_intf_pins %s/%s] "
+            "[get_bd_intf_pins axi_interconnect_0/M%02d_AXI]" % (d["id"], s_if, k),
+            "connect_bd_net $kclk [get_bd_pins %s/ap_clk] [get_bd_pins axi_interconnect_0/M%02d_ACLK]"
+            % (d["id"], k),
+            "connect_bd_net $krst [get_bd_pins %s/ap_rst_n] [get_bd_pins axi_interconnect_0/M%02d_ARESETN]"
+            % (d["id"], k),
+        ]
+    t.append("create_bd_cell -type module -reference %s %s" % (CORE_MODULE, CORE_CELL))
+    t += [
+        "connect_bd_net [get_bd_pins %s/core_clk] [get_bd_pins %s/clk]" % (ports[0]["id"], CORE_CELL),
+        "connect_bd_net [get_bd_pins %s/core_rst] [get_bd_pins %s/rst]" % (ports[0]["id"], CORE_CELL),
+    ]
+    for d in ports:
+        for c in d["in"] + d["out"]:
+            for p in (c["data"], c["valid"], c["ready"]):
+                t.append(
+                    "connect_bd_net [get_bd_pins %s/core_%s] [get_bd_pins %s/%s]"
+                    % (d["id"], p, CORE_CELL, p)
+                )
+    t += [
+        "assign_bd_address",
+        # on-chip memory size for both masters' views
+        "foreach seg [get_bd_addr_segs -quiet -of_objects [get_bd_addr_spaces -quiet */*] -filter {NAME =~ *mem_ctrl*}] "
+        "{catch {set_property range %dK $seg}}" % a["mem_kb"],
+        "save_bd_design",
+        "validate_bd_design",
+        'set_property SYNTH_CHECKPOINT_MODE "Hierarchical" [get_files top.bd]',
+        "make_wrapper -files [get_files top.bd] -import -fileset sources_1 -top",
+        "set_property top top_wrapper [current_fileset]",
+        "update_compile_order -fileset sources_1",
+        "launch_runs synth_1 -jobs %d" % jobs,
+        "wait_on_run [get_runs synth_1]",
+        "open_run synth_1",
+        "set rp [get_cells -hier -filter {ORIG_REF_NAME == %s || REF_NAME == %s}]" % (CORE_MODULE, CORE_MODULE),
+        "set_property DONT_TOUCH true $rp",
+        "set rpname [get_property NAME $rp]",
+        # the shell around the PCIe block and its transceivers; I/O buffers (PERST#) stay at
+        # their pins outside
+        "create_pblock pb_shell",
+        "set sh_cells {}",
+        # all shell cells, the transceiver/PCIe/clock-buffer primitives included (they sit in the
+        # shell's clock regions; with EXCLUDE_PLACEMENT a cell left out of the pblock cannot use
+        # its sites, e.g. GT clock buffers next to their transceivers); not the PERST# input buffer
+        # and the MMCM (no sites in the pblock)
+        "foreach c [get_cells -hier -filter {IS_PRIMITIVE && REF_NAME != IBUFCTRL && REF_NAME != INBUF "
+        "&& REF_NAME != IBUF && REF_NAME !~ OBUF* && REF_NAME !~ MMCM* && REF_NAME !~ PLL*}] {",
+        '  if {![string match "$rpname/*" $c]} {lappend sh_cells $c}',
+        "}",
+        "add_cells_to_pblock pb_shell $sh_cells",
+        "resize_pblock pb_shell -add {%s}" % a["shell_crs"],
+        "set_property CONTAIN_ROUTING true [get_pblocks pb_shell]",
+        "set_property EXCLUDE_PLACEMENT true [get_pblocks pb_shell]",
+        "opt_design",
+        "place_design",
+        "route_design",
+        "report_route_status -file %s/shell_route_status.rpt" % shell_dir,
+        "report_timing_summary -file %s/shell_timing.rpt" % shell_dir,
+        "report_utilization -file %s/shell_utilization.rpt" % shell_dir,
+        "update_design -cell $rp -black_box",
+        "route_design -unroute -nets [get_nets -of [get_pins $rpname/*] -filter {TYPE != GLOBAL_CLOCK}]",
+        "lock_design -level routing",
+        "write_checkpoint -force %s/shell_routed.dcp" % shell_dir,
+        "set f [open %s/rp_cell.txt w]; puts $f [get_property NAME $rp]; close $f" % shell_dir,
+    ]
+    return "\n".join(t) + "\n"
+
+
 def build_shell(board, part, clk_ns, ports, shell_lib, jobs=8, shell_x0=0):
     """Build (or reuse) the pre-implemented shell. Returns (shell_dir, result dict).
     shell_x0: lowest INT column of the shell region (0: all columns left of the strip)."""
@@ -397,7 +571,7 @@ def build_shell(board, part, clk_ns, ports, shell_lib, jobs=8, shell_x0=0):
     shell_dir = os.path.join(shell_lib, key)
     done = os.path.join(shell_dir, "shell_routed.dcp")
     res = {"shell": key, "shell_dir": shell_dir}
-    if os.path.isfile(done) and os.path.isfile(os.path.join(shell_dir, "top.hwh")):
+    if os.path.isfile(done) and (part in ALVEO_SHELL or os.path.isfile(os.path.join(shell_dir, "top.hwh"))):
         res.update(status="cached", shell_s=0.0)
         return shell_dir, res
     if os.path.isdir(shell_dir):
@@ -412,14 +586,20 @@ def build_shell(board, part, clk_ns, ports, shell_lib, jobs=8, shell_x0=0):
     with open(os.path.join(shell_dir, "ports.json"), "w") as f:
         json.dump(ports, f, indent=2)
     tcl = os.path.join(shell_dir, "shell.tcl")
+    alveo = part in ALVEO_SHELL
     with open(tcl, "w") as f:
-        f.write(shell_tcl(board, part, clk_ns, ports, shell_dir, src, jobs, shell_x0))
+        if alveo:
+            f.write(alveo_shell_tcl(part, clk_ns, ports, shell_dir, src, jobs))
+        else:
+            f.write(shell_tcl(board, part, clk_ns, ports, shell_dir, src, jobs, shell_x0))
     rc, res["shell_s"] = run_vivado(tcl, os.path.join(shell_dir, "shell.log"), shell_dir)
-    ok = rc == 0 and os.path.isfile(done) and os.path.isfile(os.path.join(shell_dir, "top.hwh"))
+    # (no PYNQ hardware handoff for the Alveo shell)
+    ok = rc == 0 and os.path.isfile(done) and (alveo or os.path.isfile(os.path.join(shell_dir, "top.hwh")))
     res["status"] = "built" if ok else "shell_failed"
     # the project (IP output products, runs) is not needed any more
     if ok:
-        for sub in ("finn_zynq_link.runs", "finn_zynq_link.cache", "finn_zynq_link.ip_user_files"):
+        for sub in ("finn_zynq_link.runs", "finn_zynq_link.cache", "finn_zynq_link.ip_user_files",
+                    "finn_alveo_link.runs", "finn_alveo_link.cache", "finn_alveo_link.ip_user_files"):
             shutil.rmtree(os.path.join(shell_dir, sub), ignore_errors=True)
     return shell_dir, res
 

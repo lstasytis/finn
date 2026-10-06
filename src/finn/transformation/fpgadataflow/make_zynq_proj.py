@@ -382,8 +382,18 @@ class ZynqBuild(Transformation):
         # options; the compute kernels are then placed and routed by DynaRapid and
         # inserted into the shell as locked, pre-routed cells
         self.dynarapid = dynarapid
-        self.fpga_part = pynq_part_map[platform]
-        self.axi_port_width = pynq_native_port_width[platform]
+        if platform in pynq_part_map:
+            self.fpga_part = pynq_part_map[platform]
+        else:
+            # Alveo card with the island flow's Vivado-only shell (no Vitis platform)
+            from finn.util.basic import vitis_part_map
+
+            assert dynarapid is not None and dynarapid.get("flow") == "islands", (
+                "%s: ZynqBuild only supports Alveo parts with the island flow" % platform
+            )
+            self.fpga_part = vitis_part_map[platform]
+        # Alveo (Vivado-only shell): 512-bit IODMAs as in FINN's Vitis flow
+        self.axi_port_width = pynq_native_port_width.get(platform, 512)
         self.period_ns = period_ns
         self.platform = platform
         self.enable_debug = enable_debug
@@ -493,7 +503,7 @@ class ZynqBuild(Transformation):
         )
         model.set_metadata_prop("vivado_pynq_proj", out_dir)
         model.set_metadata_prop("bitfile", res["bitfile"])
-        model.set_metadata_prop("hw_handoff", res["hwh"])
+        model.set_metadata_prop("hw_handoff", res["hwh"] or "")
         model.set_metadata_prop(
             "vivado_synth_rpt",
             res.get("utilization_xml") or os.path.join(out_dir, "assembly", "utilization.rpt"),
