@@ -828,3 +828,32 @@ with the baseline (an optimization only one flow needs may stay flow-specific).
   dense ZCU104 MobileNet; the skyline packing is only enabled for the Alveo region), so
   neither synthesis nor P&R parallelize. Earlier ZCU104 numbers used lighter settings than the
   baseline (RuntimeOptimized synthesis, no phys_opt) and are superseded by these.
+
+## 2026-10-07: fair U55C baseline - global Vivado flow on the same shell
+
+User question: is the Vivado flow using the same shell as the island flow? On the ZCU104 yes
+(FINN's Zynq block design vs the island flow's shell from the same template); on the U55C no:
+the Vitis baseline links the full XRT platform (static region, HBM subsystem, ~124k LUT floor),
+the island flow's shell is the small Vivado-only XDMA shell. So the 4.0-6.6x vs Vitis mixes the
+island flow's gain with the smaller shell.
+
+* Control: FINN's regular Vivado flow on the same shell - `ZynqBuild(board="U55C")` without the
+  island flow -> MakeZYNQProject writes `dynarapid.shell.alveo_vivado_project_tcl`: the identical
+  block design (`_alveo_bd`, shared with the island flow's shell; the shell script stays
+  byte-identical) with FINN's stitched IPs (IODMA partitions, compute partition) instead of the
+  placeholder, synthesized and implemented in one run with Vivado defaults (= v++: opt, place,
+  phys_opt, route; no post-route phys_opt), no pblocks. Like FINN's Zynq flow it synthesizes the
+  shell IPs in every build (XDMA ~245 s, SmartConnect ~141 s, OOC in parallel); the island flow
+  builds its shell once (cached).
+* **Timed alone, U55C, 100 MHz, same shell, consistent settings**
+  (`data/u55c_vivado_shell_baseline_runs.jsonl`, island runs `data/u55c_vivado_shell_timing_runs_v3.jsonl`):
+
+| model | global Vivado, same shell | island flow | speedup | (Vitis platform flow) |
+|---|---|---|---|---|
+| TFC | 1528 s | 738 s | 2.07x | 4860 s |
+| VGG10 | 2980 s | 1697 s | 1.76x | 7307 s |
+| MobileNet U250 | 5424 s | 2713 s | 2.00x | 10756 s |
+
+  All builds: bitstream, 0 routing errors, WNS +0.135..+3.84 ns, WHS +0.009..+0.010 ns. The
+  island flow's own gain on the U55C is ~2x (as on the ZCU104, 1.5-2.0x); the rest of the
+  4-6.6x vs Vitis came from avoiding the per-model implementation of the Vitis platform.
