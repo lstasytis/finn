@@ -382,7 +382,8 @@ def plan_islands(names, node_res, dev, region, first, slots, islands, res, packi
         kmax = min(len(names), max(k0, slots))
         kc = sorted({min(kmax, max(1, int(round(k0 * f)))) for f in (1, 1.5, 2, 3)} | ({20, 28, 40} if kmax >= 20 else set()))
         kc = [k for k in kc if k <= kmax]
-        def fewest(u):
+
+        def fewest(u, reg):
             # per count: first the fewest islands reaching the minimal largest island (a dominant
             # node bounds the largest island anyway; more islands would only add tiny ones, each
             # a Vivado run and stitching work), then exactly k (smaller islands pack better)
@@ -390,28 +391,34 @@ def plan_islands(names, node_res, dev, region, first, slots, islands, res, packi
                 for exact in (False, True):
                     isl_k, res_k = islands_of(k, exact=exact)
                     try:
-                        floorplan(dev, res_k, region, allocators=("skyline_hard",), utils=(u,))
+                        floorplan(dev, res_k, reg, allocators=("skyline_hard",), utils=(u,))
                         return k, exact
                     except RuntimeError:
-                        tried.append((u, k, exact, "skyline"))
+                        tried.append((u, k, exact, "skyline", len(reg)))
             return None
 
+        # the main region first; then with the extra rectangles (e.g. the fabric above the PS,
+        # whose nets to the main region cross the shell: the stitcher leaves them to the
+        # assembly's router), for designs that need its resources (CNV-w1a1 PE=SIMD=1: 222 BRAM36)
         levels = (0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85)
-        for li, u in enumerate(levels):
-            found = fewest(u)
-            if found is None:
-                continue
-            k, exact = found
-            # the next level if it needs at most half the islands (the stitching cost grows with
-            # the island count: 82 islands took 555 s to stitch)
-            if li + 1 < len(levels):
-                f2 = fewest(levels[li + 1])
-                if f2 is not None and len(islands_of(*f2)[0]) * 2 <= len(islands_of(k, exact)[0]):
-                    u, (k, exact) = levels[li + 1], f2
-            isl, isl_res = islands_of(k, exact=exact)
-            # chain order if it fits at this level (else floorplan falls back to scarcest first)
-            plan = floorplan(dev, isl_res, region, allocators=("skyline",), utils=(u,))
-            break
+        for reg in [region] + ([region + list(first)] if first else []):
+            for li, u in enumerate(levels):
+                found = fewest(u, reg)
+                if found is None:
+                    continue
+                k, exact = found
+                # the next level if it needs at most half the islands (the stitching cost grows
+                # with the island count: 82 islands took 555 s to stitch)
+                if li + 1 < len(levels):
+                    f2 = fewest(levels[li + 1], reg)
+                    if f2 is not None and len(islands_of(*f2)[0]) * 2 <= len(islands_of(k, exact)[0]):
+                        u, (k, exact) = levels[li + 1], f2
+                isl, isl_res = islands_of(k, exact=exact)
+                # chain order if it fits at this level (else floorplan falls back to scarcest first)
+                plan = floorplan(dev, isl_res, reg, allocators=("skyline",), utils=(u,))
+                break
+            if plan is not None:
+                break
         res["skyline"] = {"candidates": kc}
     for allocs, kmax, utils in ((("snake",), None, (0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8)), (("rects",), 8, None)):
         if plan is not None:

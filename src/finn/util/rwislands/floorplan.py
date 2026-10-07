@@ -282,6 +282,14 @@ def allocate_rects(dev, needs, allowed, step=5):
     return res
 
 
+def _monotone(levels):
+    """True if the levels only rise or only fall from left to right: the island's staircase is a
+    rectangle, an L or stairs. A hill (legs joined by a bridge on top, wrapping around a
+    neighbour: a U) or a valley (a T) is not."""
+    pairs = list(zip(levels, levels[1:]))
+    return all(q >= p for p, q in pairs) or all(q <= p for p, q in pairs)
+
+
 def allocate_skyline(
     dev, needs, rects, step=5, max_width=None, order="chain", pull=0.05, stair=True, min_rows=30, compact=0.02,
     min_fill=0.6, min_cols=3,
@@ -348,6 +356,10 @@ def allocate_skyline(
                     if top >= nb:
                         break
                     if b - a + 1 < min(min_cols, ncol):
+                        continue
+                    if stair and not _monotone(sky[a : b + 1]):
+                        # a U shape (the island wrapping around a neighbour): legs joined by a
+                        # thin bridge congest badly (MobileNet U55C: 15k overlaps, > 25 min route)
                         continue
                     col = pc[:, b + 1, :] - pc[:, a, :]  # (kinds, nb+1) band prefix of cols a..b
                     floor = (base[:, b + 1] - base[:, a]) if stair else col[:, top]

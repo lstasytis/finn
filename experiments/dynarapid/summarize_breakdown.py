@@ -44,7 +44,8 @@ def island_row(out_dir, wall):
     r = json.load(open(os.path.join(out_dir, "islands", "rwislands_zynq.json")))
     st, a = r["stamps"], r.get("assembly_stamps", {})
     total = r["total_s"]
-    seq = ["read_accel", "route", "hold_repair", "post_route_phys_opt", "bitstream", "reports"]
+    # (route_nets/check: interactive routing and its check, FINN_RWI_ASM_ROUTE=incremental)
+    seq = ["read_accel", "route_nets", "check", "route", "hold_repair", "post_route_phys_opt", "bitstream", "reports"]
     prev, asm = 0.0, {}
     for k in seq:
         if k in a:
@@ -57,7 +58,7 @@ def island_row(out_dir, wall):
         st["islands"] - st["floorplan"],
         st["stitch"] - st["islands"],
         asm.get("read_accel"),
-        asm.get("route", 0) + asm.get("hold_repair", 0) + asm.get("post_route_phys_opt", 0),
+        sum(asm.get(k, 0) for k in ("route_nets", "check", "route", "hold_repair", "post_route_phys_opt")),
         asm.get("bitstream"),
         asm.get("reports"),
         wall,
@@ -213,6 +214,26 @@ def main():
             rows.append(("%s (%d islands)" % (znames[m], k), vals))
     parts.append(table("ZCU104, island flow, Zynq shell (cached), FINN's Zynq strategies", ISLAND_COLS, rows,
                        "Assembly route includes the baseline's post-route phys_opt."))
+
+    # 2026-10-07 (v2): conflict-free assembly (contained shell + moat, URAM column pairs), partition
+    # pins, reset pipeline, island hold margin, soft-preserve stitching, concurrent IODMA HLS
+    rows = []
+    for m in ("tfc", "cnv", "cnv1", "vgg10", "mnv1"):
+        d = os.path.join(R, m + "_islands_v2")
+        if os.path.isfile(os.path.join(d, "islands", "rwislands_zynq.json")):
+            wall = json.load(open(os.path.join(d, "bitfile_experiment.json")))["total_s"]
+            vals, k = island_row(d, wall)
+            rows.append(("%s (%d islands)" % (znames[m], k), vals))
+    parts.append(table("ZCU104, island flow v2 (2026-10-07), same shell settings and strategies", ISLAND_COLS, rows,
+                       "Assembly route: full route_design (the baseline's directive) + post-route phys_opt only "
+                       "when setup fails."))
+    v4 = {r["model"]: r for r in runs(os.path.join(HERE, "data", "u55c_vivado_shell_timing_runs_v4.jsonl"))}
+    rows = []
+    for m in ("tfc-w1a1", "vgg10", "mnv1"):
+        if m in v4:
+            vals, k = island_row(os.path.join(T, m + "_islands"), v4[m]["wall_s"])
+            rows.append(("%s (%d islands)" % (names[m], k), vals))
+    parts.append(table("U55C, island flow v2 (2026-10-07), Vivado-only shell (cached)", ISLAND_COLS, rows))
     print("\n".join(parts))
 
 
