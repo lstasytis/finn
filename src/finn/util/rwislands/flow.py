@@ -343,15 +343,22 @@ def merge_small(segs, costs, min_frac=0.15):
     return segs
 
 
-def plan_islands(names, node_res, dev, region, first, slots, islands, res, packing="snake"):
+def plan_islands(names, node_res, dev, region, first, slots, islands, res, packing="snake", anchor=None, boundary=None):
     """Cut the node chain (names, in topological order; node_res: synthesized resources per
     node) into islands and floorplan them in the region (list of tile rectangles) plus, for the
     snake, the extra rectangles first. Tries island counts and utilizations (see
     islands_and_stitch); falls back to one island per region rectangle, then to a single island.
     Fills res["islands"], res["floorplan"], res["floorplan_tries"]; returns ({island: member
-    names}, pblock ranges per island)."""
+    names}, pblock ranges per island). anchor: the shell's (x, y) tile position; islands with
+    a node in boundary (nodes with ports to the shell, e.g. the IODMAs) are pulled towards it
+    (skyline packing)."""
     costs = [island_cost(node_res[n]) for n in names]
     rect_list = region if isinstance(region, list) else [region]
+
+    def anchors_of(isl_k):
+        if anchor is None or not boundary:
+            return None
+        return [anchor if set(mem) & boundary else None for mem in isl_k.values()]
 
     def islands_of(k, exact=False):
         segs = merge_small(partition(costs, k, exact), costs)
@@ -391,7 +398,7 @@ def plan_islands(names, node_res, dev, region, first, slots, islands, res, packi
                 for exact in (False, True):
                     isl_k, res_k = islands_of(k, exact=exact)
                     try:
-                        floorplan(dev, res_k, reg, allocators=("skyline_hard",), utils=(u,))
+                        floorplan(dev, res_k, reg, allocators=("skyline_hard",), utils=(u,), anchors=anchors_of(isl_k))
                         return k, exact
                     except RuntimeError:
                         tried.append((u, k, exact, "skyline", len(reg)))
@@ -415,7 +422,7 @@ def plan_islands(names, node_res, dev, region, first, slots, islands, res, packi
                         u, (k, exact) = levels[li + 1], f2
                 isl, isl_res = islands_of(k, exact=exact)
                 # chain order if it fits at this level (else floorplan falls back to scarcest first)
-                plan = floorplan(dev, isl_res, reg, allocators=("skyline",), utils=(u,))
+                plan = floorplan(dev, isl_res, reg, allocators=("skyline",), utils=(u,), anchors=anchors_of(isl))
                 break
             if plan is not None:
                 break
@@ -490,6 +497,7 @@ def islands_and_stitch(
     max_island_overlaps=0,
     packing="snake",
     stitch_region=None,
+    anchor=None,
 ):
     """Islands, floorplan (region + first lanes), island P&R in parallel with the top synthesis,
     RapidWright stitching. Fills res; returns (failure status or None, stitched accelerator dcp).
@@ -500,7 +508,12 @@ def islands_and_stitch(
     names = [n.name for n in accel.graph.node]
     node_res = {n: synth[dcps[n]]["util"] for n in names}
     # 2. islands and floorplan
-    isl, ranges = plan_islands(names, node_res, dev, region, first, slots, islands, res, packing)
+    # nodes with ports to the shell (IODMAs, compute nodes with AXI-Lite): their islands go next
+    # to the shell
+    boundary = {n for n in names if len(boundary_ports(g, [n])) > 1}
+    isl, ranges = plan_islands(
+        names, node_res, dev, region, first, slots, islands, res, packing, anchor=anchor, boundary=boundary
+    )
     stamp("floorplan")
 
     # 3. island place and route + accelerator top, in parallel
@@ -716,7 +729,7 @@ def rw_islands_zynq_build(
     stitch_region = " ".join(rg for r in rects for rg in pblock_ranges(dev.sites_in(*r)))
     fail, accel_dcp2 = islands_and_stitch(
         accel, g, dcps, synth, dev, part, clk_ns, work, cpus, slots, islands, region, first, res,
-        stamp, rwroute_max_iter, packing=packing, stitch_region=stitch_region,
+        stamp, rwroute_max_iter, packing=packing, stitch_region=stitch_region, anchor=shell_anchor(part, dev),
     )
     if fail is not None:
         return abort(fail)
@@ -747,6 +760,18 @@ def rw_islands_zynq_build(
         hwh = None  # Vivado-only Alveo shell: no PYNQ hardware handoff
     res.update(status="ok", bitfile=bitfile, hwh=hwh)
     return _done(res, stamps, out_dir, t_total)
+
+
+def shell_anchor(part, dev):
+    """(x, y) tile position of the shell's interface to the islands, or None: the Alveo shell
+    sits in the clock regions right of SLR0's island rectangle (around the PCIe block); islands
+    in other SLRs are two crossings away. On the Zynq parts every island is next to the shell
+    strip anyway, and pulling the IODMA islands there made VGG10's packing worse (6 islands at
+    80 % LUTs instead of 4 at 70 %)."""
+    if part in VIVADO_ALVEO_REGION:
+        x0, x1, y0, y1 = VIVADO_ALVEO_REGION[part][0]
+        return (x1, (y0 + y1) // 2)
+    return None
 
 
 def island_region(part, dev):
