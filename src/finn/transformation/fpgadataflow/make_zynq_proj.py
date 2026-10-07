@@ -303,21 +303,40 @@ class MakeZYNQProject(Transformation):
             run_settings = "set_property top top_wrapper [current_fileset]\n"
             run_settings += "update_compile_order -fileset sources_1\n"
             run_settings += "set_property STEPS.OPT_DESIGN.TCL.PRE %s [get_runs impl_1]" % hook_file
+        alveo = self.platform not in pynq_part_map
         with open(ipcfg, "w") as f:
-            f.write(
-                templates.custom_zynq_shell_template
-                % (
-                    fclk_mhz,
-                    axilite_idx,
-                    aximm_idx,
-                    self.platform,
-                    pynq_part_map[self.platform],
-                    config,
-                    self.enable_debug,
-                    run_settings,
-                    num_workers,
+            if alveo:
+                # Alveo card with the island flow's Vivado-only shell (the global Vivado baseline
+                # of finn.util.rwislands on Alveo: same shell block design, one implementation)
+                from finn.util.basic import vitis_part_map
+                from finn.util.dynarapid.shell import alveo_vivado_project_tcl
+
+                f.write(
+                    alveo_vivado_project_tcl(
+                        vitis_part_map[self.platform],
+                        self.period_ns,
+                        axilite_idx,
+                        aximm_idx,
+                        config,
+                        vivado_pynq_proj_dir,
+                        num_workers,
+                    )
                 )
-            )
+            else:
+                f.write(
+                    templates.custom_zynq_shell_template
+                    % (
+                        fclk_mhz,
+                        axilite_idx,
+                        aximm_idx,
+                        self.platform,
+                        pynq_part_map[self.platform],
+                        config,
+                        self.enable_debug,
+                        run_settings,
+                        num_workers,
+                    )
+                )
 
         # create a TCL recipe for the project
         synth_project_sh = vivado_pynq_proj_dir + "/synth_project.sh"
@@ -350,6 +369,11 @@ class MakeZYNQProject(Transformation):
         for hwh_name_cand in hwh_name_alts:
             if os.path.isfile(hwh_name_cand):
                 hwh_name = hwh_name_cand
+        if alveo:
+            # no PYNQ hardware handoff for the Alveo shell; reports written by the project script
+            model.set_metadata_prop("hw_handoff", "")
+            model.set_metadata_prop("vivado_synth_rpt", vivado_pynq_proj_dir + "/synth_report.xml")
+            return (model, False)
         if not os.path.isfile(hwh_name):
             raise Exception(
                 "Synthesis failed, no bitfile found. Check logs under %s" % vivado_pynq_proj_dir
@@ -385,11 +409,12 @@ class ZynqBuild(Transformation):
         if platform in pynq_part_map:
             self.fpga_part = pynq_part_map[platform]
         else:
-            # Alveo card with the island flow's Vivado-only shell (no Vitis platform)
+            # Alveo card with the island flow's Vivado-only shell (no Vitis platform): the island
+            # flow, or the global Vivado baseline on the same shell (dynarapid=None)
             from finn.util.basic import vitis_part_map
 
-            assert dynarapid is not None and dynarapid.get("flow") == "islands", (
-                "%s: ZynqBuild only supports Alveo parts with the island flow" % platform
+            assert dynarapid is None or dynarapid.get("flow") == "islands", (
+                "%s: ZynqBuild supports Alveo parts with the island flow or plain Vivado" % platform
             )
             self.fpga_part = vitis_part_map[platform]
         # Alveo (Vivado-only shell): 512-bit IODMAs as in FINN's Vitis flow

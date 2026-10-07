@@ -415,25 +415,20 @@ def shell_tcl(board, part, clk_ns, ports, shell_dir, src_file, jobs, shell_x0=0)
     return "\n".join(t) + "\n"
 
 
-def alveo_shell_tcl(part, clk_ns, ports, shell_dir, src_file, jobs):
-    """Vivado script building and implementing the Vivado-only Alveo shell (ALVEO_SHELL) with
-    the accelerator placeholder; writes shell_routed.dcp (accelerator a black box with
-    unrouted boundary nets, shell routing locked) like shell_tcl."""
-    a = ALVEO_SHELL[part]
-    fclk_mhz = int(round(1000.0 / clk_ns))
-    n_axilite = len(ports)
-    mm = [d for d in ports if d.get("iodma", True)]
-    xdc = os.path.join(shell_dir, "shell_pins.xdc")
-    with open(xdc, "w") as f:
+def _alveo_pins_xdc(a, path):
+    with open(path, "w") as f:
         f.write("set_property PACKAGE_PIN %s [get_ports pcie_refclk_clk_p]\n" % a["refclk_p"])
         f.write("set_property PACKAGE_PIN %s [get_ports pcie_perstn]\n" % a["perst"])
         f.write("set_property IOSTANDARD %s [get_ports pcie_perstn]\n" % a["perst_iostandard"])
         f.write("set_false_path -from [get_ports pcie_perstn]\n")
-    t = [
-        "create_project finn_alveo_link %s -part %s" % (shell_dir, part),
-        "add_files -norecurse %s" % src_file,
-        "add_files -fileset constrs_1 -norecurse %s" % xdc,
-        "update_compile_order -fileset sources_1",
+
+
+def _alveo_bd(a, fclk_mhz, n_axilite, n_mm, xdma_si):
+    """Block design of the Vivado-only Alveo shell (shared by the island flow's shell and the
+    global Vivado baseline): XDMA, kernel clock/reset, AXI interconnect (n_axilite masters),
+    SmartConnect (n_mm IODMA slaves + the XDMA's AXI master at slave index xdma_si) to on-chip
+    memory. Tcl variables kclk / krst: the kernel clock and reset pins."""
+    return [
         "create_bd_design top",
         # PCIe endpoint with DMA: parameters one after the other (validated in order)
         "create_bd_cell -type ip -vlnv xilinx.com:ip:xdma xdma_0",
@@ -478,11 +473,11 @@ def alveo_shell_tcl(part, clk_ns, ports, shell_dir, src_file, jobs):
         # memory: host DMA and IODMAs -> on-chip memory
         "create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect smartconnect_0",
         "set_property -dict [list CONFIG.NUM_SI {%d} CONFIG.NUM_MI {1} CONFIG.NUM_CLKS {2}] "
-        "[get_bd_cells smartconnect_0]" % (len(mm) + 1),
+        "[get_bd_cells smartconnect_0]" % (n_mm + 1),
         "connect_bd_net $kclk [get_bd_pins smartconnect_0/aclk]",
         "connect_bd_net [get_bd_pins xdma_0/axi_aclk] [get_bd_pins smartconnect_0/aclk1]",
         "connect_bd_net $krst [get_bd_pins smartconnect_0/aresetn]",
-        "connect_bd_intf_net [get_bd_intf_pins xdma_0/M_AXI] [get_bd_intf_pins smartconnect_0/S00_AXI]",
+        "connect_bd_intf_net [get_bd_intf_pins xdma_0/M_AXI] [get_bd_intf_pins smartconnect_0/S%02d_AXI]" % xdma_si,
         "create_bd_cell -type ip -vlnv xilinx.com:ip:axi_bram_ctrl mem_ctrl",
         "set_property -dict [list CONFIG.DATA_WIDTH {512} CONFIG.SINGLE_PORT_BRAM {1}] [get_bd_cells mem_ctrl]",
         "create_bd_cell -type ip -vlnv xilinx.com:ip:blk_mem_gen mem",
@@ -491,6 +486,24 @@ def alveo_shell_tcl(part, clk_ns, ports, shell_dir, src_file, jobs):
         "connect_bd_net $kclk [get_bd_pins mem_ctrl/s_axi_aclk]",
         "connect_bd_net $krst [get_bd_pins mem_ctrl/s_axi_aresetn]",
     ]
+
+
+def alveo_shell_tcl(part, clk_ns, ports, shell_dir, src_file, jobs):
+    """Vivado script building and implementing the Vivado-only Alveo shell (ALVEO_SHELL) with
+    the accelerator placeholder; writes shell_routed.dcp (accelerator a black box with
+    unrouted boundary nets, shell routing locked) like shell_tcl."""
+    a = ALVEO_SHELL[part]
+    fclk_mhz = int(round(1000.0 / clk_ns))
+    n_axilite = len(ports)
+    mm = [d for d in ports if d.get("iodma", True)]
+    xdc = os.path.join(shell_dir, "shell_pins.xdc")
+    _alveo_pins_xdc(a, xdc)
+    t = [
+        "create_project finn_alveo_link %s -part %s" % (shell_dir, part),
+        "add_files -norecurse %s" % src_file,
+        "add_files -fileset constrs_1 -norecurse %s" % xdc,
+        "update_compile_order -fileset sources_1",
+    ] + _alveo_bd(a, fclk_mhz, n_axilite, len(mm), 0)
     k_mm = 1
     for k, d in enumerate(ports):
         s_if = [c["name"] for c in d["in"] if c["name"].startswith("s_axi")][0].rsplit("_", 1)[0]
@@ -577,6 +590,62 @@ def alveo_shell_tcl(part, clk_ns, ports, shell_dir, src_file, jobs):
         "if {[llength $kn]} {set_property IS_ROUTE_FIXED 0 $kn}",
         "write_checkpoint -force %s/shell_routed.dcp" % shell_dir,
         "set f [open %s/rp_cell.txt w]; puts $f [get_property NAME $rp]; close $f" % shell_dir,
+    ]
+    return "\n".join(t) + "\n"
+
+
+def alveo_vivado_project_tcl(part, clk_ns, n_axilite, n_mm, ip_config, proj_dir, jobs):
+    """Global Vivado baseline on the Vivado-only Alveo shell: the same block design as the island
+    flow's shell (_alveo_bd) with FINN's stitched IPs (ip_config from MakeZYNQProject: IODMA
+    partitions on SmartConnect slaves 0..n_mm-1 and AXI interconnect masters, compute partitions,
+    streams), synthesized and implemented in one run with Vivado's default settings (as v++:
+    opt, place, phys_opt, route; no post-route phys_opt). Project finn_zynq_link in proj_dir."""
+    a = ALVEO_SHELL[part]
+    fclk_mhz = int(round(1000.0 / clk_ns))
+    xdc = os.path.join(proj_dir, "shell_pins.xdc")
+    _alveo_pins_xdc(a, xdc)
+    t = [
+        "create_project finn_zynq_link %s -part %s" % (proj_dir, part),
+        "add_files -fileset constrs_1 -norecurse %s" % xdc,
+    ]
+    t += _alveo_bd(a, fclk_mhz, n_axilite, n_mm, n_mm)
+    t += [
+        "set axi_peripheral_base 0x00000000",
+        "proc assign_axi_addr_proc {axi_intf_path} {",
+        "  global axi_peripheral_base",
+        "  set range [expr 2**[get_property CONFIG.ADDR_WIDTH [get_bd_intf_pins $axi_intf_path]]]",
+        "  set range [expr $range < 4096 ? 4096 : $range]",
+        "  set offset [expr ($axi_peripheral_base + ($range-1)) & ~($range-1)]",
+        "  assign_bd_address [get_bd_addr_segs $axi_intf_path/Reg*] -offset $offset -range $range",
+        "  set axi_peripheral_base [expr $offset + $range]",
+        "}",
+        ip_config,
+    ]
+    for k in range(n_axilite):
+        t += [
+            "connect_bd_net $kclk [get_bd_pins axi_interconnect_0/M%02d_ACLK]" % k,
+            "connect_bd_net $krst [get_bd_pins axi_interconnect_0/M%02d_ARESETN]" % k,
+        ]
+    t += [
+        "assign_bd_address",
+        "foreach seg [get_bd_addr_segs -quiet -of_objects [get_bd_addr_spaces -quiet */*] -filter {NAME =~ *mem_ctrl*}] "
+        "{catch {set_property range %dK $seg}}" % a["mem_kb"],
+        "save_bd_design",
+        "validate_bd_design",
+        "make_wrapper -files [get_files top.bd] -import -fileset sources_1 -top",
+        "set_property top top_wrapper [current_fileset]",
+        "update_compile_order -fileset sources_1",
+        # Vivado defaults = the v++ implementation steps (phys_opt on, post-route phys_opt off)
+        "set_property STEPS.PHYS_OPT_DESIGN.IS_ENABLED true [get_runs impl_1]",
+        "set_property STEPS.POST_ROUTE_PHYS_OPT_DESIGN.IS_ENABLED false [get_runs impl_1]",
+        "launch_runs synth_1 -jobs %d" % jobs,
+        "wait_on_run [get_runs synth_1]",
+        "launch_runs impl_1 -to_step write_bitstream -jobs %d" % jobs,
+        "wait_on_run [get_runs impl_1]",
+        "open_run impl_1",
+        "report_route_status -file %s/route_status.rpt" % proj_dir,
+        "report_timing_summary -file %s/timing_summary.rpt" % proj_dir,
+        "report_utilization -hierarchical -hierarchical_depth 4 -format xml -file %s/synth_report.xml" % proj_dir,
     ]
     return "\n".join(t) + "\n"
 
