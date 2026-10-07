@@ -162,7 +162,7 @@ def main():
         if m in isl:
             vals, k = island_row(os.path.join(T, m), isl[m]["wall_s"])
             rows.append(("%s (%d islands)" % (names[m], k), vals))
-    parts.append(table("U55C, island flow, Vivado-only shell (cached; built once in ~20 min)", ISLAND_COLS, rows,
+    parts.append(table("U55C, island flow before (2026-10-06), Vivado-only shell (cached; built once in ~20 min)", ISLAND_COLS, rows,
                        "FINN prep = partitioning and IODMA HLS before the island flow. Assembly route includes "
                        "post-route phys_opt / hold repair where used (none ran here)."))
 
@@ -212,7 +212,7 @@ def main():
             wall = json.load(open(os.path.join(d, "bitfile_experiment.json")))["total_s"]
             vals, k = island_row(d, wall)
             rows.append(("%s (%d islands)" % (znames[m], k), vals))
-    parts.append(table("ZCU104, island flow, Zynq shell (cached), FINN's Zynq strategies", ISLAND_COLS, rows,
+    parts.append(table("ZCU104, island flow before (2026-10-06), Zynq shell (cached), FINN's Zynq strategies", ISLAND_COLS, rows,
                        "Assembly route includes the baseline's post-route phys_opt."))
 
     # 2026-10-07 (v2): conflict-free assembly (contained shell + moat, URAM column pairs), partition

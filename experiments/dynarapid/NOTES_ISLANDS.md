@@ -857,3 +857,121 @@ island flow's gain with the smaller shell.
   All builds: bitstream, 0 routing errors, WNS +0.135..+3.84 ns, WHS +0.009..+0.010 ns. The
   island flow's own gain on the U55C is ~2x (as on the ZCU104, 1.5-2.0x); the rest of the
   4-6.6x vs Vitis came from avoiding the per-model implementation of the Vitis platform.
+
+## 2026-10-07 (evening): critique; root causes of the serial assembly; fixes (with the Vivado MCP)
+
+User: refactor, critique and improve the island flow (expectation: up to an order of magnitude
+faster than Vivado); why are synthesis, placement, routing and bitstream so similar in the
+native flow?
+
+### Why the native flow's steps look alike (ZCU104, from the baseline runs' logs)
+
+| | TFC | CNV | VGG10 | MobileNet |
+|---|---|---|---|---|
+| OOC synth of the accelerator (synth_design) | 72 (48) | 171 (142) | 421 (359) | 1066 + **3161** (partition 2) |
+| OOC synth of the shell IPs (in parallel; SmartConnect the longest) | 49-128 | 49-128 | 50-129 | 50-130 |
+| link_design | 21 | 25 | 81 | 82 |
+| opt / place / phys_opt / route | 6 / 78 / 0 / 36 | 9 / 126 / 0 / 79 | 50 / 416 / 37 / 250 | 48 / 480 / 39 / 386 |
+| post-placement WNS (10 ns clock) | +5.6 | +4.3 | +5.5 | +5.6 |
+| reports + checkpoints in impl_1 | 15 | 28 | 316 | 341 |
+
+* 100 MHz is a relaxed clock for UltraScale+: right after placement every model has 4.3-5.8 ns
+  of slack, so the placer and the router finish in one pass with no timing-driven iterations.
+  "P&R dominates" is the experience at high utilization and tight clocks.
+* Every Vivado run has a fixed cost (start 7 s, part load 9 s, synth_design of an 8-bit adder
+  16 s, write_checkpoint 7 s, exit ~7 s: a trivial OOC synthesis is 45 s wall), and the block
+  design's OOC synthesis runs ~10 IP runs of 50-130 s each in parallel: for TFC/CNV the synthesis
+  stage is mostly fixed overhead, while their P&R is small (5-25k LUT on a 230k-LUT device).
+* FINN's RTL is synthesis-heavy: weights and thresholds are constants (LUT ROMs, BRAM init) and
+  Flow_PerfOptimized_high disables LUT combining, resource sharing and keeps equivalent registers.
+  One MobileNet partition (a 1024-channel Thresholding_rtl in LUT ROM) spends 51 of its 53 min in
+  "Cross Boundary and Area Optimization".
+* The impl_1 run of VGG10/MobileNet writes ~5 min of reports and checkpoints (not P&R).
+
+### Root causes of the island flow's serial tail (VGG10 ZCU104, opened in Vivado via the MCP)
+
+The assembly's route_design (287 s, about the global baseline's whole route) started with 1124
+failed nets and 752 node overlaps, although the accelerator arrives routed:
+
+1. **The Zynq shell's routing ran through the island region.** CONTAIN_ROUTING does not hold the
+   nets of the PS8 (also not with the PS8 in the pblock: tried), and with the 3-column strip 434
+   PS<->SmartConnect/interconnect nets (~43k node uses) ran through INT columns 30-34 and the
+   fabric above the PS. The islands, routed out of context, collided with them (shell vs
+   MVAU_rtl_1 island: 635 conflicting nets). Strip 5 columns: 28 nets left, ~1400 node uses
+   almost all in the next column -> island strip 5 + one empty moat column; shell builds report
+   shell_escape.txt. (U55C Vivado-only shell: 2 of 129k nets, clean.)
+2. **The merge drops the shell's static routing** ("Special Net GLOBAL_LOGIC1 already exists ...
+   routes were dropped"): ~4.6k GND pins of the PS unrouted after read_checkpoint -cell, with or
+   without unfixing first. Pre-routing them interactively (23 s) did not shorten the full route,
+   so it is left to route_design.
+3. **Adjacent islands shared INT columns**: a URAM tile connects to INT columns x and x+1, the
+   device model treated it as column x, so an island ending at x and its neighbour starting at
+   x+1 both owned INT x+1 (VGG10 with skyline islands: 5693 conflicting nets). The device model
+   now merges each URAM column pair.
+4. **Tiny islands**: the min-max partition with exactly k islands left 16 islands of cost 66-900
+   in single columns; the stitcher (region-restricted) could not reach their wide buses (1178
+   overlaps, 56 pins unrouted, 252 s). Islands below 15 % of the largest are merged, islands are
+   at least 3 columns wide.
+5. **Boxed-in pins**: island routing can take every exit of a boundary driver (out of context,
+   port nets are not routed: Vivado says so, Route 35-198). Boundary ports (to the shell) now get
+   HD.PARTPIN_RANGE on the island's slices (net routed to the island edge, an antenna stub the
+   assembly extends); between islands the stitcher rips up blocking island nets (RWRoute soft
+   preserve) and stays inside the island region (--pblock), so it does not run over the shell.
+6. **Unregistered kernel reset across the device** (U55C MobileNet's assembly critical path,
+   WNS -0.99 ns at router init, 9 ns of routing): every island registers rst twice (FDRE
+   primitives: the island is linked as a structural netlist).
+7. **Hold after assembly**: the island's clock is re-routed from the shell's clock tree; 12
+   island-internal paths of TFC at -37..-4 ps. Islands are routed with 50 ps hold uncertainty.
+
+Interactive routing of only the remaining nets (route_design -nets, rwislands.assembly,
+FINN_RWI_ASM_ROUTE=incremental) works on TFC (23 s for 367 nets, one -auto_delay pass for hold)
+but its init still places the clock (VGG10: 57 s) and it fails on single nets it may not rip up
+(VGG10: after 170 s); default stays the full route_design, which without conflicts routes
+~400-600 boundary nets: VGG10 ~257 s (RT build 47, ILP clock placement 31, timing 50, rip-up 58).
+
+Also: FINN prep ran the IODMA HLS of the partitions one after the other (fork-in-thread guard);
+now spawned processes (TFC/CNV prep ~105 -> 64 s). Refactor: profiles.py (baseline settings),
+assembly.py (assembly script), plan_islands (island count / packing search, testable offline),
+island_region; skyline packing also on the ZCU104 (main region, plus the fabric above the PS only
+if needed: CNV-w1a1 PE=SIMD=1 needs 222 BRAM36, the main region has 216).
+
+### Results, ZCU104, 100 MHz, timed alone, cached shell (`data/zcu104_islands_timing_v2.jsonl`)
+
+| model | Vivado ZynqBuild | island flow before | island flow now | speedup |
+|---|---|---|---|---|
+| TFC | 644 s | 369 s | 323 s | 1.99x |
+| CNV | 891 s | 436 s | 393 s | 2.27x |
+| CNV PE=SIMD=1 | 811 s | 425 s | 424 s | 1.91x |
+| VGG10 | 2112 s | 1434 s | 1205 s | 1.75x |
+
+All 0 routing errors, setup and hold met (WNS +2.2..+3.1 ns, WHS +0.007..+0.010 ns). CNV PE=SIMD=1
+gains nothing: BRAM-bound (two of its islands above the PS, their nets across the shell routed at
+assembly). The ZCU104 MobileNet was not re-run (synthesis-bound: 53 min for one node, see above).
+VGG10 now: prep 63, synth 214 (the 37.7k-LUT MVAU), islands 465 (4 islands; the single-MVAU
+island 414 s), stitch 43 s (0 unrouted pins, 0 conflicts), assembly 410 s (read accel 85,
+route 259, bitstream 41, reports 22).
+
+### Results, U55C (Vivado-only shell, cached), 100 MHz, timed alone (`data/u55c_vivado_shell_timing_runs_v4.jsonl`)
+
+| model | global Vivado, same shell | island flow before | island flow now | speedup |
+|---|---|---|---|---|
+| TFC | 1528 s | 738 s | 722 s | 2.12x |
+| VGG10 | 2980 s | 1697 s | 1397 s | 2.13x |
+| MobileNet U250 folding | 5424 s | 2713 s | 1989 s | 2.73x |
+
+All bitstreams, 0 routing errors, WNS +0.29..+4.1 ns, WHS +0.010 ns. MobileNet: 14 islands (was
+20; max island 392 s), stitch 125 s (was 248), assembly route 588 s (was 1080; router starts at WNS
++0.12 instead of -0.99 ns). Before the shell anchor (`..._v4_noanchor.jsonl`): TFC 683 s, VGG10
+1397 s, MobileNet 2248 s (input IODMA island in SLR2, 8.7 ns from the shell: WNS -0.445 at router
+start, ~7 min timing-driven rip-up). A MobileNet run with a U-shaped island (routed 15k overlaps
+for > 25 min) was stopped; skyline islands are monotone staircases since.
+
+Functional checks of the new builds (`verify_accel.py`, gate-level stitched accelerator vs FINN's
+stitched-IP RTL): ZCU104 TFC 16 amplitude-varied frames (classes 00/03/05/08) and VGG10 8 frames
+(classes 00/12/15): outputs identical; simulated time +40 ns of 52-156 us (reset pipeline).
+
+Left for later: read_checkpoint -cell re-applies all shell constraints to the merged design (U55C:
+77 s of MobileNet's 216 s read are an XDMA/PCIe power constraint with wildcard nets); router
+initialization on the whole design (~130 s VGG10 ZCU104, ~5 min MobileNet U55C) stays as long as a
+global route_design runs; ZCU104 MobileNet (single 53-min node) not re-run. Critique and what an
+order of magnitude would need: REPORT_islands.md.

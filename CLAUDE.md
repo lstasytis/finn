@@ -15,63 +15,67 @@ relocation database and placer only pay off with component reuse (cold builds ar
 
 ```
 ZynqBuild(dynarapid={"flow": "islands", "islands": "auto"|K, "out_dir", "shell_lib", "workers"})
+  make_zynq_proj.apply_dynarapid_shell: PrepareIP per partition, HLSSynthIP of all partitions
+    concurrently (spawned processes; never fork pools from threads)
   rwislands/flow.py rw_islands_zynq_build:
-    shell (dynarapid.shell.build_shell, cached)  ||  node synthesis (synthesize: heavy nodes
-      individually longest-first, cheap FIFO/DWC/FMPadding in sessions; synth_design
-      -directive RuntimeOptimized, FINN_RWI_SYNTH_DIRECTIVE="" for default)
-    -> assembly Vivado starts, opens the shell, unfixes its static nets, waits for a trigger file
-    -> floorplan.py: K contiguous islands (min-max cost DP), snake over ~10-column lanes,
-       rows grown in 5-row steps to the resources at utilization u (0.5..0.9)
-    -> island P&R in parallel (read_verilog island.v + node synth DCPs, pblock
-       CONTAIN_ROUTING, opt/place/route, clock net unrouted)  ||  top synthesis (islands = black boxes)
-    -> IslandStitcher.java (RapidWright populateBlackBox + PartialRouter on top-cell nets,
-       one EDIF library, static nets unlocked) -> trigger "go" -> route_design + bitstream
+    shell (dynarapid.shell.build_shell, cached; island shells: strip 5 cols + PS8 in pb_shell,
+      shell_escape.txt = shell nets leaving the shell region)  ||  node synthesis (synthesize:
+      heavy nodes individually longest-first, cheap FIFO/DWC/FMPadding in sessions; baseline's
+      synth options from profiles.py, FINN_RWI_SYNTH_DIRECTIVE overrides)
+    -> assembly Vivado starts (assembly.py), opens the shell, waits for a trigger file
+    -> plan_islands: chain cut by min-max cost (floorplan.partition), islands < 15 % of the
+       largest merged (merge_small), skyline packing (monotone staircases, >= 3 columns; Zynq:
+       main region right of the moat column, the fabric above the PS only if needed; Alveo:
+       one rectangle per SLR, IODMA islands anchored next to the shell); snake/rects fallbacks
+    -> island P&R in parallel (island_tcl: read_verilog island.v (2-FF reset pipeline, FDRE
+       primitives) + node synth DCPs, pblock CONTAIN_ROUTING, shell-boundary ports with
+       HD.PARTPIN_RANGE, baseline's opt/place/phys_opt/route, 50 ps hold margin, clock net
+       unrouted)  ||  top synthesis (islands = black boxes)
+    -> IslandStitcher.java (populateBlackBox, RWRoute PartialRouter with soft preserve,
+       --pblock = island region) -> trigger "go" ("go full" if pins left) -> route_design
+       (baseline directive; FINN_RWI_ASM_ROUTE=incremental: interactive route first) + bitstream
 experiments/dynarapid/run_bitfile_experiment.py --mode islands --clk 10 --islands auto
-experiments/dynarapid/run_islands_timing.sh    (timed comparison vs FINN's Vivado ZynqBuild)
+experiments/dynarapid/run_islands_timing.sh    (ZCU104, timed vs FINN's Vivado ZynqBuild)
+experiments/dynarapid/run_vshell_timing.sh     (U55C Vivado-only shell; MODE=vivado = baseline)
 ```
 
-Models (100 MHz, `$FINN_BUILD_DIR/rwi`): tfc/, cnv/ (prepare_model.py --clk 10), cnv1/ (CNV-w1a1
-PE=SIMD=1, run_bnn.py), vgg10/ (run_vgg10.py --clk 10), mnv1/ (run_mobilenet.py). Compute nodes
-with AXI-Lite (runtime-writeable URAM weights, MobileNet) are passed through the shell like
-IODMA control interfaces. Pitfalls found: RapidWright needs IS_IMPORTED on Vivado black boxes;
-merged EDIF must be one library; never query `get_nets -hier` on the full design (use the
-shell-only static unfix); Vivado-native read_checkpoint -cell of islands is much slower than
-RapidWright stitching; `route_design -directive Quick` leaves hold violations; never fork
-multiprocessing pools from threads (PrepareIP per partition deadlocked).
+Models (100 MHz): ZCU104 `$FINN_BUILD_DIR/rwi`: tfc/, cnv/ (prepare_model.py --clk 10), cnv1/
+(CNV-w1a1 PE=SIMD=1, run_bnn.py), vgg10/ (run_vgg10.py --clk 10), mnv1/ (run_mobilenet.py);
+U55C `$FINN_BUILD_DIR/rwu`: tfc-w1a1, vgg10, mnv1 (U250 folding). Compute nodes with AXI-Lite
+(runtime-writeable URAM weights, MobileNet) are passed through the shell like IODMA control.
 
-Status 2026-09-30 (ZCU104, 100 MHz, 64 workers, timed one at a time, shell cached; details and
-caveats in NOTES_ISLANDS.md):
+Pitfalls found (2026-10-07 root-cause pass, NOTES_ISLANDS.md "critique"): CONTAIN_ROUTING does
+not hold PS8 nets (434 shell nets ran through the island columns -> wider strip + moat); URAM
+sites connect to two INT columns (device.py merges the pair, else adjacent islands overlap);
+read_checkpoint -cell drops part of the shell's static routing and re-applies all shell XDC to
+the merged design; out-of-context port nets stay unrouted unless they have partition pins, and
+island routing can box their drivers in; the interactive router (route_design -nets) cannot rip
+up unlisted nets and gives up after minutes; `get_nets -hier -filter {ROUTE_STATUS...}` on a
+1M-net design takes > 5 min (use report_route_status -list_all_nets); the island Verilog is
+linked as a structural netlist (no RTL constructs); RapidWright needs IS_IMPORTED on Vivado
+black boxes; merged EDIF must be one library; Vivado-native read_checkpoint -cell of islands is
+slower than RapidWright stitching; `route_design -directive Quick` leaves hold violations.
 
-| model | Vivado ZynqBuild | island flow | speedup | functional check |
-|---|---|---|---|---|
-| TFC | 644 s | 309 s | 2.08x | verify_accel 16 frames match |
-| CNV | 891 s | 365 s | 2.44x | (gate-level sim too long) |
-| CNV-w1a1 PE=SIMD=1 | 811 s | 358 s | 2.27x | (gate-level sim too long) |
-| VGG10 | 2112 s | 1107 s | 1.91x | verify_accel 8 varied frames match |
+Status 2026-10-07 (100 MHz, timed alone on the 128-thread EPYC, cached shells; details,
+breakdowns and the critique in REPORT_islands.md / NOTES_ISLANDS.md):
 
-| MobileNetV1 | 5871 s* | 2088 s* (single island) | ~2.8x* | not possible yet (runtime URAM weights) |
+| board | model | baseline | island flow | speedup | check |
+|---|---|---|---|---|---|
+| ZCU104 | TFC | 644 s (ZynqBuild) | 323 s | 1.99x | verify_accel 16 frames match |
+| ZCU104 | CNV | 891 s | 393 s | 2.27x | - |
+| ZCU104 | CNV PE=SIMD=1 | 811 s | 424 s | 1.91x | - |
+| ZCU104 | VGG10 | 2112 s | 1205 s | 1.75x | verify_accel 8 varied frames match |
+| U55C | TFC | 1528 s (Vivado, same shell) | 722 s | 2.12x | - |
+| U55C | VGG10 | 2980 s | 1397 s | 2.13x | - |
+| U55C | MobileNet (U250) | 5424 s | 1989 s | 2.73x | - |
 
-All island builds 0 routing errors, timing met (WNS +2.7..+4.3 ns). *MobileNet runs overlapped
-and the island flow's RuntimeOptimized synthesis skips the baseline's ~39 min threshold synthesis. MobileNetV1 (ZCU104): too
-dense for one rectangle per island (BRAM 87 %, URAM 72 % in few columns), built with the
-single-island fallback (no parallel P&R). ZCU102 not licensed here. U55C (per-model v++ link, island-built compute kernel read in before opt_design and
-placement-locked, `rw_islands_pnr`): TFC/CNV xclbins OK and kernels verified (`verify_kernel.py`),
-but 5426/5562 s vs 4860/5458 s for FINN's Vitis flow - the ~75 min per-model platform link
-dominates small models; only large kernels (U250-class) can gain. Cached platform region (nested DFX:
-pr_subdivide of v++'s ULP, `rw_islands_cache_shell`) was tried 2026-10-01 and stopped: the
-U55C platform hits one HPR rule after the other (HMSS SLR-crossing pblock column outside the
-container, LAGUNA ownership, ULP clock partitioning in phys_opt, black-box insertions at the BLP
-boundary; NOTES_ISLANDS.md 2026-10-01). U55C island region = v1 (SLR1+SLR2), region version
-switch FINN_RWI_REGION; MobileNet on U55C uses half the U250 PE (folding_mobilenet_U250_halfpe.json).
-U55C timed alone (2026-10-02, region pm, skyline floorplanner): VGG10 7307 s Vitis vs 8112 s
-islands, full U250 MobileNet 10756 s vs 11327 s (kernel 917 s; the 2-2.4 h v++ link dominates
-and is slower with the locked core). Floorplanner since 2026-10-02: skyline packing of
-variable-size staircase islands (`packing="skyline"`, Alveo; Zynq keeps the snake). Plan A
-(user decision 2026-10-02): cached shell via a nested partition, in progress. Results summary
-and raw data: NOTES_ISLANDS.md "Results summary", experiments/dynarapid/data/.
-Serial floor: synthesis of the largest node,
-the largest island's P&R, assembly (read accel + route_design + bitstream, 80-440 s).
-
+All 0 routing errors, setup and hold met. Ceiling with Vivado in the loop: the critical path
+(IODMA HLS + largest node's synthesis + largest island's P&R + stitch + assembly: read accel,
+route ~130 s fixed init, bitstream) keeps small models at 2-3x and large ones at ~3-5x; an order
+of magnitude needs a DFX overlay (no global step), reuse across builds, or split dominant nodes
+(REPORT_islands.md "Critique"). ZCU104 MobileNet: synthesis-bound (one 1024-channel
+Thresholding_rtl: 53 min with the baseline's settings), not re-run. Vitis U55C platform: per-model
+v++ link (2-2.4 h) dominates; cached-platform-region attempt (nested DFX) stopped 2026-10-05.
 
 Read this first; it is meant to replace re-reading the code. Deeper history and all
 measurements: `experiments/dynarapid/NOTES.md` (long; read only the section you need).
