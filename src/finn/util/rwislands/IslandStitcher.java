@@ -27,7 +27,11 @@ import java.util.concurrent.Future;
  * Stitches FINN islands that were placed and routed out of context at their final location
  * (no relocation) into the accelerator netlist.
  *
- * usage: IslandStitcher top.dcp top.edf out.dcp maxIter threads cell=island.dcp,island.edf ...
+ * usage: IslandStitcher top.dcp top.edf out.dcp maxIter threads [--region=ranges] cell=island.dcp,island.edf ...
+ *
+ * --region: site ranges (e.g. "SLICE_X60Y0:SLICE_X120Y359 ...") the inter-island routes must stay
+ * in (RWRoute --pblock): the stitched design does not contain the shell, whose locked routing
+ * would otherwise be overlapped where a stitch route crosses the shell region.
  *
  * top.dcp holds the accelerator netlist with one black box per island. Each black box is
  * filled with its island's implementation (the equivalent of Vivado's read_checkpoint -cell),
@@ -51,7 +55,12 @@ public class IslandStitcher {
         int maxIter = Integer.parseInt(args[3]);
         int threads = Integer.parseInt(args[4]);
         Map<String, String[]> islands = new LinkedHashMap<>();
+        String region = null;
         for (int i = 5; i < args.length; i++) {
+            if (args[i].startsWith("--region=")) {
+                region = args[i].substring("--region=".length());
+                continue;
+            }
             String[] kv = args[i].split("=", 2);
             islands.put(kv[0], kv[1].split(","));
         }
@@ -115,27 +124,36 @@ public class IslandStitcher {
         a.add("--nonTimingDriven");
         a.add("--maxIterations");
         a.add(Integer.toString(maxIter));
-        top = PartialRouter.routeDesignWithUserDefinedArguments(top, a.toArray(new String[0]), pins, false);
+        if (region != null && !region.isEmpty()) {
+            a.add("--pblock");
+            a.add(region);
+        }
+        // soft preserve: an island's own routing may box in one of its boundary pins (all
+        // access nodes used); RWRoute then rips up and re-routes the blocking island nets instead
+        // of giving up on the pin (VGG10, 20 islands: 56 pins left unrouted, which the assembly's
+        // interactive router could not finish either)
+        top = PartialRouter.routeDesignWithUserDefinedArguments(top, a.toArray(new String[0]), pins, true);
         stamp("route");
 
         int unrouted = 0;
+        java.util.Set<String> unroutedNets = new java.util.TreeSet<>();
         for (SitePinInst p : pins) {
-            if (!p.isRouted()) unrouted++;
+            if (!p.isRouted()) {
+                unrouted++;
+                unroutedNets.add(p.getNet().getName());
+            }
         }
         System.out.println("RESULT unrouted_pins " + unrouted);
+        for (String n : unroutedNets) {
+            System.out.println("UNROUTED_NET " + n);
+        }
         // the islands' netlists come with their own libraries (xil_defaultlib, work_<node>):
         // one work library, so that no library refers to one written after it
         top.getNetlist().consolidateAllToWorkLibrary(true);
         // the islands' static (VCC/GND) routing must stay changeable: Vivado has to rip up
         // parts of it where boundary nets need the same site pins / nodes at assembly
-        if ("unroute".equals(System.getenv("FINN_RWI_STATIC"))) {
-            // experiment: leave all static routing to Vivado
-            top.getGndNet().unroute();
-            top.getVccNet().unroute();
-        } else {
-            top.getGndNet().unlockRouting();
-            top.getVccNet().unlockRouting();
-        }
+        top.getGndNet().unlockRouting();
+        top.getVccNet().unlockRouting();
         top.writeCheckpoint(out);
         stamp("write");
     }

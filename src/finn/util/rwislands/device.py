@@ -43,6 +43,14 @@ class Device:
     def __init__(self, part, sites):
         self.part = part
         self.sites = sites
+        # a URAM tile connects to two INT columns (URAM288 at tile x: INT x and x + 1; xczu7ev,
+        # xcu55c), all other sites to the INT column of their tile. A pblock with the URAM owns
+        # both, so a rectangle must not end between them: the column right of a URAM column is
+        # merged into it (otherwise two adjacent islands share INT x + 1 and their contained
+        # routing overlaps there: VGG10, 5693 conflicting nets at INT_X37)
+        merged = {s.x + 1: s.x for s in sites if s.type == "URAM288"}
+        for s in sites:
+            s.x = merged.get(s.x, s.x)
         self.cols = defaultdict(list)  # tile x -> sites
         for s in sites:
             self.cols[s.x].append(s)

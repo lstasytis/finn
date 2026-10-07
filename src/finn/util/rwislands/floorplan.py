@@ -284,7 +284,7 @@ def allocate_rects(dev, needs, allowed, step=5):
 
 def allocate_skyline(
     dev, needs, rects, step=5, max_width=None, order="chain", pull=0.05, stair=True, min_rows=30, compact=0.02,
-    min_fill=0.6,
+    min_fill=0.6, min_cols=3,
 ):
     """Variable-size islands by skyline packing: every island gets one tile rectangle (any
     width, over the columns whose resource mix suits it) inside one region rectangle, on top of
@@ -296,7 +296,8 @@ def allocate_skyline(
     rectangles sharing the top rows, no holes below it), at least min_rows high in every column
     (thin slivers along the top congest), and compact: compact weighs the part of the bounding
     box the staircase does not cover (U- or L-shaped islands spread a node over a long bridge), at least min_fill of it covered;
-    otherwise one rectangle on top of the highest column.
+    otherwise one rectangle on top of the highest column. Islands are at least min_cols tile
+    columns wide (a single-column island cannot be reached by its wide stream buses).
     needs in chain order;
     order "chain" places them in that order, "hard" scarcest-share first. Returns one rectangle
     list per island, or None."""
@@ -346,6 +347,8 @@ def allocate_skyline(
                     low = min(low, sky[b])
                     if top >= nb:
                         break
+                    if b - a + 1 < min(min_cols, ncol):
+                        continue
                     col = pc[:, b + 1, :] - pc[:, a, :]  # (kinds, nb+1) band prefix of cols a..b
                     floor = (base[:, b + 1] - base[:, a]) if stair else col[:, top]
                     if np.any(col[:, nb] - floor < req):

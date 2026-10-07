@@ -91,6 +91,14 @@ def collect_ip_dirs(model, ipstitch_path):
     return ip_dirs
 
 
+def _hls_synth_partition(model_file):
+    """HLS synthesis of the HLS nodes of a partition model (in place; module level, so that it
+    can run in a spawned process)."""
+    model = ModelWrapper(model_file)
+    model = model.transform(HLSSynthIP())
+    model.save(model_file)
+
+
 class MakeZYNQProject(Transformation):
     """Create a Vivado overlay project (including the shell infrastructure)
     from the already-stitched IP block for this graph.
@@ -482,7 +490,11 @@ class ZynqBuild(Transformation):
                 if is_hls_node(n) and getCustomOp(n).get_nodeattr("ip_path") == "":
                     reuse_ip_attrs(n, dcps[n.name], library_dir)
             kernel_model = kernel_model.transform(PrepareIP(self.fpga_part, self.period_ns))
-            kernel_model = kernel_model.transform(HLSSynthIP())
+            kernel_model.save(dataflow_model_filename)
+            return dataflow_model_filename, dcps
+
+        def finish(dataflow_model_filename, dcps):
+            kernel_model = ModelWrapper(dataflow_model_filename)
             for n in kernel_model.graph.node:
                 if is_hls_node(n):
                     save_ip_attrs(n, dcps[n.name], library_dir)
@@ -490,10 +502,22 @@ class ZynqBuild(Transformation):
             kernel_model.save(dataflow_model_filename)
             return kernel_model
 
-        # one partition after the other, as the regular flow does: PrepareIP / HLSSynthIP fork
-        # multiprocessing pools, which can deadlock when forked from several threads at once
-        # (MobileNet hung this way); each partition's nodes are still processed in parallel
-        kernel_models = [prepare(n) for n in sdp_nodes]
+        # code generation one partition after the other; the HLS synthesis of all partitions
+        # (e.g. the input and the output IODMA, ~50 s each) concurrently, each partition in its
+        # own spawned process: HLSSynthIP forks a multiprocessing pool, which can deadlock when
+        # forked from several threads of one process (MobileNet hung this way)
+        prepared = [prepare(n) for n in sdp_nodes]
+        if opts.get("flow") == "islands" and len(prepared) > 1:
+            import multiprocessing
+            from concurrent.futures import ProcessPoolExecutor
+
+            ctx = multiprocessing.get_context("spawn")
+            with ProcessPoolExecutor(max_workers=len(prepared), mp_context=ctx) as ex:
+                list(ex.map(_hls_synth_partition, [f for f, _ in prepared]))
+        else:
+            for f, _ in prepared:
+                _hls_synth_partition(f)
+        kernel_models = [finish(f, dcps) for f, dcps in prepared]
         out_dir = opts.get("out_dir") or make_build_dir("dynarapid_zynq_")
         if opts.get("flow") == "islands":
             # island flow (finn.util.rwislands): no component library, RapidWright stitching

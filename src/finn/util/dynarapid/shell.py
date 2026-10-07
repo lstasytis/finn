@@ -90,7 +90,7 @@ ALVEO_SHELL = {
 }
 
 
-def shell_key(board, part, clk_ns, ports, shell_x0=0):
+def shell_key(board, part, clk_ns, ports, shell_x0=0, strip_cols=SHELL_STRIP_COLS):
     sig = {
         "board": board,
         "part": part,
@@ -110,8 +110,11 @@ def shell_key(board, part, clk_ns, ports, shell_x0=0):
         # (2: kernel-domain nets left unlocked for the assembly's hold fixing; 3: kernel clock root)
         sig["alveo_shell"] = dict(ALVEO_SHELL[part], shell_version=3)
     if shell_x0:
-        # shell confined to INT columns [shell_x0, PS boundary + strip) (island flow)
+        # shell confined to INT columns [shell_x0, PS boundary + strip) (island flow), routing
+        # contained there with the PS (contained=1)
         sig["shell_x0"] = shell_x0
+        sig["contained"] = 1
+        sig["strip_cols"] = strip_cols
     h = hashlib.sha256(json.dumps(sig, sort_keys=True).encode()).hexdigest()[:12]
     return "shell%s" % h
 
@@ -295,14 +298,20 @@ def _offsets(c):
         off += w
 
 
-def shell_tcl(board, part, clk_ns, ports, shell_dir, src_file, jobs, shell_x0=0):
-    """Vivado script building and implementing the shell with the accelerator as a DFX
-    partition. Writes shell_routed.dcp (partition empty, static routing locked) and
-    top.hwh into shell_dir."""
+def shell_tcl(board, part, clk_ns, ports, shell_dir, src_file, jobs, shell_x0=0, strip_cols=SHELL_STRIP_COLS):
+    """Vivado script building and implementing the shell with the accelerator as a black box.
+    Writes shell_routed.dcp (accelerator a black box, shell routing locked) and top.hwh into
+    shell_dir. shell_x0 > 0 (island flow): the shell occupies INT columns [shell_x0, PS boundary
+    + strip_cols) and its routing is contained there, PS8 included: every net between the PS
+    and the shell logic has a pin outside a pblock without the PS8, which CONTAIN_ROUTING does not
+    restrict, and the router took such nets through the islands' columns (VGG10: 434 of 12.4k
+    shell nets with ~43k node uses in INT columns 30-34 and above the PS), where the islands,
+    routed out of context, collide with them at assembly. shell_escape.txt reports the shell
+    nets that still leave the shell region."""
     from finn.transformation.fpgadataflow import templates
 
     fclk_mhz = int(1 / (clk_ns * 0.001))
-    ps_x = PS_BOUNDARY_INT_X[part] + SHELL_STRIP_COLS
+    ps_x = PS_BOUNDARY_INT_X[part] + strip_cols
     # AXI-Lite slaves: every entry (IODMA control, compute-node parameters); AXI masters: IODMAs
     n_axilite = len(ports)
     n_aximm = len([d for d in ports if d.get("iodma", True)])
@@ -394,6 +403,14 @@ def shell_tcl(board, part, clk_ns, ports, shell_dir, src_file, jobs, shell_x0=0)
         "}",
         "add_cells_to_pblock pb_shell $sh_cells",
         "resize_pblock pb_shell -add $sh_ranges",
+    ]
+    if shell_x0:
+        t += [
+            "set ps8 [get_cells -hier -filter {REF_NAME == PS8}]",
+            "add_cells_to_pblock pb_shell $ps8",
+            "resize_pblock pb_shell -add [get_sites -of $ps8]",
+        ]
+    t += [
         "set_property CONTAIN_ROUTING true [get_pblocks pb_shell]",
         "set_property EXCLUDE_PLACEMENT true [get_pblocks pb_shell]",
         "opt_design",
@@ -402,6 +419,16 @@ def shell_tcl(board, part, clk_ns, ports, shell_dir, src_file, jobs, shell_x0=0)
         "report_route_status -file %s/shell_route_status.rpt" % shell_dir,
         "report_timing_summary -file %s/shell_timing.rpt" % shell_dir,
         "report_utilization -file %s/shell_utilization.rpt" % shell_dir,
+        # shell nets (the placeholder's excluded: removed below) routed outside the shell region
+        "set esc {}",
+        "foreach n [get_nets -hier -top_net_of_hierarchical_group -filter {ROUTE_STATUS == ROUTED && TYPE != POWER && TYPE != GROUND && TYPE != GLOBAL_CLOCK}] {",
+        "  if {[llength [get_cells -quiet -of [get_pins -quiet -leaf -of $n] -filter \"NAME =~ $rpname/*\"]]} {continue}",
+        "  foreach tl [get_tiles -quiet -of [get_nodes -quiet -of $n] -filter {TYPE == INT}] {",
+        "    regexp {INT_X(\\d+)Y} $tl -> tx",
+        "    if {$tx < %d || $tx >= %d} {lappend esc $n; break}" % (shell_x0, ps_x),
+        "  }",
+        "}",
+        "set f [open %s/shell_escape.txt w]; puts $f [llength $esc]; foreach n $esc {puts $f $n}; close $f" % shell_dir,
         "update_design -cell $rp -black_box",
         # boundary nets are routed from scratch when the accelerator is inserted
         "route_design -unroute -nets [get_nets -of [get_pins $rpname/*] -filter {TYPE != GLOBAL_CLOCK}]",
@@ -650,15 +677,19 @@ def alveo_vivado_project_tcl(part, clk_ns, n_axilite, n_mm, ip_config, proj_dir,
     return "\n".join(t) + "\n"
 
 
-def build_shell(board, part, clk_ns, ports, shell_lib, jobs=8, shell_x0=0):
+def build_shell(board, part, clk_ns, ports, shell_lib, jobs=8, shell_x0=0, strip_cols=SHELL_STRIP_COLS):
     """Build (or reuse) the pre-implemented shell. Returns (shell_dir, result dict).
-    shell_x0: lowest INT column of the shell region (0: all columns left of the strip)."""
-    key = shell_key(board, part, clk_ns, ports, shell_x0)
+    shell_x0: lowest INT column of the shell region (0: all columns left of the strip);
+    strip_cols: INT columns right of the PS boundary that belong to the shell."""
+    key = shell_key(board, part, clk_ns, ports, shell_x0, strip_cols)
     shell_dir = os.path.join(shell_lib, key)
     done = os.path.join(shell_dir, "shell_routed.dcp")
     res = {"shell": key, "shell_dir": shell_dir}
+    esc = os.path.join(shell_dir, "shell_escape.txt")
     if os.path.isfile(done) and (part in ALVEO_SHELL or os.path.isfile(os.path.join(shell_dir, "top.hwh"))):
         res.update(status="cached", shell_s=0.0)
+        if os.path.isfile(esc):
+            res["escaped_nets"] = int(open(esc).readline())
         return shell_dir, res
     if os.path.isdir(shell_dir):
         shutil.rmtree(shell_dir)
@@ -677,11 +708,13 @@ def build_shell(board, part, clk_ns, ports, shell_lib, jobs=8, shell_x0=0):
         if alveo:
             f.write(alveo_shell_tcl(part, clk_ns, ports, shell_dir, src, jobs))
         else:
-            f.write(shell_tcl(board, part, clk_ns, ports, shell_dir, src, jobs, shell_x0))
+            f.write(shell_tcl(board, part, clk_ns, ports, shell_dir, src, jobs, shell_x0, strip_cols))
     rc, res["shell_s"] = run_vivado(tcl, os.path.join(shell_dir, "shell.log"), shell_dir)
     # (no PYNQ hardware handoff for the Alveo shell)
     ok = rc == 0 and os.path.isfile(done) and (alveo or os.path.isfile(os.path.join(shell_dir, "top.hwh")))
     res["status"] = "built" if ok else "shell_failed"
+    if os.path.isfile(esc):
+        res["escaped_nets"] = int(open(esc).readline())
     # the project (IP output products, runs) is not needed any more
     if ok:
         for sub in ("finn_zynq_link.runs", "finn_zynq_link.cache", "finn_zynq_link.ip_user_files",

@@ -9,12 +9,13 @@ at their final location, stitched with RapidWright, inserted into a pre-implemen
     ZynqBuild partitions (idma, kernel, odma) -> one accelerator graph
       -> in parallel: shell (cached per board / clock / IODMA interfaces)
                       out-of-context synthesis of every node      (resource numbers)
-      -> islands: the node chain cut into K groups, snake floorplan (islands.floorplan)
+      -> islands: the node chain cut into K groups, floorplan (rwislands.floorplan)
       -> in parallel: place and route of every island in its pblock (one Vivado run each)
                       synthesis of the accelerator top (islands as black boxes)
       -> RapidWright: fill the black boxes with the routed islands, route the nets between
-                      islands (IslandStitcher.java, RWRoute partial routing)
-      -> Vivado: shell + accelerator, route boundary/clock nets, bitstream
+                      islands inside the island region (IslandStitcher.java, RWRoute)
+      -> Vivado: shell + accelerator, route the remaining (boundary, clock, static) nets,
+                 bitstream (rwislands.assembly)
 
 No component library, relocation or placement database: every island is placed and routed
 once, where it ends up.
@@ -36,27 +37,38 @@ from finn.util.dynarapid.components import (
     vendor_ip_cores,
 )
 from finn.util.dynarapid.graph import mm_ports
-from finn.util.dynarapid.shell import (
-    PS_BOUNDARY_INT_X,
-    SHELL_STRIP_COLS,
-    assemble_tcl,
-    build_shell,
-)
+from finn.util.dynarapid.shell import PS_BOUNDARY_INT_X, build_shell
 from finn.util.dynarapid.tools import java_bin, run_vivado, usable_cpus, vivado_slots
 from finn.util.dynarapid.zynq import _reports, merge_partitions
-from finn.util.rwislands.device import load_device
+from finn.util.rwislands.assembly import assemble_tcl
+from finn.util.rwislands.device import load_device, pblock_ranges
 from finn.util.rwislands.floorplan import floorplan, island_cost, partition
+from finn.util.rwislands.netlist import (
+    TOP_MODULE,
+    boundary_ports,
+    channel_graph,
+    island_verilog,
+    top_verilog,
+)
+from finn.util.rwislands.profiles import profile, synth_args
 
-# INT column where the island flow's shell region starts (it spans [SHELL_X0, PS boundary +
-# strip)); the fabric left of it (above the PS on the xczu7ev) is an extra island lane
 # island region of the Vivado-only Alveo shell (dynarapid.shell.ALVEO_SHELL; the shell takes
 # clock regions X6-X7 of SLR0 around the PCIe block, the islands one rectangle per SLR; tile
 # columns 131-147 (X7) hold transceivers/IO in SLR1/SLR2)
 VIVADO_ALVEO_REGION = {
     "xcu55c-fsvh2892-2L-e": [(6, 108, 0, 239), (6, 130, 240, 479), (6, 130, 480, 719)],
 }
+# Zynq: INT column where the island flow's shell region starts (it spans [SHELL_X0, PS boundary
+# + ISLAND_SHELL_STRIP_COLS)); the fabric left of it (above the PS on the xczu7ev) is an extra
+# island region. CONTAIN_ROUTING does not hold the nets of the PS8 (even with the PS8 in the
+# pblock), and with the 3-column strip of the DynaRapid flow 434 PS<->shell nets ran through
+# INT columns 30-34 of the islands; with 5 columns 28 nets remain, nearly all in the next column,
+# which is therefore left empty (ISLAND_MOAT_COLS): the islands start right of it
+ISLAND_SHELL_STRIP_COLS = int(os.environ.get("FINN_RWI_SHELL_STRIP", "5"))
+ISLAND_MOAT_COLS = int(os.environ.get("FINN_RWI_MOAT", "1"))
 SHELL_X0 = {"xczu7ev-ffvc1156-2-e": 20, "xczu9eg-ffvb1156-2-e": 17}
-from finn.util.rwislands.netlist import TOP_MODULE, channel_graph, island_verilog, top_verilog
+# hold margin (ns) of the island routing, see island_tcl
+ISLAND_HOLD_MARGIN_NS = float(os.environ.get("FINN_RWI_ISLAND_HOLD_MARGIN", "0.05"))
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -114,45 +126,6 @@ def parse_util(f):
             res[k] = float(m.group(1))
     return res
 
-
-# Vivado settings of the platform's regular FINN flow (the baseline); node synthesis, island P&R
-# and assembly use the same ones, so that both flows get the same optimizations:
-#  zynq:  FINN's Zynq template, synth_1 Flow_PerfOptimized_high, impl_1 Performance_ExtraTimingOpt
-#         (steps as in its generated impl script)
-#  vitis: v++ defaults (opt, place, phys_opt, route; no post-route phys_opt), default synthesis
-PROFILES = {
-    "zynq": {
-        "synth": "-directive PerformanceOptimized -flatten_hierarchy rebuilt -fsm_extraction one_hot "
-        "-keep_equivalent_registers -resource_sharing off -no_lc -shreg_min_size 5",
-        "opt": "opt_design -directive Explore",
-        "place": "place_design -directive ExtraTimingOpt",
-        "phys_opt": "phys_opt_design -directive AggressiveExplore",
-        "route": "route_design -directive NoTimingRelaxation",
-        "post_route_phys_opt": "phys_opt_design -directive AggressiveExplore",
-    },
-    "vitis": {
-        "synth": "",
-        "opt": "opt_design",
-        "place": "place_design",
-        "phys_opt": "phys_opt_design",
-        "route": "route_design",
-        "post_route_phys_opt": None,
-    },
-}
-
-
-def profile(part):
-    """Baseline flow of a part: Alveo parts (xcu*) are built with Vitis, the others with FINN's
-    Zynq flow."""
-    return PROFILES["vitis" if part.startswith("xcu") else "zynq"]
-
-
-def synth_args(part):
-    """Node synthesis options: the baseline's, unless FINN_RWI_SYNTH_DIRECTIVE overrides them
-    (e.g. RuntimeOptimized: a MobileNet Thresholding_rtl with 1024 channels in LUT ROM
-    synthesizes in 18 s instead of > 40 min, at ~2x its LUTs)."""
-    env = os.environ.get("FINN_RWI_SYNTH_DIRECTIVE")
-    return env if env is not None else profile(part)["synth"]
 
 _CHEAP_OPS = {
     "StreamingFIFO_rtl",
@@ -260,7 +233,12 @@ def synthesize(accel, dcps, work, part, clk_ns, cpus, slots):
     return res
 
 
-def island_tcl(name, island_v, dcp_files, part, clk_ns, ranges, cr, threads, out_dir, contain=True):
+def island_tcl(name, island_v, dcp_files, part, clk_ns, ranges, cr, threads, out_dir, contain=True, boundary=()):
+    """Out-of-context place and route of one island in its pblock (ranges). boundary: ports that
+    connect to the shell; they get partition pins on the island's slices, so that their nets are
+    routed from the driver / to the load up to the island's edge (an out-of-context port without
+    partition pin leaves its net unrouted, and the island's own routing may take all exits of
+    its driver: VGG10, 4 IODMA AXI-Lite nets the assembly router could not get out)."""
     steps = profile(part)
     t = [
         "set_param general.maxThreads %d" % threads,
@@ -285,6 +263,12 @@ def island_tcl(name, island_v, dcp_files, part, clk_ns, ranges, cr, threads, out
     ]
     if contain:
         t.append("set_property CONTAIN_ROUTING 1 [get_pblocks pb]")
+    if boundary:
+        slices = " ".join(r for r in ranges if r.startswith("SLICE"))
+        t += [
+            "set bports [get_ports -quiet [concat %s]]" % " ".join("{%s} {%s[*]}" % (p, p) for p in boundary),
+            "set_property HD.PARTPIN_RANGE {%s} $bports" % slices,
+        ]
     t += [
         steps["opt"],
         "stamp opt",
@@ -292,6 +276,10 @@ def island_tcl(name, island_v, dcp_files, part, clk_ns, ranges, cr, threads, out
         "stamp place",
         steps["phys_opt"],
         "stamp phys_opt",
+        # hold margin for the island's own paths: their clock is routed here from a stand-in
+        # buffer and re-routed from the shell's clock tree at assembly, which shifts the skew
+        # (TFC: 12 island-internal paths at -37..-4 ps after assembly without margin)
+        "set_clock_uncertainty -hold %.3f [get_clocks clk]" % ISLAND_HOLD_MARGIN_NS,
         'if {[catch {%s} err]} {puts "INFO: route_design error: $err"}' % steps["route"],
         "stamp route",
     ]
@@ -330,29 +318,43 @@ def choose_islands(n_nodes, total_cost, slots, islands):
     return max(1, min(n_nodes, slots, int(total_cost // 6000) + 1))
 
 
-def islands_and_stitch(
-    accel, g, dcps, synth, dev, part, clk_ns, work, cpus, slots, islands, region, first, res, stamp,
-    # the stitch only pre-routes the inter-island nets; pins boxed in by island routing (which
-    # RWRoute keeps) stay unrouted after a few iterations and are routed at assembly, where
-    # Vivado may rip up island routes (MobileNet: stuck at 10 overlaps from iteration 11 to 29,
-    # ~78 s per iteration)
-    rwroute_max_iter=10,
-    max_island_overlaps=0,
-    packing="snake",
-):
-    """Islands, floorplan (region + first lanes), island P&R in parallel with the top synthesis,
-    RapidWright stitching. Fills res; returns (failure status or None, stitched accelerator dcp).
-    packing "snake": consecutive islands in lanes (Zynq flow); "skyline": variable-size
-    staircase islands packed by resource mix (floorplan.allocate_skyline), searched over the
-    utilization and the island count."""
-    names = [n.name for n in accel.graph.node]
-    node_res = {n: synth[dcps[n]]["util"] for n in names}
-    # 2. islands and floorplan
+def merge_small(segs, costs, min_frac=0.15):
+    """Merge islands (contiguous segments (a, b) of the chain) smaller than min_frac of the
+    largest one into a neighbour, as long as the merged island stays within the largest. A
+    dominant node fixes the largest island; the min-max partition is indifferent to how the rest
+    is cut and, for exactly k islands, leaves tiny ones (VGG10, 20 islands: 16 of cost 66-900,
+    packed into single columns, whose wide buses the stitcher could not reach)."""
+    segs = list(segs)
+    cost = lambda s: sum(costs[s[0] : s[1]])
+    while len(segs) > 1:
+        top = max(cost(s) for s in segs)
+        cand = []
+        for i, s in enumerate(segs):
+            if cost(s) >= min_frac * top:
+                continue
+            for j in (i - 1, i + 1):
+                if 0 <= j < len(segs) and cost(s) + cost(segs[j]) <= top:
+                    cand.append((cost(s) + cost(segs[j]), i, j))
+        if not cand:
+            break
+        _, i, j = min(cand)
+        a, b = min(i, j), max(i, j)
+        segs[a : b + 1] = [(segs[a][0], segs[b][1])]
+    return segs
+
+
+def plan_islands(names, node_res, dev, region, first, slots, islands, res, packing="snake"):
+    """Cut the node chain (names, in topological order; node_res: synthesized resources per
+    node) into islands and floorplan them in the region (list of tile rectangles) plus, for the
+    snake, the extra rectangles first. Tries island counts and utilizations (see
+    islands_and_stitch); falls back to one island per region rectangle, then to a single island.
+    Fills res["islands"], res["floorplan"], res["floorplan_tries"]; returns ({island: member
+    names}, pblock ranges per island)."""
     costs = [island_cost(node_res[n]) for n in names]
     rect_list = region if isinstance(region, list) else [region]
 
     def islands_of(k, exact=False):
-        segs = partition(costs, k, exact)
+        segs = merge_small(partition(costs, k, exact), costs)
         isl_k = {"island_%d" % i: names[a:b] for i, (a, b) in enumerate(segs)}
         res_k = []
         for mem in isl_k.values():
@@ -381,27 +383,32 @@ def islands_and_stitch(
         kc = sorted({min(kmax, max(1, int(round(k0 * f)))) for f in (1, 1.5, 2, 3)} | ({20, 28, 40} if kmax >= 20 else set()))
         kc = [k for k in kc if k <= kmax]
         def fewest(u):
+            # per count: first the fewest islands reaching the minimal largest island (a dominant
+            # node bounds the largest island anyway; more islands would only add tiny ones, each
+            # a Vivado run and stitching work), then exactly k (smaller islands pack better)
             for k in kc:
-                isl_k, res_k = islands_of(k, exact=True)
-                try:
-                    floorplan(dev, res_k, region, allocators=("skyline_hard",), utils=(u,))
-                    return k
-                except RuntimeError:
-                    tried.append((u, k, "skyline"))
+                for exact in (False, True):
+                    isl_k, res_k = islands_of(k, exact=exact)
+                    try:
+                        floorplan(dev, res_k, region, allocators=("skyline_hard",), utils=(u,))
+                        return k, exact
+                    except RuntimeError:
+                        tried.append((u, k, exact, "skyline"))
             return None
 
         levels = (0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85)
         for li, u in enumerate(levels):
-            k = fewest(u)
-            if k is None:
+            found = fewest(u)
+            if found is None:
                 continue
+            k, exact = found
             # the next level if it needs at most half the islands (the stitching cost grows with
             # the island count: 82 islands took 555 s to stitch)
             if li + 1 < len(levels):
-                k2 = fewest(levels[li + 1])
-                if k2 is not None and k2 * 2 <= k:
-                    u, k = levels[li + 1], k2
-            isl, isl_res = islands_of(k, exact=True)
+                f2 = fewest(levels[li + 1])
+                if f2 is not None and len(islands_of(*f2)[0]) * 2 <= len(islands_of(k, exact)[0]):
+                    u, (k, exact) = levels[li + 1], f2
+            isl, isl_res = islands_of(k, exact=exact)
             # chain order if it fits at this level (else floorplan falls back to scarcest first)
             plan = floorplan(dev, isl_res, region, allocators=("skyline",), utils=(u,))
             break
@@ -421,7 +428,6 @@ def islands_and_stitch(
         if plan is not None:
             break
     res["floorplan_tries"] = tried
-    contain = True
     if plan is None and len(rect_list) > 1:
         # one island per region rectangle (e.g. per SLR), chain cut by cost
         from finn.util.rwislands.device import capacity, pblock_ranges
@@ -459,12 +465,36 @@ def islands_and_stitch(
         rects = [lanes]
         ranges = [[g for r in lanes for g in pblock_ranges(dev.sites_in(*r))]]
         util = None
-    stamp("floorplan")
     res["islands"] = {
         name: {"nodes": mem, "res": r, "cost": sum(costs[names.index(n)] for n in mem), "rects": rc}
         for (name, mem), r, rc in zip(isl.items(), isl_res, rects)
     }
     res["floorplan"] = {"util": util, "lanes": lanes, "region": region}
+    return isl, ranges
+
+
+def islands_and_stitch(
+    accel, g, dcps, synth, dev, part, clk_ns, work, cpus, slots, islands, region, first, res, stamp,
+    # the stitch only pre-routes the inter-island nets; pins boxed in by island routing (which
+    # RWRoute keeps) stay unrouted after a few iterations and are routed at assembly, where
+    # Vivado may rip up island routes (MobileNet: stuck at 10 overlaps from iteration 11 to 29,
+    # ~78 s per iteration)
+    rwroute_max_iter=10,
+    max_island_overlaps=0,
+    packing="snake",
+    stitch_region=None,
+):
+    """Islands, floorplan (region + first lanes), island P&R in parallel with the top synthesis,
+    RapidWright stitching. Fills res; returns (failure status or None, stitched accelerator dcp).
+    packing "snake": consecutive islands in lanes; "skyline": variable-size staircase islands
+    packed by resource mix (floorplan.allocate_skyline), searched over the utilization and the
+    island count. stitch_region: site ranges the inter-island routes must stay in (the island
+    region; the stitched design does not know the shell's routing)."""
+    names = [n.name for n in accel.graph.node]
+    node_res = {n: synth[dcps[n]]["util"] for n in names}
+    # 2. islands and floorplan
+    isl, ranges = plan_islands(names, node_res, dev, region, first, slots, islands, res, packing)
+    stamp("floorplan")
 
     # 3. island place and route + accelerator top, in parallel
     isl_dir = os.path.join(work, "islands")
@@ -485,7 +515,8 @@ def islands_and_stitch(
         with open(tcl, "w") as f:
             f.write(
                 island_tcl(
-                    name, v, files, part, clk_ns, ranges[list(isl).index(name)], cr, threads, d, contain
+                    name, v, files, part, clk_ns, ranges[list(isl).index(name)], cr, threads, d,
+                    boundary=boundary_ports(g, mem),
                 )
             )
         rc, t = run_vivado(tcl, os.path.join(d, "island.log"), d)
@@ -545,6 +576,8 @@ def islands_and_stitch(
         str(rwroute_max_iter),
         str(max(1, min(16, cpus))),
     ]
+    if stitch_region:
+        cmd.append("--region=" + stitch_region)
     cmd += ["%s=%s,%s" % (n, i["dcp"], i["dcp"].replace(".dcp", ".edf")) for n, i in infos.items()]
     t0 = time.time()
     log = os.path.join(st_dir, "stitch.log")
@@ -558,6 +591,10 @@ def islands_and_stitch(
     res["stitch_stamps"] = {kk: float(vv) for kk, vv in re.findall(r"^STAMP (\w+) ([\d.]+)", txt, re.M)}
     m = re.search(r"RESULT unrouted_pins (\d+)", txt)
     res["stitch_unrouted_pins"] = int(m.group(1)) if m else None
+    res["stitch_unrouted_nets"] = re.findall(r"^UNROUTED_NET (\S+)", txt, re.M)
+    # PIPs used by two nets after stitching (RapidWright's check): islands whose contained
+    # routing overlaps (shared INT columns) or stitch routes over island routing
+    res["stitch_pip_conflicts"] = len(re.findall(r"^pip \S+ users = ", txt, re.M))
     stamp("stitch")
     if rc != 0 or not os.path.isfile(accel_dcp):
         return "stitch_failed", None
@@ -613,6 +650,7 @@ def rw_islands_zynq_build(
             shell_lib,
             max(1, min(8, cpus // 4)),
             SHELL_X0.get(part, 0),
+            ISLAND_SHELL_STRIP_COLS,
         )
         synth = synthesize(accel, dcps, work, part, clk_ns, cpus, slots)
         stamp("synth")
@@ -637,14 +675,16 @@ def rw_islands_zynq_build(
     if os.path.exists(trigger):
         os.remove(trigger)
     asm_tcl = os.path.join(asm_dir, "assemble.tcl")
+    # the full route_design by default: once the shell and the islands do not overlap, it only
+    # routes the boundary/clock/static nets, at a fixed cost (VGG10: RT build + timing init ~80 s,
+    # hold fixing ~70 s); the interactive router (incremental) saves little on top and fails on
+    # single nets it cannot finish (VGG10: after 170 s)
+    incremental = os.environ.get("FINN_RWI_ASM_ROUTE", "full") == "incremental"
     with open(asm_tcl, "w") as f:
         f.write(
             assemble_tcl(
-                shell_dir, accel_dcp, asm_dir, bitfile, threads=min(16, cpus), reports="min",
-                trigger=trigger,
-                unfix_static="shell",
-                route_cmd=profile(part)["route"],
-                post_route=profile(part)["post_route_phys_opt"],
+                shell_dir, accel_dcp, asm_dir, bitfile, part, threads=min(16, cpus), trigger=trigger,
+                incremental=incremental,
             )
         )
     asm_pool = ThreadPoolExecutor(max_workers=1)
@@ -658,23 +698,18 @@ def rw_islands_zynq_build(
         return _done(res, stamps, out_dir, t_total)
 
     # 2.-4. islands, floorplan, island P&R, stitching
-    first = []
-    sx0 = SHELL_X0.get(part, 0)
-    packing = "snake"
-    if part in VIVADO_ALVEO_REGION:
-        # Vivado-only Alveo shell (around the PCIe block): one rectangle per SLR
-        region = VIVADO_ALVEO_REGION[part]
-        packing = "skyline"
-    else:
-        x0 = PS_BOUNDARY_INT_X[part] + SHELL_STRIP_COLS
-        region = (x0, dev.xmax, 0, dev.ymax)
-    if sx0 > 0:
-        # the fabric left of the shell (above the PS): its rows are those with sites there
-        ys = [st.y for st in dev.sites if st.x < sx0]
-        first = [(0, sx0 - 1, min(ys) - min(ys) % 5, dev.ymax)]
+    region, first = island_region(part, dev)
+    # skyline packing (compact variable-size islands) by default; the snake (consecutive islands
+    # in ~10-column lanes) made few, dense, partly L-shaped islands on the xczu7ev (VGG10: 4
+    # islands at 75 % LUTs, one router stuck on a single overlap for ~250 s)
+    # (the skyline packs the main region only: the fabric above the PS is cut off from it by the
+    # shell, whose routing the stitcher does not know; the snake fallback still uses it)
+    packing = os.environ.get("FINN_RWI_PACKING", "skyline")
+    rects = region + first
+    stitch_region = " ".join(rg for r in rects for rg in pblock_ranges(dev.sites_in(*r)))
     fail, accel_dcp2 = islands_and_stitch(
         accel, g, dcps, synth, dev, part, clk_ns, work, cpus, slots, islands, region, first, res,
-        stamp, rwroute_max_iter, packing=packing,
+        stamp, rwroute_max_iter, packing=packing, stitch_region=stitch_region,
     )
     if fail is not None:
         return abort(fail)
@@ -683,7 +718,7 @@ def rw_islands_zynq_build(
     # 5. assembly (the shell is already open in the waiting Vivado)
     t0 = time.time()
     with open(trigger, "w") as f:
-        f.write("go")
+        f.write("go full" if res.get("stitch_unrouted_pins") else "go")
     rc, _ = f_asm.result()
     asm_pool.shutdown()
     res["assembly_s"] = time.time() - t0
@@ -707,12 +742,42 @@ def rw_islands_zynq_build(
     return _done(res, stamps, out_dir, t_total)
 
 
+def island_region(part, dev):
+    """Island region of a part next to the island flow's shell: (main rectangles, extra
+    rectangles), each (x0, x1, y0, y1) in tile coordinates. Alveo (Vivado-only shell around the
+    PCIe block): one rectangle per SLR. Zynq: right of the shell strip, plus the fabric left of the
+    shell above the PS."""
+    if part in VIVADO_ALVEO_REGION:
+        return list(VIVADO_ALVEO_REGION[part]), []
+    x0 = PS_BOUNDARY_INT_X[part] + ISLAND_SHELL_STRIP_COLS + ISLAND_MOAT_COLS
+    region = [(x0, dev.xmax, 0, dev.ymax)]
+    sx0 = SHELL_X0.get(part, 0)
+    first = []
+    if sx0 > 0:
+        # its rows are those with sites there
+        ys = [st.y for st in dev.sites if st.x < sx0]
+        first = [(0, sx0 - 1, min(ys) - min(ys) % 5, dev.ymax)]
+    return region, first
+
+
 def _island_reports(d):
+    """Routing errors of an island: conflicts and unrouted nets. Nets ending in a partition pin
+    (boundary ports, routed up to the island's edge) count as antennas and those with a port
+    pin as unplaced: both are expected out of context."""
     res = {}
     rs = os.path.join(d, "route_status.rpt")
     if os.path.isfile(rs):
-        m = re.search(r"# of nets with routing errors\.+ :\s+(\d+)", open(rs).read())
-        res["routing_errors"] = int(m.group(1)) if m else None
+        txt = open(rs).read()
+
+        def count(what):
+            m = re.search(r"# of nets with %s\.+ :\s+(\d+)" % what, txt)
+            return int(m.group(1)) if m else 0
+
+        if re.search(r"# of nets with routing errors", txt):
+            res["routing_errors"] = count("routing errors") - count("antennas/islands") - count("some unplaced pins")
+            res["boundary_stubs"] = count("antennas/islands")
+        else:
+            res["routing_errors"] = None
     return res
 
 

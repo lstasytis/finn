@@ -88,6 +88,21 @@ def island_ports(g, members):
     return ins, outs
 
 
+def boundary_ports(g, members):
+    """Ports of an island that connect to the accelerator boundary (the shell): the channels
+    without a producer / consumer in the graph (IODMA memory-mapped and control interfaces) and
+    the reset. Island-to-island channels are routed by the stitcher instead."""
+    ins, outs = island_ports(g, members)
+    names = ["rst"]
+    for n, i, _ in ins:
+        if g[n]["src"].get(i) is None:
+            names += list(_in_names(g[n]["id"], i))
+    for n, j, _ in outs:
+        if g[n]["dst"].get(j) is None:
+            names += list(_out_names(g[n]["id"], j))
+    return names
+
+
 def _port_decl(g, ins, outs):
     decl = ["    input clk", "    input rst"]
     for n, i, w in ins:
@@ -115,9 +130,20 @@ def island_verilog(name, g, members, dcps):
                     "    wire w_%s_%d_valid;" % (nid, j),
                     "    wire w_%s_%d_ready;" % (nid, j),
                 ]
+    # reset pipeline (rst is FINN's active-low ap_rst_n, held for many cycles by the shell):
+    # the shell's reset reaches one flip-flop per island instead of fanning out unregistered into
+    # every island (U55C MobileNet: the kernel reset across three SLRs was the assembly route's
+    # critical path, WNS -0.99 ns, and dominated its timing-driven iterations); the island's own
+    # fanout is timed and replicated inside the island's place and route. (The island is linked as
+    # a structural netlist, without synthesis: primitives only.)
+    body += [
+        "    wire rst_q0, rst_q1;",
+        "    FDRE #(.INIT(1'b0)) rst_q0_reg (.C(clk), .CE(1'b1), .R(1'b0), .D(rst), .Q(rst_q0));",
+        "    FDRE #(.INIT(1'b0)) rst_q1_reg (.C(clk), .CE(1'b1), .R(1'b0), .D(rst_q0), .Q(rst_q1));",
+    ]
     for n in members:
         nid = g[n]["id"]
-        conns = ["        .clk(clk)", "        .rst(rst)"]
+        conns = ["        .clk(clk)", "        .rst(rst_q1)"]
         for i in range(len(g[n]["ins"])):
             src = g[n]["src"].get(i)
             if src is not None and src[0] in mem:
