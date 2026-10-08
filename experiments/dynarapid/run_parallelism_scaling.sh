@@ -25,7 +25,9 @@
 # Jobs: 100 MHz first, then 200, then 300; small points first, models interleaved. An island run
 # that had to build its shell (status "built") is repeated.
 set -u
-: "${FINN_BUILD_DIR:=/home/lstasytis/finn/build/finn_build}"
+# (the container's default FINN_BUILD_DIR, /tmp/finn_dev_lstasytis, is too small and has no
+# cached shells: this experiment always uses the repo volume unless RWSCALE_BUILD_DIR says otherwise)
+FINN_BUILD_DIR=${RWSCALE_BUILD_DIR:-/home/lstasytis/finn/build/finn_build}
 : "${PLATFORM_REPO_PATHS:=/mnt/labstore/Xilinx/2025.1/Vitis/platforms}"
 export FINN_BUILD_DIR PLATFORM_REPO_PATHS
 HERE=$(cd "$(dirname "$0")" && pwd)
