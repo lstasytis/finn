@@ -29,6 +29,9 @@ for m in $MODELS; do
   out=$T/${m}_$MODE
   rm -rf $out
   log=$T/${m}_$MODE.log
+  # do not start a build while another one on the machine is near its memory peak (MIN_FREE_GB
+  # of MemAvailable; the timing starts after the wait)
+  while [ $(awk '/MemAvailable/ {print int($2 / 1048576)}' /proc/meminfo) -lt ${MIN_FREE_GB:-120} ]; do sleep 15; done
   echo "$(date +%T) start $m"
   t0=$(date +%s)
   /usr/bin/time -v python $HERE/run_bitfile_experiment.py \

@@ -62,9 +62,15 @@ def vivado_slots():
 
 @contextmanager
 def vivado_slot():
-    """Hold one of the machine-wide Vivado slots (lock files shared with DynaRapid)."""
+    """Hold one of the machine-wide Vivado slots (lock files shared with DynaRapid). A slot is
+    only taken while at least DYNARAPID_MIN_FREE_GB (default 32) of memory are available: when
+    several builds share the machine their peaks can overlap, and running out of memory takes
+    the whole container down."""
     d, n = vivado_slots()
     os.makedirs(d, exist_ok=True)
+    min_free = float(os.environ.get("DYNARAPID_MIN_FREE_GB", "32"))
+    while avail_memory_gb() < min_free:
+        time.sleep(2 + random.random())
     while True:
         for k in range(n):
             f = open(os.path.join(d, "slot%d" % k), "a")
