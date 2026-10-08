@@ -48,8 +48,12 @@ def usable_cpus():
 
 def vivado_slots():
     """(lock directory, number of slots) of the machine-wide limit on concurrent Vivado runs
-    (DYNARAPID_VIVADO_SLOTS overrides the number; default from cores and free memory)."""
-    d = os.path.join(os.environ.get("FINN_BUILD_DIR", "/tmp"), "dynarapid_vivado_slots")
+    (DYNARAPID_VIVADO_SLOTS overrides the number; default from cores and free memory;
+    DYNARAPID_VIVADO_SLOTS_DIR overrides the directory, e.g. one per CPU partition when several
+    builds run side by side on disjoint cores)."""
+    d = os.environ.get("DYNARAPID_VIVADO_SLOTS_DIR") or os.path.join(
+        os.environ.get("FINN_BUILD_DIR", "/tmp"), "dynarapid_vivado_slots"
+    )
     n = os.environ.get("DYNARAPID_VIVADO_SLOTS")
     if n is None:
         n = min(usable_cpus(), int(0.85 * avail_memory_gb() * 0.6 / VIVADO_GB))

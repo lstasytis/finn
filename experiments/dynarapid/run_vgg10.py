@@ -59,11 +59,13 @@ def shell_flow(board):
     return build_cfg.ShellFlowType.VIVADO_ZYNQ
 
 
-def config(out, steps, board, clk=4.0, **kw):
+def config(out, steps, board, clk=4.0, target_fps=None, relax=True, **kw):
+    from scaling_folding import scaling_kwargs
+
+    kw.update(scaling_kwargs(BENCH + "/folding_config/vgg10radioml_folding_config.json", target_fps, out, relax))
     return build_cfg.DataflowBuildConfig(
         output_dir=out,
         steps=steps,
-        folding_config_file=BENCH + "/folding_config/vgg10radioml_folding_config.json",
         specialize_layers_config_file=BENCH
         + "/specialize_layers_config/vgg10radioml_specialize_layers.json",
         synth_clk_period_ns=clk,
@@ -87,11 +89,20 @@ def main():
     ap.add_argument("--board", default="ZCU104")
     ap.add_argument("--clk", type=float, default=4.0)
     ap.add_argument("--cache-shell", action="store_true", help="islands: cache the platform region")
+    ap.add_argument("--target-fps", type=float, default=None,
+                    help="frontend: FINN's automatic folding for this throughput instead of the "
+                    "hand-written PE/SIMD (scaling experiment)")
+    ap.add_argument("--stop-step", default=None, help="frontend: last step (e.g. step_generate_estimate_reports)")
+    ap.add_argument("--no-relax", action="store_true",
+                    help="with --target-fps: no second folding pass at the bottleneck (see scaling_folding)")
     args = ap.parse_args()
     front = os.path.join(args.out, "frontend")
     t0 = time.time()
     if args.mode == "frontend":
-        build.build_dataflow_cfg(args.model, config(front, FRONTEND_STEPS, args.board, args.clk))
+        kw = {"stop_step": args.stop_step} if args.stop_step else {}
+        build.build_dataflow_cfg(
+            args.model, config(front, FRONTEND_STEPS, args.board, args.clk, target_fps=args.target_fps, relax=not args.no_relax, **kw)
+        )
     else:
         out = os.path.join(args.out, args.mode)
         # start from the front end's FIFO-sized model

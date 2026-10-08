@@ -19,6 +19,7 @@ MODELS=${MODELS:-"tfc-w1a1 vgg10 mnv1"}
 BOARD=${BOARD:-U55C}
 MODE=${MODE:-islands}
 WORKERS=${WORKERS:-64}
+CLK=${CLK:-10}
 SHELLS=${SHELLS:-$FINN_BUILD_DIR/rwislands/vshells}
 HERE=$(cd "$(dirname "$0")" && pwd)
 T=$D/vshell_timing
@@ -32,7 +33,7 @@ for m in $MODELS; do
   t0=$(date +%s)
   /usr/bin/time -v python $HERE/run_bitfile_experiment.py \
     --model $D/$m/frontend/intermediate_models/step_set_fifo_depths.onnx --out $out \
-    --mode $MODE --board $BOARD --clk 10 --workers $WORKERS --shell-lib $SHELLS > $log 2>&1
+    --mode $MODE --board $BOARD --clk $CLK --workers $WORKERS --shell-lib $SHELLS > $log 2>&1
   rc=$?
   t1=$(date +%s)
   python - $out $m $rc $((t1 - t0)) $MODE >> $T/runs.jsonl <<'EOF'

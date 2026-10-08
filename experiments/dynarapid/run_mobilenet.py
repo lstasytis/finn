@@ -49,14 +49,16 @@ BITFILE_STEPS = ["step_create_stitched_ip", "step_synthesize_bitfile"]
 
 
 def config(args, out, steps, **kw):
+    from scaling_folding import scaling_kwargs
+
     cfg_board = args.board if args.board in ("ZCU102", "ZCU104", "U250") else "U250"
     d = os.path.join(BENCH, "mobilenet_v1")
     alveo = args.board in vitis_part_map
+    base = args.folding or os.path.join(d, "folding_config", "mobilenet_folding_config_%s.json" % cfg_board)
+    kw.update(scaling_kwargs(base, getattr(args, "target_fps", None), out, not getattr(args, "no_relax", False)))
     return build_cfg.DataflowBuildConfig(
         output_dir=out,
         steps=steps,
-        folding_config_file=args.folding
-        or os.path.join(d, "folding_config", "mobilenet_folding_config_%s.json" % cfg_board),
         specialize_layers_config_file=os.path.join(
             d, "specialize_layers_config", "mobilenet_specialize_layers_%s.json" % cfg_board
         ),
@@ -85,12 +87,19 @@ def main():
     ap.add_argument("--mode", choices=["frontend", "bitfile", "islands"], default="frontend")
     ap.add_argument("--workers", type=int, default=None)
     ap.add_argument("--cache-shell", action="store_true", help="islands: cache the platform region")
+    ap.add_argument("--target-fps", type=float, default=None,
+                    help="frontend: FINN's automatic folding for this throughput instead of the "
+                    "hand-written PE/SIMD (scaling experiment)")
+    ap.add_argument("--stop-step", default=None, help="frontend: last step (e.g. step_generate_estimate_reports)")
+    ap.add_argument("--no-relax", action="store_true",
+                    help="with --target-fps: no second folding pass at the bottleneck (see scaling_folding)")
     args = ap.parse_args()
     front = os.path.join(args.out, "frontend")
     t0 = time.time()
     if args.mode == "frontend":
         model = os.path.join(BENCH, "models", "mobilenetv1-w4a4_pre_post_tidy_opset-11.onnx")
-        build.build_dataflow_cfg(model, config(args, front, FRONTEND_STEPS))
+        kw = {"stop_step": args.stop_step} if args.stop_step else {}
+        build.build_dataflow_cfg(model, config(args, front, FRONTEND_STEPS, **kw))
     else:
         out = os.path.join(args.out, args.mode)
         os.makedirs(os.path.join(out, "intermediate_models"), exist_ok=True)
