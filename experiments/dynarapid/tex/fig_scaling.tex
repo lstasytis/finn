@@ -11,8 +11,8 @@
 \definecolor{rwgrid}{HTML}{e6e5e1}
 \begin{tikzpicture}
 \begin{groupplot}[
-  group style={group size=3 by 1, horizontal sep=1.2cm, y descriptions at=edge left},
-  width=0.48\textwidth, height=5.6cm,
+  group style={group size=1 by 1, horizontal sep=1.2cm, y descriptions at=edge left},
+  width=0.9\textwidth, height=5.6cm,
   xlabel={accelerator size: (LUT\,\% + DSP\,\%)/2 of the U55C},
   ylabel={build time [s]},
   xmin=0, ymin=0,
@@ -26,22 +26,12 @@
 \addlegendentry{VGG10, global Vivado}
 \addplot[rwc1, solid, line width=1pt, mark=*, mark size=2.2pt] coordinates {(3.42,868) (5.36,1016) (9.19,1349) (15.74,2051) (22.36,2512) (35.46,3112)};
 \addlegendentry{VGG10, island flow}
-\addplot[rwc2, dashed, line width=1pt, mark=square*, mark size=2.2pt] coordinates {(5.49,3017) (8.37,3651) (13.39,4982) (21.52,6975) (23.46,7421)};
+\addplot[rwc2, dashed, line width=1pt, mark=square*, mark size=2.2pt] coordinates {(5.49,3017)};
 \addlegendentry{MobileNet, global Vivado}
 \addplot[rwc2, solid, line width=1pt, mark=*, mark size=2.2pt] coordinates {(5.49,1275)};
 \addlegendentry{MobileNet, island flow}
-\addplot[rwc2, only marks, mark=o, mark size=2.4pt, mark options={fill=white, line width=1pt}, forget plot] coordinates {(8.37,1228) (13.39,2504) (21.52,5273) (23.46,17294)};
-\nextgroupplot[title={200\,MHz}]
-\addplot[rwc1, dashed, line width=1pt, mark=square*, mark size=2.2pt, forget plot] coordinates {(3.42,2089) (5.36,2360) (9.19,2845) (15.74,3973) (22.36,4861)};
-\addplot[rwc1, solid, line width=1pt, mark=*, mark size=2.2pt, forget plot] coordinates {(5.36,1038)};
-\addplot[rwc1, only marks, mark=o, mark size=2.4pt, mark options={fill=white, line width=1pt}, forget plot] coordinates {(3.42,945) (9.19,1493) (15.74,2309) (22.36,2928)};
-\addplot[rwc2, dashed, line width=1pt, mark=square*, mark size=2.2pt, forget plot] coordinates {(5.56,3138) (8.52,4020) (13.86,5328) (22.60,7908) (24.58,8640)};
-\addplot[rwc2, only marks, mark=o, mark size=2.4pt, mark options={fill=white, line width=1pt}, forget plot] coordinates {(5.56,1315) (8.52,1572) (13.86,2598) (22.60,7290) (24.58,12174)};
-\nextgroupplot[title={300\,MHz}]
-
 \end{groupplot}
 \end{tikzpicture}
-\caption{Build time vs.\ accelerator size on the U55C (same Vivado-only shell), VGG10 and MobileNet with
-scaled folding. Hollow markers: build failed or missed timing.}
+\caption{Build time vs.\ accelerator size, U55C.}
 \label{fig:scaling}
 \end{figure*}

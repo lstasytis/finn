@@ -61,11 +61,20 @@ def point_label(x):
 
 # ----------------------------------------------------------------------------- scaling
 def scaling_data():
+    """Per clock, the runs of the points where both flows finished with a routed bitstream that
+    meets timing (nothing else is reported)."""
     res = {}
     for clk in (10.0, 5.0, 3.333):
         d = os.path.join(SCALE, "clk%g" % clk if clk != 3.333 else "clk3.333")
-        if os.path.isdir(d):
-            res[clk] = collect(d)
+        if not os.path.isdir(d):
+            continue
+        rows = collect(d)
+        ok = {}
+        for x in rows:
+            ok.setdefault((x["model"], x["factor"], x["mode"]), {})[x["flow"]] = x["ok"] and x["size"] is not None
+        keep = [x for x in rows if ok[(x["model"], x["factor"], x["mode"])] == {"vivado": True, "islands": True}]
+        if keep:
+            res[clk] = keep
     return res
 
 
@@ -85,10 +94,7 @@ def tab_scaling(data):
             v, i = f.get("vivado"), f.get("islands")
 
             def cell(x):
-                if x is None:
-                    return "--", ""
-                t = n(x["br"][-1])
-                return (t if x["ok"] else "\\textit{%s}" % t), ("" if x["ok"] else "$^{*}$")
+                return n(x["br"][-1]), ""
 
             vt, vs = cell(v)
             it, isx = cell(i)
@@ -104,10 +110,7 @@ def tab_scaling(data):
             )
     txt = r"""\begin{table}[t]
 \centering
-\caption{Build time from the FINN model to the bitstream on the U55C (same Vivado-only shell), global
-Vivado flow vs.\ island flow, while the folding scales the accelerator. Size: synthesized accelerator in
-\%% of the device. $^{\dagger}$over-parallelized (no folding relaxation: more resources, same throughput).
-$^{*}$failed or misses timing (time in italics). Every build on 32 cores (4 CCDs).}
+\caption{Build time on the U55C, global Vivado vs.\ island flow. Size: \%% of the device. $^{\dagger}$over-parallelized folding.}
 \label{tab:scaling}
 \small
 \begin{tabular}{llrrrrrrr}
@@ -215,10 +218,7 @@ def tab_vgg10(data):
             "prep", "bd", "acc", "shell", "top", "link", "opt", "place", "physopt", "route", "bit", "ckpt", "rep", "total")]) + " \\\\")
     write("tab_vgg10_vivado.tex", r"""\begin{table*}[t]
 \centering
-\caption{VGG10 at 100\,MHz on the U55C, global Vivado flow (FINN's regular flow on the same block design;
-shell IPs synthesized in every build), seconds. IP synthesis runs in parallel: accelerator (stitched IP)
-and the slowest shell IP (XDMA); the longer one is on the critical path. Prep: IODMA HLS and stitched-IP
-packaging. BD: block design, output products, run overhead. Reports/other: reports and run start-up in impl\_1.}
+\caption{VGG10, 100\,MHz, U55C: global Vivado flow [s].}
 \label{tab:vgg10-vivado}
 \small
 \begin{tabular}{lrrrrrrrrrrrrrr}
@@ -240,11 +240,7 @@ point & prep & BD & accel. & shell & synth & link & opt & place & phys\_opt & ro
                                 n(d["stitch"]), n(d["read"]), n(d["aroute"]), n(d["bit"]), n(d["rep"]), n(d["total"])]) + " \\\\")
     write("tab_vgg10_islands.tex", r"""\begin{table*}[t]
 \centering
-\caption{VGG10 at 100\,MHz on the U55C, island flow (cached shell), seconds. Node synthesis and island
-place-and-route run in parallel (largest node / slowest island in brackets or itemized); stitching and
-the assembly (reading the stitched accelerator into the opened shell, routing the remaining boundary,
-clock and static nets, bitstream) are serial. Opening the shell and the top-level synthesis overlap with
-the islands and are not on the critical path.}
+\caption{VGG10, 100\,MHz, U55C: island flow [s].}
 \label{tab:vgg10-islands}
 \small
 \begin{tabular}{lrrrrrrrrrrrrr}
@@ -328,11 +324,7 @@ def tab_assembly():
                                 n(c["read"]), n(c["route"]), n(c["bit"]), n(c["rep"]), n(crit)]) + " \\\\")
     write("tab_assembly_boards.tex", r"""\begin{table}[t]
 \centering
-\caption{The serial tail: RapidWright stitching and the Vivado assembly (open the pre-built shell, read the
-stitched accelerator into it, route the remaining nets, write the bitstream), seconds. DynaRapid rows:
-ZCU104 at 200\,MHz; island flow: 100\,MHz. $^{\ddagger}$overlapped with the island P\&R, not on the
-critical path. Tail = time from the islands' end to the bitstream (+ reports). U55C VGG10 on 32 cores
-(scaling experiment, 1$\times$ point), the other rows on 64.}
+\caption{Stitch and assembly [s]. $^{\ddagger}$overlapped with island P\&R.}
 \label{tab:assembly-boards}
 \small
 \begin{tabular}{lrrrrrrr}
@@ -361,10 +353,7 @@ critical path. Tail = time from the islands' end to the bitstream (+ reports). U
     rows.append(" & ".join(["routable nets (whole design)"] + [n(phases[c["label"]][3]) for c in sel]) + " \\\\")
     write("tab_route_phases.tex", r"""\begin{table}[t]
 \centering
-\caption{The assembly's \texttt{route\_design}, phase by phase (seconds). Only a few hundred to
-1.5\,k nets need routing (shell--accelerator boundary, clock, static, stitch leftovers), but the router is
-initialized for the whole design and device (routing graph, ILP clock placement, full timing update) and
-fixes hold on all paths.}
+\caption{Assembly \texttt{route\_design} by phase [s].}
 \label{tab:route-phases}
 \small
 \begin{tabular}{l%s}
@@ -382,7 +371,9 @@ phase & %s \\
 # ----------------------------------------------------------------------------- figures
 def fig_scaling(data):
     plots = []
-    for gi, clk in enumerate(sorted(data, key=lambda c: -c)):
+    clocks = [c for c in sorted(data, key=lambda c: -c)
+              if max(sum(1 for x in data[c] if x["model"] == m and x["flow"] == "islands") for m in MODEL) >= 2]
+    for gi, clk in enumerate(clocks):
         mhz = round(1000 / clk)
         series = []
         for model, col in (("vgg10", "rwc1"), ("mnv1", "rwc2")):
@@ -397,9 +388,6 @@ def fig_scaling(data):
                                   % (col, style, mark, "" if gi == 0 else ", forget plot",
                                      " ".join("(%.2f,%.0f)" % p for p in ok),
                                      ("\n\\addlegendentry{%s}" % leg) if gi == 0 else ""))
-                if bad:
-                    series.append("\\addplot[%s, only marks, mark=%s, mark size=2.4pt, mark options={fill=white, line width=1pt}, forget plot] coordinates {%s};"
-                                  % (col, "square" if flow == "vivado" else "o", " ".join("(%.2f,%.0f)" % p for p in bad)))
         plots.append(r"""\nextgroupplot[title={%d\,MHz}]
 %s""" % (mhz, "\n".join(series)))
     write("fig_scaling.tex", r"""\begin{figure*}[t]
@@ -408,7 +396,7 @@ def fig_scaling(data):
 \begin{tikzpicture}
 \begin{groupplot}[
   group style={group size=%d by 1, horizontal sep=1.2cm, y descriptions at=edge left},
-  width=0.48\textwidth, height=5.6cm,
+  width=%s, height=5.6cm,
   xlabel={accelerator size: (LUT\,\%% + DSP\,\%%)/2 of the U55C},
   ylabel={build time [s]},
   xmin=0, ymin=0,
@@ -420,11 +408,10 @@ def fig_scaling(data):
 %s
 \end{groupplot}
 \end{tikzpicture}
-\caption{Build time vs.\ accelerator size on the U55C (same Vivado-only shell), VGG10 and MobileNet with
-scaled folding. Hollow markers: build failed or missed timing.}
+\caption{Build time vs.\ accelerator size, U55C.}
 \label{fig:scaling}
 \end{figure*}
-""" % (DEFCOLORS, len(plots), "\n".join(plots)))
+""" % (DEFCOLORS, len(plots), "0.48\\textwidth" if len(plots) > 1 else "0.9\\textwidth", "\n".join(plots)))
 
 
 def fig_assembly(cases):
@@ -457,8 +444,7 @@ def fig_assembly(cases):
 %s
 \end{axis}
 \end{tikzpicture}
-\caption{The serial tail on the ZCU104 and the U55C. The island flow overlaps opening the shell with the
-island P\&R; the DynaRapid assembly opened it afterwards.}
+\caption{Stitch and assembly, ZCU104 vs.\ U55C.}
 \label{fig:assembly}
 \end{figure}
 """ % (DEFCOLORS, sym, ticks, "\n".join(plots)))
@@ -507,9 +493,7 @@ def fig_vgg10(viv, isl, rows):
 %s
 \end{groupplot}
 \end{tikzpicture}
-\caption{VGG10 at 100\,MHz on the U55C, build time by step. Island flow: synthesis and P\&R (islands + stitch)
-are the parallel parts' critical paths; ``final route'' is the assembly (read accelerator + route).
-$^{\dagger}$over-parallelized folding.}
+\caption{VGG10, 100\,MHz, U55C: build time by step. $^{\dagger}$over-parallelized folding.}
 \label{fig:vgg10-breakdown}
 \end{figure*}
 """ % (DEFCOLORS, sym, ticks, axis(viv, "global Vivado flow", True), axis(isl, "island flow", False)))
