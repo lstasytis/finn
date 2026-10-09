@@ -39,7 +39,7 @@ from finn.util.dynarapid.components import (
 )
 from finn.util.dynarapid.graph import mm_ports
 from finn.util.dynarapid.shell import PS_BOUNDARY_INT_X, build_shell
-from finn.util.dynarapid.tools import TIMEOUT_RC, java_bin, run_vivado, usable_cpus, vivado_slots
+from finn.util.dynarapid.tools import TIMEOUT_RC, java_bin, kill_run, run_vivado, usable_cpus, vivado_slots
 from finn.util.dynarapid.zynq import _reports, merge_partitions
 from finn.util.rwislands.assembly import assemble_tcl, final_tcl
 from finn.util.rwislands.device import load_device, pblock_ranges
@@ -249,14 +249,21 @@ def synthesize(accel, dcps, work, part, clk_ns, cpus, slots):
 
 
 def island_tcl(
-    name, island_v, dcp_files, part, clk_ns, ranges, cr, threads, out_dir, contain=True, boundary=(), clock=None
+    name, island_v, dcp_files, part, clk_ns, ranges, cr, threads, out_dir, contain=True, boundary=(), clock=None,
+    alt=False,
 ):
     """Out-of-context place and route of one island in its pblock (ranges). boundary: ports that
     connect to the shell; they get partition pins on the island's slices, so that their nets are
     routed from the driver / to the load up to the island's edge (an out-of-context port without
     partition pin leaves its net unrouted, and the island's own routing may take all exits of
     its driver: VGG10, 4 IODMA AXI-Lite nets the assembly router could not get out)."""
-    steps = profile(part)
+    steps = dict(profile(part))
+    if alt:
+        # second (hedged) attempt: directives for local congestion, where the router of the first
+        # attempt can get stuck on a few overlaps (MobileNet 0.25x U55C: a FIFO + sliding window
+        # island at 12 overlaps from minute 3 to 24)
+        steps.update(place="place_design -directive AltSpreadLogic_high",
+                     route="route_design -directive AlternateCLBRouting")
     t = [
         "set_param general.maxThreads %d" % threads,
         "set t0 [clock milliseconds]",
@@ -402,6 +409,15 @@ def island_time_limit(cost):
     if env:
         return float(env)
     return 3 * (150 + 0.0036 * cost) + 900
+
+
+def island_hedge_after(cost):
+    """Seconds after which an island's second attempt starts (twice the expected P&R time plus
+    two minutes, see island_time_limit); FINN_RWI_ISLAND_HEDGE=0 disables the second attempt."""
+    env = os.environ.get("FINN_RWI_ISLAND_HEDGE")
+    if env is not None:
+        return None if float(env) <= 0 else float(env)
+    return 2 * (150 + 0.0036 * cost) + 120
 
 
 def plan_islands(
@@ -612,30 +628,69 @@ def islands_and_stitch(
         files += [os.path.join(synth_dir, regslice_name(w) + "_synth.dcp") for w in sorted(set(island_regslice_widths(g, mem)))]
         r0 = res["islands"][name]["rects"][0]
         cr = next(s.cr for s in dev.sites_in(*r0) if s.type.startswith("SLICE"))
-        tcl = os.path.join(d, "island.tcl")
-        with open(tcl, "w") as f:
-            f.write(
-                island_tcl(
-                    name, v, files, part, clk_ns, ranges[list(isl).index(name)], cr, threads, d,
-                    boundary=boundary_ports(g, mem),
+        def write_tcl(out_dir, alt):
+            os.makedirs(out_dir, exist_ok=True)
+            tcl = os.path.join(out_dir, "island.tcl")
+            with open(tcl, "w") as f:
+                f.write(
+                    island_tcl(
+                        name, v, files, part, clk_ns, ranges[list(isl).index(name)], cr, threads, out_dir,
+                        boundary=boundary_ports(g, mem), alt=alt,
+                    )
                 )
+            return tcl
+
+        def result(out_dir, rc, t):
+            info = {"pnr_s": t, "rc": rc, "timed_out": rc == TIMEOUT_RC, "dir": out_dir}
+            info.update(_island_reports(out_dir))
+            log = os.path.join(out_dir, "island.log")
+            info["stamps"] = {
+                kk: float(vv) for kk, vv in re.findall(r"^STAMP (\w+) ([\d.]+)", open(log).read() if os.path.isfile(log) else "", re.M)
+            }
+            info["dcp"] = os.path.join(out_dir, name + "_routed.dcp")
+            errs = info.get("routing_errors")
+            # an island that misses setup on its own keeps its paths through the assembly (whose
+            # route_design keeps routed nets), so the build would fail timing anyway
+            info["ok"] = (
+                rc == 0 and os.path.isfile(info["dcp"]) and errs is not None and errs <= max_island_overlaps
+                and (info.get("wns") is None or info["wns"] >= 0)
             )
+            return info
+
+        # attempt 1; once it runs well past its expected time, a second attempt with directives for
+        # local congestion runs alongside in the same pblock (own directory); the first one that
+        # passes its checks is taken, the other killed
         limit = island_time_limit(res["islands"][name]["cost"])
-        rc, t = run_vivado(tcl, os.path.join(d, "island.log"), d, timeout=limit)
-        info = {"pnr_s": t, "rc": rc, "time_limit_s": limit, "timed_out": rc == TIMEOUT_RC}
-        info.update(_island_reports(d))
-        info["stamps"] = {
-            kk: float(vv)
-            for kk, vv in re.findall(r"^STAMP (\w+) ([\d.]+)", open(os.path.join(d, "island.log")).read(), re.M)
-        }
-        info["dcp"] = os.path.join(d, name + "_routed.dcp")
-        errs = info.get("routing_errors")
-        # an island that misses setup on its own keeps its paths through the assembly (whose
-        # route_design keeps routed nets), so the build would fail timing anyway
-        info["ok"] = (
-            rc == 0 and os.path.isfile(info["dcp"]) and errs is not None and errs <= max_island_overlaps
-            and (info.get("wns") is None or info["wns"] >= 0)
-        )
+        hedge = island_hedge_after(res["islands"][name]["cost"])
+        h1, h2, out = {}, {}, {}
+
+        def attempt(k, out_dir, alt, handle):
+            t0 = time.time()
+            rc, t = run_vivado(write_tcl(out_dir, alt), os.path.join(out_dir, "island.log"), out_dir,
+                               timeout=limit, handle=handle)
+            out[k] = result(out_dir, rc, time.time() - t0)
+            return out[k]
+
+        with ThreadPoolExecutor(max_workers=2) as hx:
+            t_start = time.time()
+            f1 = hx.submit(attempt, 1, d, False, h1)
+            f2 = None
+            while True:
+                if any(out[k]["ok"] for k in list(out)):
+                    break
+                # the second attempt: after the hedge time, or at once when the first one failed
+                if f2 is None and hedge is not None and (f1.done() or time.time() - t_start > hedge):
+                    f2 = hx.submit(attempt, 2, os.path.join(d, "alt"), True, h2)
+                if all(f.done() for f in (f1, f2) if f is not None) and (f2 is not None or hedge is None):
+                    break
+                time.sleep(2)
+            ok = [k for k in (1, 2) if k in out and out[k]["ok"]]
+            for k, hdl in ((1, h1), (2, h2)):
+                if not ok or k != ok[0]:
+                    kill_run(hdl)
+        info = out[ok[0]] if ok else out.get(1) or out.get(2)
+        info.update(time_limit_s=limit, hedged=f2 is not None, attempt=ok[0] if ok else None,
+                    pnr_s=time.time() - t_start)
         return name, info
 
     def top_job():

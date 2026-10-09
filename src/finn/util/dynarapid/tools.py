@@ -183,14 +183,19 @@ def run_java(main_class, args, env, log_file, heap="8G", cwd=None):
 TIMEOUT_RC = -9
 
 
-def run_vivado(tcl_file, log_file, cwd, env=None, timeout=None):
+def run_vivado(tcl_file, log_file, cwd, env=None, timeout=None, handle=None):
     """Run a Vivado batch script, return (returncode, seconds). timeout (s): the run (its whole
-    process group) is killed after that long and TIMEOUT_RC returned."""
+    process group) is killed after that long and TIMEOUT_RC returned. handle: a dict that gets
+    the process ("proc") once it runs, so that another thread can kill it (kill_run)."""
     cmd = ["vivado", "-mode", "batch", "-nojournal", "-nolog", "-notrace", "-source", tcl_file]
     t0 = time.time()
     with vivado_slot():
+        if handle is not None and handle.get("cancelled"):
+            return TIMEOUT_RC, 0.0
         with open(log_file, "w") as f:
             p = subprocess.Popen(cmd, stdout=f, stderr=subprocess.STDOUT, cwd=cwd, env=env, start_new_session=True)
+            if handle is not None:
+                handle["proc"] = p
             try:
                 rc = p.wait(timeout=timeout)
             except subprocess.TimeoutExpired:
@@ -201,3 +206,16 @@ def run_vivado(tcl_file, log_file, cwd, env=None, timeout=None):
                 f.write("\nKILLED: time limit of %d s exceeded\n" % timeout)
                 rc = TIMEOUT_RC
     return rc, time.time() - t0
+
+
+def kill_run(handle):
+    """Kill a run_vivado run started with this handle (or keep it from starting)."""
+    import signal
+
+    handle["cancelled"] = True
+    p = handle.get("proc")
+    if p is not None and p.poll() is None:
+        try:
+            os.killpg(p.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
