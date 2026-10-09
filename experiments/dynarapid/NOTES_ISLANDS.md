@@ -1032,3 +1032,52 @@ read in RapidWright 9-11 s, full RapidWright route 230-270 s, setup WNS +1.0 ns.
 3. **DRC**: clock-leaf errors on shell BRAMs (PDCN-2743: the incremental clock router changed
    leaves of the shell's locked clock), invalid site configurations (PDIL-1: static net on a
    used LUT output).
+
+## 2026-10-09 (afternoon): critic review (Fable) and the changes it led to
+
+A critic model reviewed the island flow, the experiments and the results. Verified findings and
+what was done about them:
+
+1. **"ok" ignored timing**: 8/9 island builds at 200 MHz and MobileNet 1x at 100 MHz were `ok` at
+   negative WNS. Now: status `timing_failed` unless routing is complete and setup and hold are met
+   (`flow.py` gate, also for the global baseline); ZynqBuild falls back to FINN's regular flow
+   (dynarapid option `fallback`, default on; experiments set it off and record the failure).
+2. **No functional check of the current flow**: verify_accel re-run on the current flow
+   (TFC ZCU104: 16 frames match; VGG10 8x U55C and a split VGG10 ZCU104: running).
+3. **200 MHz data predates the register slices**: the whole matrix is re-run with the current flow
+   (`run_campaign.sh`, job list `$FINN_BUILD_DIR/campaign/jobs.txt`).
+4. **Stitch re-routes island nets without timing** (MobileNet 1x: 144 island nets ripped up by
+   soft preserve; an island at WNS +3.8 ended with a 10 ns intra-island path): first RWRoute pass
+   without soft preserve; the second pass (boxed-in pins only) may rip up, and every net it rips
+   up is listed (`stitch/rerouted_nets.txt`) and unrouted before the assembly's route_design.
+5. **No time limit for an island** (MobileNet 2x: 4.6 h): `run_vivado(timeout=)` kills the process
+   group; limit 3x the expected P&R time + 15 min (`island_time_limit`).
+6. **Island error count could go negative** (overlapping summary categories): exact list of
+   non-port nets that are not fully routed (`island_errors.txt`, all segments of port nets excluded:
+   IODMA boundary nets are named after their drivers); island WNS/WHS reported; an island that
+   misses setup fails early.
+7. **Baseline inflated** (FINN's flow rebuilds the shell IP, writes ~1000 s of reports and
+   checkpoints): new mode `global` = the island flow's synthesis and cached shell, one global place
+   and route of the accelerator in the shell, same reports as the island assembly.
+8. **Survivorship in the tables**: `summarize_campaign.py` reports every point with its status and
+   the success rate per flow; x-axis = binding resource (MobileNet is BRAM-bound).
+9. Node checkpoints are keyed by the synthesis options.
+
+Also new: `FINN_RWI_PROFILE=fast` (RuntimeOptimized synth/opt/place/route, no phys_opt; modes
+`islands_fast`), and **splitting dominant MVAUs** (`SplitLargeMVAU`, dynarapid option `split`,
+mode `*_split`): lane-wise, no throughput loss, any fold count:
+- output split (k | PE): DuplicateStreams -> k MVAUs (MH/k, PE/k, output lanes [i*PE/k..] of every
+  fold) -> StreamingLaneMerge;
+- input split (k | SIMD, e.g. MobileNet PE=1): StreamingLaneSplit -> k MVAUs (MW/k, SIMD/k, partial
+  sums) -> ElementwiseAdd tree -> Thresholding.
+StreamingLaneSplit/Merge are new RTL ops (`streaminglanes.py`, `rtl/streaminglanes_rtl.py`): one
+register stage, valid from a register, full rate. Tests: Python execution of split vs original
+equal for 5 cases (folded, fully unrolled, PE=1 with/without thresholds, k=3); rtlsim of both ops
+equal to Python (4 cases incl. byte-padded widths).
+
+Not done: the DFX abstract shell. VGG10 8x: the accelerator is ~4.3M of the 4.5M logical nets, so
+Vivado's load/route/bitstream scale with it; an abstract shell would save the shell's XDC
+re-application (~140 s) and its share of the router setup, ~200 of 2948 s, at the price of partial
+bitstreams. ResNet50 (finn-examples w1a2): its finn-examples streamlining leaves 49 Mul / 62 Add
+nodes in this FINN (Conv inputs float, 101 Transposes after conversion); the upstream test is
+xfail "not tested". Larger points instead: MobileNet 4x and VGG10 16x (no relax) on the U55C.

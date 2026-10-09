@@ -50,6 +50,10 @@ from finn.custom_op.fpgadataflow.rtl.streamingdatawidthconverter_rtl import (
     StreamingDataWidthConverter_rtl,
 )
 from finn.custom_op.fpgadataflow.rtl.streamingfifo_rtl import StreamingFIFO_rtl
+from finn.custom_op.fpgadataflow.rtl.streaminglanes_rtl import (
+    StreamingLaneMerge_rtl,
+    StreamingLaneSplit_rtl,
+)
 from finn.custom_op.fpgadataflow.rtl.thresholding_rtl import Thresholding_rtl
 from finn.custom_op.fpgadataflow.rtl.vectorvectoractivation_rtl import VVAU_rtl
 
@@ -58,6 +62,8 @@ custom_op = dict()
 # make sure new HLSCustomOp subclasses are imported here so that they get
 # registered and plug in correctly into the infrastructure
 custom_op["ConvolutionInputGenerator_rtl"] = ConvolutionInputGenerator_rtl
+custom_op["StreamingLaneSplit_rtl"] = StreamingLaneSplit_rtl
+custom_op["StreamingLaneMerge_rtl"] = StreamingLaneMerge_rtl
 custom_op["Crop_rtl"] = Crop_rtl
 custom_op["ElementwiseAdd_rtl"] = ElementwiseAdd_rtl
 custom_op["ElementwiseSub_rtl"] = ElementwiseSub_rtl

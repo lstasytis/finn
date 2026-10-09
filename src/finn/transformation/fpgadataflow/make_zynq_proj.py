@@ -480,6 +480,12 @@ class ZynqBuild(Transformation):
             sdp_inst = getCustomOp(sdp_node)
             dataflow_model_filename = sdp_inst.get_nodeattr("model")
             kernel_model = ModelWrapper(dataflow_model_filename)
+            if opts.get("split"):
+                # island flow: dominant MVAUs split into parallel parts (smaller islands); before
+                # the FIFOs, which the parts' branches need
+                from finn.transformation.fpgadataflow.split_large_mvau import SplitLargeMVAU
+
+                kernel_model = kernel_model.transform(SplitLargeMVAU(n_parts=int(opts["split"])))
             kernel_model = kernel_model.transform(InsertFIFO())
             kernel_model = kernel_model.transform(SpecializeLayers(self.fpga_part))
             kernel_model = kernel_model.transform(GiveUniqueNodeNames(prefix))

@@ -98,7 +98,8 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument(
         "--mode",
-        choices=["vivado", "dynarapid", "dynarapid-kernel", "islands", "global", "islands_fast", "global_fast"],
+        choices=["vivado", "dynarapid", "dynarapid-kernel", "islands", "global", "islands_fast", "global_fast",
+                 "islands_split", "islands_fast_split"],
         required=True,
         help="dynarapid: whole accelerator by DynaRapid in a pre-implemented shell; "
         "dynarapid-kernel: only the compute kernel by DynaRapid, shell implemented by Vivado",
@@ -117,6 +118,11 @@ def main():
     model = ModelWrapper(args.model)
     clk_ns = args.clk or float(model.get_metadata_prop("dynarapid_clk_ns"))
     dr = None
+    split = None
+    if args.mode.endswith("_split"):
+        # dominant MVAUs split into parallel parts (SplitLargeMVAU, n_parts=16)
+        split = 16
+        args.mode = args.mode[: -len("_split")]
     if args.mode.endswith("_fast"):
         # runtime-oriented Vivado directives (rwislands.profiles PROFILES["fast"])
         os.environ["FINN_RWI_PROFILE"] = "fast"
@@ -133,6 +139,7 @@ def main():
             "library_dir": os.path.join(args.out, "iplib", "lib"),
             # a failed island build is a result here, no fallback to the regular flow
             "fallback": False,
+            "split": split,
         }
     if args.mode.startswith("dynarapid"):
         dr = {

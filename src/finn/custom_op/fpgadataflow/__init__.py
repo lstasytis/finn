@@ -57,6 +57,7 @@ from finn.custom_op.fpgadataflow.convolutioninputgenerator import (
     ConvolutionInputGenerator,
 )
 from finn.custom_op.fpgadataflow.crop import Crop
+from finn.custom_op.fpgadataflow.streaminglanes import StreamingLaneMerge, StreamingLaneSplit
 from finn.custom_op.fpgadataflow.duplicatestreams import DuplicateStreams
 from finn.custom_op.fpgadataflow.fmpadding import FMPadding
 from finn.custom_op.fpgadataflow.fmpadding_pixel import FMPadding_Pixel
@@ -97,6 +98,8 @@ custom_op["StreamingDataflowPartition"] = StreamingDataflowPartition
 
 custom_op["ConvolutionInputGenerator"] = ConvolutionInputGenerator
 custom_op["Crop"] = Crop
+custom_op["StreamingLaneSplit"] = StreamingLaneSplit
+custom_op["StreamingLaneMerge"] = StreamingLaneMerge
 custom_op["DuplicateStreams"] = DuplicateStreams
 custom_op["FMPadding"] = FMPadding
 custom_op["FMPadding_Pixel"] = FMPadding_Pixel
