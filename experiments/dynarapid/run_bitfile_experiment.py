@@ -98,7 +98,7 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument(
         "--mode",
-        choices=["vivado", "dynarapid", "dynarapid-kernel", "islands"],
+        choices=["vivado", "dynarapid", "dynarapid-kernel", "islands", "global", "islands_fast", "global_fast"],
         required=True,
         help="dynarapid: whole accelerator by DynaRapid in a pre-implemented shell; "
         "dynarapid-kernel: only the compute kernel by DynaRapid, shell implemented by Vivado",
@@ -117,15 +117,22 @@ def main():
     model = ModelWrapper(args.model)
     clk_ns = args.clk or float(model.get_metadata_prop("dynarapid_clk_ns"))
     dr = None
-    if args.mode == "islands":
+    if args.mode.endswith("_fast"):
+        # runtime-oriented Vivado directives (rwislands.profiles PROFILES["fast"])
+        os.environ["FINN_RWI_PROFILE"] = "fast"
+        args.mode = args.mode[: -len("_fast")]
+    if args.mode in ("islands", "global"):
+        # global: the island flow's synthesis and cached shell, one global place and route
         dr = {
             "flow": "islands",
-            "islands": args.islands,
+            "islands": "global" if args.mode == "global" else args.islands,
             "workers": args.workers,
             "out_dir": os.path.join(args.out, "islands"),
             "shell_lib": args.shell_lib,
             # HLS IP of this build only (no reuse across builds: cold)
             "library_dir": os.path.join(args.out, "iplib", "lib"),
+            # a failed island build is a result here, no fallback to the regular flow
+            "fallback": False,
         }
     if args.mode.startswith("dynarapid"):
         dr = {
@@ -148,7 +155,7 @@ def main():
     proj = model.get_metadata_prop("vivado_pynq_proj")
     res["project"] = proj
     res["bitfile"] = model.get_metadata_prop("bitfile")
-    if args.mode in ("dynarapid", "islands"):
+    if args.mode in ("dynarapid", "islands", "global"):
         res["dynarapid_zynq"] = json.loads(model.get_metadata_prop("dynarapid_result"))
         res["wns_ns"] = res["dynarapid_zynq"].get("wns_ns")
         res["stages"] = STAGE_TIMES

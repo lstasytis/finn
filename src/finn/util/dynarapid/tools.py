@@ -180,11 +180,24 @@ def run_java(main_class, args, env, log_file, heap="8G", cwd=None):
     return ret.returncode, time.time() - t0
 
 
-def run_vivado(tcl_file, log_file, cwd, env=None):
-    """Run a Vivado batch script, return (returncode, seconds)."""
+TIMEOUT_RC = -9
+
+
+def run_vivado(tcl_file, log_file, cwd, env=None, timeout=None):
+    """Run a Vivado batch script, return (returncode, seconds). timeout (s): the run (its whole
+    process group) is killed after that long and TIMEOUT_RC returned."""
     cmd = ["vivado", "-mode", "batch", "-nojournal", "-nolog", "-notrace", "-source", tcl_file]
     t0 = time.time()
     with vivado_slot():
         with open(log_file, "w") as f:
-            ret = subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT, cwd=cwd, env=env)
-    return ret.returncode, time.time() - t0
+            p = subprocess.Popen(cmd, stdout=f, stderr=subprocess.STDOUT, cwd=cwd, env=env, start_new_session=True)
+            try:
+                rc = p.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                import signal
+
+                os.killpg(p.pid, signal.SIGKILL)
+                p.wait()
+                f.write("\nKILLED: time limit of %d s exceeded\n" % timeout)
+                rc = TIMEOUT_RC
+    return rc, time.time() - t0

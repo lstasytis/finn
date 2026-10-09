@@ -21,6 +21,7 @@ No component library, relocation or placement database: every island is placed a
 once, where it ends up.
 """
 
+import hashlib
 import json
 import os
 import re
@@ -38,7 +39,7 @@ from finn.util.dynarapid.components import (
 )
 from finn.util.dynarapid.graph import mm_ports
 from finn.util.dynarapid.shell import PS_BOUNDARY_INT_X, build_shell
-from finn.util.dynarapid.tools import java_bin, run_vivado, usable_cpus, vivado_slots
+from finn.util.dynarapid.tools import TIMEOUT_RC, java_bin, run_vivado, usable_cpus, vivado_slots
 from finn.util.dynarapid.zynq import _reports, merge_partitions
 from finn.util.rwislands.assembly import assemble_tcl, final_tcl
 from finn.util.rwislands.device import load_device, pblock_ranges
@@ -319,6 +320,22 @@ def island_tcl(
         t += [steps["post_route_phys_opt"], "stamp post_route_phys_opt"]
     t += [
         "report_route_status -file %s/route_status.rpt" % out_dir,
+        # nets that are not completely and legally routed, except the island's port nets
+        # (out of context they end at a partition pin or stay open: the stitcher routes them);
+        # the summary's category counts overlap, so they cannot be combined into this number
+        "report_route_status -list_all_nets -file %s/route_nets.rpt" % out_dir,
+        "set pn [dict create]",
+        # (all segments: a port net is listed under its driver's name, e.g. an IODMA register)
+        "foreach n [get_nets -quiet -segments [get_nets -quiet -of [get_ports]]] {dict set pn [get_property NAME $n] 1}",
+        "set fi [open %s/route_nets.rpt]; set fo [open %s/island_errors.txt w]; set sec {}" % (out_dir, out_dir),
+        "while {[gets $fi line] >= 0} {",
+        "  if {[regexp {^(\\S.*):\\s*$} $line -> h]} {set sec $h; continue}",
+        '  if {$sec in {"Unrouted Nets" "Partially Routed Nets" "Nets with Routing or Site Pin Conflicts" "Nets with Antennas or Islands"}} {',
+        "    if {[regexp {^    (\\S+)$} $line -> n] && ![dict exists $pn $n]} {puts $fo \"$sec\\t$n\"}",
+        "  }",
+        "}",
+        "close $fi; close $fo; file delete %s/route_nets.rpt" % out_dir,
+        "report_timing_summary -max_paths 5 -file %s/timing_summary.rpt" % out_dir,
         # the clock routing of the out-of-context run starts at a stand-in BUFGCE; the real
         # clock tree comes from the shell, so leave the clock net to the assembly
         "route_design -unroute -nets [get_nets -of_objects [get_ports clk]]",
@@ -373,6 +390,18 @@ def merge_small(segs, costs, min_frac=0.15):
         a, b = min(i, j), max(i, j)
         segs[a : b + 1] = [(segs[a][0], segs[b][1])]
     return segs
+
+
+def island_time_limit(cost):
+    """Time limit (s) of an island's place and route: three times the expected time plus 15 min.
+    Expected from VGG10 / MobileNet U55C islands (2026-10-08/09): ~150 s fixed + 0.0036 s per
+    cost unit (a 58k-LUT, 768-DSP MVAU, cost 184k: 806 s). A pathological island (MobileNet 2x:
+    one node in a 4-column sliver) routed for 4.6 h before failing. FINN_RWI_ISLAND_TIMEOUT
+    overrides (s)."""
+    env = os.environ.get("FINN_RWI_ISLAND_TIMEOUT")
+    if env:
+        return float(env)
+    return 3 * (150 + 0.0036 * cost) + 900
 
 
 def plan_islands(
@@ -591,18 +620,22 @@ def islands_and_stitch(
                     boundary=boundary_ports(g, mem),
                 )
             )
-        rc, t = run_vivado(tcl, os.path.join(d, "island.log"), d)
-        info = {"pnr_s": t, "rc": rc}
+        limit = island_time_limit(res["islands"][name]["cost"])
+        rc, t = run_vivado(tcl, os.path.join(d, "island.log"), d, timeout=limit)
+        info = {"pnr_s": t, "rc": rc, "time_limit_s": limit, "timed_out": rc == TIMEOUT_RC}
         info.update(_island_reports(d))
         info["stamps"] = {
             kk: float(vv)
             for kk, vv in re.findall(r"^STAMP (\w+) ([\d.]+)", open(os.path.join(d, "island.log")).read(), re.M)
         }
         info["dcp"] = os.path.join(d, name + "_routed.dcp")
-        # a few nets with overlaps are acceptable when the final route_design re-routes the
-        # whole design with only the islands' placement locked (Alveo flows)
         errs = info.get("routing_errors")
-        info["ok"] = rc == 0 and os.path.isfile(info["dcp"]) and errs is not None and errs <= max_island_overlaps
+        # an island that misses setup on its own keeps its paths through the assembly (whose
+        # route_design keeps routed nets), so the build would fail timing anyway
+        info["ok"] = (
+            rc == 0 and os.path.isfile(info["dcp"]) and errs is not None and errs <= max_island_overlaps
+            and (info.get("wns") is None or info["wns"] >= 0)
+        )
         return name, info
 
     def top_job():
@@ -669,6 +702,13 @@ def islands_and_stitch(
     # PIPs used by two nets after stitching (RapidWright's check): islands whose contained
     # routing overlaps (shared INT columns) or stitch routes over island routing
     res["stitch_pip_conflicts"] = len(re.findall(r"^pip \S+ users = ", txt, re.M))
+    # nets RWRoute ripped up and re-routed (not timing-driven): the assembly re-routes them
+    rerouted = set()
+    for blk in re.findall(r"Unpreserving \d+ nets[^\n]*\n((?:\t[^\n]*\n)*)", txt):
+        rerouted |= {x.strip() for x in blk.splitlines() if x.strip()}
+    res["stitch_rerouted_nets"] = len(rerouted)
+    with open(os.path.join(st_dir, "rerouted_nets.txt"), "w") as f:
+        f.write("".join(n + "\n" for n in sorted(rerouted)))
     stamp("stitch")
     if rc != 0 or not os.path.isfile(accel_dcp):
         return "stitch_failed", None
@@ -796,7 +836,10 @@ def rw_islands_zynq_build(
     ports = mm_ports(accel)
     assert ports, "the island shell flow needs IODMAs at the accelerator boundary"
     g = channel_graph(accel)
-    dcps = {n.name: component_name(accel, n, part, clk_ns) for n in accel.graph.node}
+    # (keyed by the synthesis options too: a checkpoint synthesized with other settings is
+    # never reused)
+    sk = hashlib.sha1(synth_args(part).encode()).hexdigest()[:6]
+    dcps = {n.name: "%s_%s" % (component_name(accel, n, part, clk_ns), sk) for n in accel.graph.node}
     dev = load_device(part)
 
     # final route: Vivado's route_design after read_checkpoint -cell (default), or, experimental
@@ -841,6 +884,9 @@ def rw_islands_zynq_build(
             res["status"] = "shell_failed"
             return _done(res, stamps, out_dir, t_total)
         shell_rw = (shell_res["rw"]["dcp"], shell_res["rw"]["edf"], rp)
+
+    if islands == "global":
+        return _global_build(accel, g, dcps, work, part, shell_dir, out_dir, cpus, res, stamps, stamp, t_total)
 
     asm_dir = os.path.join(out_dir, "assembly")
     os.makedirs(asm_dir, exist_ok=True)
@@ -925,11 +971,128 @@ def rw_islands_zynq_build(
     if rc != 0 or not os.path.isfile(bitfile):
         res["status"] = "assembly_failed"
         return _done(res, stamps, out_dir, t_total)
+    # the bitstream counts only when the design is completely routed and meets setup and hold
+    # (Vivado writes it either way; the hold repair gives up after three passes)
+    res["timing"] = timing_summary(res["timing_rpt"])
+    bad = []
+    if res.get("nets_with_routing_errors") != 0:
+        bad.append("routing errors: %s" % res.get("nets_with_routing_errors"))
+    if res["timing"].get("wns") is None or res["timing"]["wns"] < 0:
+        bad.append("WNS %s" % res["timing"].get("wns"))
+    if res["timing"].get("whs") is None or res["timing"]["whs"] < 0:
+        bad.append("WHS %s" % res["timing"].get("whs"))
+    if bad:
+        res.update(status="timing_failed", failed_checks=bad, bitfile_unusable=bitfile)
+        return _done(res, stamps, out_dir, t_total)
     hwh = os.path.join(out_dir, "resizer.hwh")
     if os.path.isfile(os.path.join(shell_dir, "top.hwh")):
         shutil.copy(os.path.join(shell_dir, "top.hwh"), hwh)
     else:
         hwh = None  # Vivado-only Alveo shell: no PYNQ hardware handoff
+    res.update(status="ok", bitfile=bitfile, hwh=hwh)
+    return _done(res, stamps, out_dir, t_total)
+
+
+def _global_build(accel, g, dcps, work, part, shell_dir, out_dir, cpus, res, stamps, stamp, t_total):
+    """Baseline with everything shared except the islands (islands="global"): the island flow's
+    parallel node synthesis and cached shell, then one Vivado run that links the nodes into the
+    accelerator netlist, reads it into the shell's black box and places and routes it globally
+    (the baseline's directives, no pblocks), with the same hold repair, bitstream and reports as
+    the island assembly. Isolates what the parallel island place and route gains over FINN's
+    regular flow, which also rebuilds the shell, writes many reports and checkpoints."""
+    names = [n.name for n in accel.graph.node]
+    d = os.path.join(work, "global")
+    os.makedirs(d, exist_ok=True)
+    isl = {"island_0": names}
+    top = top_verilog(g, isl)
+    # the single island is not a black box here: its module is read with the nodes
+    top = re.sub(r"\(\* black_box \*\)\nmodule island_0 \(.*?\);\nendmodule\n", "", top, flags=re.S)
+    tv, iv = os.path.join(d, "top.v"), os.path.join(d, "island_0.v")
+    with open(tv, "w") as f:
+        f.write(top)
+    with open(iv, "w") as f:
+        f.write(island_verilog("island_0", g, names, dcps, regslices=False))
+    synth_dir = os.path.join(work, "synth")
+    files = [os.path.join(synth_dir, dc + "_synth.dcp") for dc in sorted(set(dcps.values()))]
+    rp = open(os.path.join(shell_dir, "rp_cell.txt")).read().strip()
+    steps = profile(part)
+    bitfile = os.path.join(out_dir, "resizer.bit")
+    t = [
+        "set_param general.maxThreads %d" % min(16, cpus),
+        "set t0 [clock milliseconds]",
+        'proc stamp {n} {global t0; puts "STAMP $n [expr ([clock milliseconds] - $t0) / 1000.0]"}',
+        "read_verilog [list %s %s]" % (tv, iv),
+    ]
+    t += ["read_checkpoint %s" % f for f in files]
+    t += [
+        _LINK % (TOP_MODULE, part),
+        "stamp link",
+        "write_checkpoint -force %s/accel_synth.dcp" % d,
+        "open_checkpoint %s/shell_routed.dcp" % shell_dir,
+        "stamp open_shell",
+        "set_property IS_ROUTE_FIXED 0 [get_nets -hier -quiet -filter {TYPE == POWER || TYPE == GROUND}]",
+        "read_checkpoint -cell %s %s/accel_synth.dcp" % (rp, d),
+        "stamp read_accel",
+        "set rq [get_cells -quiet %s/island_*/rst_q0_reg]" % rp,
+        "if {[llength $rq]} {set_multicycle_path -setup 3 -end -to $rq; set_multicycle_path -hold 2 -end -to $rq}",
+        steps["opt"],
+        "stamp opt",
+        steps["place"],
+        "stamp place",
+        steps["phys_opt"],
+        "stamp phys_opt",
+        steps["route"],
+        "stamp route",
+        "for {set i 0} {$i < 3} {incr i} {",
+        "  set hp [get_timing_paths -quiet -hold -slack_lesser_than 0 -max_paths 10000 -nworst 1]",
+        "  if {![llength $hp]} {break}",
+        "  set hn [get_nets -quiet -of $hp -filter {TYPE != GLOBAL_CLOCK}]",
+        "  set_property IS_ROUTE_FIXED 0 $hn",
+        "  route_design -unroute -nets $hn",
+        "  %s" % steps["route"],
+        "  stamp hold_repair",
+        "}",
+    ]
+    if steps["post_route_phys_opt"]:
+        t += [
+            "set p [get_timing_paths -quiet -setup -max_paths 1]",
+            "if {[llength $p] && [get_property SLACK $p] < 0} {%s}" % steps["post_route_phys_opt"],
+            "stamp post_route_phys_opt",
+        ]
+    t += [
+        "write_bitstream -force -no_partial_bitfile %s" % bitfile,
+        "stamp bitstream",
+        "report_route_status -file %s/route_status.rpt" % d,
+        "report_timing_summary -file %s/timing_summary.rpt" % d,
+        "report_utilization -hierarchical -hierarchical_depth 4 -format xml -file %s/synth_report.xml" % d,
+        "stamp reports",
+    ]
+    tcl = os.path.join(d, "global.tcl")
+    with open(tcl, "w") as f:
+        f.write("\n".join(t) + "\n")
+    log = os.path.join(d, "global.log")
+    rc, _ = run_vivado(tcl, log, d)
+    stamp("global")
+    res["global_stamps"] = {kk: float(vv) for kk, vv in re.findall(r"^STAMP (\w+) ([\d.]+)", open(log).read(), re.M)}
+    res.update(_reports(d))
+    res["timing_rpt"] = os.path.join(d, "timing_summary.rpt")
+    res["utilization_xml"] = os.path.join(d, "synth_report.xml")
+    res["timing"] = timing_summary(res["timing_rpt"])
+    if rc != 0 or not os.path.isfile(bitfile):
+        res["status"] = "global_failed"
+        return _done(res, stamps, out_dir, t_total)
+    tm = res["timing"]
+    bad = [k for k, v in (("routing", res.get("nets_with_routing_errors") != 0),
+                          ("setup", tm.get("wns") is None or tm["wns"] < 0),
+                          ("hold", tm.get("whs") is None or tm["whs"] < 0)) if v]
+    if bad:
+        res.update(status="timing_failed", failed_checks=bad, bitfile_unusable=bitfile)
+        return _done(res, stamps, out_dir, t_total)
+    hwh = os.path.join(out_dir, "resizer.hwh")
+    if os.path.isfile(os.path.join(shell_dir, "top.hwh")):
+        shutil.copy(os.path.join(shell_dir, "top.hwh"), hwh)
+    else:
+        hwh = None
     res.update(status="ok", bitfile=bitfile, hwh=hwh)
     return _done(res, stamps, out_dir, t_total)
 
@@ -995,12 +1158,18 @@ def route_log_summary(log):
 
 
 def _island_reports(d):
-    """Routing errors of an island: conflicts and unrouted nets. Nets ending in a partition pin
-    (boundary ports, routed up to the island's edge) count as antennas and those with a port
-    pin as unplaced: both are expected out of context."""
+    """Routing errors and timing of an island. routing_errors: nets that are not completely and
+    legally routed, the island's port nets excepted (island_errors.txt, written by island_tcl;
+    older runs: the summary's counts with the port-related categories subtracted, which can
+    count a net twice). wns/whs: the island's own timing, out of context."""
     res = {}
+    el = os.path.join(d, "island_errors.txt")
     rs = os.path.join(d, "route_status.rpt")
-    if os.path.isfile(rs):
+    if os.path.isfile(el):
+        lines = [x.split("\t") for x in open(el).read().splitlines() if x.strip()]
+        res["routing_errors"] = len({x[-1] for x in lines})
+        res["routing_error_kinds"] = {k: sum(1 for x in lines if x[0] == k) for k in {x[0] for x in lines}}
+    elif os.path.isfile(rs):
         txt = open(rs).read()
 
         def count(what):
@@ -1008,11 +1177,27 @@ def _island_reports(d):
             return int(m.group(1)) if m else 0
 
         if re.search(r"# of nets with routing errors", txt):
-            res["routing_errors"] = count("routing errors") - count("antennas/islands") - count("some unplaced pins")
-            res["boundary_stubs"] = count("antennas/islands")
+            res["routing_errors"] = max(
+                count("resource conflicts"),
+                count("routing errors") - count("antennas/islands") - count("some unplaced pins"),
+            )
         else:
             res["routing_errors"] = None
+    res.update(timing_summary(os.path.join(d, "timing_summary.rpt")))
     return res
+
+
+def timing_summary(path):
+    """WNS / WHS (ns) and failing endpoint counts from report_timing_summary, {} if missing."""
+    if not os.path.isfile(path):
+        return {}
+    t = open(path, errors="ignore").read()
+    t = t[t.find("Design Timing Summary"):]
+    m = re.search(r"WNS\(ns\).*?\n[- ]+\n\s+(\S+)\s+\S+\s+(\S+)\s+\S+\s+(\S+)\s+\S+\s+(\S+)", t, re.S)
+    if not m:
+        return {}
+    f = lambda v: None if v in ("NA", "inf") else float(v)
+    return {"wns": f(m.group(1)), "setup_failing": int(m.group(2)), "whs": f(m.group(3)), "hold_failing": int(m.group(4))}
 
 
 def _done(res, stamps, out_dir, t_total):

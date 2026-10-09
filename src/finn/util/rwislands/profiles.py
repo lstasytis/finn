@@ -35,9 +35,23 @@ PROFILES = {
 }
 
 
+# runtime-oriented settings for the island flow (FINN_RWI_PROFILE=fast): QoR may drop, the
+# result is still checked (routing complete, setup and hold met); for relaxed clocks
+PROFILES["fast"] = {
+    "synth": "-directive RuntimeOptimized",
+    "opt": "opt_design -directive RuntimeOptimized",
+    "place": "place_design -directive RuntimeOptimized",
+    "phys_opt": "# (no phys_opt_design in the fast profile)",
+    "route": "route_design -directive RuntimeOptimized",
+    "post_route_phys_opt": None,
+}
+
+
 def profile(part):
     """Baseline flow of a part: Alveo parts (xcu*) are built with Vitis, the others with FINN's
-    Zynq flow."""
+    Zynq flow; FINN_RWI_PROFILE=fast: runtime-oriented directives everywhere (PROFILES["fast"])."""
+    if os.environ.get("FINN_RWI_PROFILE") == "fast":
+        return PROFILES["fast"]
     return PROFILES["vitis" if part.startswith("xcu") else "zynq"]
 
 

@@ -30,7 +30,9 @@
 import json
 import multiprocessing as mp
 import os
+import shutil
 import subprocess
+import warnings
 from qonnx.core.modelwrapper import ModelWrapper
 from qonnx.custom_op.registry import getCustomOp
 from qonnx.transformation.base import Transformation
@@ -502,6 +504,10 @@ class ZynqBuild(Transformation):
             kernel_model.save(dataflow_model_filename)
             return kernel_model
 
+        # the partition models as they were before, for the fallback to the regular flow
+        for n in sdp_nodes:
+            f = getCustomOp(n).get_nodeattr("model")
+            shutil.copy(f, f + ".pre_dynarapid.onnx")
         # code generation one partition after the other; the HLS synthesis of all partitions
         # (e.g. the input and the output IODMA, ~50 s each) concurrently, each partition in its
         # own spawned process: HLSSynthIP forks a multiprocessing pool, which can deadlock when
@@ -546,10 +552,17 @@ class ZynqBuild(Transformation):
                 workers=opts.get("workers"),
             )
         model.set_metadata_prop("dynarapid_result", json.dumps(res))
-        assert res["status"] == "ok", "DynaRapid bitfile flow failed (%s), see %s" % (
-            res["status"],
-            out_dir,
-        )
+        if res["status"] != "ok":
+            msg = "DynaRapid bitfile flow failed (%s), see %s" % (res["status"], out_dir)
+            # fallback (default): FINN's regular flow on the original partition models, so that
+            # a build never ends with a bitfile that failed (or without one)
+            assert opts.get("fallback", True), msg
+            warnings.warn(msg + "; falling back to the regular Vivado flow")
+            for n in sdp_nodes:
+                f = getCustomOp(n).get_nodeattr("model")
+                shutil.copy(f + ".pre_dynarapid.onnx", f)
+            model.set_metadata_prop("dynarapid_fallback", res["status"])
+            return self.apply_native(model, sdp_nodes, dynarapid_kernels=False)
         model.set_metadata_prop("vivado_pynq_proj", out_dir)
         model.set_metadata_prop("bitfile", res["bitfile"])
         model.set_metadata_prop("hw_handoff", res["hwh"] or "")
@@ -580,6 +593,11 @@ class ZynqBuild(Transformation):
         sdp_nodes = model.get_nodes_by_op_type("StreamingDataflowPartition")
         if self.dynarapid is not None and self.dynarapid.get("shell", True):
             return self.apply_dynarapid_shell(model, sdp_nodes)
+        return self.apply_native(model, sdp_nodes, dynarapid_kernels=self.dynarapid is not None)
+
+    def apply_native(self, model, sdp_nodes, dynarapid_kernels):
+        """FINN's regular flow: stitched IP per partition, shell block design, Vivado
+        implementation (dynarapid_kernels: legacy kernel-only DynaRapid mode)."""
         for sdp_node in sdp_nodes:
             prefix = sdp_node.name + "_"
             sdp_node = getCustomOp(sdp_node)
@@ -592,7 +610,7 @@ class ZynqBuild(Transformation):
             kernel_model = kernel_model.transform(PrepareIP(self.fpga_part, self.period_ns))
             kernel_model = kernel_model.transform(HLSSynthIP())
             is_dma = any(n.op_type.startswith("IODMA") for n in kernel_model.graph.node)
-            if self.dynarapid is not None and not is_dma:
+            if dynarapid_kernels and not is_dma:
                 kernel_model = self.dynarapid_kernel(kernel_model, sdp_node.onnx_node.name)
             else:
                 kernel_model = kernel_model.transform(

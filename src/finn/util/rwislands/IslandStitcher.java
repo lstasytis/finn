@@ -241,7 +241,11 @@ public class IslandStitcher {
         // access nodes used); RWRoute then rips up and re-routes the blocking island nets instead
         // of giving up on the pin (VGG10, 20 islands: 56 pins left unrouted, which the assembly's
         // interactive router could not finish either)
-        target = PartialRouter.routeDesignWithUserDefinedArguments(target, a.toArray(new String[0]), pins, true);
+        // no soft preserve here: islands' nets are not ripped up (RWRoute is not timing-driven
+        // here, an island net it re-routes loses the island's timing; MobileNet 1x: an island
+        // at WNS +3.8 ended with its FIFO valid net at 10 ns). Pins it cannot reach go to the
+        // second pass
+        target = PartialRouter.routeDesignWithUserDefinedArguments(target, a.toArray(new String[0]), pins, false);
         stamp("route");
 
         // pins left over: a slice input boxed in by its island's routing, which the fixed
@@ -262,6 +266,8 @@ public class IslandStitcher {
                 b.add("--pblock");
                 b.add(region);
             }
+            // soft preserve: nets that box a pin in may be ripped up and re-routed; RWRoute lists
+            // them ("Unpreserving"), the flow has the assembly re-route them timing-driven
             target = PartialRouter.routeDesignWithUserDefinedArguments(target, b.toArray(new String[0]), left, true);
             stamp("route_retry");
         }

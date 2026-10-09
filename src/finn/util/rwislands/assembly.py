@@ -105,6 +105,17 @@ def assemble_tcl(shell_dir, accel_dcp, out_dir, bitfile, part, threads=16, trigg
     t += [
         "read_checkpoint -cell %s %s" % (rp, accel_dcp),
         "stamp read_accel",
+        # nets the stitcher ripped up and re-routed without timing (to reach a boxed-in pin): routed
+        # again here, timing-driven, by route_design
+        "set rrf %s" % os.path.join(os.path.dirname(accel_dcp), "rerouted_nets.txt"),
+        "if {[file exists $rrf]} {",
+        "  set f [open $rrf]; set rr {}",
+        "  foreach n [split [string trim [read $f]] \"\\n\"] {if {$n != {}} {lappend rr %s/$n}}" % rp,
+        "  close $f",
+        "  set rrn [get_nets -quiet $rr]",
+        '  puts "ASSEMBLY stitch_rerouted [llength $rr] nets, [llength $rrn] found"',
+        "  if {[llength $rrn]} {set_property IS_ROUTE_FIXED 0 $rrn; route_design -unroute -nets $rrn}",
+        "}",
         # the shell's reset reaches each island's first reset register over one long wire (U55C
         # VGG10 at 200 MHz: 6.2 ns); the reset is held for many cycles and the accelerator only
         # starts when the host programs it, so that path gets 3 cycles (the register slices are
