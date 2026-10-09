@@ -194,6 +194,9 @@ class Parameter:
         # MVAU and VVAU nodes can also have it so we stay flexible
 
         T = self.model.get_initializer(self.model.graph.node[self.node_index].input[input_index])
+        # a single row is broadcast over all channels and stays valid when padding
+        if T.shape[0] in (1, dim0):
+            return
 
         adt = self.model.get_tensor_datatype(
             self.model.graph.node[self.node_index].input[input_index]
@@ -235,12 +238,20 @@ class Parameter:
         )
 
         if self.op_type in ["MVAU_hls", "MVAU_rtl"]:
-            W_new = gen_finn_dt_tensor(wdt, (dim0, dim1))
+            # behind a sliding window generator the rows are (kernel position, channel)
+            # with the channel fastest, so channel padding goes into every kernel position
+            producer = self.model.find_producer(self.model.graph.node[self.node_index].input[0])
+            k = 1
+            if producer is not None and producer.op_type.startswith("ConvolutionInputGenerator"):
+                k = int(np.prod(getCustomOp(producer).get_nodeattr("ConvKernelDim")))
+            if W.shape[0] % k != 0 or dim0 % k != 0:
+                k = 1
+            c_old, c_new = W.shape[0] // k, dim0 // k
+            c, h = min(c_old, c_new), min(dim1, W.shape[1])
+            W_new = gen_finn_dt_tensor(wdt, (k, c_new, dim1))
             W_new[...] = 0
-
-            W_new[: min(dim0, W.shape[0]), : min(dim1, W.shape[1])] = W[
-                : min(dim0, W.shape[0]), : min(dim1, W.shape[1])
-            ]
+            W_new[:, :c, :h] = W.reshape(k, c_old, W.shape[1])[:, :c, :h]
+            W_new = W_new.reshape(dim0, dim1)
             self.model.set_initializer(self.model.graph.node[self.node_index].input[1], W_new)
 
         if self.op_type in ["VVAU_hls", "VVAU_rtl"]:
@@ -936,6 +947,13 @@ class Optimizer:
         self.params = ParameterSet()
         self.params.parameters = parameters
 
+    @staticmethod
+    def _xnor_mode(inst):
+        """In XNOR mode a zero bit means -1, so a zero-padded input or weight adds to the
+        popcount: such an MVAU's input width (MW) must not be padded."""
+        attrs = inst.get_nodeattr_types()
+        return "binaryXnorMode" in attrs and inst.get_nodeattr("binaryXnorMode") == 1
+
     def _max_padding_for_node(self, node_index):
         """Padding budget for a node, forced to 0 for the model's IO nodes
         unless the user explicitly allows padding them."""
@@ -1030,6 +1048,8 @@ class Optimizer:
         max_value = self.max_folding_factor(inst, op_type, param)
         bound_attr = self.PADDING_BOUND_ATTR.get((op_type, param))
         padding = max_padding if bound_attr is not None else 0
+        if bound_attr == "MW" and self._xnor_mode(inst):
+            padding = 0
 
         possible_values, bounding_values = allowed_divisors(max_value, 1, padding)
         update_weights = op_type in self.OPS_WITH_WEIGHTS
@@ -1120,6 +1140,9 @@ class Optimizer:
         consumer = self.model.graph.node[node_index + 1]
         swg = getCustomOp(swg_node)
         consumer_inst = getCustomOp(consumer)
+        if self._xnor_mode(consumer_inst):
+            # the SWG's channel count is the XNOR MVAU's input width, see _xnor_mode
+            max_padding = 0
 
         if consumer.op_type in ("Pool_rtl", "Pool_hls"):
             metas = self._pair_swg_with_pool(
