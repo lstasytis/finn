@@ -105,6 +105,12 @@ def assemble_tcl(shell_dir, accel_dcp, out_dir, bitfile, part, threads=16, trigg
     t += [
         "read_checkpoint -cell %s %s" % (rp, accel_dcp),
         "stamp read_accel",
+        # the shell's reset reaches each island's first reset register over one long wire (U55C
+        # VGG10 at 200 MHz: 6.2 ns); the reset is held for many cycles and the accelerator only
+        # starts when the host programs it, so that path gets 3 cycles (the register slices are
+        # not ready in reset, so islands leaving reset a cycle apart lose nothing)
+        "set rq [get_cells -quiet %s/island_*/rst_q0_reg]" % rp,
+        "if {[llength $rq]} {set_multicycle_path -setup 3 -end -to $rq; set_multicycle_path -hold 2 -end -to $rq}",
         "set full 1",
     ]
     if trigger is None:

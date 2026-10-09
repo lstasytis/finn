@@ -17,6 +17,11 @@ import math
 
 from finn.util.rwislands.device import capacity, pblock_ranges
 
+# chain placement (allocate_skyline order="chain"): cost per 100 tiles of distance to the previous
+# island (the waste terms are fractions of the region's resources, ~0.01-0.1) and per SLR change
+CHAIN_PULL = 0.3
+SLR_CROSS = 0.3
+
 # LUTs / FFs per slice (UltraScale+)
 LUTS_PER_SLICE = 8
 FFS_PER_SLICE = 16
@@ -292,7 +297,7 @@ def _monotone(levels):
 
 def allocate_skyline(
     dev, needs, rects, step=5, max_width=None, order="chain", pull=0.05, stair=True, min_rows=30, compact=0.02,
-    min_fill=0.6, min_cols=3, anchors=None, anchor_pull=0.5,
+    min_fill=0.6, min_cols=3, anchors=None, anchor_pull=0.5, cross=0.0,
 ):
     """Variable-size islands by skyline packing: every island gets one tile rectangle (any
     width, over the columns whose resource mix suits it) inside one region rectangle, on top of
@@ -310,6 +315,7 @@ def allocate_skyline(
     with the IODMAs, whose wide AXI ports go to the shell) is pulled towards it (anchor_pull per
     100 tiles; MobileNet U55C: the input IODMA's island in SLR2, 8.7 ns from the shell in SLR0,
     was the assembly route's critical path).
+    cross: extra cost when an island is not in the region rectangle (SLR) of its predecessor.
     needs in chain order;
     order "chain" places them in that order, "hard" scarcest-share first. Returns one rectangle
     list per island, or None."""
@@ -398,6 +404,8 @@ def allocate_skyline(
                     cy = (rg["b0"] + ((low if stair else top) + lo) / 2.0) * step
                     if prev is not None and order == "chain":
                         waste += pull * (abs(cx - prev[0]) + abs(cy - prev[1])) / 100.0
+                        if ri != prev[2]:
+                            waste += cross
                     if anchors is not None and anchors[i] is not None:
                         ax, ay = anchors[i]
                         waste += anchor_pull * (abs(cx - ax) + abs(cy - ay)) / 100.0
@@ -421,7 +429,7 @@ def allocate_skyline(
             rr = [(int(xs[a]), int(xs[b]), int((b0 + top) * step), int((b0 + lo) * step - 1))]
         sky[a : b + 1] = lo
         out[i] = rr
-        prev = (cx, cy)
+        prev = (cx, cy, ri)
     return out
 
 
@@ -465,6 +473,10 @@ def floorplan(
         needs = [need(r, util) for r in island_res]
         if alloc == "snake":
             rects = allocate(dev, lanes, needs)
+        elif alloc == "skyline_chain":
+            # chain order, every island pulled next to its predecessor (and into its SLR): the
+            # streams between islands stay short
+            rects = allocate_skyline(dev, needs, rlist, order="chain", pull=CHAIN_PULL, cross=SLR_CROSS, anchors=anchors)
         elif alloc.startswith("skyline"):
             # "skyline" (chain order, then scarcest first) or "skyline_hard" (scarcest first)
             rects = None if alloc == "skyline_hard" else allocate_skyline(dev, needs, rlist, pull=0.0, anchors=anchors)

@@ -19,6 +19,7 @@ pre-implemented shell (finn.util.dynarapid.shell) connects to."""
 
 from finn.util.dynarapid.components import channels
 from finn.util.dynarapid.graph import node_ids, streaming_inputs, streaming_outputs
+from finn.util.rwislands.regslice import regslice_name, regslice_stub
 
 TOP_MODULE = "finn_accel_core"
 
@@ -88,6 +89,27 @@ def island_ports(g, members):
     return ins, outs
 
 
+def island_regslice_widths(g, members):
+    """Widths of the register slices of an island (one per stream to or from another island)."""
+    mem = set(members)
+    ws = []
+    for n in members:
+        for i, (_, w) in enumerate(g[n]["ins"]):
+            src = g[n]["src"].get(i)
+            if src is not None and src[0] not in mem:
+                ws.append(w)
+        for j, (_, w) in enumerate(g[n]["outs"]):
+            dst = g[n]["dst"].get(j)
+            if dst is not None and dst[0] not in mem:
+                ws.append(w)
+    return ws
+
+
+def stream_widths(g):
+    """Widths of all node-to-node streams (candidates for island boundaries)."""
+    return sorted({w for n in g for j, (_, w) in enumerate(g[n]["outs"]) if g[n]["dst"].get(j) is not None})
+
+
 def boundary_ports(g, members):
     """Ports of an island that connect to the accelerator boundary (the shell): the channels
     without a producer / consumer in the graph (IODMA memory-mapped and control interfaces) and
@@ -114,8 +136,9 @@ def _port_decl(g, ins, outs):
     return decl
 
 
-def island_verilog(name, g, members, dcps):
-    """Island module (plus black-box stubs of its components)."""
+def island_verilog(name, g, members, dcps, regslices=True):
+    """Island module (plus black-box stubs of its components). regslices: register slices at
+    both ends of the streams to / from other islands (rwislands.regslice)."""
     mem = set(members)
     ins, outs = island_ports(g, members)
     body = []
@@ -141,14 +164,29 @@ def island_verilog(name, g, members, dcps):
         "    FDRE #(.INIT(1'b0)) rst_q0_reg (.C(clk), .CE(1'b1), .R(1'b0), .D(rst), .Q(rst_q0));",
         "    FDRE #(.INIT(1'b0)) rst_q1_reg (.C(clk), .CE(1'b1), .R(1'b0), .D(rst_q0), .Q(rst_q1));",
     ]
+    slices = []
+
+    def regslice(inst, w, s_sig, m_sig):
+        """s_sig / m_sig: (data, valid, ready) on the slice's input / output side"""
+        slices.append(w)
+        return "    %s %s (\n%s\n    );" % (regslice_name(w), inst, ",\n".join(
+            "        .%s(%s)" % (p, x) for p, x in zip(
+                ("clk", "rst", "s_data", "s_valid", "s_ready", "m_data", "m_valid", "m_ready"),
+                ("clk", "rst_q1") + tuple(s_sig) + tuple(m_sig))))
+
     for n in members:
         nid = g[n]["id"]
         conns = ["        .clk(clk)", "        .rst(rst_q1)"]
-        for i in range(len(g[n]["ins"])):
+        for i, (_, w) in enumerate(g[n]["ins"]):
             src = g[n]["src"].get(i)
             if src is not None and src[0] in mem:
                 pid, pj = g[src[0]]["id"], src[1]
                 d, v, r = "w_%s_%d_data" % (pid, pj), "w_%s_%d_valid" % (pid, pj), "w_%s_%d_ready" % (pid, pj)
+            elif src is not None and regslices:
+                # stream from another island: island port -> register slice -> node
+                d, v, r = "ri_%s_%d_data" % (nid, i), "ri_%s_%d_valid" % (nid, i), "ri_%s_%d_ready" % (nid, i)
+                body += ["    wire %s%s;" % (_bus(w), d), "    wire %s;" % v, "    wire %s;" % r]
+                body.append(regslice("rs_in_%s_%d" % (nid, i), w, _in_names(nid, i), (d, v, r)))
             else:
                 d, v, r = _in_names(nid, i)
             conns += [
@@ -156,10 +194,15 @@ def island_verilog(name, g, members, dcps):
                 "        .pValidArray_%d(%s)" % (i, v),
                 "        .readyArray_%d(%s)" % (i, r),
             ]
-        for j in range(len(g[n]["outs"])):
+        for j, (_, w) in enumerate(g[n]["outs"]):
             dst = g[n]["dst"].get(j)
             if dst is not None and dst[0] in mem:
                 d, v, r = "w_%s_%d_data" % (nid, j), "w_%s_%d_valid" % (nid, j), "w_%s_%d_ready" % (nid, j)
+            elif dst is not None and regslices:
+                # stream to another island: node -> register slice -> island port
+                d, v, r = "ro_%s_%d_data" % (nid, j), "ro_%s_%d_valid" % (nid, j), "ro_%s_%d_ready" % (nid, j)
+                body += ["    wire %s%s;" % (_bus(w), d), "    wire %s;" % v, "    wire %s;" % r]
+                body.append(regslice("rs_out_%s_%d" % (nid, j), w, (d, v, r), _out_names(nid, j)))
             else:
                 d, v, r = _out_names(nid, j)
             conns += [
@@ -172,6 +215,8 @@ def island_verilog(name, g, members, dcps):
     for dcp in sorted({dcps[n] for n in members}):
         n0 = next(n for n in members if dcps[n] == dcp)
         txt += component_stub(dcp, g[n0])
+    for w in sorted(set(slices)):
+        txt += regslice_stub(w)
     txt += "module %s (\n%s\n);\n%s\nendmodule\n" % (
         name,
         ",\n".join(_port_decl(g, ins, outs)),

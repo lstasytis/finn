@@ -47,9 +47,12 @@ from finn.util.rwislands.netlist import (
     TOP_MODULE,
     boundary_ports,
     channel_graph,
+    island_regslice_widths,
     island_verilog,
+    stream_widths,
     top_verilog,
 )
+from finn.util.rwislands.regslice import regslice_name, regslice_res, regslice_synth_tcl
 from finn.util.rwislands.profiles import profile, synth_args
 
 # island region of the Vivado-only Alveo shell (dynarapid.shell.ALVEO_SHELL; the shell takes
@@ -226,8 +229,19 @@ def synthesize(accel, dcps, work, part, clk_ns, cpus, slots):
             lines += ["close_design", "remove_files -quiet [get_files -quiet]"]
         run(lines, "session_" + items[0][0], items)
 
-    with ThreadPoolExecutor(max_workers=max(1, min(slots, len(single) + len(sessions)))) as ex:
-        futs = [ex.submit(single_job, it) for it in single] + [ex.submit(sess_job, s) for s in sessions]
+    # register slices for the island boundaries: every stream width may end up crossing islands
+    # (the islands are cut after synthesis); a few widths per session
+    widths = [w for w in stream_widths(channel_graph(accel))
+              if not os.path.isfile(os.path.join(synth_dir, regslice_name(w) + "_synth.dcp"))]
+    rs_groups = [widths[k::max(1, (len(widths) + 3) // 4)] for k in range(max(1, (len(widths) + 3) // 4))] if widths else []
+
+    def rs_job(ws):
+        _, txt = regslice_synth_tcl(ws, work, synth_dir, part, synth_args(part))
+        run(txt.splitlines(), "regslices_%d" % ws[0], [(regslice_name(w), None) for w in ws])
+
+    with ThreadPoolExecutor(max_workers=max(1, min(slots, len(single) + len(sessions) + len(rs_groups)))) as ex:
+        futs = [ex.submit(rs_job, ws) for ws in rs_groups]
+        futs += [ex.submit(single_job, it) for it in single] + [ex.submit(sess_job, s) for s in sessions]
         for f in futs:
             f.result()
     return res
@@ -343,7 +357,9 @@ def merge_small(segs, costs, min_frac=0.15):
     return segs
 
 
-def plan_islands(names, node_res, dev, region, first, slots, islands, res, packing="snake", anchor=None, boundary=None):
+def plan_islands(
+    names, node_res, dev, region, first, slots, islands, res, packing="snake", anchor=None, boundary=None, g=None
+):
     """Cut the node chain (names, in topological order; node_res: synthesized resources per
     node) into islands and floorplan them in the region (list of tile rectangles) plus, for the
     snake, the extra rectangles first. Tries island counts and utilizations (see
@@ -369,6 +385,11 @@ def plan_islands(names, node_res, dev, region, first, slots, islands, res, packi
             for n in mem:
                 for kk, v in node_res[n].items():
                     tot[kk] = tot.get(kk, 0) + v
+            if g is not None:
+                # the island's register slices (streams to / from other islands)
+                for w in island_regslice_widths(g, mem):
+                    for kk, v in regslice_res(w).items():
+                        tot[kk] = tot.get(kk, 0) + v
             res_k.append(tot)
         return isl_k, res_k
 
@@ -390,7 +411,7 @@ def plan_islands(names, node_res, dev, region, first, slots, islands, res, packi
         kc = sorted({min(kmax, max(1, int(round(k0 * f)))) for f in (1, 1.5, 2, 3)} | ({20, 28, 40} if kmax >= 20 else set()))
         kc = [k for k in kc if k <= kmax]
 
-        def fewest(u, reg):
+        def fewest(u, reg, alloc):
             # per count: first the fewest islands reaching the minimal largest island (a dominant
             # node bounds the largest island anyway; more islands would only add tiny ones, each
             # a Vivado run and stitching work), then exactly k (smaller islands pack better)
@@ -398,32 +419,40 @@ def plan_islands(names, node_res, dev, region, first, slots, islands, res, packi
                 for exact in (False, True):
                     isl_k, res_k = islands_of(k, exact=exact)
                     try:
-                        floorplan(dev, res_k, reg, allocators=("skyline_hard",), utils=(u,), anchors=anchors_of(isl_k))
+                        floorplan(dev, res_k, reg, allocators=(alloc,), utils=(u,), anchors=anchors_of(isl_k))
                         return k, exact
                     except RuntimeError:
-                        tried.append((u, k, exact, "skyline", len(reg)))
+                        tried.append((u, k, exact, alloc, len(reg)))
             return None
 
         # the main region first; then with the extra rectangles (e.g. the fabric above the PS,
         # whose nets to the main region cross the shell: the stitcher leaves them to the
         # assembly's router), for designs that need its resources (CNV-w1a1 PE=SIMD=1: 222 BRAM36)
+        # chain order first: every island next to its predecessor, so that the streams between
+        # islands stay short (VGG10 8x scarcest-first: consecutive islands two SLRs apart, the
+        # assembly router started at WNS -1.1 ns and ripped up for 380 s); scarcest first only
+        # if the chain does not fit anywhere
         levels = (0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85)
-        for reg in [region] + ([region + list(first)] if first else []):
-            for li, u in enumerate(levels):
-                found = fewest(u, reg)
-                if found is None:
-                    continue
-                k, exact = found
-                # the next level if it needs at most half the islands (the stitching cost grows
-                # with the island count: 82 islands took 555 s to stitch)
-                if li + 1 < len(levels):
-                    f2 = fewest(levels[li + 1], reg)
-                    if f2 is not None and len(islands_of(*f2)[0]) * 2 <= len(islands_of(k, exact)[0]):
-                        u, (k, exact) = levels[li + 1], f2
-                isl, isl_res = islands_of(k, exact=exact)
-                # chain order if it fits at this level (else floorplan falls back to scarcest first)
-                plan = floorplan(dev, isl_res, reg, allocators=("skyline",), utils=(u,), anchors=anchors_of(isl))
-                break
+        for alloc in ("skyline_chain", "skyline_hard"):
+            for reg in [region] + ([region + list(first)] if first else []):
+                for li, u in enumerate(levels):
+                    found = fewest(u, reg, alloc)
+                    if found is None:
+                        continue
+                    k, exact = found
+                    # the next level if it needs at most half the islands (the stitching cost
+                    # grows with the island count: 82 islands took 555 s to stitch)
+                    if li + 1 < len(levels):
+                        f2 = fewest(levels[li + 1], reg, alloc)
+                        if f2 is not None and len(islands_of(*f2)[0]) * 2 <= len(islands_of(k, exact)[0]):
+                            u, (k, exact) = levels[li + 1], f2
+                    isl, isl_res = islands_of(k, exact=exact)
+                    plan = floorplan(dev, isl_res, reg, allocators=(alloc if alloc == "skyline_chain" else "skyline",),
+                                     utils=(u,), anchors=anchors_of(isl))
+                    res["placement_order"] = alloc
+                    break
+                if plan is not None:
+                    break
             if plan is not None:
                 break
         res["skyline"] = {"candidates": kc}
@@ -512,7 +541,7 @@ def islands_and_stitch(
     # to the shell
     boundary = {n for n in names if len(boundary_ports(g, [n])) > 1}
     isl, ranges = plan_islands(
-        names, node_res, dev, region, first, slots, islands, res, packing, anchor=anchor, boundary=boundary
+        names, node_res, dev, region, first, slots, islands, res, packing, anchor=anchor, boundary=boundary, g=g
     )
     stamp("floorplan")
 
@@ -529,6 +558,7 @@ def islands_and_stitch(
         with open(v, "w") as f:
             f.write(island_verilog(name, g, mem, dcps))
         files = [os.path.join(synth_dir, dc + "_synth.dcp") for dc in sorted({dcps[n] for n in mem})]
+        files += [os.path.join(synth_dir, regslice_name(w) + "_synth.dcp") for w in sorted(set(island_regslice_widths(g, mem)))]
         r0 = res["islands"][name]["rects"][0]
         cr = next(s.cr for s in dev.sites_in(*r0) if s.type.startswith("SLICE"))
         tcl = os.path.join(d, "island.tcl")
@@ -747,6 +777,7 @@ def rw_islands_zynq_build(
     res["assembly_stamps"] = {
         kk: float(vv) for kk, vv in re.findall(r"^STAMP (\w+) ([\d.]+)", open(log).read(), re.M)
     }
+    res["assembly_route"] = route_log_summary(log)
     res.update(_reports(asm_dir))
     res["timing_rpt"] = os.path.join(asm_dir, "timing_summary.rpt")
     res["utilization_xml"] = os.path.join(asm_dir, "synth_report.xml")
@@ -790,6 +821,36 @@ def island_region(part, dev):
         ys = [st.y for st in dev.sites if st.x < sx0]
         first = [(0, sx0 - 1, min(ys) - min(ys) % 5, dev.ymax)]
     return region, first
+
+
+def route_log_summary(log):
+    """What the assembly's route_design had to do: nets failing and node overlaps when it starts,
+    the slack it starts from, the rip-up and reroute phase (s), global iterations."""
+    if not os.path.isfile(log):
+        return {}
+    txt = open(log, errors="ignore").read()
+    i = txt.find("Command: route_design")
+    if i < 0:
+        return {}
+    r = txt[i:]
+    out = {}
+    m = re.search(r"Number of Failed Nets\s+=\s+(\d+).*?Number of Node Overlaps\s+=\s+(\d+)", r, re.S)
+    if m:
+        out["failed_nets_at_start"], out["overlaps_at_start"] = int(m.group(1)), int(m.group(2))
+    m = re.search(r"Intermediate Timing Summary \| WNS=\s*([-\d.]+)", r)
+    if m:
+        out["wns_at_start"] = float(m.group(1))
+
+    def el(t):
+        h, mm, x = t.split(":")
+        return int(h) * 3600 + int(mm) * 60 + float(x)
+
+    a = re.search(r"^Phase \d+ Initial Routing \| Checksum.*?elapsed = ([\d:.]+)", r, re.M | re.S)
+    b = re.search(r"^Phase \d+ Rip-up And Reroute \| Checksum.*?elapsed = ([\d:.]+)", r, re.M | re.S)
+    if a and b:
+        out["ripup_s"] = round(el(b.group(1)) - el(a.group(1)), 1)
+    out["ripup_global_iterations"] = len(re.findall(r"Global Iteration \d+$", r[: r.find("route_design: Time") + 1], re.M))
+    return out
 
 
 def _island_reports(d):
