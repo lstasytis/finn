@@ -250,7 +250,7 @@ def synthesize(accel, dcps, work, part, clk_ns, cpus, slots):
 
 def island_tcl(
     name, island_v, dcp_files, part, clk_ns, ranges, cr, threads, out_dir, contain=True, boundary=(), clock=None,
-    alt=False,
+    alt=False, prohibit=(),
 ):
     """Out-of-context place and route of one island in its pblock (ranges). boundary: ports that
     connect to the shell; they get partition pins on the island's slices, so that their nets are
@@ -259,9 +259,8 @@ def island_tcl(
     its driver: VGG10, 4 IODMA AXI-Lite nets the assembly router could not get out)."""
     steps = dict(profile(part))
     if alt:
-        # second (hedged) attempt: directives for local congestion, where the router of the first
-        # attempt can get stuck on a few overlaps (MobileNet 0.25x U55C: a FIFO + sliding window
-        # island at 12 overlaps from minute 3 to 24)
+        # directives for local congestion (not used by the flow: on the island below they stayed
+        # stuck as well, at 18 overlaps)
         steps.update(place="place_design -directive AltSpreadLogic_high",
                      route="route_design -directive AlternateCLBRouting")
     t = [
@@ -301,6 +300,10 @@ def island_tcl(
         "resize_pblock pb -add {%s}" % " ".join(ranges),
         "add_cells_to_pblock pb -top",
     ]
+    if prohibit:
+        # routing margin: the pblock includes these sites (contained routing may use them), no
+        # placement on them
+        t.append("set_property PROHIBIT 1 [get_sites {%s}]" % " ".join(prohibit))
     if contain:
         t.append("set_property CONTAIN_ROUTING 1 [get_pblocks pb]")
     if boundary:
@@ -409,6 +412,21 @@ def island_time_limit(cost):
     if env:
         return float(env)
     return 3 * (150 + 0.0036 * cost) + 900
+
+
+def routing_margin(dev, rects, region, cols=2, rows=10):
+    """(pblock ranges, prohibited sites) of an island's rectangles grown by a routing margin,
+    clipped to the island region (never into the shell): the margin's sites are in the pblock
+    (contained routing may use them) but prohibited for placement."""
+    inner = {st.name for r in rects for st in dev.sites_in(*r)}
+    outer = {}
+    for x0, x1, y0, y1 in rects:
+        for rx0, rx1, ry0, ry1 in region:
+            a, b, c, d = max(x0 - cols, rx0), min(x1 + cols, rx1), max(y0 - rows, ry0), min(y1 + rows, ry1)
+            if a <= b and c <= d:
+                for st in dev.sites_in(a, b, c, d):
+                    outer[st.name] = st
+    return pblock_ranges(list(outer.values())), sorted(n for n in outer if n not in inner)
 
 
 def island_hedge_after(cost):
@@ -628,14 +646,17 @@ def islands_and_stitch(
         files += [os.path.join(synth_dir, regslice_name(w) + "_synth.dcp") for w in sorted(set(island_regslice_widths(g, mem)))]
         r0 = res["islands"][name]["rects"][0]
         cr = next(s.cr for s in dev.sites_in(*r0) if s.type.startswith("SLICE"))
-        def write_tcl(out_dir, alt):
+        def write_tcl(out_dir, margin):
             os.makedirs(out_dir, exist_ok=True)
             tcl = os.path.join(out_dir, "island.tcl")
+            rr, prohibit = ranges[list(isl).index(name)], ()
+            if margin:
+                rr, prohibit = routing_margin(dev, res["islands"][name]["rects"], region + list(first))
             with open(tcl, "w") as f:
                 f.write(
                     island_tcl(
-                        name, v, files, part, clk_ns, ranges[list(isl).index(name)], cr, threads, out_dir,
-                        boundary=boundary_ports(g, mem), alt=alt,
+                        name, v, files, part, clk_ns, rr, cr, threads, out_dir,
+                        boundary=boundary_ports(g, mem), prohibit=prohibit,
                     )
                 )
             return tcl
@@ -657,9 +678,13 @@ def islands_and_stitch(
             )
             return info
 
-        # attempt 1; once it runs well past its expected time, a second attempt with directives for
-        # local congestion runs alongside in the same pblock (own directory); the first one that
-        # passes its checks is taken, the other killed
+        # attempt 1; once it runs well past its expected time (or fails), a second attempt runs
+        # alongside (own directory) whose contained routing may also use a margin around the
+        # island (no placement there): MobileNet 0.25x U55C, a FIFO + sliding-window island in a flat
+        # 59-column x 35-row region stayed at 12 overlaps under CONTAIN_ROUTING (24 min, and 18
+        # with congestion directives) and routed in 52 s with a 10-row / 2-column margin. A margin
+        # may overlap a neighbour's routing; the stitcher reports such conflicts and the assembly's
+        # route_design resolves them. The first attempt that passes its checks is taken
         limit = island_time_limit(res["islands"][name]["cost"])
         hedge = island_hedge_after(res["islands"][name]["cost"])
         h1, h2, out = {}, {}, {}
