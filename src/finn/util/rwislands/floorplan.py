@@ -297,7 +297,7 @@ def _monotone(levels):
 
 def allocate_skyline(
     dev, needs, rects, step=5, max_width=None, order="chain", pull=0.05, stair=True, min_rows=30, compact=0.02,
-    min_fill=0.6, min_cols=3, anchors=None, anchor_pull=0.5, cross=0.0,
+    min_fill=0.6, min_cols=3, anchors=None, anchor_pull=0.5, cross=0.0, max_aspect=12,
 ):
     """Variable-size islands by skyline packing: every island gets one tile rectangle (any
     width, over the columns whose resource mix suits it) inside one region rectangle, on top of
@@ -395,6 +395,10 @@ def allocate_skyline(
                             if sky[c] < top:
                                 hole += pc[:, c + 1, top] - pc[:, c, top] - pc[:, c + 1, sky[c]] + pc[:, c, sky[c]]
                     waste = float(np.sum((got - req + hole) * w))
+                    # no tall slivers: at most max_aspect rows per tile column (MobileNet 2x: a
+                    # 36k-LUT node in 4 columns x 240 rows routed 4.6 h and failed)
+                    if (lo - (low if stair else top)) * step > max_aspect * (b - a + 1):
+                        continue
                     if stair:
                         fill = float(np.sum(lo - sky[a : b + 1])) / ((b - a + 1) * (lo - low))
                         if fill < min_fill:
