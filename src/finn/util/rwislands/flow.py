@@ -40,7 +40,7 @@ from finn.util.dynarapid.graph import mm_ports
 from finn.util.dynarapid.shell import PS_BOUNDARY_INT_X, build_shell
 from finn.util.dynarapid.tools import java_bin, run_vivado, usable_cpus, vivado_slots
 from finn.util.dynarapid.zynq import _reports, merge_partitions
-from finn.util.rwislands.assembly import assemble_tcl
+from finn.util.rwislands.assembly import assemble_tcl, final_tcl
 from finn.util.rwislands.device import load_device, pblock_ranges
 from finn.util.rwislands.floorplan import floorplan, island_cost, partition
 from finn.util.rwislands.netlist import (
@@ -247,7 +247,9 @@ def synthesize(accel, dcps, work, part, clk_ns, cpus, slots):
     return res
 
 
-def island_tcl(name, island_v, dcp_files, part, clk_ns, ranges, cr, threads, out_dir, contain=True, boundary=()):
+def island_tcl(
+    name, island_v, dcp_files, part, clk_ns, ranges, cr, threads, out_dir, contain=True, boundary=(), clock=None
+):
     """Out-of-context place and route of one island in its pblock (ranges). boundary: ports that
     connect to the shell; they get partition pins on the island's slices, so that their nets are
     routed from the driver / to the load up to the island's edge (an out-of-context port without
@@ -265,12 +267,28 @@ def island_tcl(name, island_v, dcp_files, part, clk_ns, ranges, cr, threads, out
         _LINK % (name, part),
         "stamp link",
         "create_clock -period %.3f -name clk [get_ports clk]" % clk_ns,
+    ]
+    if clock:
+        # the shell's kernel clock buffer and clock root: the island is timed (and its hold
+        # fixed) with the insertion delays of the real clock tree, whose distribution delay
+        # differs by ~0.5 ns between neighbouring clock-region rows on the U55C. With a stand-in
+        # buffer in the island's own region the clock is a small local tree, and paths across a
+        # region boundary missed hold by up to 0.33 ns once the real tree was attached (U55C
+        # VGG10 8x, 2026-10-09). The clock routing is discarded when the island is stitched.
+        t += [
+            "set_property HD.CLK_SRC %s [get_ports clk]" % clock[0],
+            'if {[catch {set_property USER_CLOCK_ROOT %s [get_nets -of [get_ports clk]]} e]} {puts "INFO: no clock root: $e"}'
+            % clock[1],
+        ]
+    else:
         # clock source of the out-of-context run (the clock routing is discarded when the
         # island is stitched; Vivado routes the real clock tree at assembly)
-        "set bufg [lindex [get_sites -quiet -filter {SITE_TYPE == BUFGCE && CLOCK_REGION == %s}] 0]"
-        % cr,
-        'if {$bufg == ""} {set bufg [lindex [get_sites -filter {SITE_TYPE == BUFGCE}] 0]}',
-        "set_property HD.CLK_SRC $bufg [get_ports clk]",
+        t += [
+            "set bufg [lindex [get_sites -quiet -filter {SITE_TYPE == BUFGCE && CLOCK_REGION == %s}] 0]" % cr,
+            'if {$bufg == ""} {set bufg [lindex [get_sites -filter {SITE_TYPE == BUFGCE}] 0]}',
+            "set_property HD.CLK_SRC $bufg [get_ports clk]",
+        ]
+    t += [
         "create_pblock pb",
         "resize_pblock pb -add {%s}" % " ".join(ranges),
         "add_cells_to_pblock pb -top",
@@ -527,13 +545,17 @@ def islands_and_stitch(
     packing="snake",
     stitch_region=None,
     anchor=None,
+    shell_rw=None,
 ):
     """Islands, floorplan (region + first lanes), island P&R in parallel with the top synthesis,
     RapidWright stitching. Fills res; returns (failure status or None, stitched accelerator dcp).
     packing "snake": consecutive islands in lanes; "skyline": variable-size staircase islands
     packed by resource mix (floorplan.allocate_skyline), searched over the utilization and the
     island count. stitch_region: site ranges the inter-island routes must stay in (the island
-    region; the stitched design does not know the shell's routing)."""
+    region; the stitched design does not know the shell's routing). shell_rw: (shell dcp, its
+    EDIF, accelerator cell): the stitcher inserts the accelerator into the shell and routes the
+    complete design (final route in RapidWright, see IslandStitcher); the returned checkpoint is
+    then the whole design."""
     names = [n.name for n in accel.graph.node]
     node_res = {n: synth[dcps[n]]["util"] for n in names}
     # 2. islands and floorplan
@@ -613,10 +635,10 @@ def islands_and_stitch(
     # 4. stitch with RapidWright
     st_dir = os.path.join(work, "stitch")
     os.makedirs(st_dir, exist_ok=True)
-    accel_dcp = os.path.join(st_dir, "accel_routed.dcp")
+    accel_dcp = os.path.join(st_dir, "full_routed.dcp" if shell_rw else "accel_routed.dcp")
     cmd = [
         java_bin(),
-        "-Xmx32G",
+        "-Xmx%dG" % (128 if shell_rw else 32),
         "-cp",
         stitcher_classpath(),
         "IslandStitcher",
@@ -628,6 +650,8 @@ def islands_and_stitch(
     ]
     if stitch_region:
         cmd.append("--region=" + stitch_region)
+    if shell_rw:
+        cmd += ["--shell=%s,%s" % shell_rw[:2], "--shellcell=" + shell_rw[2]]
     cmd += ["%s=%s,%s" % (n, i["dcp"], i["dcp"].replace(".dcp", ".edf")) for n, i in infos.items()]
     t0 = time.time()
     log = os.path.join(st_dir, "stitch.log")
@@ -650,6 +674,92 @@ def islands_and_stitch(
         return "stitch_failed", None
 
     return None, accel_dcp
+
+
+def shell_for_rapidwright(shell_dir, part, dev, rects):
+    """The implemented shell prepared for the final route in RapidWright (once per shell, cached
+    in <shell>/rw): a checkpoint and its netlist as EDIF (write_edif; encrypted IP such as the
+    XDMA comes as .edn files, which RapidWright takes from the EDIF's directory, so that
+    directory holds nothing else). Two additions to the shell's routing:
+
+    * clock spine: the kernel clock is routed by Vivado into every clock region of the island
+      region (rects), to one temporary flip-flop per region, which is removed again; its routing
+      (root, vertical and horizontal distribution) stays. RapidWright then only adds the leaf
+      routes from the regions' distribution lines to the islands' loads. Without the spine
+      RapidWright extends the tree into new regions itself, without Vivado's skew balancing:
+      0.5 ns skew between neighbouring flip-flops across a region boundary, hold missed by up to
+      0.33 ns at 5.5k endpoints (U55C VGG10 8x, 2026-10-09)
+    * static nets: the shell leaves a few VCC/GND pins unrouted (clock-converter and MMCM
+      tie-offs, routed by the assembly's route_design so far); route_design -physical_nets.
+    Returns (dcp, edf, status, seconds)."""
+    d = os.path.join(shell_dir, "rw")
+    rp = open(os.path.join(shell_dir, "rp_cell.txt")).read().strip()
+    src = os.path.join(shell_dir, "shell_routed.dcp")
+    dcp = os.path.join(d, "shell_routed.dcp")
+    edf = os.path.join(d, "shell_routed.edf")
+    done = os.path.join(d, "done")
+    if os.path.isfile(done) and os.path.getmtime(done) >= os.path.getmtime(src):
+        return dcp, edf, "cached", 0.0
+    shutil.rmtree(d, ignore_errors=True)
+    os.makedirs(d)
+    crs = {}
+    for r in rects:
+        for st in dev.sites_in(*r):
+            if st.type.startswith("SLICE"):
+                crs.setdefault(st.cr, []).append(st)
+    sites = [sorted(v, key=lambda st: (st.sx, st.sy))[len(v) // 2].name for _, v in sorted(crs.items())]
+    t = [
+        "open_checkpoint %s" % src,
+        "set kbuf [get_cells -hier -filter {REF_NAME =~ BUFG* && NAME =~ *clk_kernel*}]",
+        "set clk [get_nets -of [get_pins -of $kbuf -filter {DIRECTION == OUT}]]",
+        "set_property IS_ROUTE_FIXED 0 $clk",
+        "set cells {}",
+    ]
+    for k, site in enumerate(sites):
+        t += [
+            "create_cell -reference FDRE rwi_spine_%d" % k,
+            "connect_net -net $clk -objects [get_pins rwi_spine_%d/C]" % k,
+            "place_cell rwi_spine_%d %s/AFF" % (k, site),
+            "lappend cells rwi_spine_%d" % k,
+        ]
+    t += [
+        # (route_design reports the black box's driverless boundary nets as errors)
+        "catch {route_design -nets $clk}",
+        "remove_cell $cells",
+        'puts "SPINE [llength $cells] regions, [llength [get_nodes -of $clk -filter {INTENT_CODE_NAME == NODE_GLOBAL_HDISTR}]] HDISTR nodes"',
+        "set_property IS_ROUTE_FIXED 1 $clk",
+        "set static [get_nets -hier -quiet -filter {TYPE == POWER || TYPE == GROUND}]",
+        "set_property IS_ROUTE_FIXED 0 $static",
+        "catch {route_design -physical_nets}",
+        "report_route_status -file %s/route_status.rpt" % d,
+        # the kernel clock's buffer site and root, for the islands' out-of-context runs
+        "set f [open %s w]" % os.path.join(shell_dir, "rw_clock.txt"),
+        "puts $f \"[get_property LOC $kbuf] [get_property CLOCK_ROOT $clk]\"",
+        "close $f",
+        # the shell/accelerator boundary as Vivado sees it: per black-box pin the shell's leaf
+        # pins and their site pins. Most boundary nets are driven or loaded inside encrypted IP
+        # (SmartConnect, AXI interconnect), through which RapidWright cannot follow the netlist
+        "set f [open %s w]" % os.path.join(shell_dir, "rw_boundary.txt"),
+        "foreach p [get_pins %s/*] {" % rp,
+        "  set n [get_nets -quiet -of $p]",
+        "  if {$n == {} || [get_property TYPE $n] != {SIGNAL}} continue",
+        "  foreach lp [get_pins -quiet -leaf -of $n] {",
+        "    set sp [get_site_pins -quiet -of $lp]",
+        "    if {[llength $sp] == 1} {puts $f \"[get_property REF_PIN_NAME $p] [get_property DIRECTION $lp] $sp\"}",
+        "  }",
+        "}",
+        "close $f",
+        "write_checkpoint -force %s" % dcp,
+        "write_edif -force %s" % edf,
+    ]
+    tcl = os.path.join(shell_dir, "shell_rw.tcl")
+    with open(tcl, "w") as f:
+        f.write("\n".join(t) + "\n")
+    rc, sec = run_vivado(tcl, os.path.join(shell_dir, "shell_rw.log"), shell_dir)
+    if rc != 0 or not os.path.isfile(edf) or not os.path.isfile(dcp):
+        return dcp, edf, "failed", sec
+    open(done, "w").close()
+    return dcp, edf, "built", sec
 
 
 def rw_islands_zynq_build(
@@ -689,19 +799,28 @@ def rw_islands_zynq_build(
     dcps = {n.name: component_name(accel, n, part, clk_ns) for n in accel.graph.node}
     dev = load_device(part)
 
-    # 1. shell (cached) and node synthesis, concurrently
-    with ThreadPoolExecutor(max_workers=2) as ex:
-        f_shell = ex.submit(
-            build_shell,
-            board,
-            part,
-            clk_ns,
-            ports,
-            shell_lib,
-            max(1, min(8, cpus // 4)),
-            SHELL_X0.get(part, 0),
+    # final route: Vivado's route_design after read_checkpoint -cell (default), or, experimental
+    # (FINN_RWI_FINAL=rapidwright), RapidWright routes the complete design and Vivado only loads
+    # it and writes the bitstream. Not working yet (U55C VGG10 8x, 2026-10-09): hold missed by
+    # 0.33 ns (the islands are timed out of context without the real clock tree's ~0.5 ns step
+    # between clock-region rows), ~200 shell/accelerator boundary nets through encrypted shell
+    # IP still unrouted, clock-leaf DRCs on shell BRAMs; see NOTES_ISLANDS.md
+    final = os.environ.get("FINN_RWI_FINAL", "vivado")
+    res["final_route"] = final
+
+    def shell_job():
+        d, r = build_shell(
+            board, part, clk_ns, ports, shell_lib, max(1, min(8, cpus // 4)), SHELL_X0.get(part, 0),
             ISLAND_SHELL_STRIP_COLS,
         )
+        if final == "rapidwright" and r["status"] in ("built", "cached"):
+            rg, fs = island_region(part, dev)
+            r["rw"] = dict(zip(("dcp", "edf", "status", "s"), shell_for_rapidwright(d, part, dev, rg + fs)))
+        return d, r
+
+    # 1. shell (cached) and node synthesis, concurrently
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        f_shell = ex.submit(shell_job)
         synth = synthesize(accel, dcps, work, part, clk_ns, cpus, slots)
         stamp("synth")
         shell_dir, shell_res = f_shell.result()
@@ -715,35 +834,45 @@ def rw_islands_zynq_build(
     if shell_res["status"] not in ("built", "cached"):
         res["status"] = "shell_failed"
         return _done(res, stamps, out_dir, t_total)
+    rp = open(os.path.join(shell_dir, "rp_cell.txt")).read().strip()
+    shell_rw = None
+    if final == "rapidwright":
+        if shell_res["rw"]["status"] == "failed":
+            res["status"] = "shell_failed"
+            return _done(res, stamps, out_dir, t_total)
+        shell_rw = (shell_res["rw"]["dcp"], shell_res["rw"]["edf"], rp)
 
-    # the assembly Vivado opens the shell now and waits for the stitched accelerator
     asm_dir = os.path.join(out_dir, "assembly")
     os.makedirs(asm_dir, exist_ok=True)
     bitfile = os.path.join(out_dir, "resizer.bit")
-    accel_dcp = os.path.join(work, "stitch", "accel_routed.dcp")
+    accel_dcp = os.path.join(work, "stitch", "full_routed.dcp" if shell_rw else "accel_routed.dcp")
     trigger = os.path.join(asm_dir, "accel_ready")
     if os.path.exists(trigger):
         os.remove(trigger)
     asm_tcl = os.path.join(asm_dir, "assemble.tcl")
-    # the full route_design by default: once the shell and the islands do not overlap, it only
-    # routes the boundary/clock/static nets, at a fixed cost (VGG10: RT build + timing init ~80 s,
-    # hold fixing ~70 s); the interactive router (incremental) saves little on top and fails on
-    # single nets it cannot finish (VGG10: after 170 s)
-    incremental = os.environ.get("FINN_RWI_ASM_ROUTE", "full") == "incremental"
-    with open(asm_tcl, "w") as f:
-        f.write(
-            assemble_tcl(
-                shell_dir, accel_dcp, asm_dir, bitfile, part, threads=min(16, cpus), trigger=trigger,
-                incremental=incremental,
+    f_asm = None
+    if not shell_rw:
+        # the assembly Vivado opens the shell now and waits for the stitched accelerator.
+        # The full route_design by default: once the shell and the islands do not overlap, it
+        # only routes the boundary/clock/static nets, at a fixed cost (VGG10: RT build + timing
+        # init ~80 s, hold fixing ~70 s); the interactive router (incremental) saves little on
+        # top and fails on single nets it cannot finish (VGG10: after 170 s)
+        incremental = os.environ.get("FINN_RWI_ASM_ROUTE", "full") == "incremental"
+        with open(asm_tcl, "w") as f:
+            f.write(
+                assemble_tcl(
+                    shell_dir, accel_dcp, asm_dir, bitfile, part, threads=min(16, cpus), trigger=trigger,
+                    incremental=incremental,
+                )
             )
-        )
-    asm_pool = ThreadPoolExecutor(max_workers=1)
-    f_asm = asm_pool.submit(run_vivado, asm_tcl, os.path.join(asm_dir, "assemble.log"), asm_dir)
+        asm_pool = ThreadPoolExecutor(max_workers=1)
+        f_asm = asm_pool.submit(run_vivado, asm_tcl, os.path.join(asm_dir, "assemble.log"), asm_dir)
 
     def abort(status, **kw):
-        with open(trigger, "w") as f:
-            f.write("abort")
-        f_asm.result()
+        if f_asm is not None:
+            with open(trigger, "w") as f:
+                f.write("abort")
+            f_asm.result()
         res.update(status=status, **kw)
         return _done(res, stamps, out_dir, t_total)
 
@@ -760,24 +889,36 @@ def rw_islands_zynq_build(
     fail, accel_dcp2 = islands_and_stitch(
         accel, g, dcps, synth, dev, part, clk_ns, work, cpus, slots, islands, region, first, res,
         stamp, rwroute_max_iter, packing=packing, stitch_region=stitch_region, anchor=shell_anchor(part, dev),
+        shell_rw=shell_rw,
     )
     if fail is not None:
         return abort(fail)
     assert accel_dcp2 == accel_dcp
 
-    # 5. assembly (the shell is already open in the waiting Vivado)
+    # 5. assembly
     t0 = time.time()
-    with open(trigger, "w") as f:
-        f.write("go full" if res.get("stitch_unrouted_pins") else "go")
-    rc, _ = f_asm.result()
-    asm_pool.shutdown()
-    res["assembly_s"] = time.time() - t0
     log = os.path.join(asm_dir, "assemble.log")
+    if shell_rw:
+        # RapidWright routed the complete design: load it and write the bitstream
+        with open(asm_tcl, "w") as f:
+            f.write(final_tcl(accel_dcp, rp, asm_dir, bitfile, part, threads=min(16, cpus)))
+        rc, _ = run_vivado(asm_tcl, log, asm_dir)
+    else:
+        # (the shell is already open in the waiting Vivado)
+        with open(trigger, "w") as f:
+            f.write("go full" if res.get("stitch_unrouted_pins") else "go")
+        rc, _ = f_asm.result()
+        asm_pool.shutdown()
+    res["assembly_s"] = time.time() - t0
     stamp("assembly")
-    res["assembly_stamps"] = {
-        kk: float(vv) for kk, vv in re.findall(r"^STAMP (\w+) ([\d.]+)", open(log).read(), re.M)
-    }
+    txt = open(log, errors="ignore").read()
+    res["assembly_stamps"] = {kk: float(vv) for kk, vv in re.findall(r"^STAMP (\w+) ([\d.]+)", txt, re.M)}
     res["assembly_route"] = route_log_summary(log)
+    m = re.search(r"^FINAL route_errors (\S+) wns (\S+) whs (\S+)", txt, re.M)
+    if m:
+        # the RapidWright-routed design as loaded, before any fallback
+        res["final_check"] = {"route_errors": int(m.group(1)), "wns": float(m.group(2)), "whs": float(m.group(3))}
+        res["final_fallback"] = "FINAL fallback route_design" in txt
     res.update(_reports(asm_dir))
     res["timing_rpt"] = os.path.join(asm_dir, "timing_summary.rpt")
     res["utilization_xml"] = os.path.join(asm_dir, "synth_report.xml")

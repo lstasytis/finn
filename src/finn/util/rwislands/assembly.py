@@ -191,3 +191,63 @@ def assemble_tcl(shell_dir, accel_dcp, out_dir, bitfile, part, threads=16, trigg
         "stamp reports",
     ]
     return "\n".join(t) + "\n"
+
+
+def final_tcl(full_dcp, rp, out_dir, bitfile, part, threads=16):
+    """Assembly of a design that RapidWright routed completely (IslandStitcher --shell): load it,
+    write the bitstream, report. No route_design: on a 1M-net design its fixed cost alone (RT
+    build, ILP clock placement, two full timing updates, hold-fix passes) is ~10 min (U55C VGG10
+    8x, 2026-10-09) with only ~800 boundary/clock/static nets left to route.
+
+    The reports run after the bitstream; when they show a problem (routing errors, setup or hold
+    missed: RWRoute is not timing-driven here and does not fix hold) the regular route_design
+    with its hold repair runs as a fallback and the bitstream is written again, so the result
+    is never a bitstream that is known to be wrong."""
+    load = full_dcp.replace(".dcp", "_load.tcl")
+    steps = profile(part)
+    route_cmd = steps["route"]
+    t = [
+        "set_param general.maxThreads %d" % threads,
+        "set t0 [clock milliseconds]",
+        'proc stamp {name} {global t0; puts "STAMP $name [expr ([clock milliseconds] - $t0) / 1000.0]"}',
+        _NETS_NEEDING_ROUTE,
+        # encrypted shell IP (XDMA, SmartConnect, ...): RapidWright's load script reads its .edn
+        # netlists, the checkpoint and links
+        ("source %s" % load) if os.path.isfile(load) else ("open_checkpoint %s" % full_dcp),
+        "stamp open",
+        # (see assemble_tcl: the reset path to the islands is a multicycle path)
+        "set rq [get_cells -quiet %s/island_*/rst_q0_reg]" % rp,
+        "if {[llength $rq]} {set_multicycle_path -setup 3 -end -to $rq; set_multicycle_path -hold 2 -end -to $rq}",
+        "set ok [expr {![catch {write_bitstream -force -no_partial_bitfile %s} msg]}]" % bitfile,
+        'if {!$ok} {puts "FINAL bitstream failed: $msg"}',
+        "stamp bitstream",
+        "set err [route_errors %s/route_status.rpt]" % out_dir,
+        "set wns [worst_slack setup]",
+        "set whs [worst_slack hold]",
+        'puts "FINAL route_errors $err wns $wns whs $whs"',
+        "stamp check",
+        "if {!$ok || $err != 0 || $wns < 0 || $whs < 0} {",
+        '  puts "FINAL fallback route_design"',
+        "  set_property IS_ROUTE_FIXED 0 [get_nets -hier -quiet -filter {TYPE == POWER || TYPE == GROUND}]",
+        "  %s" % route_cmd,
+        "  stamp route",
+        "  for {set i 0} {$i < 3} {incr i} {",
+        "    set hp [get_timing_paths -quiet -hold -slack_lesser_than 0 -max_paths 10000 -nworst 1]",
+        "    if {![llength $hp]} {break}",
+        "    set hn [get_nets -quiet -of $hp -filter {TYPE != GLOBAL_CLOCK}]",
+        '    puts "HOLD_REPAIR [llength $hp] paths [llength $hn] nets"',
+        "    set_property IS_ROUTE_FIXED 0 $hn",
+        "    route_design -unroute -nets $hn",
+        "    %s" % route_cmd,
+        "    stamp hold_repair",
+        "  }",
+        "  write_bitstream -force -no_partial_bitfile %s" % bitfile,
+        "  stamp bitstream_fallback",
+        "  report_route_status -file %s/route_status.rpt" % out_dir,
+        "}",
+        "report_timing_summary -file %s/timing_summary.rpt" % out_dir,
+        "report_utilization -hierarchical -hierarchical_depth 4 -format xml -file %s/synth_report.xml"
+        % out_dir,
+        "stamp reports",
+    ]
+    return "\n".join(t) + "\n"

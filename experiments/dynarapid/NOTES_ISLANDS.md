@@ -975,3 +975,60 @@ Left for later: read_checkpoint -cell re-applies all shell constraints to the me
 initialization on the whole design (~130 s VGG10 ZCU104, ~5 min MobileNet U55C) stays as long as a
 global route_design runs; ZCU104 MobileNet (single 53-min node) not re-run. Critique and what an
 order of magnitude would need: REPORT_islands.md.
+
+## 2026-10-09: registered island boundaries, chain placement, and an attempt at a RapidWright final route
+
+**Registered boundaries + chain-adjacent islands (c643d164, 21a05cd1), U55C VGG10 8x, 100 MHz,
+lane 0 (32 cores + SMT), shell cached.** Every island-to-island stream has a 2-entry register
+slice at both ends (`regslice.py`), islands are packed in chain order next to their predecessor
+(`skyline_chain`, SLR-change penalty), no tall slivers (<= 12 rows per column).
+
+| | before (2026-10-08) | now |
+|---|---|---|
+| total | 3112 s | 2948 s (Vivado flow: 6622 s) |
+| stitch pins / time | 36,926 / 253 s | 6,540 / 174 s (3 pins left) |
+| assembly read_checkpoint -cell | 411 s | 414 s |
+| route_design | ~950 s, WNS at start -1.11, rip-up 380 s | 829 s, WNS at start +0.51, rip-up 178 s |
+| final WNS | +0.80 | +1.65 |
+
+route_design phases now: Build RT 73 s, Fix Topology (ILP clock placer) 119 s, clock routing +
+two full timing updates 215 s, rip-up 178 s (overlaps of its own initial routing: 1718 -> 0),
+delay/hold fix 160 s, finalize 40 s. Before the route only ~820 nets need routing (502 shell
+boundary nets, the accelerator's clock loads, a few static pins); the rest is Vivado's fixed
+cost on a 4.5M-net design. A clock-only `route_design -nets <clk>` on the loaded design took
+392 s (router init alone). Conclusion: as long as Vivado's router runs at all, the assembly
+cannot get much below ~10 min on this design size.
+
+**Stitcher second pass** (default flow too): pins left by the first RWRoute pass (slice inputs
+boxed in by island routing) are routed again on their own, growing bounding box, 30 iterations:
+VGG10 8x 3 -> 0 pins, +21 s.
+
+**Experimental: final route in RapidWright (FINN_RWI_FINAL=rapidwright, not working yet).**
+Idea: the stitcher reads the shell (Vivado `write_edif`, encrypted IP as 1974 `.edn` files,
+cached in `<shell>/rw`, built by `flow.shell_for_rapidwright`), fills its accelerator black box
+with the accelerator netlist and the islands, routes everything still open in one RWRoute pass
+(inter-island, boundary, incremental clock leaves, static), writes one checkpoint; Vivado only
+loads it (`_load.tcl`: 1974 read_edif + link_design, 396-442 s, vs 57 + 414 s before) and writes
+the bitstream (`assembly.final_tcl`, Vivado route_design only as a fallback). Measured: shell
+read in RapidWright 9-11 s, full RapidWright route 230-270 s, setup WNS +1.0 ns. Open problems:
+
+1. **Hold, -0.33 ns at 5.5k endpoints.** All island-internal paths across a clock-region row
+   boundary: the real clock tree (root X3Y5) has ~0.5 ns more distribution delay one row further
+   from the root; the islands are timed out of context with a stand-in BUFGCE in their own
+   region and never see it. Vivado's full route hides this with hold detours (its pre-fix WHS
+   was -0.19 ns in the old flow too). Pre-routing the clock spine into all 80 island clock
+   regions in the shell (temporary flip-flops, removed again; works, 17 s) changes nothing:
+   the skew is in Vivado's own tree. `HD.CLK_SRC` = the shell's BUFGCE in the island runs:
+   `USER_CLOCK_ROOT` is rejected out of context (Vivado 12-13643), and the island's clock is then
+   not routed out of context, so its signals take all INT_NODE_GLOBAL nodes and RapidWright finds
+   no leaf for the clock ("No mapped LCB"). Next idea: `set_min_delay` on paths that cross a
+   clock-region row inside an island (after placement), so that the island's own route fixes
+   their hold.
+2. **Boundary nets through encrypted shell IP.** RapidWright cannot follow the netlist through
+   SmartConnect / AXI interconnect; the shell side is a physical net named by Vivado with no
+   site pins. `rw_boundary.txt` (Vivado's site pins per black-box pin) + `joinBoundary` +
+   `unify` + two-phase pin collection: 0 pins left in RapidWright, but Vivado still sees 195
+   unrouted / 776 conflicting boundary nets (IODMA AXI-Lite, island 9).
+3. **DRC**: clock-leaf errors on shell BRAMs (PDCN-2743: the incremental clock router changed
+   leaves of the shell's locked clock), invalid site configurations (PDIL-1: static net on a
+   used LUT output).
