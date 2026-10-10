@@ -495,7 +495,21 @@ def floorplan(
     raise RuntimeError("the islands do not fit into the region %s" % (region,))
 
 
-def grid_tiles(dev, rects, cols=12, rows=60, order="rows", start="origin"):
+def cr_columns(dev, x0, x1):
+    """The tile columns x0..x1 grouped by clock-region column (CR "X<n>Y<m>" of their sites)."""
+    groups = []
+    for x in range(x0, x1 + 1):
+        if x not in dev.cols:
+            continue
+        crx = next((st.cr.split("Y")[0] for st in dev.cols[x] if st.cr), None)
+        if groups and groups[-1][0] == crx:
+            groups[-1][2] = x
+        else:
+            groups.append([crx, x, x])
+    return [(a, b) for _, a, b in groups]
+
+
+def grid_tiles(dev, rects, cols=12, rows=60, order="rows", start="origin", align=None):
     """Fixed grid of island tiles over the region rectangles (e.g. one per SLR), in snake order.
 
     Every rectangle is cut into column bands of about `cols` tile columns (make_lanes: similar
@@ -504,12 +518,19 @@ def grid_tiles(dev, rects, cols=12, rows=60, order="rows", start="origin"):
     one). order "rows": the snake runs along a row band, then turns into the next band above
     (boustrophedon); "cols": along a column band upwards, then down the next one. Rectangles are
     visited in the given order, the snake continuing its direction. start "right": the first band
-    is walked from the right (e.g. from the Alveo shell, right of SLR0). Returns
-    [(x0, x1, y0, y1)] in snake order."""
+    is walked from the right (e.g. from the Alveo shell, right of SLR0). align "cr": column bands
+    are cut inside clock-region columns (with rows a divisor of 60, every tile lies in one clock
+    region). Returns [(x0, x1, y0, y1)] in snake order."""
     out = []
     flip = start == "right"
     for x0, x1, y0, y1 in rects:
-        lanes = make_lanes(dev, x0, x1, max(1, round((x1 - x0 + 1) / float(cols))))
+        if align == "cr":
+            # column bands inside clock-region columns: a tile never spans two clock regions
+            lanes = []
+            for a, b in cr_columns(dev, x0, x1):
+                lanes += make_lanes(dev, a, b, max(1, round((b - a + 1) / float(cols))))
+        else:
+            lanes = make_lanes(dev, x0, x1, max(1, round((x1 - x0 + 1) / float(cols))))
         bands = []
         y = y0
         while y <= y1:

@@ -184,6 +184,10 @@ public class IslandStitcher {
             boolean any = false;
             for (SitePinInst p : net.getSinkPins()) {
                 if (!p.isRouted()) {
+                    // the clock: only the accelerator's loads; the shell's clock pins keep their
+                    // Vivado routing (re-routing one clock pin of a shell BRAM from another leaf
+                    // breaks its common-clock rule, DRC PDCN-2743)
+                    if (shellF != null && net.isClockNet() && !hostsCell(p.getSiteInst(), prefix)) continue;
                     pins.add(p);
                     any = true;
                 }
@@ -448,6 +452,14 @@ public class IslandStitcher {
             }
         }
         return k;
+    }
+
+    /** Whether a site holds a cell of the hierarchy prefix (e.g. the accelerator's). */
+    private static boolean hostsCell(com.xilinx.rapidwright.design.SiteInst si, String prefix) {
+        for (Cell c : si.getCells()) {
+            if (c.getName().startsWith(prefix)) return true;
+        }
+        return false;
     }
 
     /** read_checkpoint -cell: fill the black box at name with d. */

@@ -73,6 +73,9 @@ def main():
     ap.add_argument("--target-fps", type=float, default=None)
     ap.add_argument("--no-relax", action="store_true")
     ap.add_argument("--pe-div", type=int, default=1)
+    ap.add_argument("--mvau-ram", default=None,
+                    help="ram_style for the MVAUs whose config says auto/block (e.g. ultra: ResNet50's V80 "
+                    "config needs ~2000 BRAM36 on the U55C, which has 2016 but 960 URAMs)")
     ap.add_argument("--fifo", default="heuristic_analytical",
                     help="auto FIFO sizing strategy (heuristic_analytical | heuristic_rtlsim | largefifo_rtlsim | none)")
     args = ap.parse_args()
@@ -101,6 +104,17 @@ def main():
         dst = os.path.join(args.out, "folding_pe_div%d.json" % args.pe_div)
         print("PE divided by %d in %d layers" % (args.pe_div, divided_folding(cfg.folding_config_file, dst, args.pe_div)))
         cfg.folding_config_file = dst
+    if args.mvau_ram:
+        fc = json.load(open(cfg.folding_config_file))
+        n = 0
+        for k, v in fc.items():
+            if k.startswith("MVAU") and isinstance(v, dict) and v.get("ram_style", "auto") in ("auto", "block"):
+                v["ram_style"] = args.mvau_ram
+                n += 1
+        dst = os.path.join(args.out, "folding_mvau_%s.json" % args.mvau_ram)
+        json.dump(fc, open(dst, "w"), indent=2)
+        cfg.folding_config_file = dst
+        print("MVAU ram_style %s in %d layers" % (args.mvau_ram, n))
     if args.target_fps:
         from scaling_folding import scaling_kwargs
 

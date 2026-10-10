@@ -30,6 +30,11 @@ from summarize_breakdown import island_row, vivado_row  # noqa: E402
 # (the container default FINN_BUILD_DIR, /tmp, does not hold the campaign: see run_campaign.sh)
 B = os.environ.get("RWSCALE_BUILD_DIR", "/home/lstasytis/finn/build/finn_build")
 CAMPAIGNS = [
+    # upstream finn-examples models (run_frontend.py), 2026-10-10 on
+    ("U55C", 10.0, os.path.join(B, "new", "u55c_clk10")),
+    ("ZCU104", 10.0, os.path.join(B, "new", "zcu104_clk10")),
+    ("U55C", 5.0, os.path.join(B, "new", "u55c_clk5")),
+    # earlier frontends
     ("U55C", 10.0, os.path.join(B, "rwscale", "clk10")),
     ("U55C", 5.0, os.path.join(B, "rwscale", "clk5")),
     ("U55C", 3.333, os.path.join(B, "rwscale", "clk3.333")),
@@ -40,9 +45,15 @@ DEVICE = {
     "U55C": {"lut": 1303680, "dsp": 9024, "bram": 2016, "uram": 960},
     "ZCU104": {"lut": 230400, "dsp": 1728, "bram": 312, "uram": 96},
 }
-MODES = ["vivado", "global", "islands", "islands_fast"]
+BASE_MODES = ["vivado", "global", "islands", "islands_fast"]
 LABEL = {"vivado": "FINN Vivado", "global": "global (fair)", "islands": "islands", "islands_fast": "islands fast"}
-MODEL = {"vgg10": "VGG10", "mnv1": "MobileNetV1", "tfc": "TFC", "cnv": "CNV", "cnv1": "CNV PE=SIMD=1", "r50": "ResNet50"}
+
+
+def modes_of(rows):
+    """The variants present (labels of runs.jsonl), the baselines first."""
+    seen = {m for r in rows for m in r["runs"]}
+    return [m for m in BASE_MODES if m in seen] + sorted(seen - set(BASE_MODES))
+MODEL = {"vgg10": "VGG10", "mnv1": "MobileNetV1", "tfc": "TFC", "tfc-w1a1": "TFC", "cnv": "CNV", "cnv1": "CNV PE=SIMD=1", "r50": "ResNet50"}
 
 
 def load_runs(d):
@@ -87,8 +98,7 @@ def status(r):
 
 def size(d, point):
     """Synthesized accelerator (sum over nodes) of an island or global run of the point."""
-    for mode in ("islands", "islands_fast"):
-        j = os.path.join(d, "vshell_timing", "%s_%s" % (point, mode), "islands", "rwislands_zynq.json")
+    for j in sorted(glob.glob(os.path.join(d, "vshell_timing", "%s_*" % point, "islands", "rwislands_zynq.json"))):
         if os.path.isfile(j):
             r = json.load(open(j))
             isl = r.get("islands") or {}
@@ -150,15 +160,16 @@ def collect():
         for p in points:
             sz = size(d, p)
             row = {"point": p, "size": pct(sz, board) if sz else None, "runs": {}}
-            for m in MODES:
+            for m in sorted({mm for pp, mm in runs if pp == p}):
                 r = runs.get((p, m))
                 if r is None:
                     continue
                 out_dir = os.path.join(d, "vshell_timing", "%s_%s" % (p, m))
                 try:
-                    if m == "vivado":
+                    flow = r.get("flow", m)
+                    if flow == "vivado":
                         br = vivado_row(out_dir, r["wall_s"])
-                    elif m == "global":
+                    elif flow.startswith("global"):
                         br = global_row(out_dir, r["wall_s"])
                     else:
                         br = island_row(out_dir, r["wall_s"])[0]
@@ -191,8 +202,10 @@ def tables(camps):
     for c in camps:
         mhz = round(1000 / c["clk"])
         md += ["### %s, %d MHz" % (c["board"], mhz), ""]
-        hdr = ["point", "binding res. %"] + ["%s s" % LABEL[m] for m in MODES] + [
-            "islands vs FINN", "islands vs global", "islands fast vs FINN"]
+        MODES = modes_of(c["rows"])
+        var = [m for m in MODES if m not in ("vivado", "global")]
+        hdr = (["point", "binding res. %"] + ["%s s" % LABEL.get(m, m) for m in MODES]
+               + ["%s vs FINN" % LABEL.get(m, m) for m in var] + ["%s vs global" % LABEL.get(m, m) for m in var])
         md += ["| " + " | ".join(hdr) + " |", "|" + "---|" * len(hdr)]
         succ = {m: [0, 0] for m in MODES}
         for row in c["rows"]:
@@ -213,15 +226,16 @@ def tables(camps):
                     return "%.2fx" % (rb["wall"] / ra["wall"])
                 return "-"
 
-            cells += [sp("islands", "vivado"), sp("islands", "global"), sp("islands_fast", "vivado")]
+            cells += [sp(m, "vivado") for m in var] + [sp(m, "global") for m in var]
             md.append("| " + " | ".join(cells) + " |")
         md += ["", "Success (bitstream, routed, setup and hold met): " + ", ".join(
-            "%s %d/%d" % (LABEL[m], s[0], s[1]) for m, s in succ.items() if s[1]), ""]
-        for m, cols in (("vivado", VIVADO_COLS), ("global", GLOBAL_COLS), ("islands", ISLAND_COLS), ("islands_fast", ISLAND_COLS)):
+            "%s %d/%d" % (LABEL.get(m, m), s[0], s[1]) for m, s in succ.items() if s[1]), ""]
+        for m in MODES:
+            cols = VIVADO_COLS if m == "vivado" else GLOBAL_COLS if m.startswith("global") else ISLAND_COLS
             rs = [(row["point"], row["runs"][m]) for row in c["rows"] if m in row["runs"] and row["runs"][m]["br"]]
             if not rs:
                 continue
-            md += ["#### %s, %d MHz: %s breakdown (s)" % (c["board"], mhz, LABEL[m]), ""]
+            md += ["#### %s, %d MHz: %s breakdown (s)" % (c["board"], mhz, LABEL.get(m, m)), ""]
             md += ["| point | " + " | ".join(cols) + " | status |", "|" + "---|" * (len(cols) + 2)]
             for p, r in rs:
                 md.append("| %s | %s | %s |" % (pretty(p), " | ".join(f0(v) for v in r["br"]), r["status"]))
@@ -243,6 +257,7 @@ def plot(camps, out):
     for c in camps:
         fig, ax = plt.subplots(figsize=(7, 4.6))
         ax.set_facecolor(surface)
+        MODES = modes_of(c["rows"])
         for model in color:
             for m in MODES:
                 pts = sorted(
@@ -253,9 +268,9 @@ def plot(camps, out):
                 if not pts:
                     continue
                 xs, ys, oks = zip(*pts)
-                ax.plot(xs, ys, linestyle=dash[m], linewidth=1.8, color=color[model],
-                        label="%s, %s" % (MODEL[model], LABEL[m]), zorder=2)
-                ax.scatter(xs, ys, s=50, marker=marker[m], color=[color[model] if ok else surface for ok in oks],
+                ax.plot(xs, ys, linestyle=dash.get(m, (0, (3, 1, 1, 1))), linewidth=1.8, color=color[model],
+                        label="%s, %s" % (MODEL[model], LABEL.get(m, m)), zorder=2)
+                ax.scatter(xs, ys, s=50, marker=marker.get(m, "v"), color=[color[model] if ok else surface for ok in oks],
                            edgecolors=color[model], linewidths=1.8, zorder=3)
         ax.set_title("%s, %d MHz" % (c["board"], round(1000 / c["clk"])), color=ink, fontsize=11, loc="left")
         ax.set_xlabel("accelerator size: binding resource, % of the device", color=muted, fontsize=9)

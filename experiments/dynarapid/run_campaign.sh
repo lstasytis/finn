@@ -5,8 +5,10 @@
 #
 #   JOBS=<file> [LANES="0-23,64-87 24-47,88-111"] [LANE_SLOTS=32] setsid nohup run_campaign.sh &
 #
-# Job line: board clk dir name mode
-#   board  ZCU104 | U55C;  clk  ns;  mode  islands | global | vivado
+# Job line: board clk dir name mode [label [KEY=VALUE ...]]
+#   board  ZCU104 | U55C;  clk  ns;  mode  islands | global | vivado (| *_fast | *_split)
+#   label  names the variant's results (default: mode); KEY=VALUE: environment of the build,
+#          e.g. FINN_RWI_PACKING=grid FINN_RWI_GRID=cols=16,rows=60 FINN_RWI_SPLIT=16
 #   dir    the model directory: <dir>/<name>/frontend/intermediate_models/step_set_fifo_depths.onnx
 #          or the path in <dir>/<name>.model; results in <dir>/vshell_timing/runs.jsonl
 # Jobs are taken in order (lines appended later are picked up too). An island or global build
@@ -39,7 +41,9 @@ lane_worker() {  # lane index, CPU list
   while true; do
     job=$(next_job)
     [ -z "$job" ] && break
-    read board clk dir n mode <<< "$job"
+    read board clk dir n mode label envs <<< "$job"
+    # (optional: a label naming the variant's results, and KEY=VALUE settings for the build)
+    [ -z "$label" ] && label=$mode
     if [ ! -f $dir/$n/frontend/intermediate_models/step_set_fifo_depths.onnx ] && [ ! -f $dir/$n.model ]; then
       echo "$(date +%T) lane $i: skip $job (no model)" >> $LOG
       continue
@@ -50,10 +54,10 @@ lane_worker() {  # lane index, CPU list
     esac
     for attempt in 1 2; do
       echo "$(date +%T) lane $i ($cpus): start $job" >> $LOG
-      D=$dir CLK=$clk BOARD=$board SHELLS=$shells MODELS=$n MODE=$mode WORKERS=$threads \
+      env $envs D=$dir CLK=$clk BOARD=$board SHELLS=$shells MODELS=$n MODE=$mode LABEL=$label WORKERS=$threads \
         DYNARAPID_VIVADO_SLOTS=$LANE_SLOTS DYNARAPID_VIVADO_SLOTS_DIR=$STATE.slots_lane$i \
-        taskset -c $cpus bash $HERE/run_vshell_timing.sh > $dir/lane${i}_${n}_${mode}.out 2>&1
-      last=$(grep "\"model\": \"$n\", \"mode\": \"$mode\"" $dir/vshell_timing/runs.jsonl | tail -n 1)
+        taskset -c $cpus bash $HERE/run_vshell_timing.sh > $dir/lane${i}_${n}_${label}.out 2>&1
+      last=$(grep "\"model\": \"$n\", \"mode\": \"$label\"" $dir/vshell_timing/runs.jsonl | tail -n 1)
       echo "$(date +%T) lane $i: done $job: $(echo "$last" | cut -c1-200)" >> $LOG
       echo "$last" | grep -q '"shell": "built"' || break
       echo "$(date +%T) lane $i: $job built its shell, repeating" >> $LOG

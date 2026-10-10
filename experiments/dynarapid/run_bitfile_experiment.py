@@ -118,7 +118,8 @@ def main():
     model = ModelWrapper(args.model)
     clk_ns = args.clk or float(model.get_metadata_prop("dynarapid_clk_ns"))
     dr = None
-    split = None
+    # dominant MVAUs split into parallel parts: FINN_RWI_SPLIT=<n_parts> or a *_split mode (16)
+    split = int(os.environ["FINN_RWI_SPLIT"]) if os.environ.get("FINN_RWI_SPLIT") else None
     if args.mode.endswith("_split"):
         # dominant MVAUs split into parallel parts (SplitLargeMVAU, n_parts=16)
         split = 16

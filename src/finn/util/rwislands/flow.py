@@ -443,10 +443,10 @@ def grid_knobs():
     "cols=12,rows=60,order=rows,pack=1": tile width (tile columns), tile height (rows; 60 = one
     clock-region row), snake order ("rows" along row bands, "cols" along column bands), the most
     tiles an island of several nodes may take (a node larger than that takes what it needs)."""
-    kn = {"cols": 12, "rows": 60, "order": "rows", "pack": 1}
+    kn = {"cols": 12, "rows": 60, "order": "rows", "pack": 1, "align": "cr"}
     for kv in filter(None, os.environ.get("FINN_RWI_GRID", "").split(",")):
         k, v = kv.split("=")
-        kn[k] = v if k == "order" else int(v)
+        kn[k] = v if k in ("order", "align") else int(v)
     return kn
 
 
@@ -473,7 +473,8 @@ def plan_grid(names, node_res, dev, rects, first, res, g, costs, anchor):
     plan, tried = None, []
     for rr in [rects] + ([rects + first] if first else []):
         tiles = grid_tiles(dev, rr, cols=kn["cols"], rows=kn["rows"], order=kn["order"],
-                           start="right" if anchor is not None else "origin")
+                           start="right" if anchor is not None else "origin",
+                           align=None if kn["align"] == "none" else kn["align"])
         for u in (0.5, 0.6, 0.7, 0.8, 0.9):
             util = {"lut": u, "bram": min(1.0, u + 0.4), "dsp": min(1.0, u + 0.4), "uram": 1.0}
             plan = allocate_grid(dev, nres, tiles, util, pack=kn["pack"], extra=extra)

@@ -20,6 +20,8 @@ D=${D:-$FINN_BUILD_DIR/rwu}
 MODELS=${MODELS:-"tfc-w1a1 vgg10 mnv1"}
 BOARD=${BOARD:-U55C}
 MODE=${MODE:-islands}
+# the results' name of this variant (out dir, runs.jsonl "mode")
+LABEL=${LABEL:-$MODE}
 WORKERS=${WORKERS:-64}
 CLK=${CLK:-10}
 SHELLS=${SHELLS:-$FINN_BUILD_DIR/rwislands/vshells}
@@ -28,9 +30,9 @@ T=$D/vshell_timing
 mkdir -p $T
 
 for m in $MODELS; do
-  out=$T/${m}_$MODE
+  out=$T/${m}_$LABEL
   rm -rf $out
-  log=$T/${m}_$MODE.log
+  log=$T/${m}_$LABEL.log
   # do not start a build while another one on the machine is near its memory peak (MIN_FREE_GB
   # of MemAvailable; the timing starts after the wait)
   while [ $(awk '/MemAvailable/ {print int($2 / 1048576)}' /proc/meminfo) -lt ${MIN_FREE_GB:-120} ]; do sleep 15; done
@@ -44,11 +46,15 @@ for m in $MODELS; do
     --mode $MODE --board $BOARD --clk $CLK --workers $WORKERS --shell-lib $SHELLS > $log 2>&1
   rc=$?
   t1=$(date +%s)
-  python - $out $m $rc $((t1 - t0)) $MODE >> $T/runs.jsonl <<'EOF'
+  python - $out $m $rc $((t1 - t0)) $LABEL $MODE >> $T/runs.jsonl <<'EOF'
 import glob, json, os, re, sys
-out, m, rc, wall, mode = sys.argv[1:]
-res = {"model": m, "mode": mode, "rc": int(rc), "wall_s": int(wall)}
-if mode == "vivado":
+out, m, rc, wall, mode, flow = sys.argv[1:]
+res = {"model": m, "mode": mode, "flow": flow, "rc": int(rc), "wall_s": int(wall)}
+# (mode: the variant label; flow: islands | global | vivado (| *_fast | *_split))
+for k in ("FINN_RWI_PACKING", "FINN_RWI_GRID", "FINN_RWI_SPLIT", "FINN_RWI_PROFILE", "FINN_RWI_FINAL"):
+    if os.environ.get(k):
+        res.setdefault("knobs", {})[k] = os.environ[k]
+if flow == "vivado":
     # the global Vivado project (path in the experiment result)
     e = os.path.join(out, "bitfile_experiment.json")
     proj = json.load(open(e)).get("project") if os.path.isfile(e) else None
@@ -73,7 +79,7 @@ if os.path.isfile(j):
     res.update(status=r["status"], shell=r["shell"].get("status"), islands=len(r.get("islands", {})),
                stamps={k: round(v) for k, v in r.get("stamps", {}).items()},
                assembly={k: round(v) for k, v in r.get("assembly_stamps", {}).items()})
-    asm = os.path.join(out, "islands", "work", "global") if mode == "global" else os.path.join(out, "islands", "assembly")
+    asm = os.path.join(out, "islands", "work", "global") if flow.startswith("global") else os.path.join(out, "islands", "assembly")
     for k in ("final_check", "assembly_route", "failed_checks", "stitch_rerouted_nets", "global_stamps"):
         if k in r:
             res[k] = r[k]
