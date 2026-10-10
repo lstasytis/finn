@@ -1081,3 +1081,30 @@ re-application (~140 s) and its share of the router setup, ~200 of 2948 s, at th
 bitstreams. ResNet50 (finn-examples w1a2): its finn-examples streamlining leaves 49 Mul / 62 Add
 nodes in this FINN (Conv inputs float, 101 Transposes after conversion); the upstream test is
 xfail "not tested". Larger points instead: MobileNet 4x and VGG10 16x (no relax) on the U55C.
+
+## 2026-10-10: upstream merge, snake grid, related work, DFX tile feasibility
+
+- Merged upstream dev (104 commits, finn-examples in tests/benchmark); qonnx/brevitas pins updated.
+  `run_frontend.py` builds any benchmark model through its upstream `configure_build`. ResNet50
+  (V80 config, PE/2) converts now; on the U55C its MVAU weights must go to URAM (`--mvau-ram ultra`:
+  BRAM 2007 -> 63 BRAM36, URAM 416/960). Upstream TFC-w1a1 (SIMD=784, PE=32 binary MVAU_hls) spends
+  > 1.5 h in Vitis HLS clang - not usable as a quick test model.
+- 100 MHz U55C campaign (old models, 24-core lanes): islands vs FINN Vivado 1.6-2.3x, vs the fair
+  global baseline only 0.98-1.48x (campaign_tables.md).
+- Snake grid (`FINN_RWI_PACKING=grid`, `FINN_RWI_GRID=cols=..,rows=..,order=..,pack=..,align=cr`):
+  tiles in snake order, clock-region aligned (16x60 on the U55C = one tile per clock region, 80
+  tiles). Dry runs: finer islands (MobileNet 28-59 instead of 14) but the largest island is still one
+  layer -> only useful with layer splitting.
+- Shell bridges with register slices on every AXI channel (plain flip-flops at the boundary).
+- Related work (RELATED_WORK.md): order-of-magnitude gains only without a post-hoc global step
+  (RapidStream 2.0: pre-routed inter-island links + islands as DFX partitions in abstract shells;
+  PRflow/PLD/HiPR: fixed page grids, partial bitstreams per page in parallel).
+- **DFX tile feasibility (U55C shell, scratchpad/dfx):** the shell's accelerator black box filled
+  with a container of 2 tile RPs (fabric-only pblocks on CLOCKREGION_X5Y1/X4Y1 - whole clock regions
+  include IOBs used by the shell: HDPR-6; the shell's locked kernel clock must be re-routed under
+  DFX rules: Constraints 18-4430). Static: open 57 s, read container 84 s, place 240 s, route 111 s,
+  0 errors; abstract shells 5.9 / 2.6 MB (static 59 MB), ~2 min each. Per tile in its abstract
+  shell: open 23 s, read 15 s, place 98 s, route 16 s, partial bitstream 22 s (1 MB) = 175 s; the tile
+  with all 1772 shell boundary signals in one clock region did not route (11 overlaps). Direct RP-RP
+  links need static anchor registers (HDPR-34). Link modules (`links.py`: tx register, static
+  anchor, rx FIFO depth 8 with early ready) verified in xsim: no loss/reorder, 1.00 cycles/word.
