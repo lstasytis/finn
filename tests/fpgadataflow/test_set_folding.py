@@ -36,11 +36,19 @@ from qonnx.custom_op.registry import getCustomOp
 from qonnx.transformation.general import GiveUniqueNodeNames
 from qonnx.util.basic import qonnx_make_model
 
+from finn.analysis.fpgadataflow.dataflow_performance import dataflow_performance
 from finn.analysis.fpgadataflow.exp_cycles_per_layer import exp_cycles_per_layer
+from finn.analysis.fpgadataflow.res_estimation import res_estimation
+from finn.custom_op.fpgadataflow.streamingdatawidthconverter import (
+    StreamingDataWidthConverter,
+)
+from finn.transformation.fpgadataflow.annotate_cycles import AnnotateCycles
 from finn.transformation.fpgadataflow.create_dataflow_partition import (
     CreateDataflowPartition,
 )
-from finn.transformation.fpgadataflow.set_folding import SetFolding
+from finn.transformation.fpgadataflow.insert_dwc import InsertDWC
+from finn.transformation.fpgadataflow.set_folding import Optimizer, SetFolding
+from finn.transformation.fpgadataflow.specialize_layers import SpecializeLayers
 from finn.util.basic import part_map
 from finn.util.platforms import DEFAULT_RES_LIMITS, platforms
 from finn.util.test import load_test_checkpoint_or_skip
@@ -253,3 +261,89 @@ def test_resType_changes_rtl_mvau_estimate():
     inst.set_nodeattr("resType", "dsp")
     dsp_est = inst.node_res_estimation(part)
     assert lut_est != dsp_est, "resType does not affect the RTL MVAU estimate"
+
+
+def _with_dwcs(model, platform):
+    """The graph the build carries: DWCs inserted and specialized, cycles annotated."""
+    model = model.transform(InsertDWC())
+    model = model.transform(SpecializeLayers(part_map[platform]))
+    model = model.transform(GiveUniqueNodeNames())
+    return model.transform(AnnotateCycles())
+
+
+def _resources(model, platform):
+    per_node = model.analysis(lambda m: res_estimation(m, part_map[platform]))
+    return {r: sum(res.get(r, 0) for res in per_node.values()) for r in ("LUT", "BRAM_18K")}
+
+
+@pytest.mark.fpgadataflow
+def test_set_folding_dwc_cycles_estimate():
+    # the optimizer's cost model must see the DWCs the build inserts the way
+    # StreamingDataWidthConverter counts them, including a non-integer width ratio
+    model = make_multi_fclayer_model(48, DataType["INT4"], DataType["INT2"], DataType["INT16"], 3)
+    model = model.transform(GiveUniqueNodeNames())
+    for node, (simd, pe) in zip(model.graph.node, [(8, 3), (4, 6), (12, 2)]):
+        getCustomOp(node).set_nodeattr("SIMD", simd)
+        getCustomOp(node).set_nodeattr("PE", pe)
+    estimated = {
+        node.name: Optimizer.dwc_cycles(model, getCustomOp(node)) for node in model.graph.node
+    }
+    inserted = _with_dwcs(model, "U250")
+    dwcs = [n for n in inserted.graph.node if n.op_type.startswith("StreamingDataWidthConverter")]
+    assert len(dwcs) == 2
+    for dwc in dwcs:
+        consumer = inserted.find_consumer(dwc.output[0])
+        assert estimated[consumer.name] == getCustomOp(dwc).get_exp_cycles()
+    assert estimated["MVAU_hls_0"] == 0
+
+
+@pytest.mark.parametrize("target", [150, 600])
+@pytest.mark.fpgadataflow
+def test_set_folding_optimizer_meets_target_with_dwcs(target):
+    # the target is met on the graph the build carries, DWCs included, not only
+    # node by node; and strictly, without a relaxation
+    model = make_multi_fclayer_model(48, DataType["INT4"], DataType["INT2"], DataType["INT16"], 4)
+    model = model.transform(GiveUniqueNodeNames())
+    folder = SetFolding(target, platform="U250", style="optimizer", folding_effort=50, seed=0)
+    model = model.transform(folder)
+    built = _with_dwcs(model, "U250")
+    assert built.analysis(dataflow_performance)["max_cycles"] <= target
+    assert folder.last_search_report["achieved_cycles_per_frame"] <= target
+    assert folder.last_search_report["fits_budget"]
+
+
+@pytest.mark.parametrize("target", [150, None])
+@pytest.mark.fpgadataflow
+def test_set_folding_padding_never_worse(target):
+    # the padded search space contains the unpadded one, so with padding the
+    # result may not be worse: same target met at no higher cost, or (maximize)
+    # no more cycles within the budget
+    if not hasattr(StreamingDataWidthConverter, "pads_or_crops"):
+        pytest.skip("DWC padding/cropping not available on this tree")
+    results = {}
+    for padding in (0, 4):
+        model = make_multi_fclayer_model(
+            40, DataType["INT4"], DataType["INT2"], DataType["INT16"], 4
+        )
+        model = model.transform(GiveUniqueNodeNames())
+        folder = SetFolding(
+            target,
+            platform="Pynq-Z1",
+            style="optimizer",
+            folding_effort=50,
+            folding_maximum_padding=padding,
+            seed=0,
+        )
+        built = _with_dwcs(model.transform(folder), "Pynq-Z1")
+        results[padding] = (
+            built.analysis(dataflow_performance)["max_cycles"],
+            _resources(built, "Pynq-Z1"),
+            folder.last_search_report["fits_budget"],
+        )
+    (plain_cycles, plain_res, plain_fits), (pad_cycles, pad_res, pad_fits) = results[0], results[4]
+    assert plain_fits and pad_fits
+    if target is None:
+        assert pad_cycles <= plain_cycles
+    else:
+        assert plain_cycles <= target and pad_cycles <= target
+        assert pad_res["LUT"] <= plain_res["LUT"] * 1.02
