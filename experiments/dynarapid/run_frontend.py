@@ -110,6 +110,9 @@ def main():
         for k, v in fc.items():
             if k.startswith("MVAU") and isinstance(v, dict) and v.get("ram_style", "auto") in ("auto", "block"):
                 v["ram_style"] = args.mvau_ram
+                if args.mvau_ram == "ultra":
+                    # (FINN: URAM weights must be runtime-writeable, an AXI-Lite port per layer)
+                    v["runtime_writeable_weights"] = 1
                 n += 1
         dst = os.path.join(args.out, "folding_mvau_%s.json" % args.mvau_ram)
         json.dump(fc, open(dst, "w"), indent=2)

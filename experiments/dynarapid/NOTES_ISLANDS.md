@@ -1136,3 +1136,16 @@ xfail "not tested". Larger points instead: MobileNet 4x and VGG10 16x (no relax)
     partitions step 23 s.
   * Tiles that only carry streams through (no nodes) were not implemented -> now part of the
     per-model tile set (plain wires).
+- First overlay model run (VGG10 0.25x, 10-tile overlay, static 1596 s once): 6 of 9 tiles routed
+  (290-370 s each: place ~150-165 s fixed cost even with Quick, route ~45 s, partial bitstream ~30
+  s); fixed: backward links hopped from the consumer (output stream lost), tile 5 had 19 of 54
+  DSP sites blocked at its edges (HARD_UTIL 0.6), link-module synthesis (494 s, one session) now
+  cached + parallel. Link plan of that run verified offline (23 links, all ends present).
+- **Open: static overlays with >= ~23 tiles hang in place_design** (single thread, after detail
+  placement phase 3.2, > 20 min): 24 tiles, 23 tiles in SLR0 only (not the SLR crossing), with
+  1-column/1-row static gaps around every tile (not the anchor space), with DONT_TOUCH removed
+  from the grey-box cells, with -directive Quick, and in Vivado 2025.1. 10 tiles place in 12 min.
+  Vivado's own grey boxes have the same cell structure (LUT1 per port bit + FDCE). Making a
+  subset of the tiles non-reconfigurable crashes the placer ("internal error while setting
+  boundary constraints"). Next to try: fewer, larger tiles (<= ~16 RPs, e.g. 2x1 clock regions),
+  narrower links (wf), or pre-placed grey-box cells / HD.PARTPIN_RANGE.

@@ -37,8 +37,10 @@ def overlay_knobs():
     """FINN_RWI_OVERLAY: "cols=16,rows=60,wf=1024,wb=256,boundary_rows=120" - tile grid (as
     FINN_RWI_GRID, clock-region aligned), link widths forward / backward, the boundary tile's
     height (tile 0 holds the IODMAs and all shell boundary signals: one clock region did not route
-    1772 of them, scratchpad DFX test 2026-10-10), tiles: only the first N snake tiles (0: all)."""
-    kn = {"cols": 16, "rows": 60, "order": "rows", "wf": 1024, "wb": 256, "boundary_rows": 120, "tiles": 0}
+    1772 of them, scratchpad DFX test 2026-10-10), tiles: only the first N snake tiles (0: all),
+    gap_cols / gap_rows: tile columns / rows left to the static design on each side of a tile."""
+    kn = {"cols": 16, "rows": 60, "order": "rows", "wf": 1024, "wb": 256, "boundary_rows": 120, "tiles": 0,
+          "gap_cols": 1, "gap_rows": 1}
     for kv in filter(None, os.environ.get("FINN_RWI_OVERLAY", "").split(",")):
         k, v = kv.split("=")
         kn[k] = v if k == "order" else int(v)
@@ -55,7 +57,14 @@ def overlay_tiles(dev, region, kn, anchor):
         # tile 0 grows upwards; the tiles it covers leave the snake
         tiles = [(x0, x1, y0, y1b)] + [t for t in tiles[1:] if not (t[0] <= x1 and t[1] >= x0 and t[2] <= y1b and t[3] >= y0)]
     # tiles=N: only the first N tiles of the snake (a smaller overlay for smaller models)
-    return tiles[:kn["tiles"]] if kn.get("tiles") else tiles
+    tiles = tiles[:kn["tiles"]] if kn.get("tiles") else tiles
+    # every tile pblock shrunk by gap_cols / gap_rows on each side: the gaps are static channels
+    # for the link anchors (abutting tiles left them no static sites nearby: from ~23 tiles on,
+    # place_design hung single-threaded after detail placement phase 3.2; RapidStream reserves
+    # anchor columns between its islands for the same reason), and the tile edges no longer lie
+    # on clock-region boundaries (Constraints 18-5648: limited routability at such edges)
+    gc, gr = kn.get("gap_cols", 0), kn.get("gap_rows", 0)
+    return [(x0 + gc, x1 - gc, y0 + gr, y1 - gr) for x0, x1, y0, y1 in tiles]
 
 
 def overlay_key(shell_dir, part, tiles, kn):
