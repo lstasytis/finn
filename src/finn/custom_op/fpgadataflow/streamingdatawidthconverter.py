@@ -33,8 +33,8 @@ from qonnx.core.datatype import DataType
 
 from finn.custom_op.fpgadataflow.hwcustomop import HWCustomOp
 
-# does not do anything at the ONNX node-by-node level, and input-output
-# tensor shapes are the same. performs data width conversion at the rtlsim level
+# Converts between stream widths. If in_shape and out_shape differ in their last
+# (channel) dimension, the channels are zero-padded or cropped at the tail of each row.
 
 
 class StreamingDataWidthConverter(HWCustomOp):
@@ -42,8 +42,10 @@ class StreamingDataWidthConverter(HWCustomOp):
 
     def get_nodeattr_types(self):
         my_attrs = {
-            # shape of input/output tensors
-            "shape": ("ints", True, []),
+            # shapes of input/output tensors, which may differ in the last
+            # dimension when the converter pads or crops
+            "in_shape": ("ints", True, []),
+            "out_shape": ("ints", True, []),
             # bit width of input and output streams
             "inWidth": ("i", True, 0),
             "outWidth": ("i", True, 0),
@@ -62,14 +64,44 @@ class StreamingDataWidthConverter(HWCustomOp):
         return DataType[self.get_nodeattr("dataType")]
 
     def get_normal_input_shape(self, ind=0):
-        ishape = self.get_nodeattr("shape")
+        ishape = self.get_nodeattr("in_shape")
         return ishape
 
     def get_normal_output_shape(self, ind=0):
-        oshape = self.get_nodeattr("shape")
+        oshape = self.get_nodeattr("out_shape")
         return oshape
 
-    def _folded_shape_for_width(self, width):
+    def pads_or_crops(self):
+        return np.prod(self.get_normal_input_shape()) != np.prod(self.get_normal_output_shape())
+
+    def get_row_elements(self):
+        """Elements per row that are carried from input to output: the shorter of
+        the input and output channel counts."""
+        return min(self.get_normal_input_shape()[-1], self.get_normal_output_shape()[-1])
+
+    def rtl_supported(self):
+        """Padding/cropping is done by the RTL converter (vpc), within the last word of a
+        row only: each side must carry ceil(N / elements per word) words for N row
+        elements. Channel padding from folding always satisfies this."""
+        if not self.pads_or_crops():
+            return True
+        # the same number of rows on both sides (their rank may differ)
+        if np.prod(self.get_normal_input_shape()[:-1]) != np.prod(
+            self.get_normal_output_shape()[:-1]
+        ):
+            return False
+        bits = self.get_input_datatype().bitwidth()
+        n = self.get_row_elements()
+        for shape, width in [
+            (self.get_normal_input_shape(), self.get_nodeattr("inWidth")),
+            (self.get_normal_output_shape(), self.get_nodeattr("outWidth")),
+        ]:
+            elems = width // bits
+            if shape[-1] % elems != 0 or shape[-1] != -(-n // elems) * elems:
+                return False
+        return True
+
+    def _folded_shape_for_width(self, width, shape):
         """Compute folded shape for a given stream width.
 
         When the number of channels divides evenly by the number of elements
@@ -79,7 +111,6 @@ class StreamingDataWidthConverter(HWCustomOp):
         spatial dimensions), falls back to flattening the entire tensor:
         (total_elems // elems, elems).
         """
-        shape = self.get_normal_input_shape()
         bits = self.get_input_datatype().bitwidth()
         assert (
             width % bits == 0
@@ -88,7 +119,8 @@ class StreamingDataWidthConverter(HWCustomOp):
         elems = int(width // bits)
         channels = shape[-1]
         if channels % elems == 0:
-            return tuple(shape[:-1] + [int(channels // elems), elems])
+            return tuple(list(shape[:-1]) + [int(channels // elems), elems])
+        assert not self.pads_or_crops(), "Padding/cropping DWC needs word-aligned channels"
 
         total_elems = int(np.prod(shape))
         assert (
@@ -98,11 +130,11 @@ class StreamingDataWidthConverter(HWCustomOp):
 
     def get_folded_input_shape(self, ind=0):
         iwidth = self.get_nodeattr("inWidth")
-        return self._folded_shape_for_width(iwidth)
+        return self._folded_shape_for_width(iwidth, self.get_normal_input_shape())
 
     def get_folded_output_shape(self, ind=0):
         owidth = self.get_nodeattr("outWidth")
-        return self._folded_shape_for_width(owidth)
+        return self._folded_shape_for_width(owidth, self.get_normal_output_shape())
 
     def get_instream_width(self, ind=0):
         in_width = self.get_nodeattr("inWidth")
@@ -145,23 +177,29 @@ class StreamingDataWidthConverter(HWCustomOp):
 
     def execute_node(self, context, graph):
         node = self.onnx_node
-        exp_shape = self.get_normal_input_shape()
+        in_shape = self.get_normal_input_shape()
+        out_shape = self.get_normal_output_shape()
         inp = context[node.input[0]]
         assert str(inp.dtype) == "float32", "Input datatype is not float32"
-        assert inp.shape == tuple(exp_shape), "Input shape does not match expected shape."
+        assert inp.shape == tuple(in_shape), "Input shape does not match expected shape."
 
-        output = inp
-        output = np.asarray([output], dtype=np.float32).reshape(*exp_shape)
-        context[node.output[0]] = output
+        if not self.pads_or_crops():
+            context[node.output[0]] = inp.reshape(out_shape)
+            return
+        n = self.get_row_elements()
+        rows = inp.reshape(-1, in_shape[-1])
+        output = np.zeros((rows.shape[0], out_shape[-1]), dtype=np.float32)
+        output[:, :n] = rows[:, :n]
+        context[node.output[0]] = output.reshape(out_shape)
 
     def get_exp_cycles(self):
         num_in_words = int(np.prod(self.get_folded_input_shape()[:-1]))
         num_out_words = int(np.prod(self.get_folded_output_shape()[:-1]))
         inw, outw = self.get_instream_width(), self.get_outstream_width()
-        if max(inw, outw) % min(inw, outw) == 0:
+        if max(inw, outw) % min(inw, outw) == 0 and not self.pads_or_crops():
             # (de)serialization moves one word per cycle on its busier side
             return max(num_in_words, num_out_words)
-        # general conversion: conservatively both sides in turn
+        # general conversion and padding/cropping: conservatively both sides in turn
         return num_in_words + num_out_words
 
     def lut_estimation(self, fpgapart):
