@@ -32,6 +32,7 @@ import functools
 
 # Inspect information on Python objects like modules
 import inspect
+import itertools
 import numpy as np
 import scipy
 import time
@@ -848,11 +849,13 @@ class Optimizer:
     ):
         """
         A single optimization pass across an entire model
-        initial guess can be "min" or "max" for what folding values to use
-        at the start of optimization, or one meta value per parameter (e.g. the
-        solution of an earlier search to start from)
+        initial guess can be "min", "max" or "cheapest" for what folding values
+        to use at the start of optimization, or one meta value per parameter
+        (e.g. the solution of an earlier search to start from)
         min = least folding (makes sense when the hard constraint is resource use)
         max = maximum folding (makes sense when the hard constraint is max_cycles)
+        cheapest = per node, the cheapest folding meeting the cycle target
+        (see cheapest_guess)
         It is critical to select these values in a way that lets the optimizer know
         a legal solution exists for the problem, otherwise it will give up after a set
         number of iterations
@@ -871,6 +874,8 @@ class Optimizer:
             init_guess = self.params.get_min_vals()
         elif initial_guess == "max":
             init_guess = self.params.get_max_vals()
+        elif initial_guess == "cheapest":
+            init_guess = self.cheapest_guess()
         else:
             init_guess = [
                 v if v in p.possible_values else self._nearest_value(p, v)
@@ -965,6 +970,50 @@ class Optimizer:
         if isinstance(value, str):
             return param.possible_values[0]
         return min(param.possible_values, key=lambda x: abs(x - value))
+
+    def cheapest_guess(self):
+        """Per node, the cheapest folding of its PE/SIMD parameters that meets the
+        cycle target (the fastest one if none does), by enumerating the node's
+        own combinations -- a few hundred at most. The annealer starts from it
+        and keeps it unless it finds better, so a search never returns worse
+        than this node-by-node optimum; the other parameters start at "max"."""
+        params = self.params.parameters
+        guess = self.params.get_max_vals()
+        target = self.targets[self.hard_constraint_target]
+        groups = {}
+        for i, p in enumerate(params):
+            if p.name in ("SIMD", "PE"):
+                groups.setdefault(p.node_index, []).append(i)
+        for indices in groups.values():
+            nodes = []
+            for i in indices:
+                nodes += [n for n in params[i].unique_nodes if n not in nodes]
+            combos = []
+            for combo in itertools.product(*(params[i].possible_values for i in indices)):
+                for i, v in zip(indices, combo):
+                    params[i].update_value(v)
+                    params[i].apply_value(filter=self.parameters_to_apply)
+                combos.append((max(n.get_exp_cycles() for n in nodes), combo))
+            feasible = [c for c in combos if c[0] <= target]
+            if not feasible:
+                fastest = min(c[0] for c in combos)
+                feasible = [c for c in combos if c[0] == fastest]
+            best = None
+            for cycles, combo in feasible:
+                for i, v in zip(indices, combo):
+                    params[i].update_value(v)
+                    params[i].apply_value(filter=self.parameters_to_apply)
+                resources = self.get_resources(nodes)
+                cost = sum(
+                    self.resource_weights.get(r, 1.0) * resources.get(r, 0.0) / self.targets[r]
+                    for r in self.targets
+                    if r != self.hard_constraint_target
+                )
+                if best is None or cost < best[0]:
+                    best = (cost, combo)
+            for i, v in zip(indices, best[1]):
+                guess[i] = v
+        return guess
 
     def get_resources(self, nodes):
         resources = {}
@@ -2224,10 +2273,11 @@ class SetFolding(Transformation):
         opt.generate_parameter_set()
         opt.target_cycles_per_frame = target_cycles
 
-        # first pass: fold parallelism (PE/SIMD) to meet the target
+        # first pass: fold parallelism (PE/SIMD) to meet the target, from the
+        # seed or else from the cheapest node-by-node folding
         if self.optimize_folding:
             opt.optimize(
-                initial_guess="max" if seed is None else seed,
+                initial_guess="cheapest" if seed is None else seed,
                 max_nodes_in_partition=self.NODES_PER_PARTITION,
                 target_parameters=["SIMD", "PE"],
             )
