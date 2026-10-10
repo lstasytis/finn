@@ -36,6 +36,7 @@ import numpy as np
 import scipy
 import time
 import warnings
+from collections import namedtuple
 from onnx import TensorProto, helper
 from qonnx.custom_op.registry import getCustomOp
 from qonnx.transformation.base import Transformation
@@ -60,7 +61,7 @@ from finn.transformation.fpgadataflow.minimize_weight_bit_width import (
 from finn.transformation.fpgadataflow.specialize_layers import SpecializeLayers
 from finn.transformation.streamline.round_thresholds import RoundAndClipThresholds
 from finn.util.basic import part_map
-from finn.util.fpgadataflow import is_hls_node, is_rtl_node
+from finn.util.fpgadataflow import is_fpgadataflow_node, is_hls_node, is_rtl_node
 from finn.util.platforms import DEFAULT_RES_LIMITS, platforms
 
 
@@ -408,6 +409,9 @@ class ParameterSet:
     def get_vals(self):
         return [p.value for p in self.parameters]
 
+    def get_meta_values(self):
+        return [p.meta_value for p in self.parameters]
+
     def get_min_vals(self):
         # get minimum possible folding values in the set
         return [p.possible_values[0] for p in self.parameters]
@@ -565,8 +569,8 @@ class Optimizer:
         verbose=False,
         mvau_wwidth_max=1024,
         # slack on the hard (max_cycles) constraint: violated only if
-        # metric*this > target
-        value_to_minimize_relaxation=0.98,
+        # metric*this > target; 1.0 makes the throughput target a hard one
+        value_to_minimize_relaxation=1.0,
         init_run=False,
         # --- scipy dual_annealing driver ---
         # global iteration cap (maxfun = effort*N is usually binding first)
@@ -695,6 +699,44 @@ class Optimizer:
 
         return cost
 
+    @staticmethod
+    def dwc_cycles(model, node):
+        """Cycles of the DWCs InsertDWC will put in front of ``node`` (0 when the
+        producers' stream shapes already match), as StreamingDataWidthConverter
+        estimates them: the busier side for an integer width ratio, both sides in
+        turn for a general conversion or padding/cropping. The latter can exceed
+        either neighbour's cycles, so a folding that meets the target node by node
+        can still miss it once the DWCs are in."""
+        worst = 0
+        for in_idx, name in enumerate(node.onnx_node.input):
+            prod = model.find_producer(name)
+            if (
+                prod is None
+                or not is_fpgadataflow_node(prod)
+                or prod.op_type.startswith("StreamingDataWidthConverter")
+                or prod.op_type == "IODMA_hls"
+            ):
+                continue
+            out_idx = list(prod.output).index(name)
+            prod_inst = getCustomOp(prod)
+            n0_out = prod_inst.get_folded_output_shape(out_idx)
+            n1_in = node.get_folded_input_shape(in_idx)
+            if n0_out[-1] == n1_in[-1] and np.prod(n0_out) == np.prod(n1_in):
+                continue
+            inw = prod_inst.get_outstream_width(out_idx)
+            outw = node.get_instream_width(in_idx)
+            in_words = int(np.prod(n0_out[:-1]))
+            out_words = int(np.prod(n1_in[:-1]))
+            pads_or_crops = np.prod(prod_inst.get_normal_output_shape(out_idx)) != np.prod(
+                node.get_normal_input_shape(in_idx)
+            )
+            if max(inw, outw) % min(inw, outw) == 0 and not pads_or_crops:
+                cycles = max(in_words, out_words)
+            else:
+                cycles = in_words + out_words
+            worst = max(worst, cycles)
+        return worst
+
     def cost_model(self, param_guess, opt):
         """
         Score a folding configuration for the optimizer (lower is better).
@@ -712,8 +754,12 @@ class Optimizer:
         opt.params.set_values(param_guess)
         opt.params.apply_updates(final=False, filter=self.parameters_to_apply)
 
-        # 2. compute results
-        cycles = opt.params.get_max_cycles()
+        # 2. compute results; the DWCs in front of the partition's nodes count
+        # towards its cycles, since they are part of what the build carries
+        cycles = max(
+            opt.params.get_max_cycles(),
+            max(self.dwc_cycles(opt.model, n) for n in opt.params.nodes),
+        )
         resources = self.get_resources(opt.params.nodes)
         metrics = {**{"max_cycles": cycles}, **resources}
 
@@ -803,7 +849,8 @@ class Optimizer:
         """
         A single optimization pass across an entire model
         initial guess can be "min" or "max" for what folding values to use
-        at the start of optimization
+        at the start of optimization, or one meta value per parameter (e.g. the
+        solution of an earlier search to start from)
         min = least folding (makes sense when the hard constraint is resource use)
         max = maximum folding (makes sense when the hard constraint is max_cycles)
         It is critical to select these values in a way that lets the optimizer know
@@ -818,16 +865,25 @@ class Optimizer:
         # partitions/param-count split here is vestigial (partitions is reset to
         # 0 before use), so we just build the flat index list.
         indexes = self.params.index_list = [x for x in range(len(self.params.parameters))]
+        params = self.params.parameters
 
         if initial_guess == "min":
             init_guess = self.params.get_min_vals()
         elif initial_guess == "max":
             init_guess = self.params.get_max_vals()
-        self.params.set_values(init_guess)
+        else:
+            init_guess = [
+                v if v in p.possible_values else self._nearest_value(p, v)
+                for p, v in zip(params, initial_guess)
+            ]
+        # only the parameters of this pass take the initial guess: the others keep
+        # the values an earlier pass chose for them
+        for i, p in enumerate(params):
+            if p.name in target_parameters or p.meta_value is None:
+                p.update_value(init_guess[i])
 
         self.params.apply_updates(filter=target_parameters)
         self.params.assign_involved_nodes()
-        params = self.params.parameters
 
         # node-based partitioning
         partitions = 0
@@ -903,6 +959,12 @@ class Optimizer:
             # apply final values, adjusting the model accordingly
             self.params.set_values(optimized_params)
             self.params.apply_updates(final=True, filter=target_parameters)
+
+    @staticmethod
+    def _nearest_value(param, value):
+        if isinstance(value, str):
+            return param.possible_values[0]
+        return min(param.possible_values, key=lambda x: abs(x - value))
 
     def get_resources(self, nodes):
         resources = {}
@@ -1237,7 +1299,9 @@ class Optimizer:
         simd_real_values = []
         simd_meta_values = []
         seen_factors = []
-        for ifm_channels in set(ifm_values):
+        # ascending, so the unpadded channel count claims its SIMD values first and
+        # the padded search space is a superset of the unpadded one
+        for ifm_channels in sorted(set(ifm_values)):
             mw = kernel_size * ifm_channels
             mvau_simd_values, mw_values = allowed_divisors(mw, 1, 0)
             for mvau_simd, mw_value in zip(mvau_simd_values, mw_values):
@@ -1316,7 +1380,7 @@ class Optimizer:
         real_values = []
         meta_values = []
         seen_pe_factors = []
-        for ifm_channels in set(ifm_values):
+        for ifm_channels in sorted(set(ifm_values)):
             # PE folds the channels; its SIMD cannot be padded (it is a kernel size)
             pe_values, pe_bounds = allowed_divisors(ifm_channels, 1, 0)
             for pe, pe_bound in zip(pe_values, pe_bounds):
@@ -1449,6 +1513,11 @@ def common_divisors(numbers):
     return functools.reduce(np.intersect1d, separate_divisors)
 
 
+# a folding the search produced: the folded model, whether it fits the budget,
+# its resources and cycles per frame (both with the DWCs the build inserts) and
+# the meta values of every parameter, to start another search from
+FoldResult = namedtuple("FoldResult", "model fits metrics achieved values")
+
 # Find the op-type names for all HLS specializations of elementwise binary
 # operations
 ELEMENTWISE_BINARY_OPS = [
@@ -1508,6 +1577,8 @@ class SetFolding(Transformation):
     NODES_PER_PARTITION = 3
     # nodes grouped per partition in the (larger) resource-type tuning pass
     RESOURCE_PARTITION_SIZE = 8
+    # whole-graph evaluations the polish pass may spend per folding parameter
+    POLISH_EVALS_PER_PARAMETER = 6
     # Always tune each node's ram_style/resType so the search can trade
     # BRAM<->URAM and LUT<->DSP to fit a higher-throughput folding in budget.
     # These attributes do not enter any cycle formula, so this can only change
@@ -1761,6 +1832,8 @@ class SetFolding(Transformation):
         extra pass per SetFolding call rather than one per candidate.
         """
         m = copy.deepcopy(model).transform(GiveUniqueNodeNames())
+        m = m.transform(InsertDWC())
+        m = m.transform(SpecializeLayers(self.fpgapart))
         m = m.transform(MinimizeWeightBitWidth())
         m = m.transform(MinimizeAccumulatorWidth())
         m = m.transform(InferDataTypes())
@@ -1783,7 +1856,7 @@ class SetFolding(Transformation):
 
         # fastest folding the graph allows + the platform resource budget
         fastest_cycles = self._probe_fastest_throughput(model)
-        budgets = self._resource_budgets()
+        budgets = self._budgets = self._resource_budgets()
 
         attempts = (
             max(self.max_attempts, self.MAXIMIZE_SEARCH_STEPS) if maximize else self.max_attempts
@@ -1861,21 +1934,25 @@ class SetFolding(Transformation):
         candidate that was *verified* feasible can ever be returned as the
         answer, so a wrong monotonicity guess can cost search efficiency but
         cannot produce a wrong result.
+
+        With channel padding enabled the unpadded search runs first and the
+        padded one replays its probes, each starting from the unpadded solution
+        there and keeping the better of the two (see ``_fold_at_best``); it
+        finally tries to improve on the best unpadded folding directly. Padding
+        widens the search space, so this guarantees it never narrows the result.
         """
         if not maximize and attempts <= 1:
-            model, fits, metrics, achieved = self._fold_at(
-                opt_template, targets, self.target_cycles_per_frame
-            )
+            result = self._fold_at_best(opt_template, targets, self.target_cycles_per_frame, False)
             self._record_search_result(
-                fits,
-                metrics,
+                result.fits,
+                result.metrics,
                 targets,
-                achieved,
-                feasible_found=fits,
+                result.achieved,
+                feasible_found=result.fits,
                 searched=False,
-                as_built=self._as_built_if_useful(model, metrics, targets),
+                as_built=self._as_built_if_useful(result.model, result.metrics, targets),
             )
-            return model
+            return result.model
 
         slowest = (
             self.target_cycles_per_frame if not maximize else self._slowest_cycles(opt_template)
@@ -1886,9 +1963,6 @@ class SetFolding(Transformation):
         n_sweep = max(4, (attempts + 1) // 2)
         n_refine = max(0, attempts - n_sweep)
 
-        best = None  # (achieved_cycles, model, metrics) -- verified feasible
-        fallback = None  # (achieved_cycles, model, metrics) at the slow end
-        infeasible_below = None  # fastest probed target known NOT to fit
         deadline = None if self.search_timeout_s is None else time.time() + self.search_timeout_s
         self._search_truncated = False
 
@@ -1897,6 +1971,66 @@ class SetFolding(Transformation):
                 self._search_truncated = True
                 return True
             return False
+
+        # unpadded probes by target: the padded probe at the same target starts
+        # from them, and the sampling phase of both searches shares its targets
+        probes = {}
+
+        def fold_unpadded(t):
+            if t not in probes:
+                probes[t] = self._fold_at(opt_template, targets, t, 0)
+            return probes[t]
+
+        def fold_padded(t):
+            return self._fold_at_best(opt_template, targets, t, maximize, fold_unpadded(t))
+
+        best, fallback = self._sweep_and_refine(
+            fold_unpadded, lo, hi, n_sweep, n_refine, out_of_time
+        )
+        if self.padding > 0:
+            best_padded, fallback_padded = self._sweep_and_refine(
+                fold_padded, lo, hi, n_sweep, n_refine, out_of_time
+            )
+            if best is not None and not out_of_time():
+                best_padded = self._better(
+                    best_padded,
+                    self._fold_at_best(opt_template, targets, best.achieved, maximize, best),
+                    None,
+                    maximize,
+                )
+            best = self._better(best, best_padded, None, maximize)
+            fallback = self._better(fallback, fallback_padded, None, maximize)
+
+        if best is not None:
+            self._record_search_result(
+                True,
+                best.metrics,
+                targets,
+                best.achieved,
+                feasible_found=True,
+                as_built=self._as_built_if_useful(best.model, best.metrics, targets),
+            )
+            return best.model
+
+        # Nothing in the sampled range fits. Return the least-resource folding
+        # we saw, but say so loudly -- this is not a solution to the problem
+        # that was asked.
+        self._record_search_result(
+            False,
+            fallback.metrics,
+            targets,
+            fallback.achieved,
+            feasible_found=False,
+            as_built=self._as_built_if_useful(fallback.model, fallback.metrics, targets),
+        )
+        return fallback.model
+
+    def _sweep_and_refine(self, fold, lo, hi, n_sweep, n_refine, out_of_time):
+        """Phase A and B of the throughput search over ``fold(target)``; returns
+        the fastest folding verified to fit and the slowest one seen."""
+        best = None  # verified feasible
+        fallback = None  # at the slow end
+        infeasible_below = None  # fastest probed target known NOT to fit
 
         # ---- phase A: sample feasibility across the range ------------------
         # Slowest (cheapest to evaluate) first: a fast target drives every node
@@ -1907,58 +2041,95 @@ class SetFolding(Transformation):
         for t in reversed(self._sweep_targets(lo, hi, n_sweep)):
             if out_of_time():
                 break
-            model, fits, metrics, achieved = self._fold_at(opt_template, targets, t)
-            if fits:
-                if best is None or achieved < best[0]:
-                    best = (achieved, model, metrics)
+            result = fold(t)
+            if result.fits:
+                if best is None or result.achieved < best.achieved:
+                    best = result
             else:
                 if infeasible_below is None or t > infeasible_below:
                     # the slowest target that still failed: nothing at or below
                     # it is worth refining into
                     infeasible_below = t
-            if fallback is None or achieved > fallback[0]:
-                fallback = (achieved, model, metrics)
+            if fallback is None or result.achieved > fallback.achieved:
+                fallback = result
 
         # ---- phase B: refine between the best feasible point and the ------
         # fastest infeasible one below it
         if best is not None and n_refine:
             fast_bound = 1 if infeasible_below is None else infeasible_below + 1
-            slow_bound = best[0]
+            slow_bound = best.achieved
             for _ in range(n_refine):
                 if slow_bound - fast_bound <= 1 or out_of_time():
                     break
                 mid = (fast_bound + slow_bound) // 2
-                model, fits, metrics, achieved = self._fold_at(opt_template, targets, mid)
-                if fits:
-                    if achieved < best[0]:
-                        best = (achieved, model, metrics)
-                    slow_bound = min(mid, achieved)
+                result = fold(mid)
+                if result.fits:
+                    if result.achieved < best.achieved:
+                        best = result
+                    slow_bound = min(mid, result.achieved)
                 else:
                     fast_bound = mid + 1
+        return best, fallback
 
-        if best is not None:
-            self._record_search_result(
-                True,
-                best[2],
-                targets,
-                best[0],
-                feasible_found=True,
-                as_built=self._as_built_if_useful(best[1], best[2], targets),
-            )
-            return best[1]
-
-        # Nothing in the sampled range fits. Return the least-resource folding
-        # we saw, but say so loudly -- this is not a solution to the problem
-        # that was asked.
-        self._record_search_result(
-            False,
-            fallback[2],
-            targets,
-            fallback[0],
-            feasible_found=False,
-            as_built=self._as_built_if_useful(fallback[1], fallback[2], targets),
+    def _cost(self, metrics, targets):
+        """The search's objective: resources normalized by budget and weighted."""
+        return sum(
+            self.resource_weights.get(r, 1.0) * metrics.get(r, 0.0) / targets[r]
+            for r in self.target_resources
         )
-        return fallback[1]
+
+    def _utilization(self, metrics, targets):
+        """Peak utilization over the resources the device has."""
+        return max(
+            [metrics.get(r, 0.0) / targets[r] for r in self.target_resources if targets[r] > 1]
+            or [0.0]
+        )
+
+    def _fits(self, metrics, targets):
+        return all(metrics.get(r, 0.0) <= targets[r] for r in self.target_resources)
+
+    def _better(self, a, b, target, maximize):
+        """The better of two foldings for ``target`` (``None``: no cycle limit).
+
+        ``b`` is the wider (padded) search's result and replaces ``a`` only when
+        it is no worse on every count: a solution beats a non-solution; among
+        solutions the faster one wins in maximize mode, otherwise ``b`` must be
+        no costlier in both peak utilization and weighted cost. So padding can
+        widen the search but never worsen its result.
+        """
+        if a is None or b is None:
+            return a if b is None else b
+        targets = self._budgets
+        a_ok = a.fits and (target is None or a.achieved <= target)
+        b_ok = b.fits and (target is None or b.achieved <= target)
+        if a_ok != b_ok:
+            return b if b_ok else a
+        a_cost, b_cost = self._cost(a.metrics, targets), self._cost(b.metrics, targets)
+        a_util, b_util = self._utilization(a.metrics, targets), self._utilization(
+            b.metrics, targets
+        )
+        if not a_ok:
+            # neither is a solution: within budget the faster one, else the cheaper
+            if a.fits and b.fits:
+                a_key, b_key = (a.achieved, a_cost), (b.achieved, b_cost)
+            else:
+                a_key, b_key = (not a.fits, a_cost, a.achieved), (not b.fits, b_cost, b.achieved)
+            return b if b_key < a_key else a
+        if maximize and a.achieved != b.achieved:
+            return b if b.achieved < a.achieved else a
+        no_worse = b_util <= a_util and b_cost <= a_cost
+        return b if no_worse and (b_util < a_util or b_cost < a_cost) else a
+
+    def _fold_at_best(self, opt_template, targets, target_cycles, maximize, unpadded=None):
+        """Fold for ``target_cycles``; with padding enabled, the padded search
+        starts from the unpadded folding (folded here unless given) and the
+        better of the two is returned, so padding never makes a result worse."""
+        if self.padding <= 0:
+            return self._fold_at(opt_template, targets, target_cycles, 0)
+        if unpadded is None:
+            unpadded = self._fold_at(opt_template, targets, target_cycles, 0)
+        padded = self._fold_at(opt_template, targets, target_cycles, self.padding, unpadded.values)
+        return self._better(unpadded, padded, target_cycles, maximize)
 
     def _record_search_result(
         self,
@@ -2034,60 +2205,169 @@ class SetFolding(Transformation):
                 raise RuntimeError(msg + " (strict_budget=True)")
             warnings.warn(msg, stacklevel=2)
 
-    def _fold_at(self, opt_template, targets, target_cycles):
+    def _fold_at(self, opt_template, targets, target_cycles, padding, seed=None):
         """Fold a fresh copy of the model to meet ``target_cycles`` (minimizing
-        resources and honoring resource-type preferences). Returns
-        ``(model, fits_budget, metrics, achieved_cycles)``.
+        resources and honoring resource-type preferences), with up to
+        ``padding`` channels of padding per layer and starting the search from
+        the meta values ``seed`` when given. Returns a ``FoldResult``.
 
-        ``achieved_cycles`` is what the folded graph actually reaches, which is
+        ``achieved`` is what the folded graph actually reaches, which is
         not the same as ``target_cycles``: discrete folding factors mean the
         solver usually lands somewhere near the target rather than on it. The
         search compares candidates on what they achieved, never on what they
-        were asked for."""
+        were asked for. Both it and the resources are scored on the graph with
+        the DWCs the build inserts (``_score``)."""
         targets["max_cycles"] = target_cycles
         opt = copy.deepcopy(opt_template)
         opt.targets = targets
+        opt.padding = padding
         opt.generate_parameter_set()
         opt.target_cycles_per_frame = target_cycles
 
         # first pass: fold parallelism (PE/SIMD) to meet the target
         if self.optimize_folding:
             opt.optimize(
+                initial_guess="max" if seed is None else seed,
                 max_nodes_in_partition=self.NODES_PER_PARTITION,
                 target_parameters=["SIMD", "PE"],
             )
         # second pass: trade BRAM<->URAM / LUT<->DSP via ram_style/resType
         if self.optimize_resource_types:
             opt.optimize(
+                initial_guess="max" if seed is None else seed,
                 max_nodes_in_partition=min(len(opt.model.graph.node), self.RESOURCE_PARTITION_SIZE),
                 target_parameters=list(Optimizer.RESOURCE_TYPE_ATTRS),
             )
+        # third pass: repair and polish on the whole graph, DWCs included
+        _, achieved, metrics = self._refine(opt, targets, target_cycles)
 
-        # score the fit on the folded model, optionally including the resources of
-        # inserted DWCs and sized FIFOs (experimental; off by default)
-        scored_model = opt.model
-        if self.enable_folding_fifo_heuristic:
-            scored_model = opt.model.transform(InsertDWC())
-            scored_model = scored_model.transform(SpecializeLayers(self.fpgapart))
-            scored_model = insert_and_size_fifos(
-                "folded_model.onnx",
-                scored_model,
-                self.platform,
-                self.fpgapart,
-                self.consider_dwc_costs,
-                self.auto_fifo_strategy,
-            )
-            scored_model = scored_model.transform(SpecializeLayers(self.fpgapart))
-
-        metrics = self._aggregate_resources(scored_model)
-        fits = all(metrics[r] <= targets[r] for r in self.target_resources)
         # in place, no deepcopy and no cleanup pass: this runs once per search
         # probe (~15 per call) and opt.model is already a private copy, so the
         # default make_deepcopy=True/cleanup=True would copy and re-clean a
         # whole graph per probe -- on MobileNet that dominated the search.
         opt.model = opt.model.transform(AnnotateCycles(), make_deepcopy=False, cleanup=False)
-        achieved = opt.model.analysis(dataflow_performance)["max_cycles"]
-        return opt.model, fits, metrics, achieved
+        return FoldResult(
+            opt.model, self._fits(metrics, targets), metrics, achieved, opt.params.get_meta_values()
+        )
+
+    def _score(self, model):
+        """Cycles and resources of the graph the build will carry: with the DWCs
+        InsertDWC adds, since a non-integer-ratio or padding DWC can be slower
+        than both its neighbours and costs resources of its own. Optionally
+        also with sized FIFOs (experimental; off by default). Returns the scored
+        graph, its cycles per frame and its resources."""
+        scored = model.transform(InsertDWC())
+        scored = scored.transform(SpecializeLayers(self.fpgapart))
+        if self.enable_folding_fifo_heuristic:
+            scored = insert_and_size_fifos(
+                "folded_model.onnx",
+                scored,
+                self.platform,
+                self.fpgapart,
+                self.consider_dwc_costs,
+                self.auto_fifo_strategy,
+            )
+            scored = scored.transform(SpecializeLayers(self.fpgapart))
+        scored = scored.transform(AnnotateCycles(), make_deepcopy=False, cleanup=False)
+        achieved = scored.analysis(dataflow_performance)["max_cycles"]
+        return scored, achieved, self._aggregate_resources(scored)
+
+    @staticmethod
+    def _bottleneck_nodes(scored):
+        """Names of the folded nodes that bound a scored graph's cycles: the
+        slowest nodes, or both neighbours of a slowest DWC."""
+        cycles = {n.name: getCustomOp(n).get_nodeattr("cycles_estimate") for n in scored.graph.node}
+        worst = max(cycles.values())
+        names = set()
+        for node in scored.graph.node:
+            if cycles[node.name] != worst:
+                continue
+            if node.op_type.startswith("StreamingDataWidthConverter"):
+                names.add(scored.find_producer(node.input[0]).name)
+                names.add(scored.find_consumer(node.output[0]).name)
+            else:
+                names.add(node.name)
+        return names
+
+    def _refine(self, opt, targets, target_cycles):
+        """Repair and polish the search's folding on the whole graph, DWCs included.
+
+        The annealer works on partitions of a few nodes and scores them without
+        the DWCs between partitions, so its result can still miss the target
+        through a slow DWC, and it can leave single-step savings on the table.
+        Repair raises the folding of whatever bounds the cycles (a node, or both
+        neighbours of a DWC) one step at a time -- the cheapest step that meets
+        the target, else the fastest -- until the target is met; it terminates
+        because every step raises a folding factor, and at full folding no DWC
+        is slower than its neighbours. Polish then lowers folding factors one
+        step at a time wherever that keeps the target (and the budget, if met)
+        and reduces the cost. Every step is scored like the verdict, so the
+        search and the verdict agree. Leaves the model at the chosen values and
+        returns ``(scored graph, cycles, resources)``."""
+        params = opt.params.parameters
+        opt.params.add_all_params_to_index_list()
+        folding = [i for i, p in enumerate(params) if p.name in ("SIMD", "PE")]
+
+        def evaluate(values):
+            opt.params.set_values(values)
+            opt.params.apply_updates(final=False, filter=opt.parameters_to_apply)
+            scored, achieved, metrics = self._score(opt.model)
+            return scored, achieved, metrics, self._cost(metrics, targets)
+
+        def step(values, i, direction):
+            p = params[i]
+            idx = p.possible_values.index(values[i]) + direction
+            if not 0 <= idx < len(p.possible_values):
+                return None
+            moved = list(values)
+            moved[i] = p.possible_values[idx]
+            return moved
+
+        values = opt.params.get_meta_values()
+        scored, achieved, metrics, cost = evaluate(values)
+
+        # repair
+        while achieved > target_cycles:
+            names = self._bottleneck_nodes(scored)
+            moves = [
+                moved
+                for i in folding
+                if any(n.onnx_node.name in names for n in params[i].unique_nodes)
+                for moved in [step(values, i, +1)]
+                if moved is not None
+            ]
+            if not moves:
+                break
+            results = [(moved, *evaluate(moved)) for moved in moves]
+            met = [r for r in results if r[2] <= target_cycles]
+            if met:
+                values, scored, achieved, metrics, cost = min(met, key=lambda r: r[4])
+            else:
+                values, scored, achieved, metrics, cost = min(results, key=lambda r: (r[2], r[4]))
+
+        # polish
+        fits = self._fits(metrics, targets)
+        limit = max(target_cycles, achieved)
+        budget = self.POLISH_EVALS_PER_PARAMETER * len(folding)
+        improved = True
+        while improved and budget > 0:
+            improved = False
+            for i in folding:
+                moved = step(values, i, -1)
+                if moved is None:
+                    continue
+                budget -= 1
+                r = evaluate(moved)
+                if r[1] <= limit and (self._fits(r[2], targets) or not fits) and r[3] < cost:
+                    values, scored, achieved, metrics, cost = (moved, *r)
+                    fits = self._fits(metrics, targets)
+                    improved = True
+                if budget <= 0:
+                    break
+
+        opt.params.set_values(values)
+        opt.params.apply_updates(final=True, filter=opt.parameters_to_apply)
+        return scored, achieved, metrics
 
     def _slowest_cycles(self, opt_template):
         """Cycles per frame at minimal folding -- the least-resource
