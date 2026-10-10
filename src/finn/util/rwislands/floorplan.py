@@ -493,3 +493,104 @@ def floorplan(
             ranges = [[g for r in rs for g in pblock_ranges(dev.sites_in(*r))] for rs in rects]
             return rects, ranges, util, lanes
     raise RuntimeError("the islands do not fit into the region %s" % (region,))
+
+
+def grid_tiles(dev, rects, cols=12, rows=60, order="rows", start="origin"):
+    """Fixed grid of island tiles over the region rectangles (e.g. one per SLR), in snake order.
+
+    Every rectangle is cut into column bands of about `cols` tile columns (make_lanes: similar
+    slice counts, BRAM/DSP columns spread) and row bands of `rows` rows (60 = one clock-region row
+    on UltraScale+, so a tile never spans a clock-region boundary when the rectangle starts on
+    one). order "rows": the snake runs along a row band, then turns into the next band above
+    (boustrophedon); "cols": along a column band upwards, then down the next one. Rectangles are
+    visited in the given order, the snake continuing its direction. start "right": the first band
+    is walked from the right (e.g. from the Alveo shell, right of SLR0). Returns
+    [(x0, x1, y0, y1)] in snake order."""
+    out = []
+    flip = start == "right"
+    for x0, x1, y0, y1 in rects:
+        lanes = make_lanes(dev, x0, x1, max(1, round((x1 - x0 + 1) / float(cols))))
+        bands = []
+        y = y0
+        while y <= y1:
+            bands.append((y, min(y1, y + rows - 1)))
+            y += rows
+        if order == "rows":
+            for a, b in bands:
+                ls = list(reversed(lanes)) if flip else lanes
+                out += [(c0, c1, a, b) for c0, c1 in ls]
+                flip = not flip
+        else:
+            for c0, c1 in (reversed(lanes) if start == "right" else lanes):
+                bs = list(reversed(bands)) if flip else bands
+                out += [(c0, c1, a, b) for a, b in bs]
+                flip = not flip
+    return out
+
+
+def allocate_grid(dev, node_res, tiles, util, pack=1, extra=None):
+    """Walk the dataflow chain (node_res: resources per node, in order) along the snake of tiles:
+    consecutive nodes share an island while they fit into its tiles (at most `pack` tiles for an
+    island of several nodes); a node that does not fit starts a new island on the next free tiles
+    and takes as many consecutive tiles as it needs. extra(members) -> resources added to an
+    island (e.g. its register slices). Returns [(member indices, [tile indices])] or None if the
+    snake runs out of tiles."""
+    caps = [capacity(dev.sites_in(*t)) for t in tiles]
+    kinds = ("slice", "slicem", "bram", "dsp", "uram")
+
+    def total(idx):
+        tot = {}
+        for i in idx:
+            for k, v in node_res[i].items():
+                tot[k] = tot.get(k, 0) + v
+        if extra is not None:
+            for k, v in extra(idx).items():
+                tot[k] = tot.get(k, 0) + v
+        return tot
+
+    def fits(tl, idx):
+        req = need(total(idx), util)
+        return all(sum(caps[t][k] for t in tl) >= req[k] for k in kinds)
+
+    out, nxt = [], 0
+    cur, cur_t = [], []
+    for i in range(len(node_res)):
+        if cur and fits(cur_t, cur + [i]):
+            cur.append(i)
+            continue
+        # the current island may grow by tiles while it stays within `pack` tiles
+        if cur:
+            grown = list(cur_t)
+            while len(grown) < pack and nxt + len(grown) - len(cur_t) < len(tiles):
+                grown.append(nxt + len(grown) - len(cur_t))
+                if fits(grown, cur + [i]):
+                    break
+            if len(grown) > len(cur_t) and fits(grown, cur + [i]):
+                nxt += len(grown) - len(cur_t)
+                cur_t = grown
+                cur.append(i)
+                continue
+            out.append((cur, cur_t))
+        cur, cur_t = [i], []
+        while not fits(cur_t, cur):
+            if nxt >= len(tiles):
+                return None
+            cur_t.append(nxt)
+            nxt += 1
+    if cur:
+        out.append((cur, cur_t))
+    return out
+
+
+def merge_tiles(tiles, idx):
+    """Rectangles of an island's tiles: horizontally adjacent tiles of one row band merged."""
+    rs = sorted((tiles[i] for i in idx), key=lambda t: (t[2], t[0]))
+    out = []
+    for t in rs:
+        if out and out[-1][2] == t[2] and out[-1][3] == t[3] and out[-1][1] + 1 >= t[0]:
+            out[-1] = (out[-1][0], max(out[-1][1], t[1]), t[2], t[3])
+        elif out and out[-1][0] == t[0] and out[-1][1] == t[1] and out[-1][3] + 1 >= t[2]:
+            out[-1] = (t[0], t[1], out[-1][2], max(out[-1][3], t[3]))
+        else:
+            out.append(t)
+    return [tuple(int(v) for v in r) for r in out]

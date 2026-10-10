@@ -438,6 +438,77 @@ def island_hedge_after(cost):
     return 2 * (150 + 0.0036 * cost) + 120
 
 
+def grid_knobs():
+    """Knobs of the fixed-grid island floorplan (packing "grid"), from FINN_RWI_GRID, e.g.
+    "cols=12,rows=60,order=rows,pack=1": tile width (tile columns), tile height (rows; 60 = one
+    clock-region row), snake order ("rows" along row bands, "cols" along column bands), the most
+    tiles an island of several nodes may take (a node larger than that takes what it needs)."""
+    kn = {"cols": 12, "rows": 60, "order": "rows", "pack": 1}
+    for kv in filter(None, os.environ.get("FINN_RWI_GRID", "").split(",")):
+        k, v = kv.split("=")
+        kn[k] = v if k == "order" else int(v)
+    return kn
+
+
+def plan_grid(names, node_res, dev, rects, first, res, g, costs, anchor):
+    """Islands on a fixed grid of tiles in snake order (floorplan.grid_tiles / allocate_grid):
+    consecutive nodes share a tile while they fit, a node that does not fit starts a new island
+    on the next tiles, a large node takes as many consecutive tiles as it needs. Tiles start on
+    clock-region rows, so no path inside an island crosses a clock-region boundary (rows=60).
+    Tries LUT utilizations 0.5..0.9, the main region first, then with the extra rectangles
+    (Zynq: the fabric above the PS) appended to the snake."""
+    from finn.util.rwislands.floorplan import allocate_grid, grid_tiles, merge_tiles
+
+    kn = grid_knobs()
+    nres = [node_res[n] for n in names]
+
+    def extra(idx):
+        tot = {}
+        if g is not None:
+            for w in island_regslice_widths(g, [names[i] for i in idx]):
+                for k, v in regslice_res(w).items():
+                    tot[k] = tot.get(k, 0) + v
+        return tot
+
+    plan, tried = None, []
+    for rr in [rects] + ([rects + first] if first else []):
+        tiles = grid_tiles(dev, rr, cols=kn["cols"], rows=kn["rows"], order=kn["order"],
+                           start="right" if anchor is not None else "origin")
+        for u in (0.5, 0.6, 0.7, 0.8, 0.9):
+            util = {"lut": u, "bram": min(1.0, u + 0.4), "dsp": min(1.0, u + 0.4), "uram": 1.0}
+            plan = allocate_grid(dev, nres, tiles, util, pack=kn["pack"], extra=extra)
+            tried.append((u, len(rr), plan is not None))
+            if plan is not None:
+                break
+        if plan is not None:
+            break
+    res["floorplan_tries"] = tried
+    if plan is None:
+        raise RuntimeError("the nodes do not fit on the grid %s" % kn)
+    isl, isl_res, rects_out, ranges = {}, [], [], []
+    for k, (idx, tl) in enumerate(plan):
+        name = "island_%d" % k
+        mem = [names[i] for i in idx]
+        isl[name] = mem
+        tot = {}
+        for i in idx:
+            for kk, v in nres[i].items():
+                tot[kk] = tot.get(kk, 0) + v
+        for kk, v in extra(idx).items():
+            tot[kk] = tot.get(kk, 0) + v
+        isl_res.append(tot)
+        rs = merge_tiles(tiles, tl)
+        rects_out.append(rs)
+        ranges.append([r for x in rs for r in pblock_ranges(dev.sites_in(*x))])
+    res["islands"] = {
+        name: {"nodes": mem, "res": r, "cost": sum(costs[names.index(n)] for n in mem), "rects": rc}
+        for (name, mem), r, rc in zip(isl.items(), isl_res, rects_out)
+    }
+    res["floorplan"] = {"util": util, "grid": kn, "tiles": len(tiles), "tiles_used": sum(len(t) for _, t in plan)}
+    res["placement_order"] = "grid_" + kn["order"]
+    return isl, ranges
+
+
 def plan_islands(
     names, node_res, dev, region, first, slots, islands, res, packing="snake", anchor=None, boundary=None, g=None
 ):
@@ -451,6 +522,8 @@ def plan_islands(
     (skyline packing)."""
     costs = [island_cost(node_res[n]) for n in names]
     rect_list = region if isinstance(region, list) else [region]
+    if packing == "grid":
+        return plan_grid(names, node_res, dev, rect_list, list(first), res, g, costs, anchor)
 
     def anchors_of(isl_k):
         if anchor is None or not boundary:

@@ -104,6 +104,7 @@ def shell_key(board, part, clk_ns, ports, shell_x0=0, strip_cols=SHELL_STRIP_COL
             for d in ports
         ],
         "version": 4,
+        "bridge_slices": BRIDGE_SLICES,
         "vivado": vivado_version(),
     }
     if part in ALVEO_SHELL:
@@ -165,6 +166,48 @@ def core_verilog(ports):
     )
 
 
+# register slice (2-entry skid buffer, as rwislands.regslice) on every channel between the
+# shell's AXI interconnects and the accelerator core: the shell side of every boundary net is then
+# a plain flip-flop of the bridge instead of a signal deep inside encrypted IP (SmartConnect, AXI
+# interconnect), which RapidWright cannot follow, and the boundary is registered for timing
+BRIDGE_SLICES = os.environ.get("FINN_RWI_BRIDGE_SLICES", "1") == "1"
+BRIDGE_SLICE_MODULE = """module rwi_bridge_slice #(parameter W = 1) (
+    input clk,
+    input rst,
+    input [W-1:0] s_data,
+    input s_valid,
+    output s_ready,
+    output [W-1:0] m_data,
+    output m_valid,
+    input m_ready
+);
+    reg [W-1:0] d0, d1;
+    reg v0 = 1'b0, v1 = 1'b0;
+    assign s_ready = ~v1 & rst;
+    assign m_valid = v0;
+    assign m_data = d0;
+    always @(posedge clk) begin
+        if (!rst) begin
+            v0 <= 1'b0;
+            v1 <= 1'b0;
+        end else if (!v0 || m_ready) begin
+            if (v1) begin
+                d0 <= d1;
+                v0 <= 1'b1;
+                v1 <= 1'b0;
+            end else begin
+                d0 <= s_data;
+                v0 <= s_valid;
+            end
+        end else if (s_valid && !v1) begin
+            d1 <= s_data;
+            v1 <= 1'b1;
+        end
+    end
+endmodule
+"""
+
+
 def bridge_verilog(d):
     """Pass-through module named after the IODMA: AXI interfaces towards the interconnects,
     the packed elastic channels towards the accelerator core (ports core_<name>)."""
@@ -215,6 +258,27 @@ def bridge_verilog(d):
                     "    input %s" % core_valid,
                     "    output %s" % core_ready,
                 ]
+            if BRIDGE_SLICES:
+                # register slice between the AXI side and the core port (see bridge_verilog):
+                # the AXI-side assigns below drive / read the slice's other end
+                pd, pv, pr = core_data + "_s", core_valid + "_s", core_ready + "_s"
+                body.extend([
+                    "    wire %s%s;" % (_bus(c["width"]), pd),
+                    "    wire %s, %s;" % (pv, pr),
+                ])
+                if to_core:
+                    body.append(
+                        "    rwi_bridge_slice #(.W(%d)) %s_slice (.clk(ap_clk), .rst(ap_rst_n), .s_data(%s), "
+                        ".s_valid(%s), .s_ready(%s), .m_data(%s), .m_valid(%s), .m_ready(%s));"
+                        % (c["width"], c["name"], pd, pv, pr, core_data, core_valid, core_ready)
+                    )
+                else:
+                    body.append(
+                        "    rwi_bridge_slice #(.W(%d)) %s_slice (.clk(ap_clk), .rst(ap_rst_n), .s_data(%s), "
+                        ".s_valid(%s), .s_ready(%s), .m_data(%s), .m_valid(%s), .m_ready(%s));"
+                        % (c["width"], c["name"], core_data, core_valid, core_ready, pd, pv, pr)
+                    )
+                core_data, core_valid, core_ready = pd, pv, pr
             # AXI side
             for s in ["VALID", "READY"] + sigs[ch]:
                 full = "%s_%s%s" % (if_name, ch, s)
@@ -700,6 +764,8 @@ def build_shell(board, part, clk_ns, ports, shell_lib, jobs=8, shell_x0=0, strip
         f.write(core_verilog(ports))
         for d in ports:
             f.write(bridge_verilog(d))
+        if BRIDGE_SLICES:
+            f.write(BRIDGE_SLICE_MODULE)
     with open(os.path.join(shell_dir, "ports.json"), "w") as f:
         json.dump(ports, f, indent=2)
     tcl = os.path.join(shell_dir, "shell.tcl")
