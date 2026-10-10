@@ -397,9 +397,16 @@ def main():
             netlist = os.path.join(sim, "core_funcsim.v")
             tcl = os.path.join(sim, "funcsim.tcl")
             with open(tcl, "w") as f:
-                f.write("open_checkpoint %s\n" % routed)
-                f.write("rename_ref -prefix_all dr_\n")
-                f.write("write_verilog -mode funcsim -force -rename_top %s %s\n" % (CORE_MODULE, netlist))
+                if res_json.get("overlay_dir"):
+                    # tile overlay: static design + the routed tiles in their partitions
+                    from finn.util.rwislands.overlay import assemble_tcl
+
+                    rms = {int(k[1:]): v["rm_dcp"] for k, v in res_json["tiles"].items()}
+                    f.write(assemble_tcl(res_json["overlay_dir"], res_json["overlay"]["rp"], rms, netlist, CORE_MODULE))
+                else:
+                    f.write("open_checkpoint %s\n" % routed)
+                    f.write("rename_ref -prefix_all dr_\n")
+                    f.write("write_verilog -mode funcsim -force -rename_top %s %s\n" % (CORE_MODULE, netlist))
             rc, _ = run_vivado(tcl, os.path.join(sim, "funcsim.log"), sim)
             assert rc == 0 and os.path.isfile(netlist), "netlist export failed"
             core_ports = verilog_ports(netlist, CORE_MODULE)

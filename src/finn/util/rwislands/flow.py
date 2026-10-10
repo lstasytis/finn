@@ -468,7 +468,7 @@ def plan_grid(names, node_res, dev, rects, first, res, g, costs, anchor):
     clock-region rows, so no path inside an island crosses a clock-region boundary (rows=60).
     Tries LUT utilizations 0.5..0.9, the main region first, then with the extra rectangles
     (Zynq: the fabric above the PS) appended to the snake."""
-    from finn.util.rwislands.floorplan import allocate_grid, grid_tiles, merge_tiles
+    from finn.util.rwislands.floorplan import allocate_grid, grid_tiles, merge_tiles, tile_groups
 
     kn = grid_knobs()
     nres = [node_res[n] for n in names]
@@ -488,7 +488,7 @@ def plan_grid(names, node_res, dev, rects, first, res, g, costs, anchor):
                            align=None if kn["align"] == "none" else kn["align"])
         for u in (0.5, 0.6, 0.7, 0.8, 0.9):
             util = {"lut": u, "bram": min(1.0, u + 0.4), "dsp": min(1.0, u + 0.4), "uram": 1.0}
-            plan = allocate_grid(dev, nres, tiles, util, pack=kn["pack"], extra=extra)
+            plan = allocate_grid(dev, nres, tiles, util, pack=kn["pack"], extra=extra, groups=tile_groups(tiles, rr))
             tried.append((u, len(rr), plan is not None))
             if plan is not None:
                 break
@@ -1202,7 +1202,8 @@ def _overlay_build(accel, g, dcps, synth, dev, work, part, shell_dir, shell_lib,
     except RuntimeError as e:
         res.update(status="overlay_plan_failed", reason=str(e))
         return _done(res, stamps, out_dir, t_total)
-    used = sorted(set(where.values()))
+    # tiles with nodes and the tiles the links pass through (implemented as plain wires)
+    used = sorted(set(where.values()) | {t for hops in links.values() for e, _, _, _ in hops for t in (e, e + 1)})
     res["overlay_plan"] = {"util": util, "tiles_used": len(used), "tiles": len(tiles),
                            "link_bits_max": {d: max([v for (e, dd), v in usage.items() if dd == d] or [0]) for d in ("f", "b")}}
     stamp("plan")
@@ -1236,6 +1237,7 @@ def _overlay_build(accel, g, dcps, synth, dev, work, part, shell_dir, shell_lib,
             m = re.search(r"# of nets with routing errors\.+ :\s+(\d+)", open(rs).read())
             info["routing_errors"] = int(m.group(1)) if m else None
         info["partial"] = os.path.join(d, "tile%d_partial.bit" % k)
+        info["rm_dcp"] = os.path.join(d, "tile%d_rm_routed.dcp" % k)
         info["ok"] = (rc == 0 and os.path.isfile(info["partial"]) and info.get("routing_errors") == 0
                       and info.get("wns") is not None and info["wns"] >= 0
                       and info.get("whs") is not None and info["whs"] >= 0)
@@ -1250,6 +1252,7 @@ def _overlay_build(accel, g, dcps, synth, dev, work, part, shell_dir, shell_lib,
     if bad:
         res.update(status="tile_failed", failed=bad)
         return _done(res, stamps, out_dir, t_total)
+    res["overlay_dir"] = odir
     res.update(status="ok", bitfile=os.path.join(odir, "static_full.bit"),
                partial_bitfiles=[infos[k]["partial"] for k in sorted(infos)], hwh=None,
                timing={"wns": min(v["wns"] for v in infos.values()), "whs": min(v["whs"] for v in infos.values())})

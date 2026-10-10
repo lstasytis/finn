@@ -67,8 +67,9 @@ _VOLATILE_ATTRS = {
 #   5: batch split drops only 5LUT route-through cells (6LUT ones are kept)
 #   6: pblock estimate: >= 85 % of the LUT cells, LUTRAM at half SLICEM density (2024.2)
 #   7: pblocks built by one resize_pblock (2024.2 dropped sites); estimate of 6 reverted
+#   8: ElementwiseBinary in1_V is a port (was dropped as an internal weight stream)
 # the Vivado release is part of the key as well (tools.vivado_version)
-FLOW_VERSION = 7
+FLOW_VERSION = 8
 
 
 def component_name(model, node, part, clk_ns):
@@ -164,6 +165,11 @@ def internal_streams(node):
     """Input streams listed by get_verilog_top_module_intf_names() that are fed inside the
     node's block-design hierarchy (e.g. VVAU in1_V from its weight streamer in
     internal_decoupled mode), i.e. not ports of the component."""
+    # (only weight / threshold layers: upstream's ElementwiseBinary has a mem_mode attribute too,
+    # default internal_embedded, but its in1_V is a real stream; dropping it left the adders of
+    # split layers and ResNet's residual adds with an unconnected input, 2026-10-10)
+    if not node.op_type.startswith(("MVAU", "VVAU", "Thresholding")):
+        return set()
     inst = getCustomOp(node)
     try:
         mem_mode = inst.get_nodeattr("mem_mode")

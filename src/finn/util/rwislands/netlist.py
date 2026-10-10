@@ -45,6 +45,8 @@ def channel_graph(model):
                 i = streaming_inputs(model, c).index(t)
                 g[n.name]["dst"][j] = (c.name, i)
                 g[c.name]["src"][i] = (n.name, j)
+    for n, v in g.items():
+        assert all(i < len(v["ins"]) for i in v["src"]), "%s: a stream input is not a port of the component" % n
     return g
 
 

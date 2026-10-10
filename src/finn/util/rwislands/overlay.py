@@ -18,6 +18,7 @@ static timing points there, so no anchors). Forward = along the snake (away from
 import hashlib
 import json
 import os
+import re
 
 from finn.util.dynarapid.shell import CORE_MODULE, _bus
 from finn.util.dynarapid.tools import run_vivado, vivado_version
@@ -25,7 +26,7 @@ from finn.util.rwislands.device import pblock_ranges
 from finn.util.rwislands.floorplan import grid_tiles
 from finn.util.rwislands.links import ANCHOR
 
-OVERLAY_VERSION = 1
+OVERLAY_VERSION = 2
 
 
 def overlay_knobs():
@@ -102,11 +103,30 @@ def container_verilog(ports, n, kn):
             c += ["    .e_out(f%d_a)" % k, "    .e_in(b%d_b)" % k]
         if k == 0:
             c += ["    .%s(%s)" % (nm, nm) for nm, _ in ins + outs]
-        t.append("    tile%d t%d (\n%s\n    );" % (k, k, ",\n".join(c)))
+        t.append("    (* keep_hierarchy = \"yes\" *) tile%d t%d (\n%s\n    );" % (k, k, ",\n".join(c)))
     t.append("endmodule")
-    stubs = ["(* black_box *)\nmodule tile%d (\n%s\n);\nendmodule" % (k, ",\n".join("    " + x for x in tile_ports(k, n, kn, ports)))
-             for k in range(n)]
+    stubs = [grey_box("tile%d" % k, tile_ports(k, n, kn, ports)) for k in range(n)]
     return "\n".join(t) + "\n" + "\n".join(stubs) + "\n" + ANCHOR
+
+
+def grey_box(name, decls):
+    """A tile's empty configuration, written out (what update_design -buffer_ports makes of a
+    black box; in the full shell design that took ~97 s per tile, and one call for several tiles
+    fails on their different interfaces, Netlist 29-77): a LUT1 driving each output low, a LUT1
+    load on each input, a register on the clock, all DONT_TOUCH."""
+    body = []
+    for d, msb, p in re.findall(r"(input|output)\s+(?:\[(\d+):0\]\s*)?(\w+)", "\n".join(decls)):
+        w = int(msb) + 1 if msb else 1
+        if p == "clk":
+            body.append("    (* DONT_TOUCH = \"TRUE\" *) FDCE gb_clk (.C(clk), .CE(1'b0), .CLR(1'b0), .D(1'b0), .Q());")
+            continue
+        body.append("    for (i = 0; i < %d; i = i + 1) begin : gb_%s" % (w, p))
+        if d == "output":
+            body.append("        (* DONT_TOUCH = \"TRUE\" *) LUT1 #(.INIT(2'b00)) l (.I0(1'b0), .O(%s%s));" % (p, "[i]" if msb else ""))
+        else:
+            body.append("        (* DONT_TOUCH = \"TRUE\" *) LUT1 #(.INIT(2'b10)) l (.I0(%s%s), .O());" % (p, "[i]" if msb else ""))
+        body.append("    end")
+    return "module %s (\n%s\n);\n    genvar i;\n%s\nendmodule" % (name, ",\n".join("    " + x for x in decls), "\n".join(body))
 
 
 def static_tcl(shell_dir, part, odir, n, ranges, threads=16):
@@ -138,17 +158,19 @@ def static_tcl(shell_dir, part, odir, n, ranges, threads=16):
             "set_property SNAPPING_MODE ON [get_pblocks pb_t%d]" % k,
         ]
     t += [
-        # grey boxes, all tiles in one netlist update (one call per tile took ~97 s with ~2400
-        # boundary pins each: 2 h for 79 tiles)
-        "update_design -cells [get_cells %s/t*] -buffer_ports" % rp,
+        # (the tiles are grey boxes already: container_verilog)
         "stamp partitions",
+        "write_checkpoint -force %s/static_parts.dcp" % odir,
+        "stamp write_parts",
         "set_property IS_ROUTE_FIXED 0 [get_nets -hier -quiet -filter {TYPE == POWER || TYPE == GROUND}]",
-        "place_design",
-        "stamp place",
+        # the shell's locked kernel clock spans only the clock regions of its old loads (Place
+        # 30-678 for tiles outside them): unrouted before placement, re-routed under DFX rules
         "set kbuf [get_cells -hier -filter {REF_NAME =~ BUFG* && NAME =~ *clk_kernel*}]",
         "set kclk [get_nets -of [get_pins -of $kbuf -filter {DIRECTION == OUT}]]",
         "set_property IS_ROUTE_FIXED 0 $kclk",
         "route_design -unroute -nets $kclk",
+        "place_design",
+        "stamp place",
         "route_design",
         "stamp route",
         "report_route_status -file %s/static_route.rpt" % odir,
@@ -363,6 +385,10 @@ def tile_verilog(k, n_tiles, kn, ports, g, members, dcps, links):
                 pe, pd, poff, proff = prev_hop
                 body.append("    assign %s = %s;" % (bit(side_of(e), d, off, w + 1), bit(side_of(pe), pd, poff, w + 1)))
                 body.append("    assign %s = %s;" % (bit(side_of(pe), rd, proff), bit(side_of(e), rd, roff)))
+    if not members:
+        # transit only: the streams passing through, no island
+        hdr = "module tile%d (\n%s\n);\n" % (k, ",\n".join("    " + p for p in tile_ports(k, n_tiles, kn, ports)))
+        return hdr + "\n".join(body + _ties(k, n_tiles, wf, wb, body)) + "\nendmodule\n", []
     # the island
     isl = island_verilog("island_t%d" % k, g, members, dcps, regslices=False)
     conns = ["        .clk(clk)", "        .rst(rst)"]
@@ -384,7 +410,13 @@ def tile_verilog(k, n_tiles, kn, ports, g, members, dcps, links):
     # the reset of the link logic: the island has its own 2-FF pipeline; one more FDRE here
     rst = ["    wire rst_q;", "    FDRE #(.INIT(1'b0)) rst_ff (.C(clk), .CE(1'b1), .R(1'b0), .D(rst), .Q(rst_q));"]
     inst = "    island_t%d isl (\n%s\n    );" % (k, ",\n".join(conns))
-    # undriven bundle outputs: tie low (one wire each, so the netlist has no floating outputs)
+    v = hdr + "\n".join(rst + body + _ties(k, n_tiles, wf, wb, body)) + "\n" + inst + "\nendmodule\n" + isl
+    stubs = "".join(_link_stub("tx", wd) + _link_stub("rx", wd) for wd in sorted(set(widths)))
+    return v + stubs, sorted(set(widths))
+
+
+def _ties(k, n_tiles, wf, wb, body):
+    """Undriven bundle outputs tied low (one assign each, so the netlist has no floating outputs)."""
     ties = []
     driven = "\n".join(body)
     for side, d, w in (("w", "b", wb), ("e", "f", wf)):
@@ -394,9 +426,7 @@ def tile_verilog(k, n_tiles, kn, ports, g, members, dcps, links):
         for b_ in range(w):
             if not _covers(driven, name, b_):
                 ties.append("    assign %s[%d] = 1'b0;" % (name, b_))
-    v = hdr + "\n".join(rst + body + ties) + "\n" + inst + "\nendmodule\n" + isl
-    stubs = "".join(_link_stub("tx", wd) + _link_stub("rx", wd) for wd in sorted(set(widths)))
-    return v + stubs, sorted(set(widths))
+    return ties
 
 
 def _covers(text, name, b):
@@ -468,9 +498,21 @@ def tile_tcl(k, odir_tile, tile_v, dcp_files, part, overlay_dir, rp, steps, thre
         "stamp reports",
         "write_bitstream -force -cell %s/t%d %s/tile%d_partial.bit" % (rp, k, odir_tile, k),
         "stamp bitstream",
-        "write_checkpoint -force %s/tile%d_routed.dcp" % (odir_tile, k),
+        # the routed module alone: read into the static design to assemble the full accelerator
+        # (verification only; the bitstreams need no assembly)
+        "write_checkpoint -force -cell %s/t%d %s/tile%d_rm_routed.dcp" % (rp, k, odir_tile, k),
         "stamp write",
     ]
+    return "\n".join(t) + "\n"
+
+
+def assemble_tcl(overlay_dir, rp, rms, netlist, core_module):
+    """Verification: the static overlay with the routed tiles {k: rm_dcp} read into their
+    partitions (the others stay grey boxes), the accelerator cell as a functional netlist."""
+    t = ["open_checkpoint %s/static_routed.dcp" % overlay_dir]
+    t += ["read_checkpoint -cell %s/t%d %s" % (rp, k, f) for k, f in sorted(rms.items())]
+    t += ["report_route_status -file %s.route_status.rpt" % netlist,
+          "write_verilog -mode funcsim -force -cell %s -rename_top %s %s" % (rp, core_module, netlist)]
     return "\n".join(t) + "\n"
 
 

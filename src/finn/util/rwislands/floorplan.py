@@ -549,13 +549,22 @@ def grid_tiles(dev, rects, cols=12, rows=60, order="rows", start="origin", align
     return out
 
 
-def allocate_grid(dev, node_res, tiles, util, pack=1, extra=None):
+def tile_groups(tiles, rects):
+    """Index of the region rectangle (e.g. its SLR) each tile lies in."""
+    return [next((i for i, r in enumerate(rects) if r[0] <= t[0] and t[1] <= r[1] and r[2] <= t[2] and t[3] <= r[3]), -1)
+            for t in tiles]
+
+
+def allocate_grid(dev, node_res, tiles, util, pack=1, extra=None, groups=None):
     """Walk the dataflow chain (node_res: resources per node, in order) along the snake of tiles:
     consecutive nodes share an island while they fit into its tiles (at most `pack` tiles for an
     island of several nodes); a node that does not fit starts a new island on the next free tiles
     and takes as many consecutive tiles as it needs. extra(members) -> resources added to an
-    island (e.g. its register slices). Returns [(member indices, [tile indices])] or None if the
-    snake runs out of tiles."""
+    island (e.g. its register slices). groups: per tile, the region rectangle (SLR) it lies in; an
+    island's tiles stay in one group (islands across an SLR boundary did not route under
+    CONTAIN_ROUTING: all 5 timed-out grid islands of 2026-10-10). Returns [(member indices,
+    [tile indices])] or None if the snake runs out of tiles."""
+    grp = groups or [0] * len(tiles)
     caps = [capacity(dev.sites_in(*t)) for t in tiles]
     kinds = ("slice", "slicem", "bram", "dsp", "uram")
 
@@ -583,6 +592,8 @@ def allocate_grid(dev, node_res, tiles, util, pack=1, extra=None):
         if cur:
             grown = list(cur_t)
             while len(grown) < pack and nxt + len(grown) - len(cur_t) < len(tiles):
+                if grp[nxt + len(grown) - len(cur_t)] != grp[cur_t[0]]:
+                    break
                 grown.append(nxt + len(grown) - len(cur_t))
                 if fits(grown, cur + [i]):
                     break
@@ -596,6 +607,9 @@ def allocate_grid(dev, node_res, tiles, util, pack=1, extra=None):
         while not fits(cur_t, cur):
             if nxt >= len(tiles):
                 return None
+            if cur_t and grp[nxt] != grp[cur_t[0]]:
+                # the island would cross into the next group: start over at its first tile
+                cur_t = []
             cur_t.append(nxt)
             nxt += 1
     if cur:
