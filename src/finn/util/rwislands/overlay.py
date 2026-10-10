@@ -136,9 +136,11 @@ def static_tcl(shell_dir, part, odir, n, ranges, threads=16):
             "resize_pblock pb_t%d -add {%s}" % (k, " ".join(ranges[k])),
             "add_cells_to_pblock pb_t%d $c" % k,
             "set_property SNAPPING_MODE ON [get_pblocks pb_t%d]" % k,
-            "update_design -cell $c -buffer_ports",
         ]
     t += [
+        # grey boxes, all tiles in one netlist update (one call per tile took ~97 s with ~2400
+        # boundary pins each: 2 h for 79 tiles)
+        "update_design -cells [get_cells %s/t*] -buffer_ports" % rp,
         "stamp partitions",
         "set_property IS_ROUTE_FIXED 0 [get_nets -hier -quiet -filter {TYPE == POWER || TYPE == GROUND}]",
         "place_design",
