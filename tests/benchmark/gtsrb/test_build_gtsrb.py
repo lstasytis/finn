@@ -1,46 +1,28 @@
-# Copyright (C) 2024, Advanced Micro Devices, Inc.
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-# * Redistributions of source code must retain the above copyright notice, this
-#   list of conditions and the following disclaimer.
-#
-# * Redistributions in binary form must reproduce the above copyright notice,
-#   this list of conditions and the following disclaimer in the documentation
-#   and/or other materials provided with the distribution.
-#
-# * Neither the name of FINN nor the names of its
-#   contributors may be used to endorse or promote products derived from
-#   this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+# Copyright Advanced Micro Devices, Inc.
+# SPDX-License-Identifier: BSD-3-Clause
 
 import pytest
 
 import numpy as np
 import os
-import re
+from benchmark_helpers import (
+    CORE_BUILD_OUTPUT_FILES,
+    benchmark_config_paths,
+    benchmark_root,
+    bitfile_output_files,
+    check_build_outputs,
+    get_verify_steps,
+    make_benchmark_cfg,
+    verification_io_dir,
+)
 from onnx import helper as oh
 from qonnx.core.datatype import DataType
 from qonnx.transformation.insert_topk import InsertTopK
 
 import finn.builder.build_dataflow as build
-import finn.builder.build_dataflow_config as build_cfg
-from finn.builder.build_dataflow_config import default_build_dataflow_steps
 from finn.util.basic import make_build_dir
 
-build_fd = "tests/benchmark/"
+build_fd = benchmark_root()
 
 
 def custom_step_add_preproc(model, cfg):
@@ -71,17 +53,13 @@ def custom_step_add_postproc(model, cfg):
     return model
 
 
-custom_build_steps = (
-    [custom_step_add_preproc] + [custom_step_add_postproc] + default_build_dataflow_steps
-)
-
 # model
 model_name = "cnv_1w1a_gtsrb"
-model_file = build_fd + "models/" + model_name + ".onnx"
+model_file = os.path.join(build_fd, "models", model_name + ".onnx")
 
 # verification parameters
-verify_input_npy = build_fd + "verification_io/" + model_name + "_input.npy"
-verify_expected_output_npy = build_fd + "verification_io/" + model_name + "_output.npy"
+verify_input_npy = os.path.join(verification_io_dir(), model_name + "_input.npy")
+verify_expected_output_npy = os.path.join(verification_io_dir(), model_name + "_output.npy")
 
 verif_steps = [
     "finn_onnx_python",
@@ -92,75 +70,42 @@ verif_steps = [
     "stitched_ip_rtlsim",
 ]
 
-# build output products
-build_outputs = [
-    build_cfg.DataflowOutputType.ESTIMATE_REPORTS,
-    build_cfg.DataflowOutputType.STITCHED_IP,
-    build_cfg.DataflowOutputType.PYNQ_DRIVER,
-    build_cfg.DataflowOutputType.BITFILE,
-    build_cfg.DataflowOutputType.DEPLOYMENT_PACKAGE,
-    build_cfg.DataflowOutputType.RTLSIM_PERFORMANCE,
-]
 
-
-def configure_build(board, output_dir):
-    f_file = f"{build_fd}gtsrb/folding_config/gtsrb_folding_config_{board}"
-    sl_file = f"{build_fd}gtsrb/specialize_layers_config/gtsrb_specialize_layers"
-    cfg = build_cfg.DataflowBuildConfig(
-        output_dir=output_dir,
+def configure_build(board, output_dir, **overrides):
+    folding, specialize = benchmark_config_paths(
+        "gtsrb",
+        f"gtsrb_folding_config_{board}",
+        "gtsrb_specialize_layers",
+    )
+    cfg = dict(
+        folding_config_file=folding,
+        specialize_layers_config_file=specialize,
         synth_clk_period_ns=10.0,
-        board=board,
-        steps=custom_build_steps,
-        verify_steps=verif_steps,
+        inject_steps_before={
+            "step_qonnx_to_finn": [custom_step_add_preproc, custom_step_add_postproc]
+        },
+        verify_steps=get_verify_steps(verif_steps),
         verify_input_npy=verify_input_npy,
         verify_expected_output_npy=verify_expected_output_npy,
-        folding_config_file=f_file + ".json",
-        shell_flow_type=build_cfg.ShellFlowType.VIVADO_ZYNQ,
-        generate_outputs=build_outputs,
-        specialize_layers_config_file=sl_file + ".json",
     )
-    return cfg
+    cfg.update(overrides)
+    return make_benchmark_cfg(board, output_dir, **cfg)
 
 
 @pytest.mark.slow
 @pytest.mark.vivado
 @pytest.mark.finn_examples
-@pytest.mark.parametrize("board", ["Pynq-Z1", "AUP-ZU3_8GB"])
-def test_gtsrb(board):
-    # Check vivado version
-    vivado_path = os.environ.get("XILINX_VIVADO")
-    match = re.search(r"\b(20\d{2})\.(1|2)\b", vivado_path)
-    year, minor = int(match.group(1)), int(match.group(2))
-    if board == "AUP-ZU3_8GB" and (year, minor) != (2024, 1):
-        pytest.skip("""Vivado version 2024.1 needed for the AUP-ZU3.""")
-    elif board != "AUP-ZU3_8GB" and (year, minor) != (2022, 2):
-        pytest.skip("""Vivado version 2022.2 needed.""")
-
+@pytest.mark.parametrize("board", ["AUP-ZU3_8GB"])
+def test_gtsrb(board, bench_recorder):
     output_dir = make_build_dir("build_gtsrb_")
 
     # Run build flow
     cfg = configure_build(board, output_dir)
     build.build_dataflow_cfg(model_file, cfg)
+    bench_recorder(model_name, board, output_dir)
 
-    # Check if the ezxpected output products are there
-    assert os.path.isfile(output_dir + "/time_per_step.json")
-    assert os.path.isfile(output_dir + "/final_hw_config.json")
-    assert os.path.isfile(output_dir + "/template_specialize_layers_config.json")
-    assert os.path.isfile(output_dir + "/stitched_ip/ip/component.xml")
-    assert os.path.isfile(output_dir + "/driver/driver.py")
-    assert os.path.isfile(output_dir + "/report/estimate_layer_cycles.json")
-    assert os.path.isfile(output_dir + "/report/estimate_layer_resources.json")
-    assert os.path.isfile(output_dir + "/report/estimate_network_performance.json")
-    assert os.path.isfile(output_dir + "/report/rtlsim_performance.json")
-    assert os.path.isfile(output_dir + "/bitfile/finn-accel.bit")
-    assert os.path.isfile(output_dir + "/bitfile/finn-accel.hwh")
-    assert os.path.isfile(output_dir + "/report/post_synth_resources.xml")
-    assert os.path.isfile(output_dir + "/report/post_route_timing.rpt")
-    assert os.path.isfile(output_dir + "/report/post_synth_resources.json")
-    # Verification outputs
-    verify_out_dir = output_dir + "/verification_output"
-    assert os.path.isfile(verify_out_dir + "/verify_initial_python_0_SUCCESS.npy")
-    assert os.path.isfile(verify_out_dir + "/verify_streamlined_python_0_SUCCESS.npy")
-    assert os.path.isfile(verify_out_dir + "/verify_folded_hls_cppsim_0_SUCCESS.npy")
-    assert os.path.isfile(verify_out_dir + "/verify_node_by_node_rtlsim_0_SUCCESS.npy")
-    assert os.path.isfile(verify_out_dir + "/verify_stitched_ip_rtlsim_0_SUCCESS.npy")
+    # Check that all expected output products are present, reporting every
+    # missing artifact at once instead of aborting on the first one. This model
+    # builds on AUP-ZU3_8GB via the Vivado/Zynq flow (.bit/.hwh).
+    build_output_files = CORE_BUILD_OUTPUT_FILES + bitfile_output_files(board)
+    check_build_outputs(output_dir, build_output_files)

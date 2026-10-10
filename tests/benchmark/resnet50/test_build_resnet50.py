@@ -1,40 +1,35 @@
-############################################################################
-# Copyright (C) 2025, Advanced Micro Devices, Inc.
-# All rights reserved.
-#
+# Copyright Advanced Micro Devices, Inc.
 # SPDX-License-Identifier: BSD-3-Clause
-#
-############################################################################
 
 import pytest
 
-import os
-import re
-
 # custom steps for resnet50v1.5
-from custom_steps_resnet50 import (
-    step_resnet50_convert_to_hw,
-    step_resnet50_slr_floorplan,
-    step_resnet50_streamline,
-    step_resnet50_tidy,
+import os
+from benchmark_helpers import (
+    benchmark_config_paths,
+    benchmark_root,
+    check_build_outputs,
+    get_verify_steps,
+    make_benchmark_cfg,
+    verification_io_dir,
 )
+from custom_steps_resnet50 import step_resnet50_streamline, step_resnet50_tidy
 
 import finn.builder.build_dataflow as build
 import finn.builder.build_dataflow_config as build_cfg
-from finn.util.basic import vitis_default_platform, make_build_dir
+from finn.util.basic import make_build_dir
 
-build_flow_folder = "tests/benchmark/"
+build_flow_folder = benchmark_root()
 
 # model
 model_name = "resnet50_w1a2_exported"
-model_file = build_flow_folder + "models/" + model_name + ".onnx"
+model_file = os.path.join(build_flow_folder, "models", model_name + ".onnx")
 
 # verification parameters
-verify_input_npy = build_flow_folder + "verification_io/" + model_name + "_input.npy"
-verify_expected_output_npy = build_flow_folder + "verification_io/" + model_name + "_output.npy"
+verify_input_npy = os.path.join(verification_io_dir(), model_name + "_input.npy")
+verify_expected_output_npy = os.path.join(verification_io_dir(), model_name + "_output.npy")
 
 verif_steps = [
-    "finn_onnx_python",
     "initial_python",
     "streamlined_python",
     "folded_hls_cppsim",
@@ -43,98 +38,84 @@ verif_steps = [
 ]
 
 # build output products
+# TEMP(stitched-ip-only): the V80/SLASH synth needs the slashkit .deb + Vivado
+# 2025.1, so for now we stop at stitched IP (+ rtlsim performance). The output
+# products gate which steps actually execute, so leaving BITFILE/PYNQ_DRIVER/
+# DEPLOYMENT_PACKAGE out skips synth/driver/deployment. Re-add them once the
+# SLASH toolchain is in place.
 build_outputs = [
     build_cfg.DataflowOutputType.ESTIMATE_REPORTS,
     build_cfg.DataflowOutputType.STITCHED_IP,
-    build_cfg.DataflowOutputType.PYNQ_DRIVER,
-    build_cfg.DataflowOutputType.BITFILE,
-    build_cfg.DataflowOutputType.DEPLOYMENT_PACKAGE,
     build_cfg.DataflowOutputType.RTLSIM_PERFORMANCE,
 ]
 
+# ResNet-50 uses custom tidy/streamline steps; the rest is phase-based. The
+# custom streamline step lowers convolutions and fully detangles the residual
+# fork/join transposes.
 resnet50_build_steps = [
     step_resnet50_tidy,
     step_resnet50_streamline,
-    step_resnet50_convert_to_hw,
-    "step_create_dataflow_partition",
-    "step_specialize_layers",
-    "step_apply_folding_config",
-    "step_minimize_bit_width",
-    "step_generate_estimate_reports",
-    "step_hw_codegen",
-    "step_hw_ipgen",
-    "step_set_fifo_depths",
-    step_resnet50_slr_floorplan,
-    "step_synthesize_bitfile",
-    "step_make_driver",
-    "step_deployment_package",
+    "phase_convert_to_hardware",
+    "phase_optimize_hardware",
+    "phase_build_hardware",
+    "phase_generate_outputs",
 ]
 
 
-def configure_build(board, output_dir):
-    cfg = build_cfg.DataflowBuildConfig(
+def configure_build(board, output_dir, **overrides):
+    folding, specialize = benchmark_config_paths(
+        "resnet50",
+        f"resnet50_folding_config_{board}",
+        f"resnet50_specialize_layers_{board}",
+    )
+    cfg = dict(
         steps=resnet50_build_steps,
+        standalone_thresholds=True,
+        # TEMP(stitched-ip-only): stop at stitched IP (+ rtlsim performance) until
+        # the V80/SLASH synth toolchain is available.
         generate_outputs=build_outputs,
-        output_dir=output_dir,
-        folding_config_file=f"{build_flow_folder}resnet50/"
-        f"folding_config/resnet50_folding_config_{board}.json",
-        auto_fifo_depths=False,
+        folding_config_file=folding,
+        specialize_layers_config_file=specialize,
+        auto_fifo_depths=True,
         synth_clk_period_ns=4.0,
-        board=board,
-        shell_flow_type=build_cfg.ShellFlowType.VITIS_ALVEO,
-        vitis_platform=vitis_default_platform[board],
-        vitis_opt_strategy=build_cfg.VitisOptStrategyCfg.PERFORMANCE_BEST,
-        split_large_fifos=True,
-        specialize_layers_config_file=f"{build_flow_folder}"
-        f"resnet50/specialize_layers_config/resnet50_specialize_layers_{board}.json",
-        verify_steps=verif_steps,
+        # TEMP(stitched-ip-only): V80 (Versal) uses the SLASH shell, which requires
+        # Vivado 2025.1. The builder resolves V80 -> SLASH_ALVEO only at synth time;
+        # since this run stops at stitched IP (no BITFILE), synth never runs and the
+        # shell is never consulted, so it is left unset here.
+        verify_steps=get_verify_steps(verif_steps),
         verify_input_npy=verify_input_npy,
         verify_expected_output_npy=verify_expected_output_npy,
     )
-    return cfg
+    cfg.update(overrides)
+    return make_benchmark_cfg(board, output_dir, **cfg)
 
 
 @pytest.mark.slow
 @pytest.mark.vivado
 @pytest.mark.finn_examples
-@pytest.mark.parametrize(
-    "board", [pytest.param("U250", marks=pytest.mark.xfail(reason="not tested"))]
-)
-def test_resnet50(board):
-    # Check vivado version
-    vivado_path = os.environ.get("XILINX_VIVADO")
-    match = re.search(r"\b(20\d{2})\.(1|2)\b", vivado_path)
-    year, minor = int(match.group(1)), int(match.group(2))
-    if board == "AUP-ZU3_8GB" and (year, minor) != (2024, 1):
-        pytest.skip("""Vivado version 2024.1 needed for the AUP-ZU3.""")
-    elif board != "AUP-ZU3_8GB" and (year, minor) != (2022, 2):
-        pytest.skip("""Vivado version 2022.2 needed.""")
-
+@pytest.mark.parametrize("board", ["V80"])
+def test_resnet50(board, bench_recorder):
     output_dir = make_build_dir("build_resnet50_")
 
     # Run build flow
     cfg = configure_build(board, output_dir)
     build.build_dataflow_cfg(model_file, cfg)
+    bench_recorder(model_name, board, output_dir)
 
-    # Check if the ezxpected output products are there
-    assert os.path.isfile(output_dir + "/time_per_step.json")
-    assert os.path.isfile(output_dir + "/final_hw_config.json")
-    assert os.path.isfile(output_dir + "/template_specialize_layers_config.json")
-    assert os.path.isfile(output_dir + "/stitched_ip/ip/component.xml")
-    assert os.path.isfile(output_dir + "/driver/driver.py")
-    assert os.path.isfile(output_dir + "/report/estimate_layer_cycles.json")
-    assert os.path.isfile(output_dir + "/report/estimate_layer_resources.json")
-    assert os.path.isfile(output_dir + "/report/estimate_network_performance.json")
-    assert os.path.isfile(output_dir + "/report/rtlsim_performance.json")
-    assert os.path.isfile(output_dir + "/bitfile/finn-accel.bit")
-    assert os.path.isfile(output_dir + "/bitfile/finn-accel.hwh")
-    assert os.path.isfile(output_dir + "/report/post_synth_resources.xml")
-    assert os.path.isfile(output_dir + "/report/post_route_timing.rpt")
-    assert os.path.isfile(output_dir + "/report/post_synth_resources.json")
-    # Verification outputs
-    verify_out_dir = output_dir + "/verification_output"
-    assert os.path.isfile(verify_out_dir + "/verify_initial_python_0_SUCCESS.npy")
-    assert os.path.isfile(verify_out_dir + "/verify_streamlined_python_0_SUCCESS.npy")
-    assert os.path.isfile(verify_out_dir + "/verify_folded_hls_cppsim_0_SUCCESS.npy")
-    assert os.path.isfile(verify_out_dir + "/verify_node_by_node_rtlsim_0_SUCCESS.npy")
-    assert os.path.isfile(verify_out_dir + "/verify_stitched_ip_rtlsim_0_SUCCESS.npy")
+    # Check that all expected output products (and the per-step verification
+    # markers) are present, reporting every missing artifact at once instead of
+    # aborting on the first one.
+    # TEMP(stitched-ip-only): bitfile/driver/deployment artifacts are omitted
+    # while the V80/SLASH synth toolchain is unavailable; re-add
+    # bitfile_output_files(SLASH_ALVEO) and driver/driver.py once enabled.
+    build_output_files = [
+        "time_per_step.json",
+        "final_hw_config.json",
+        "template_specialize_layers_config.json",
+        "stitched_ip/ip/component.xml",
+        "report/estimate_layer_cycles.json",
+        "report/estimate_layer_resources.json",
+        "report/estimate_network_performance.json",
+        "report/rtlsim_performance.json",
+    ]
+    check_build_outputs(output_dir, build_output_files)

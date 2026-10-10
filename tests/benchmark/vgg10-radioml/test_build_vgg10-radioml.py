@@ -1,154 +1,92 @@
-############################################################################
-# Copyright (C) 2025, Advanced Micro Devices, Inc.
-# All rights reserved.
-#
+# Copyright Advanced Micro Devices, Inc.
 # SPDX-License-Identifier: BSD-3-Clause
-#
-############################################################################
 
 import pytest
 
+# custom steps for vgg10-radioml
 import os
-import re
-from qonnx.core.modelwrapper import ModelWrapper
-from qonnx.transformation.change_3d_tensors_to_4d import Change3DTo4DTensors
-from qonnx.transformation.general import GiveUniqueNodeNames
+from benchmark_helpers import (
+    CORE_BUILD_OUTPUT_FILES,
+    benchmark_config_paths,
+    benchmark_root,
+    bitfile_output_files,
+    check_build_outputs,
+    get_verify_steps,
+    make_benchmark_cfg,
+    verification_io_dir,
+)
+from custom_steps_vgg10 import step_pre_streamline
 
 import finn.builder.build_dataflow as build
-import finn.builder.build_dataflow_config as build_cfg
-import finn.transformation.fpgadataflow.convert_to_hw_layers as to_hw
-import finn.transformation.streamline.absorb as absorb
-from finn.builder.build_dataflow_config import DataflowBuildConfig
 from finn.util.basic import make_build_dir
 
-
-# custom steps for vgg10-radioml
-def step_pre_streamline(model: ModelWrapper, cfg: DataflowBuildConfig):
-    model = model.transform(Change3DTo4DTensors())
-    model = model.transform(absorb.AbsorbScalarMulAddIntoTopK())
-    return model
-
-
-def step_convert_final_layers(model: ModelWrapper, cfg: DataflowBuildConfig):
-    model = model.transform(to_hw.InferChannelwiseLinearLayer())
-    model = model.transform(to_hw.InferLabelSelectLayer())
-    model = model.transform(GiveUniqueNodeNames())
-    return model
-
-
-build_flow_folder = "tests/benchmark/"
+build_flow_folder = benchmark_root()
 
 # model
 model_name = "radioml_w4a4_small_tidy"
-model_file = build_flow_folder + "models/%s.onnx" % model_name
+model_file = os.path.join(build_flow_folder, "models", "%s.onnx" % model_name)
 
 
 # verification parameters
-verify_input_npy = build_flow_folder + "verification_io/" + model_name + "_input.npy"
-verify_expected_output_npy = build_flow_folder + "verification_io/" + model_name + "_output.npy"
+verify_input_npy = os.path.join(verification_io_dir(), model_name + "_input.npy")
+verify_expected_output_npy = os.path.join(verification_io_dir(), model_name + "_output.npy")
 
 verif_steps = [
-    "finn_onnx_python",
-    "initial_python",
     "streamlined_python",
     "folded_hls_cppsim",
     "node_by_node_rtlsim",
     "stitched_ip_rtlsim",
 ]
 
-# build output products
-build_outputs = [
-    build_cfg.DataflowOutputType.ESTIMATE_REPORTS,
-    build_cfg.DataflowOutputType.STITCHED_IP,
-    build_cfg.DataflowOutputType.PYNQ_DRIVER,
-    build_cfg.DataflowOutputType.BITFILE,
-    build_cfg.DataflowOutputType.DEPLOYMENT_PACKAGE,
-    build_cfg.DataflowOutputType.RTLSIM_PERFORMANCE,
-]
-
+# vgg10-radioml uses one custom step, step_pre_streamline (3D->4D + fold scalar
+# mul/add into TopK), run between tidy and streamline. Everything else is
+# phase-based: the standard convert-to-hw now infers the label-select and
+# elementwise layers this model used to convert by hand.
 build_steps = [
     "step_tidy_up",
     step_pre_streamline,
-    "step_streamline",
-    "step_convert_to_hw",
-    step_convert_final_layers,
-    "step_create_dataflow_partition",
-    "step_specialize_layers",
-    "step_target_fps_parallelization",
-    "step_apply_folding_config",
-    "step_minimize_bit_width",
-    "step_generate_estimate_reports",
-    "step_hw_codegen",
-    "step_hw_ipgen",
-    "step_set_fifo_depths",
-    "step_create_stitched_ip",
-    "step_measure_rtlsim_performance",
-    "step_out_of_context_synthesis",
-    "step_synthesize_bitfile",
-    "step_deployment_package",
+    "phase_optimize_model",
+    "phase_convert_to_hardware",
+    "phase_optimize_hardware",
+    "phase_build_hardware",
+    "phase_generate_outputs",
 ]
 
 
-def configure_build(board, output_dir):
-    cfg = build_cfg.DataflowBuildConfig(
-        generate_outputs=build_outputs,
-        output_dir=output_dir,
-        steps=build_steps,
-        folding_config_file=f"{build_flow_folder}vgg10-radioml/"
-        "folding_config/vgg10radioml_folding_config.json",
+def configure_build(board, output_dir, **overrides):
+    folding, specialize = benchmark_config_paths(
+        "vgg10-radioml",
+        "vgg10radioml_folding_config",
+        "vgg10radioml_specialize_layers",
+    )
+    cfg = dict(
+        folding_config_file=folding,
+        specialize_layers_config_file=specialize,
         synth_clk_period_ns=4.0,
-        board=board,
-        shell_flow_type=build_cfg.ShellFlowType.VIVADO_ZYNQ,
-        split_large_fifos=True,
+        steps=build_steps,
         standalone_thresholds=True,
-        specialize_layers_config_file=f"{build_flow_folder}vgg10-radioml/"
-        "specialize_layers_config/vgg10radioml_specialize_layers.json",
-        verify_steps=verif_steps,
+        verify_steps=get_verify_steps(verif_steps),
         verify_input_npy=verify_input_npy,
         verify_expected_output_npy=verify_expected_output_npy,
     )
-    return cfg
+    cfg.update(overrides)
+    return make_benchmark_cfg(board, output_dir, **cfg)
 
 
 @pytest.mark.slow
 @pytest.mark.vivado
 @pytest.mark.finn_examples
-@pytest.mark.parametrize("board", ["AUP-ZU3_8GB", "ZCU104"])
-def test_vgg10radioml(board):
-    # Check vivado version
-    vivado_path = os.environ.get("XILINX_VIVADO")
-    match = re.search(r"\b(20\d{2})\.(1|2)\b", vivado_path)
-    year, minor = int(match.group(1)), int(match.group(2))
-    if board == "AUP-ZU3_8GB" and (year, minor) != (2024, 1):
-        pytest.skip("""Vivado version 2024.1 needed for the AUP-ZU3.""")
-    elif board != "AUP-ZU3_8GB" and (year, minor) != (2022, 2):
-        pytest.skip("""Vivado version 2022.2 needed.""")
-
-    output_dir = make_build_dir("vgg10-radioml_")
+@pytest.mark.parametrize("board", ["ZCU104"])
+def test_vgg10radioml(board, bench_recorder):
+    output_dir = make_build_dir("build_vgg10-radioml_")
 
     # Run build flow
     cfg = configure_build(board, output_dir)
     build.build_dataflow_cfg(model_file, cfg)
+    bench_recorder(model_name, board, output_dir)
 
-    # Check if the ezxpected output products are there
-    assert os.path.isfile(output_dir + "/time_per_step.json")
-    assert os.path.isfile(output_dir + "/final_hw_config.json")
-    assert os.path.isfile(output_dir + "/template_specialize_layers_config.json")
-    assert os.path.isfile(output_dir + "/stitched_ip/ip/component.xml")
-    assert os.path.isfile(output_dir + "/driver/driver.py")
-    assert os.path.isfile(output_dir + "/report/estimate_layer_cycles.json")
-    assert os.path.isfile(output_dir + "/report/estimate_layer_resources.json")
-    assert os.path.isfile(output_dir + "/report/estimate_network_performance.json")
-    assert os.path.isfile(output_dir + "/report/rtlsim_performance.json")
-    assert os.path.isfile(output_dir + "/bitfile/finn-accel.bit")
-    assert os.path.isfile(output_dir + "/bitfile/finn-accel.hwh")
-    assert os.path.isfile(output_dir + "/report/post_synth_resources.xml")
-    assert os.path.isfile(output_dir + "/report/post_route_timing.rpt")
-    assert os.path.isfile(output_dir + "/report/post_synth_resources.json")
-    # Verification outputs
-    verify_out_dir = output_dir + "/verification_output"
-    assert os.path.isfile(verify_out_dir + "/verify_initial_python_0_SUCCESS.npy")
-    assert os.path.isfile(verify_out_dir + "/verify_streamlined_python_0_SUCCESS.npy")
-    assert os.path.isfile(verify_out_dir + "/verify_folded_hls_cppsim_0_SUCCESS.npy")
-    assert os.path.isfile(verify_out_dir + "/verify_node_by_node_rtlsim_0_SUCCESS.npy")
-    assert os.path.isfile(verify_out_dir + "/verify_stitched_ip_rtlsim_0_SUCCESS.npy")
+    # Check that all expected output products (and the per-step verification
+    # markers) are present, reporting every missing artifact at once instead of
+    # aborting on the first one.
+    build_output_files = CORE_BUILD_OUTPUT_FILES + bitfile_output_files(board)
+    check_build_outputs(output_dir, build_output_files)

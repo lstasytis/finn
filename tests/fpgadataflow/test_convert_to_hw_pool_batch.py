@@ -32,6 +32,7 @@ import numpy as np
 from onnx import TensorProto, helper
 from qonnx.core.datatype import DataType
 from qonnx.core.modelwrapper import ModelWrapper
+from qonnx.custom_op.general.maxpoolnhwc import compute_pool_output_dim
 from qonnx.custom_op.registry import getCustomOp
 from qonnx.transformation.general import GiveUniqueNodeNames
 from qonnx.transformation.infer_shapes import InferShapes
@@ -50,10 +51,11 @@ from finn.transformation.fpgadataflow.prepare_ip import PrepareIP
 from finn.transformation.fpgadataflow.prepare_rtlsim import PrepareRTLSim
 from finn.transformation.fpgadataflow.set_exec_mode import SetExecMode
 from finn.transformation.fpgadataflow.specialize_layers import SpecializeLayers
-from finn.util.test import tree_model_test
 
 
-def make_single_maxpool_modelwrapper(k, stride, pad, ifm_ch, ifm_dim, ofm_dim, idt, use_1d=False):
+def make_single_maxpool_modelwrapper(
+    k, stride, pad, ifm_ch, ifm_dim, ofm_dim, idt, use_1d=False, ceil_mode=0
+):
     odt = idt
     if use_1d:
         ishape = [1, ifm_ch, 1, ifm_dim]
@@ -76,6 +78,7 @@ def make_single_maxpool_modelwrapper(k, stride, pad, ifm_ch, ifm_dim, ofm_dim, i
         kernel_shape=kshape,
         pads=pads,
         strides=strides,
+        ceil_mode=ceil_mode,
     )
     graph = helper.make_graph(nodes=[mp_node], name="mp_graph", inputs=[inp], outputs=[outp])
 
@@ -256,112 +259,71 @@ def test_convert_to_hw_pool(idt, odt, pool_config, ifm_ch, pe, op_type, exec_mod
         assert np.isclose(exp_cycles, cycles_rtlsim, atol=10)
 
 
-# input datatype
-@pytest.mark.parametrize("idt", [DataType["UINT4"]])
-# output datatype
-@pytest.mark.parametrize("odt", [DataType["UINT4"]])
-# pool configuration:                   ( k,stride, pad, ifm_dim )
-# @pytest.mark.parametrize("pool_config", [(7, 7, 0, 7), (3, 2, 1, 5)])
-# @pytest.mark.parametrize("pool_config", [(7, 7, 0, 128), (3, 2, 1, 5)])
-@pytest.mark.parametrize("pool_config", [(2, 1, 0, 512)])
-# input channels
-@pytest.mark.parametrize("ifm_ch", [32])
-# number of out channel computed in parallel
-@pytest.mark.parametrize("pe", [32])
-# pool type
-# @pytest.mark.parametrize("op_type", ["QuantAvgPool2d", "MaxPool", "MaxPool1D"])
-@pytest.mark.parametrize("op_type", ["MaxPool1D"])
+# ceil_mode=1 MaxPool geometries.  The sliding-window generator only produces a
+# floor-count grid, so InferPool absorbs any ceil extension (where the drop-rule
+# output exceeds the floor output) into extra trailing padding, letting Im2Col's
+# floor formula reproduce the declared drop-rule output size.  All three cases
+# below must build and match the onnxruntime reference:
+#   (k, stride, pad, ifm_dim):   drop  floor   how it builds
+#     (2, 2, 0, 8):                4     4      ceil_mode is a no-op
+#     (2, 2, 1, 9):                5     5      FMPadding 9->11, floor=5
+#     (2, 2, 0, 7):                4     3      pad-to-ceil 7->8 (bottom/right +1)
+@pytest.mark.parametrize(
+    "ceil_config",
+    [
+        (2, 2, 0, 8),
+        (2, 2, 1, 9),
+        (2, 2, 0, 7),
+    ],
+)
+@pytest.mark.parametrize("exec_mode", ["cppsim", "rtlsim"])
 @pytest.mark.fpgadataflow
 @pytest.mark.slow
 @pytest.mark.vivado
-@pytest.mark.node_tree_modeling
-def test_analytical_characterization_pool(idt, odt, pool_config, ifm_ch, pe, op_type):
-    k, stride, pad, ifm_dim = pool_config
+def test_convert_to_hw_maxpool_ceil_mode(ceil_config, exec_mode):
+    k, stride, pad, ifm_dim = ceil_config
+    idt = DataType["UINT4"]
+    ifm_ch = 4
+    pe = 2
 
-    if ifm_ch % pe != 0:
-        pytest.skip("ifm_ch%pe != 0. Skipping")
+    ofm_dim = compute_pool_output_dim(ifm_dim, k, stride, pad, ceil_mode=1)
+    model = make_single_maxpool_modelwrapper(
+        k, stride, pad, ifm_ch, ifm_dim, ofm_dim, idt, ceil_mode=1
+    )
 
-    if pad != 0 and idt.signed():
-        pytest.skip("No support for pal_val != 0. Skipping")
+    x = gen_finn_dt_tensor(idt, (1, ifm_ch, ifm_dim, ifm_dim))
+    input_dict = prepare_inputs(x)
+    y_expected = oxe.execute_onnx(model, input_dict)["outp"]
 
-    np.random.seed(0)
+    new_model = model.transform(to_hw.InferPool())
+    new_model = new_model.transform(GiveUniqueNodeNames())
+    new_model = new_model.transform(to_hw.InferConvInpGen())
+    if pad != 0:
+        inst = getCustomOp(new_model.get_nodes_by_op_type("FMPadding")[0])
+        inst.set_nodeattr("preferred_impl_style", "hls")
+    new_model = new_model.transform(SpecializeLayers("xc7z020clg400-1"))
 
-    part = "xc7z020clg400-1"
+    for n in new_model.graph.node:
+        if n.op_type.startswith("ConvolutionInputGenerator"):
+            getCustomOp(n).set_nodeattr("SIMD", pe)
+        elif n.op_type.startswith("Pool"):
+            getCustomOp(n).set_nodeattr("PE", pe)
 
-    ofm_dim = int(((ifm_dim + 2 * pad - k) / stride) + 1)
-
-    ishape = (1, ifm_ch, ifm_dim, ifm_dim)
-    use_1d = False
-    if op_type == "MaxPool1D":
-        use_1d = True
-        ishape = (1, ifm_ch, 1, ifm_dim)
-        op_type = "MaxPool"
-
-    if op_type == "MaxPool":
-        if idt != odt:
-            pytest.skip("Skipping Maxpool with idt != odt")
-
-        model = make_single_maxpool_modelwrapper(
-            k, stride, pad, ifm_ch, ifm_dim, ofm_dim, idt, use_1d
-        )
-    elif op_type == "QuantAvgPool2d":
-        if pad != 0:
-            pytest.skip("No padding support for QuantAvgPool2d. Skipping")
-
-        if idt.signed() != odt.signed():
-            pytest.skip("Skipping QuantAvgPool2d with idt.signed() != odt.signed()")
-        model = make_single_quantavpool_modelwrapper(k, stride, ifm_ch, ifm_dim, ofm_dim, idt, odt)
+    if exec_mode == "cppsim":
+        new_model = new_model.transform(SetExecMode("cppsim"))
+        new_model = new_model.transform(PrepareCppSim())
+        new_model = new_model.transform(CompileCppSim())
+    elif exec_mode == "rtlsim":
+        new_model = new_model.transform(SetExecMode("rtlsim"))
+        new_model = new_model.transform(GiveUniqueNodeNames())
+        new_model = new_model.transform(PrepareIP("xc7z020clg400-1", 5))
+        new_model = new_model.transform(HLSSynthIP())
+        new_model = new_model.transform(PrepareRTLSim())
     else:
-        assert False, "{} is not a supported op_type".format(op_type)
+        raise Exception("Unknown exec_mode")
 
-    model = model.transform(to_hw.InferPool())
-
-    # Folding
-    for n in model.graph.node:
-        if n.op_type.startswith("Pool"):
-            inst = getCustomOp(n)
-
-            ishape = inst.get_folded_input_shape()
-            oshape = inst.get_folded_output_shape()
-
-            inp = helper.make_tensor_value_info("inp", TensorProto.FLOAT, ishape)
-            outp = helper.make_tensor_value_info("outp", TensorProto.FLOAT, oshape)
-
-            graph = helper.make_graph(nodes=[n], name="mp_graph", inputs=[inp], outputs=[outp])
-            model = qonnx_make_model(graph, producer_name="mp-model")
-            model = ModelWrapper(model)
-            model.set_tensor_datatype("inp", idt)
-            model.set_tensor_datatype("outp", odt)
-            model = model.transform(InferShapes())
-
-            inst.set_nodeattr("PE", pe)
-            model = model.transform(SpecializeLayers(part))
-
-    node_details = ("Pool", op_type, k, ifm_ch, ifm_dim, ofm_dim, pe, idt)
-
-    target_clk_ns = 4
-
-    # TAV tolerances are fractions -- of the tokens moved and of the frame
-    # length -- with a floor for the fixed part of the error (wind-up, adder
-    # tree depth, the cycle rtlsim's period rounds away). The floors are the
-    # flat budgets this test used before the split, so nothing that passed
-    # then fails now; the fractions are what govern once the frame is long
-    # enough to exceed them.
-    max_allowed_volume_frac = 0.2
-    volume_const = 5000
-    max_allowed_length_frac = 0.2
-    length_const = 5000
-
-    assert tree_model_test(
-        model,
-        node_details,
-        part,
-        target_clk_ns,
-        max_allowed_volume_frac,
-        max_allowed_length_frac,
-        volume_const,
-        length_const,
-    ), "characterized TAV does not match RTLsim'd one!"
+    y_produced = oxe.execute_onnx(new_model, input_dict)["outp"]
+    assert (y_produced == y_expected).all()
 
 
 @pytest.mark.fpgadataflow
