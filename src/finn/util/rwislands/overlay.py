@@ -27,14 +27,18 @@ from finn.util.rwislands.floorplan import grid_tiles
 from finn.util.rwislands.links import ANCHOR
 
 OVERLAY_VERSION = 2
+# DSP / BRAM / URAM share of a tile's sites a model may use: the tile pblocks end on clock-region
+# rows, and routing containment makes Vivado block the hard blocks at their edges (VGG10 0.25x,
+# tile 5 at the device edge: 19 of 54 DSP sites blocked, 16 by place.closeUnroutableSites)
+HARD_UTIL = 0.6
 
 
 def overlay_knobs():
     """FINN_RWI_OVERLAY: "cols=16,rows=60,wf=1024,wb=256,boundary_rows=120" - tile grid (as
     FINN_RWI_GRID, clock-region aligned), link widths forward / backward, the boundary tile's
     height (tile 0 holds the IODMAs and all shell boundary signals: one clock region did not route
-    1772 of them, scratchpad DFX test 2026-10-10)."""
-    kn = {"cols": 16, "rows": 60, "order": "rows", "wf": 1024, "wb": 256, "boundary_rows": 120}
+    1772 of them, scratchpad DFX test 2026-10-10), tiles: only the first N snake tiles (0: all)."""
+    kn = {"cols": 16, "rows": 60, "order": "rows", "wf": 1024, "wb": 256, "boundary_rows": 120, "tiles": 0}
     for kv in filter(None, os.environ.get("FINN_RWI_OVERLAY", "").split(",")):
         k, v = kv.split("=")
         kn[k] = v if k == "order" else int(v)
@@ -50,7 +54,8 @@ def overlay_tiles(dev, region, kn, anchor):
         y1b = y0 + kn["boundary_rows"] - 1
         # tile 0 grows upwards; the tiles it covers leave the snake
         tiles = [(x0, x1, y0, y1b)] + [t for t in tiles[1:] if not (t[0] <= x1 and t[1] >= x0 and t[2] <= y1b and t[3] >= y0)]
-    return tiles
+    # tiles=N: only the first N tiles of the snake (a smaller overlay for smaller models)
+    return tiles[:kn["tiles"]] if kn.get("tiles") else tiles
 
 
 def overlay_key(shell_dir, part, tiles, kn):
@@ -271,7 +276,7 @@ def plan_overlay(names, node_res, g, dev, tiles, boundary, extra=None):
 
     last = "the nodes do not fit the overlay's tiles"
     for u in (0.5, 0.6, 0.7, 0.8, 0.9):
-        util = {"lut": u, "bram": min(1.0, u + 0.4), "dsp": min(1.0, u + 0.4), "uram": 1.0}
+        util = {"lut": u, "bram": HARD_UTIL, "dsp": HARD_UTIL, "uram": HARD_UTIL}
 
         def fits(t, mem):
             req = need(total(mem), util)
@@ -322,7 +327,9 @@ def link_plan(g, where, n_tiles, kn):
             a, b = where[n], where[dst[0]]
             d, rd = ("f", "b") if b > a else ("b", "f")
             hops = []
-            for e in range(min(a, b), max(a, b)):
+            # edges from the producer to the consumer (edge e joins tiles e and e + 1): hops[0]
+            # is the producer's, hops[-1] the consumer's
+            for e in (range(a, b) if b > a else range(a - 1, b - 1, -1)):
                 off, roff = used[(e, d)], used[(e, rd)]
                 used[(e, d)] += w + 1
                 used[(e, rd)] += 1
@@ -518,7 +525,7 @@ def assemble_tcl(overlay_dir, rp, rms, netlist, core_module):
 
 def tile_split_limits(part, kn=None):
     """Resources one part of a split layer may use so that it fits a (median) overlay tile: LUTs at
-    50 %, DSP / BRAM at 85 % of the tile."""
+    50 %, DSP / BRAM at 90 % of HARD_UTIL of the tile."""
     import statistics
 
     from finn.util.rwislands.device import capacity, load_device
@@ -530,4 +537,4 @@ def tile_split_limits(part, kn=None):
     tiles = overlay_tiles(dev, region + list(first), kn, shell_anchor(part, dev))[1:]
     caps = [capacity(dev.sites_in(*t)) for t in tiles]
     med = {k: statistics.median(c[k] for c in caps) for k in ("slice", "dsp", "bram")}
-    return {"lut": 0.5 * 8 * med["slice"], "dsp": 0.85 * med["dsp"], "bram": 0.85 * med["bram"]}
+    return {"lut": 0.5 * 8 * med["slice"], "dsp": 0.9 * HARD_UTIL * med["dsp"], "bram": 0.9 * HARD_UTIL * med["bram"]}

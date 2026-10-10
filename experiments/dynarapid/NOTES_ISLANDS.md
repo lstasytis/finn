@@ -1108,3 +1108,31 @@ xfail "not tested". Larger points instead: MobileNet 4x and VGG10 16x (no relax)
   with all 1772 shell boundary signals in one clock region did not route (11 overlaps). Direct RP-RP
   links need static anchor registers (HDPR-34). Link modules (`links.py`: tx register, static
   anchor, rx FIFO depth 8 with early ready) verified in xsim: no loss/reorder, 1.00 cycles/word.
+
+## 2026-10-10 (later): grid failures root-caused, overlay static build
+
+- Campaign (U55C 100 MHz, new frontends, shell cached): VGG10 8x (`vgg10_s8n`) islands 3088 s,
+  MobileNet hand folding (`mnv1_h`) islands 3228 s. In both, the largest island P&R is 900-1100 s,
+  and VGG10's assembly ~1450 s (read accel 419, route ~760, bitstream ~160).
+- **All grid runs with 16x60 tiles failed** with an island at its time limit (VGG10 grid16x60: 2
+  islands, split16: 1; MobileNet grid16x60: 1, split16: 1). Every one of the five
+  islands spanned an SLR boundary (rows 240 / 480): `allocate_grid` merged consecutive snake tiles
+  across SLRs, and CONTAIN_ROUTING islands do not route over the SLLs. Fix: an island's tiles
+  stay in one region rectangle (`tile_groups`); dry runs of all four plans: no crossing island.
+- grid8x30_split32 (VGG10, 67 islands): all islands ok (~1050 s of island phase), stitch 709 s
+  (populate 562 s for 67 islands), assembly DRC NDRV-1: 19 undriven `ready_in` nets. Cause:
+  upstream's ElementwiseBinary got a `mem_mode` attribute (default internal_embedded) and
+  `internal_streams` dropped its `in1_V` as if it were an internal weight stream -> the adders of
+  input-split layers (and ResNet residual adds) had one input unconnected. Fix: only
+  MVAU/VVAU/Thresholding; FLOW_VERSION 8; channel_graph asserts all connected inputs are ports.
+- Overlay static (79 tiles, `cols=16,rows=60,wf=1088,wb=128,boundary_rows=120`):
+  * Place 30-678 (clock region partitioning failed, load = a tile's clock partition FDCE): the
+    shell's locked kernel clock routing spans only the clock regions of its old loads
+    (X3-X7, Y0-Y5); unrouted before place_design now.
+  * `update_design -buffer_ports` per tile: ~97 s each in the full design (79 tiles: 4398 s); one
+    call for all tiles fails (Netlist 29-77: it applies the first tile's grey-box interface to all);
+    in the OOC container it silently does nothing and HD.RECONFIGURABLE is refused there. Grey boxes
+    are now written into the container Verilog (DONT_TOUCH LUT1 per port bit, FDCE on the clock):
+    partitions step 23 s.
+  * Tiles that only carry streams through (no nodes) were not implemented -> now part of the
+    per-model tile set (plain wires).

@@ -150,7 +150,7 @@ def _synth_estimate(node):
         return 1e9
 
 
-def synthesize(accel, dcps, work, part, clk_ns, cpus, slots, links=False):
+def synthesize(accel, dcps, work, part, clk_ns, cpus, slots, links=None):
     """Out-of-context synthesis of every distinct component, in parallel. Nodes with plain HDL
     are synthesized in shared Vivado sessions (the start and device load are paid once per
     session), the others (weight streamer hierarchies) through a one-node block design.
@@ -232,27 +232,39 @@ def synthesize(accel, dcps, work, part, clk_ns, cpus, slots, links=False):
 
     # register slices for the island boundaries: every stream width may end up crossing islands
     # (the islands are cut after synthesis); a few widths per session
+    # (the overlay has no register slices: its links are the tile boundaries)
     widths = [w for w in stream_widths(channel_graph(accel))
-              if not os.path.isfile(os.path.join(synth_dir, regslice_name(w) + "_synth.dcp"))]
+              if not links and not os.path.isfile(os.path.join(synth_dir, regslice_name(w) + "_synth.dcp"))]
     rs_groups = [widths[k::max(1, (len(widths) + 3) // 4)] for k in range(max(1, (len(widths) + 3) // 4))] if widths else []
 
     def rs_job(ws):
         _, txt = regslice_synth_tcl(ws, work, synth_dir, part, synth_args(part))
         run(txt.splitlines(), "regslices_%d" % ws[0], [(regslice_name(w), None) for w in ws])
 
-    def links_job():
-        # overlay link transmitters / receivers for every stream width (rwislands.overlay)
+    # overlay link transmitters / receivers (rwislands.overlay): model-independent, cached per
+    # width in `links` (one Vivado session for all widths of VGG10 took 494 s, the critical path)
+    lk_widths = []
+    if links:
+        os.makedirs(links, exist_ok=True)
+        lk_widths = [w for w in stream_widths(channel_graph(accel))
+                     if not all(os.path.isfile(os.path.join(links, "rwi_link_%s_w%d_synth.dcp" % (kd, w))) for kd in ("tx", "rx"))]
+
+    def links_job(w):
         from finn.util.rwislands.overlay import link_synth_tcl
 
-        d = os.path.join(work, "links")
+        d = os.path.join(work, "links", "w%d" % w)
         os.makedirs(d, exist_ok=True)
         tcl = os.path.join(d, "links.tcl")
         with open(tcl, "w") as f:
-            f.write(link_synth_tcl(stream_widths(channel_graph(accel)), d, part))
+            f.write(link_synth_tcl([w], d, part))
         run_vivado(tcl, os.path.join(d, "links.log"), d)
+        for kd in ("tx", "rx"):
+            f = os.path.join(d, "rwi_link_%s_w%d_synth.dcp" % (kd, w))
+            if os.path.isfile(f):
+                os.replace(f, os.path.join(links, os.path.basename(f)))  # (atomic: shared cache)
 
-    with ThreadPoolExecutor(max_workers=max(1, min(slots, len(single) + len(sessions) + len(rs_groups) + 1))) as ex:
-        futs = [ex.submit(rs_job, ws) for ws in rs_groups] + ([ex.submit(links_job)] if links else [])
+    with ThreadPoolExecutor(max_workers=max(1, min(slots, len(single) + len(sessions) + len(rs_groups) + len(lk_widths)))) as ex:
+        futs = [ex.submit(rs_job, ws) for ws in rs_groups] + [ex.submit(links_job, w) for w in lk_widths]
         futs += [ex.submit(single_job, it) for it in single] + [ex.submit(sess_job, s) for s in sessions]
         for f in futs:
             f.result()
@@ -1029,7 +1041,8 @@ def rw_islands_zynq_build(
     # 1. shell (cached) and node synthesis, concurrently
     with ThreadPoolExecutor(max_workers=2) as ex:
         f_shell = ex.submit(shell_job)
-        synth = synthesize(accel, dcps, work, part, clk_ns, cpus, slots, links=islands == "overlay")
+        synth = synthesize(accel, dcps, work, part, clk_ns, cpus, slots,
+                           links=overlay_links_dir(shell_lib) if islands == "overlay" else None)
         stamp("synth")
         shell_dir, shell_res = f_shell.result()
     stamp("shell")
@@ -1161,6 +1174,17 @@ def rw_islands_zynq_build(
     return _done(res, stamps, out_dir, t_total)
 
 
+def overlay_links_dir(shell_lib):
+    """Cache of the synthesized overlay link modules (per Vivado release and link source)."""
+    import hashlib
+
+    from finn.util.dynarapid.tools import vivado_version
+    from finn.util.rwislands.links import LINK_RX, LINK_TX
+
+    h = hashlib.sha1((LINK_TX + LINK_RX).encode()).hexdigest()[:8]
+    return os.path.join(shell_lib, "links", "%s_%s" % (vivado_version(), h))
+
+
 def _overlay_build(accel, g, dcps, synth, dev, work, part, shell_dir, shell_lib, out_dir, cpus, slots, res, stamps,
                    stamp, t_total):
     """Tile overlay (rwislands.overlay): the static overlay of the shell (cached), nodes to tiles,
@@ -1208,17 +1232,27 @@ def _overlay_build(accel, g, dcps, synth, dev, work, part, shell_dir, shell_lib,
                            "link_bits_max": {d: max([v for (e, dd), v in usage.items() if dd == d] or [0]) for d in ("f", "b")}}
     stamp("plan")
     ports = json.load(open(os.path.join(shell_dir, "ports.json")))
-    lk_dir = os.path.join(work, "links")
+    lk_dir = overlay_links_dir(shell_lib)
     synth_dir = os.path.join(work, "synth")
     steps = profile(part)
     tdir = os.path.join(work, "tiles")
     infos = {}
 
-    def tile_job(k):
+    # all tile netlists first: every stream between tiles needs its transmitter in the producer's
+    # tile and its receiver in the consumer's (cheap; a missing end only shows up in opt_design)
+    gen = {}
+    for k in used:
         members = [n for n in names if where[n] == k]
+        gen[k] = (members,) + ov.tile_verilog(k, len(tiles), oinfo["kn"], ports, g, members, dcps, links)
+    for (src, j), hops in links.items():
+        dstn, i = g[src]["dst"][j]
+        if "tx_%s_%d " % (g[src]["id"], j) not in gen[where[src]][1] or "rx_%s_%d " % (g[dstn]["id"], i) not in gen[where[dstn]][1]:
+            raise RuntimeError("overlay link %s.%d -> %s.%d has no transmitter or receiver" % (src, j, dstn, i))
+
+    def tile_job(k):
+        members, v, widths = gen[k]
         d = os.path.join(tdir, "t%d" % k)
         os.makedirs(d, exist_ok=True)
-        v, widths = ov.tile_verilog(k, len(tiles), oinfo["kn"], ports, g, members, dcps, links)
         tv = os.path.join(d, "tile%d.v" % k)
         with open(tv, "w") as f:
             f.write(v)
