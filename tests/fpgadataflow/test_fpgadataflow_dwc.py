@@ -29,9 +29,11 @@
 
 import pytest
 
+import numpy as np
 from onnx import TensorProto, helper
 from qonnx.core.datatype import DataType
 from qonnx.core.modelwrapper import ModelWrapper
+from qonnx.custom_op.registry import getCustomOp
 from qonnx.transformation.general import GiveUniqueNodeNames
 from qonnx.util.basic import gen_finn_dt_tensor, qonnx_make_model
 
@@ -47,9 +49,10 @@ from finn.transformation.fpgadataflow.set_exec_mode import SetExecMode
 from finn.transformation.fpgadataflow.specialize_layers import SpecializeLayers
 
 
-def make_single_dwc_modelwrapper(shape, inWidth, outWidth, finn_dtype, impl_style):
+def make_single_dwc_modelwrapper(shape, inWidth, outWidth, finn_dtype, impl_style, out_shape=None):
+    out_shape = shape if out_shape is None else out_shape
     inp = helper.make_tensor_value_info("inp", TensorProto.FLOAT, shape)
-    outp = helper.make_tensor_value_info("outp", TensorProto.FLOAT, shape)
+    outp = helper.make_tensor_value_info("outp", TensorProto.FLOAT, out_shape)
 
     optype = "StreamingDataWidthConverter"
 
@@ -59,7 +62,8 @@ def make_single_dwc_modelwrapper(shape, inWidth, outWidth, finn_dtype, impl_styl
         ["outp"],
         domain="finn.custom_op.fpgadataflow",
         backend="fpgadataflow",
-        shape=shape,
+        in_shape=shape,
+        out_shape=out_shape,
         inWidth=inWidth,
         outWidth=outWidth,
         dataType=str(finn_dtype.name),
@@ -187,3 +191,87 @@ def test_fpgadataflow_dwc_stitched_rtlsim(config, impl_style):
     ).all(), """The output values are not the same as the
         input values anymore."""
     assert y.shape == tuple(shape), """The output shape is incorrect."""
+
+
+# config: (in_shape, out_shape, inWidth, outWidth, dtype). The channel (last) dimension
+# is zero-padded or cropped at the tail of every row. Only the RTL converter (vpc) pads
+# or crops, within the last word of a row: what folding with channel padding produces.
+DWC_PAD_CONFIGS = [
+    # 10 channels produced 4/word (padded to 12), consumed 5/word
+    pytest.param(([1, 2, 2, 12], [1, 2, 2, 10], 8, 10, DataType["INT2"]), id="crop-up"),
+    pytest.param(([1, 2, 2, 10], [1, 2, 2, 12], 10, 8, DataType["INT2"]), id="pad-down"),
+    pytest.param(([1, 4, 12], [1, 4, 15], 16, 20, DataType["INT4"]), id="pad-up"),
+    pytest.param(([1, 2, 2, 10], [1, 2, 2, 8], 10, 4, DataType["BIPOLAR"]), id="crop-down"),
+    pytest.param(([1, 2, 2, 24], [1, 2, 2, 26], 4, 13, DataType["BIPOLAR"]), id="pad-coprime"),
+    pytest.param(([1, 2, 2, 30], [1, 2, 2, 32], 10, 8, DataType["INT2"]), id="pad-down-2"),
+    pytest.param(([1, 3, 3, 12], [1, 3, 3, 15], 6, 5, DataType["BINARY"]), id="pad-multi-rep"),
+    pytest.param(([1, 2, 2, 12], [1, 2, 2, 15], 8, 40, DataType["UINT8"]), id="pad-one-word"),
+    # conv output into a padded fully connected layer
+    pytest.param(([1, 1, 1, 12], [1, 15], 8, 10, DataType["INT2"]), id="pad-rank-change"),
+]
+
+# padding/cropping beyond the last word of a row, which no converter supports
+DWC_PAD_UNSUPPORTED = [
+    ([1, 2, 2, 8], [1, 2, 2, 16], 4, 4, DataType["BIPOLAR"]),
+    ([1, 2, 2, 64], [1, 2, 2, 18], 16, 6, DataType["BIPOLAR"]),
+    ([1, 2, 2, 30], [1, 2, 2, 40], 10, 8, DataType["INT2"]),
+    ([1, 2, 64], [1, 2, 80], 8, 16, DataType["INT4"]),
+]
+
+
+@pytest.mark.parametrize("config", DWC_PAD_CONFIGS)
+@pytest.mark.parametrize("exec_mode", ["cppsim", "rtlsim"])
+@pytest.mark.parametrize("impl_style", ["hls", "rtl"])
+@pytest.mark.fpgadataflow
+@pytest.mark.slow
+@pytest.mark.vivado
+def test_fpgadataflow_dwc_padding(config, exec_mode, impl_style):
+    in_shape, out_shape, inWidth, outWidth, finn_dtype = config
+
+    test_fpga_part = "xc7z020clg400-1"
+    x = gen_finn_dt_tensor(finn_dtype, in_shape)
+    input_dict = prepare_inputs(x, finn_dtype)
+    k = min(in_shape[-1], out_shape[-1])
+    x_rows = x.reshape(-1, in_shape[-1])
+    y_exp = np.zeros((x_rows.shape[0], out_shape[-1]), dtype=np.float32)
+    y_exp[:, :k] = x_rows[:, :k]
+    y_exp = y_exp.reshape(out_shape)
+
+    model = make_single_dwc_modelwrapper(
+        in_shape, inWidth, outWidth, finn_dtype, impl_style, out_shape=out_shape
+    )
+    assert getCustomOp(model.graph.node[0]).rtl_supported()
+    y = oxe.execute_onnx(model, input_dict)["outp"]
+    assert (y == y_exp).all(), "Abstraction-level padding/cropping is incorrect."
+
+    # padding/cropping is RTL-only, whatever the preferred style
+    model = model.transform(SpecializeLayers(test_fpga_part))
+    assert model.graph.node[0].op_type == "StreamingDataWidthConverter_rtl"
+    model = model.transform(GiveUniqueNodeNames())
+    if exec_mode == "cppsim":
+        model = model.transform(PrepareCppSim())
+        model = model.transform(CompileCppSim())
+        model = model.transform(SetExecMode("cppsim"))
+    elif exec_mode == "rtlsim":
+        model = model.transform(PrepareIP(test_fpga_part, 5))
+        model = model.transform(HLSSynthIP())
+        model = model.transform(SetExecMode("rtlsim"))
+        model = model.transform(PrepareRTLSim())
+    y = oxe.execute_onnx(model, input_dict)["outp"]
+
+    assert y.shape == tuple(out_shape), "The output shape is incorrect."
+    # zero bits decode to -1 for BIPOLAR, so only the carried elements are compared there
+    if finn_dtype == DataType["BIPOLAR"]:
+        assert (y[..., :k] == y_exp[..., :k]).all(), "Carried elements are incorrect."
+    else:
+        assert (y == y_exp).all(), "Padded/cropped output is incorrect."
+
+
+@pytest.mark.parametrize("config", DWC_PAD_UNSUPPORTED)
+@pytest.mark.fpgadataflow
+def test_fpgadataflow_dwc_padding_unsupported(config):
+    in_shape, out_shape, inWidth, outWidth, finn_dtype = config
+    model = make_single_dwc_modelwrapper(
+        in_shape, inWidth, outWidth, finn_dtype, "", out_shape=out_shape
+    )
+    assert not getCustomOp(model.graph.node[0]).rtl_supported()

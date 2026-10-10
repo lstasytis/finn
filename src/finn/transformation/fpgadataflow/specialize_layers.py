@@ -48,6 +48,12 @@ def _determine_impl_style(node, fpgapart, model):
     node_inst = getCustomOp(node)
     impl_style = node_inst.get_nodeattr("preferred_impl_style")
 
+    # only the RTL data width converter pads/crops
+    if optype == "StreamingDataWidthConverter" and node_inst.pads_or_crops():
+        if impl_style == "hls":
+            warnings.warn("%s pads/crops, which only the RTL DWC supports." % node.name)
+        return "rtl"
+
     # if impl_style not set, for "simple" layers always try
     # to use rtl variant if available
     if impl_style == "":

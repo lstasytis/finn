@@ -55,6 +55,18 @@ class StreamingDataWidthConverter_rtl(StreamingDataWidthConverter, RTLBackend):
         topname = self.get_verilog_top_module_name()
         ibits = self.get_instream_width()
         obits = self.get_outstream_width()
+        if self.pads_or_crops():
+            assert self.rtl_supported(), "%s: RTL DWC pads/crops only within a word" % (
+                self.onnx_node.name
+            )
+            elem_bits = self.get_input_datatype().bitwidth()
+            return {
+                "W": int(elem_bits),
+                "N": int(self.get_row_elements()),
+                "PI": int(ibits // elem_bits),
+                "PO": int(obits // elem_bits),
+                "TOP_MODULE_NAME": topname,
+            }
         code_gen_dict = {
             "IBITS": int(ibits),
             "OBITS": int(obits),
@@ -64,7 +76,8 @@ class StreamingDataWidthConverter_rtl(StreamingDataWidthConverter, RTLBackend):
 
     def generate_hdl(self, model, fpgapart, clk):
         rtlsrc = os.environ["FINN_ROOT"] + "/finn-rtllib/dwc/hdl"
-        template_path = rtlsrc + "/dwc_template.v"
+        template = "dwc_pad_template.v" if self.pads_or_crops() else "dwc_template.v"
+        template_path = rtlsrc + "/" + template
         code_gen_dict = self.get_template_values()
         # save top module name so we can refer to it after this node has been renamed
         # (e.g. by GiveUniqueNodeNames(prefix) during MakeZynqProject)
