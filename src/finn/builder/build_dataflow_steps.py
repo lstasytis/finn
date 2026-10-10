@@ -902,6 +902,13 @@ def step_minimize_bit_width(model: ModelWrapper, cfg: DataflowBuildConfig):
         model = model.transform(MinimizeWeightBitWidth(), apply_to_subgraphs=True)
         model = model.transform(InferDataTypes(), apply_to_subgraphs=True)
 
+    if cfg.folding_maximum_padding:
+        # channel padding from folding leaves neighbouring channel counts unmatched
+        # until DWCs pad/crop them; insert those now that the bit widths are final
+        model = model.transform(InsertDWC())
+        model = model.transform(SpecializeLayers(cfg._resolve_fpga_part()))
+        model = model.transform(GiveUniqueNodeNames())
+
     if VerificationStepType.FOLDED_HLS_CPPSIM in cfg._resolve_verification_steps():
         # prepare cppsim
         model = model.transform(PrepareCppSim(), apply_to_subgraphs=True)
