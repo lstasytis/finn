@@ -99,7 +99,7 @@ def main():
     ap.add_argument(
         "--mode",
         choices=["vivado", "dynarapid", "dynarapid-kernel", "islands", "global", "islands_fast", "global_fast",
-                 "islands_split", "islands_fast_split"],
+                 "islands_split", "islands_fast_split", "overlay"],
         required=True,
         help="dynarapid: whole accelerator by DynaRapid in a pre-implemented shell; "
         "dynarapid-kernel: only the compute kernel by DynaRapid, shell implemented by Vivado",
@@ -119,7 +119,9 @@ def main():
     clk_ns = args.clk or float(model.get_metadata_prop("dynarapid_clk_ns"))
     dr = None
     # dominant MVAUs split into parallel parts: FINN_RWI_SPLIT=<n_parts> or a *_split mode (16)
-    split = int(os.environ["FINN_RWI_SPLIT"]) if os.environ.get("FINN_RWI_SPLIT") else None
+    split = os.environ.get("FINN_RWI_SPLIT") or None
+    if split and split != "tiles":
+        split = int(split)
     if args.mode.endswith("_split"):
         # dominant MVAUs split into parallel parts (SplitLargeMVAU, n_parts=16)
         split = 16
@@ -128,11 +130,14 @@ def main():
         # runtime-oriented Vivado directives (rwislands.profiles PROFILES["fast"])
         os.environ["FINN_RWI_PROFILE"] = "fast"
         args.mode = args.mode[: -len("_fast")]
-    if args.mode in ("islands", "global"):
+    if args.mode == "overlay":
+        # tile overlay (rwislands.overlay): split layers to the tiles unless FINN_RWI_SPLIT says otherwise
+        split = split or "tiles"
+    if args.mode in ("islands", "global", "overlay"):
         # global: the island flow's synthesis and cached shell, one global place and route
         dr = {
             "flow": "islands",
-            "islands": "global" if args.mode == "global" else args.islands,
+            "islands": args.mode if args.mode in ("global", "overlay") else args.islands,
             "workers": args.workers,
             "out_dir": os.path.join(args.out, "islands"),
             "shell_lib": args.shell_lib,
@@ -163,7 +168,7 @@ def main():
     proj = model.get_metadata_prop("vivado_pynq_proj")
     res["project"] = proj
     res["bitfile"] = model.get_metadata_prop("bitfile")
-    if args.mode in ("dynarapid", "islands", "global"):
+    if args.mode in ("dynarapid", "islands", "global", "overlay"):
         res["dynarapid_zynq"] = json.loads(model.get_metadata_prop("dynarapid_result"))
         res["wns_ns"] = res["dynarapid_zynq"].get("wns_ns")
         res["stages"] = STAGE_TIMES

@@ -47,6 +47,23 @@ def work(node):
     return inst.get_nodeattr("PE") * inst.get_nodeattr("SIMD") * wbits * abits
 
 
+# synthesized / FINN-estimated LUTs (VGG10 8x U55C: MVAU_rtl 330k vs 28k estimated)
+LUT_SCALE = {"MVAU_rtl": 12.0, "MVAU_hls": 1.3, "MVAU": 1.3}
+
+
+def parts_to_fit(node, fpgapart, max_res):
+    """Parts an MVAU needs so that each fits max_res (FINN estimates, LUTs calibrated)."""
+    est = getCustomOp(node).node_res_estimation(fpgapart)
+    k = 1
+    if max_res.get("dsp"):
+        k = max(k, int(np.ceil(est.get("DSP", 0) / float(max_res["dsp"]))))
+    if max_res.get("lut"):
+        k = max(k, int(np.ceil(est.get("LUT", 0) * LUT_SCALE.get(node.op_type, 1.5) / float(max_res["lut"]))))
+    if max_res.get("bram"):
+        k = max(k, int(np.ceil(est.get("BRAM_18K", 0) / 2.0 / float(max_res["bram"]))))
+    return k
+
+
 def _largest_divisor(n, k_max):
     for k in range(min(k_max, n), 1, -1):
         if n % k == 0:
@@ -95,10 +112,14 @@ class SplitLargeMVAU(Transformation):
     ceil(size / (total / n_parts)) parts, at most k_max (see split_plan). Models without MVAUs
     are unchanged."""
 
-    def __init__(self, n_parts=16, k_max=8):
+    def __init__(self, n_parts=16, k_max=8, fpgapart=None, max_res=None):
         super().__init__()
         self.n_parts = n_parts
         self.k_max = k_max
+        # max_res {"lut", "dsp", "bram"}: every part must fit these (e.g. an overlay tile); parts
+        # from FINN's estimates (LUT_SCALE: synthesized / estimated LUTs observed per op type)
+        self.fpgapart = fpgapart
+        self.max_res = max_res
 
     def apply(self, model):
         mvaus = [n for n in model.graph.node if n.op_type in MVAU_TYPES]
@@ -111,6 +132,8 @@ class SplitLargeMVAU(Transformation):
             if not splittable(model, node):
                 continue
             want = min(self.k_max, int(np.ceil(work(node) / target)))
+            if self.max_res:
+                want = max(want, min(self.k_max, parts_to_fit(node, self.fpgapart, self.max_res)))
             if want < 2:
                 continue
             how, k = split_plan(node, want)

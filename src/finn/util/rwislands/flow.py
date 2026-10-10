@@ -150,7 +150,7 @@ def _synth_estimate(node):
         return 1e9
 
 
-def synthesize(accel, dcps, work, part, clk_ns, cpus, slots):
+def synthesize(accel, dcps, work, part, clk_ns, cpus, slots, links=False):
     """Out-of-context synthesis of every distinct component, in parallel. Nodes with plain HDL
     are synthesized in shared Vivado sessions (the start and device load are paid once per
     session), the others (weight streamer hierarchies) through a one-node block design.
@@ -240,8 +240,19 @@ def synthesize(accel, dcps, work, part, clk_ns, cpus, slots):
         _, txt = regslice_synth_tcl(ws, work, synth_dir, part, synth_args(part))
         run(txt.splitlines(), "regslices_%d" % ws[0], [(regslice_name(w), None) for w in ws])
 
-    with ThreadPoolExecutor(max_workers=max(1, min(slots, len(single) + len(sessions) + len(rs_groups)))) as ex:
-        futs = [ex.submit(rs_job, ws) for ws in rs_groups]
+    def links_job():
+        # overlay link transmitters / receivers for every stream width (rwislands.overlay)
+        from finn.util.rwislands.overlay import link_synth_tcl
+
+        d = os.path.join(work, "links")
+        os.makedirs(d, exist_ok=True)
+        tcl = os.path.join(d, "links.tcl")
+        with open(tcl, "w") as f:
+            f.write(link_synth_tcl(stream_widths(channel_graph(accel)), d, part))
+        run_vivado(tcl, os.path.join(d, "links.log"), d)
+
+    with ThreadPoolExecutor(max_workers=max(1, min(slots, len(single) + len(sessions) + len(rs_groups) + 1))) as ex:
+        futs = [ex.submit(rs_job, ws) for ws in rs_groups] + ([ex.submit(links_job)] if links else [])
         futs += [ex.submit(single_job, it) for it in single] + [ex.submit(sess_job, s) for s in sessions]
         for f in futs:
             f.result()
@@ -1018,7 +1029,7 @@ def rw_islands_zynq_build(
     # 1. shell (cached) and node synthesis, concurrently
     with ThreadPoolExecutor(max_workers=2) as ex:
         f_shell = ex.submit(shell_job)
-        synth = synthesize(accel, dcps, work, part, clk_ns, cpus, slots)
+        synth = synthesize(accel, dcps, work, part, clk_ns, cpus, slots, links=islands == "overlay")
         stamp("synth")
         shell_dir, shell_res = f_shell.result()
     stamp("shell")
@@ -1041,6 +1052,9 @@ def rw_islands_zynq_build(
 
     if islands == "global":
         return _global_build(accel, g, dcps, work, part, shell_dir, out_dir, cpus, res, stamps, stamp, t_total)
+    if islands == "overlay":
+        return _overlay_build(accel, g, dcps, synth, dev, work, part, shell_dir, shell_lib, out_dir, cpus, slots,
+                              res, stamps, stamp, t_total)
 
     asm_dir = os.path.join(out_dir, "assembly")
     os.makedirs(asm_dir, exist_ok=True)
@@ -1144,6 +1158,101 @@ def rw_islands_zynq_build(
     else:
         hwh = None  # Vivado-only Alveo shell: no PYNQ hardware handoff
     res.update(status="ok", bitfile=bitfile, hwh=hwh)
+    return _done(res, stamps, out_dir, t_total)
+
+
+def _overlay_build(accel, g, dcps, synth, dev, work, part, shell_dir, shell_lib, out_dir, cpus, slots, res, stamps,
+                   stamp, t_total):
+    """Tile overlay (rwislands.overlay): the static overlay of the shell (cached), nodes to tiles,
+    every used tile linked, implemented in its abstract shell and written as a partial bitstream,
+    all tiles in parallel. No step processes the whole design."""
+    from finn.util.rwislands import overlay as ov
+
+    region, first = island_region(part, dev)
+    anchor = shell_anchor(part, dev)
+    kn = ov.overlay_knobs()
+    t0 = time.time()
+    odir, oinfo = ov.build_overlay(shell_dir, part, dev, region + list(first), anchor,
+                                   os.path.join(os.path.dirname(shell_dir), "overlays"), kn)
+    res["overlay"] = {k: v for k, v in oinfo.items() if k not in ("ranges",)}
+    res["overlay_s"] = time.time() - t0
+    stamp("overlay")
+    if oinfo["status"] not in ("built", "cached"):
+        res["status"] = "overlay_failed"
+        return _done(res, stamps, out_dir, t_total)
+    tiles = [tuple(t) for t in oinfo["tiles"]]
+    names = [n.name for n in accel.graph.node]
+    node_res = {n: synth[dcps[n]]["util"] for n in names}
+    boundary = {n for n in names if len(boundary_ports(g, [n])) > 1}
+
+    def extra(idx):
+        tot = {}
+        rest = [n for n in names if n not in boundary]
+        for w in island_regslice_widths(g, [rest[i] for i in idx]):
+            for k, v in regslice_res(w).items():
+                tot[k] = tot.get(k, 0) + 2 * v
+        return tot
+
+    where, util = ov.plan_overlay(names, node_res, g, dev, tiles, boundary, extra=extra)
+    if where is None:
+        res.update(status="overlay_plan_failed", reason=util)
+        return _done(res, stamps, out_dir, t_total)
+    try:
+        links, usage = ov.link_plan(g, where, len(tiles), oinfo["kn"])
+    except RuntimeError as e:
+        res.update(status="overlay_plan_failed", reason=str(e))
+        return _done(res, stamps, out_dir, t_total)
+    used = sorted(set(where.values()))
+    res["overlay_plan"] = {"util": util, "tiles_used": len(used), "tiles": len(tiles),
+                           "link_bits_max": {d: max([v for (e, dd), v in usage.items() if dd == d] or [0]) for d in ("f", "b")}}
+    stamp("plan")
+    ports = json.load(open(os.path.join(shell_dir, "ports.json")))
+    lk_dir = os.path.join(work, "links")
+    synth_dir = os.path.join(work, "synth")
+    steps = profile(part)
+    tdir = os.path.join(work, "tiles")
+    infos = {}
+
+    def tile_job(k):
+        members = [n for n in names if where[n] == k]
+        d = os.path.join(tdir, "t%d" % k)
+        os.makedirs(d, exist_ok=True)
+        v, widths = ov.tile_verilog(k, len(tiles), oinfo["kn"], ports, g, members, dcps, links)
+        tv = os.path.join(d, "tile%d.v" % k)
+        with open(tv, "w") as f:
+            f.write(v)
+        files = [os.path.join(synth_dir, dc + "_synth.dcp") for dc in sorted({dcps[n] for n in members})]
+        files += [os.path.join(lk_dir, "rwi_link_%s_w%d_synth.dcp" % (kind, w)) for w in widths for kind in ("tx", "rx")]
+        tcl = os.path.join(d, "tile.tcl")
+        with open(tcl, "w") as f:
+            f.write(ov.tile_tcl(k, d, tv, files, part, odir, oinfo["rp"], steps, threads=max(1, min(8, cpus // max(1, len(used))))))
+        rc, t = run_vivado(tcl, os.path.join(d, "tile.log"), d, timeout=island_time_limit(
+            sum(island_cost(node_res[n]) for n in members)))
+        info = {"members": len(members), "rc": rc, "s": t, "timed_out": rc == TIMEOUT_RC}
+        info["stamps"] = {kk: float(vv) for kk, vv in re.findall(r"^STAMP (\w+) ([\d.]+)", open(os.path.join(d, "tile.log")).read(), re.M)}
+        info.update(timing_summary(os.path.join(d, "timing_summary.rpt")))
+        rs = os.path.join(d, "route_status.rpt")
+        if os.path.isfile(rs):
+            m = re.search(r"# of nets with routing errors\.+ :\s+(\d+)", open(rs).read())
+            info["routing_errors"] = int(m.group(1)) if m else None
+        info["partial"] = os.path.join(d, "tile%d_partial.bit" % k)
+        info["ok"] = (rc == 0 and os.path.isfile(info["partial"]) and info.get("routing_errors") == 0
+                      and info.get("wns") is not None and info["wns"] >= 0
+                      and info.get("whs") is not None and info["whs"] >= 0)
+        return k, info
+
+    with ThreadPoolExecutor(max_workers=max(1, min(slots, len(used)))) as ex:
+        for k, info in ex.map(tile_job, sorted(used, key=lambda k: -sum(island_cost(node_res[n]) for n in names if where[n] == k))):
+            infos[k] = info
+    stamp("tiles")
+    res["tiles"] = {"t%d" % k: v for k, v in infos.items()}
+    bad = [k for k, v in infos.items() if not v["ok"]]
+    if bad:
+        res.update(status="tile_failed", failed=bad)
+        return _done(res, stamps, out_dir, t_total)
+    res.update(status="ok", bitfile=os.path.join(odir, "static_full.bit"),
+               partial_bitfiles=[infos[k]["partial"] for k in sorted(infos)], hwh=None,
+               timing={"wns": min(v["wns"] for v in infos.values()), "whs": min(v["whs"] for v in infos.values())})
     return _done(res, stamps, out_dir, t_total)
 
 

@@ -485,7 +485,14 @@ class ZynqBuild(Transformation):
                 # the FIFOs, which the parts' branches need
                 from finn.transformation.fpgadataflow.split_large_mvau import SplitLargeMVAU
 
-                kernel_model = kernel_model.transform(SplitLargeMVAU(n_parts=int(opts["split"])))
+                if opts["split"] == "tiles":
+                    # every part fits an overlay tile (rwislands.overlay)
+                    from finn.util.rwislands.overlay import tile_split_limits
+
+                    kernel_model = kernel_model.transform(SplitLargeMVAU(
+                        n_parts=16, k_max=64, fpgapart=self.fpga_part, max_res=tile_split_limits(self.fpga_part)))
+                else:
+                    kernel_model = kernel_model.transform(SplitLargeMVAU(n_parts=int(opts["split"])))
             kernel_model = kernel_model.transform(InsertFIFO())
             kernel_model = kernel_model.transform(SpecializeLayers(self.fpga_part))
             kernel_model = kernel_model.transform(GiveUniqueNodeNames(prefix))
