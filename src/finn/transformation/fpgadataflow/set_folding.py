@@ -471,12 +471,15 @@ class Optimizer:
         "VVAU_hls": lambda inst: int(np.prod(inst.get_nodeattr("Kernel"))),
         "VVAU_rtl": lambda inst: int(np.prod(inst.get_nodeattr("Kernel"))),
     }
+    # LabelSelect folds PE over its labels, of which it outputs only the top K.
+    PE_MAX_OVERRIDE = {
+        "LabelSelect_hls": lambda inst: int(inst.get_nodeattr("Labels")),
+    }
 
-    # Parameters we deliberately keep unfolded (fixed at 1).
+    # Parameters we deliberately keep unfolded (fixed at 1). LabelSelect PE is
+    # folded like the naive folder does, only as far as the target needs (the
+    # polish pass prefers less folding at equal cost); folding it can hurt fmax.
     DO_NOT_FOLD = {
-        # Folding LabelSelect can ruin fmax; revisit once an RTL LabelSelect / a
-        # safe topk-to-label heuristic exists.
-        ("LabelSelect_hls", "PE"),
         # A VVAU_hls only supports SIMD (kernel-window) folding in its RTL sibling.
         ("VVAU_hls", "SIMD"),
         # Multi-stream concat/split fold their SIMD over per-stream channel
@@ -549,6 +552,8 @@ class Optimizer:
         """Largest useful value for a folding parameter (``PE`` or ``SIMD``) on a
         node, read from the tensor shapes with the documented per-op exceptions."""
         if param == "PE":
+            if op_type in Optimizer.PE_MAX_OVERRIDE:
+                return Optimizer.PE_MAX_OVERRIDE[op_type](node_inst)
             return int(node_inst.get_normal_output_shape()[-1])
         # param == "SIMD"
         if op_type in Optimizer.SIMD_MAX_OVERRIDE:
@@ -2408,7 +2413,7 @@ class SetFolding(Transformation):
                     continue
                 budget -= 1
                 r = evaluate(moved)
-                if r[1] <= limit and (self._fits(r[2], targets) or not fits) and r[3] < cost:
+                if r[1] <= limit and (self._fits(r[2], targets) or not fits) and r[3] <= cost:
                     values, scored, achieved, metrics, cost = (moved, *r)
                     fits = self._fits(metrics, targets)
                     improved = True
