@@ -150,6 +150,25 @@ def _synth_estimate(node):
         return 1e9
 
 
+def link_modules(mods, links, work, part):
+    """Synthesizes the overlay link modules `mods` (rwi_link_tx_w<W> / rwi_link_rx_w<W>_d<D>) that
+    are not in the cache dir `links` yet, one Vivado session each (callers run them in parallel)."""
+    from finn.util.rwislands.overlay import link_synth_tcl
+
+    for m in mods:
+        if os.path.isfile(os.path.join(links, m + "_synth.dcp")):
+            continue
+        d = os.path.join(work, "links", m)
+        os.makedirs(d, exist_ok=True)
+        tcl = os.path.join(d, "links.tcl")
+        with open(tcl, "w") as f:
+            f.write(link_synth_tcl([m], d, part))
+        run_vivado(tcl, os.path.join(d, "links.log"), d)
+        f = os.path.join(d, m + "_synth.dcp")
+        if os.path.isfile(f):
+            os.replace(f, os.path.join(links, m + "_synth.dcp"))  # (atomic: shared cache)
+
+
 def synthesize(accel, dcps, work, part, clk_ns, cpus, slots, links=None):
     """Out-of-context synthesis of every distinct component, in parallel. Nodes with plain HDL
     are synthesized in shared Vivado sessions (the start and device load are paid once per
@@ -243,28 +262,18 @@ def synthesize(accel, dcps, work, part, clk_ns, cpus, slots, links=None):
 
     # overlay link transmitters / receivers (rwislands.overlay): model-independent, cached per
     # width in `links` (one Vivado session for all widths of VGG10 took 494 s, the critical path)
-    lk_widths = []
+    lk_mods = []
     if links:
         os.makedirs(links, exist_ok=True)
-        lk_widths = [w for w in stream_widths(channel_graph(accel))
-                     if not all(os.path.isfile(os.path.join(links, "rwi_link_%s_w%d_synth.dcp" % (kd, w))) for kd in ("tx", "rx"))]
+        # (receivers for one-edge links; deeper ones for longer links after the plan: link_modules)
+        lk_mods = [m for w in stream_widths(channel_graph(accel)) for m in ("rwi_link_tx_w%d" % w, "rwi_link_rx_w%d_d8" % w)
+                   if not os.path.isfile(os.path.join(links, m + "_synth.dcp"))]
 
-    def links_job(w):
-        from finn.util.rwislands.overlay import link_synth_tcl
+    def links_job(m):
+        link_modules([m], links, work, part)
 
-        d = os.path.join(work, "links", "w%d" % w)
-        os.makedirs(d, exist_ok=True)
-        tcl = os.path.join(d, "links.tcl")
-        with open(tcl, "w") as f:
-            f.write(link_synth_tcl([w], d, part))
-        run_vivado(tcl, os.path.join(d, "links.log"), d)
-        for kd in ("tx", "rx"):
-            f = os.path.join(d, "rwi_link_%s_w%d_synth.dcp" % (kd, w))
-            if os.path.isfile(f):
-                os.replace(f, os.path.join(links, os.path.basename(f)))  # (atomic: shared cache)
-
-    with ThreadPoolExecutor(max_workers=max(1, min(slots, len(single) + len(sessions) + len(rs_groups) + len(lk_widths)))) as ex:
-        futs = [ex.submit(rs_job, ws) for ws in rs_groups] + [ex.submit(links_job, w) for w in lk_widths]
+    with ThreadPoolExecutor(max_workers=max(1, min(slots, len(single) + len(sessions) + len(rs_groups) + len(lk_mods)))) as ex:
+        futs = [ex.submit(rs_job, ws) for ws in rs_groups] + [ex.submit(links_job, m) for m in lk_mods]
         futs += [ex.submit(single_job, it) for it in single] + [ex.submit(sess_job, s) for s in sessions]
         for f in futs:
             f.result()
@@ -1256,6 +1265,14 @@ def _overlay_build(accel, g, dcps, synth, dev, work, part, shell_dir, shell_lib,
         dstn, i = g[src]["dst"][j]
         if "tx_%s_%d " % (g[src]["id"], j) not in gen[where[src]][1] or "rx_%s_%d " % (g[dstn]["id"], i) not in gen[where[dstn]][1]:
             raise RuntimeError("overlay link %s.%d -> %s.%d has no transmitter or receiver" % (src, j, dstn, i))
+    # receivers of links over more than one edge need deeper FIFOs (links.rx_depth): synthesized
+    # here once (cached)
+    need = sorted({m for v in gen.values() for m in v[2]})
+    miss = [m for m in need if not os.path.isfile(os.path.join(lk_dir, m + "_synth.dcp"))]
+    if miss:
+        with ThreadPoolExecutor(max_workers=max(1, min(slots, len(miss)))) as ex:
+            list(ex.map(lambda m: link_modules([m], lk_dir, work, part), miss))
+        stamp("link_modules")
 
     def tile_job(k):
         members, v, widths = gen[k]
@@ -1265,7 +1282,7 @@ def _overlay_build(accel, g, dcps, synth, dev, work, part, shell_dir, shell_lib,
         with open(tv, "w") as f:
             f.write(v)
         files = [os.path.join(synth_dir, dc + "_synth.dcp") for dc in sorted({dcps[n] for n in members})]
-        files += [os.path.join(lk_dir, "rwi_link_%s_w%d_synth.dcp" % (kind, w)) for w in widths for kind in ("tx", "rx")]
+        files += [os.path.join(lk_dir, m + "_synth.dcp") for m in widths]
         tcl = os.path.join(d, "tile.tcl")
         with open(tcl, "w") as f:
             f.write(ov.tile_tcl(k, d, tv, files, part, odir, oinfo["rp"], steps, threads=max(1, min(8, cpus // max(1, len(used))))))

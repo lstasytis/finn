@@ -429,7 +429,9 @@ def link_plan(g, where, n_tiles, kn):
 def tile_verilog(k, n_tiles, kn, ports, g, members, dcps, links):
     """tile<k>: the island of its members (netlist.island_verilog, without register slices) plus a
     link receiver per stream entering the tile, a transmitter per stream leaving it, and wires for
-    the streams passing through. Returns (verilog, link widths used)."""
+    the streams passing through. Returns (verilog, link module names used: rwi_link_tx_w<W>,
+    rwi_link_rx_w<W>_d<FIFO depth for the link's edge count>)."""
+    from finn.util.rwislands.links import rx_depth
     from finn.util.rwislands.netlist import _in_names, _out_names, island_ports, island_verilog
 
     body, widths = [], []
@@ -464,15 +466,15 @@ def tile_verilog(k, n_tiles, kn, ports, g, members, dcps, links):
                     ".l_data(%s), .l_valid(%s), .l_ready(%s));"
                     % (w, g[src]["id"], j, "isl_" + dname, "isl_" + vname, "isl_" + rname,
                        bit(side_of(e), d, off, w), bit(side_of(e), d, off + w), bit(side_of(e), rd, roff)))
-                widths.append(w)
+                widths.append("rwi_link_tx_w%d" % w)
             elif dstn in mem and h == len(hops) - 1:
                 dname, vname, rname = _in_names(g[dstn]["id"], i)
                 body.append(
-                    "    rwi_link_rx_w%d rx_%s_%d (.clk(clk), .rst(rst_q), .l_data(%s), .l_valid(%s), .l_ready(%s), "
+                    "    rwi_link_rx_w%d_d%d rx_%s_%d (.clk(clk), .rst(rst_q), .l_data(%s), .l_valid(%s), .l_ready(%s), "
                     ".m_data(%s), .m_valid(%s), .m_ready(%s));"
-                    % (w, g[dstn]["id"], i, bit(side_of(e), d, off, w), bit(side_of(e), d, off + w),
+                    % (w, rx_depth(len(hops)), g[dstn]["id"], i, bit(side_of(e), d, off, w), bit(side_of(e), d, off + w),
                        bit(side_of(e), rd, roff), "isl_" + dname, "isl_" + vname, "isl_" + rname))
-                widths.append(w)
+                widths.append("rwi_link_rx_w%d_d%d" % (w, rx_depth(len(hops))))
             elif prev_hop is not None and prev_hop[0] in (k - 1, k) and e != prev_hop[0]:
                 # transit: from the previous hop's bundle (entering) to this hop's bundle (leaving)
                 pe, pd, poff, proff = prev_hop
@@ -504,7 +506,7 @@ def tile_verilog(k, n_tiles, kn, ports, g, members, dcps, links):
     rst = ["    wire rst_q;", "    FDRE #(.INIT(1'b0)) rst_ff (.C(clk), .CE(1'b1), .R(1'b0), .D(rst), .Q(rst_q));"]
     inst = "    island_t%d isl (\n%s\n    );" % (k, ",\n".join(conns))
     v = hdr + "\n".join(rst + body + _ties(k, n_tiles, wf, wb, body)) + "\n" + inst + "\nendmodule\n" + isl
-    stubs = "".join(_link_stub("tx", wd) + _link_stub("rx", wd) for wd in sorted(set(widths)))
+    stubs = "".join(_link_stub(m) for m in sorted(set(widths)))
     return v + stubs, sorted(set(widths))
 
 
@@ -535,30 +537,41 @@ def _covers(text, name, b):
     return False
 
 
-def _link_stub(kind, w):
+def _link_mod(name):
+    """("tx" | "rx", width, FIFO depth or None) of a link module name."""
+    m = re.match(r"rwi_link_(tx|rx)_w(\d+)(?:_d(\d+))?$", name)
+    return m.group(1), int(m.group(2)), int(m.group(3)) if m.group(3) else None
+
+
+def _link_stub(name):
+    kind, w, _ = _link_mod(name)
     if kind == "tx":
-        return ("(* black_box *)\nmodule rwi_link_tx_w%d (input clk, input rst, input [%d:0] s_data, input s_valid, "
-                "output s_ready, output [%d:0] l_data, output l_valid, input l_ready);\nendmodule\n" % (w, w - 1, w - 1))
-    return ("(* black_box *)\nmodule rwi_link_rx_w%d (input clk, input rst, input [%d:0] l_data, input l_valid, "
-            "output l_ready, output [%d:0] m_data, output m_valid, input m_ready);\nendmodule\n" % (w, w - 1, w - 1))
+        return ("(* black_box *)\nmodule %s (input clk, input rst, input [%d:0] s_data, input s_valid, "
+                "output s_ready, output [%d:0] l_data, output l_valid, input l_ready);\nendmodule\n" % (name, w - 1, w - 1))
+    return ("(* black_box *)\nmodule %s (input clk, input rst, input [%d:0] l_data, input l_valid, "
+            "output l_ready, output [%d:0] m_data, output m_valid, input m_ready);\nendmodule\n" % (name, w - 1, w - 1))
 
 
-def link_synth_tcl(widths, odir, part):
-    """One session: rwi_link_tx_w<W> / rwi_link_rx_w<W> per width (out of context, checkpoints)."""
+def link_synth_tcl(mods, odir, part):
+    """One session: the link modules `mods` (rwi_link_tx_w<W>, rwi_link_rx_w<W>_d<D>; out of
+    context, checkpoints in odir)."""
     from finn.util.rwislands.links import LINK_RX, LINK_TX
-
     t = ["set_param general.maxThreads 1"]
-    for w in widths:
-        for kind, src in (("tx", LINK_TX), ("rx", LINK_RX)):
-            name = "rwi_link_%s_w%d" % (kind, w)
-            v = os.path.join(odir, name + ".v")
-            body = src.replace("module rwi_link_%s #(parameter W = 1" % kind, "module %s #(parameter W = %d" % (name, w))
-            with open(v, "w") as f:
-                f.write(body)
-            t += ["read_verilog %s" % v,
-                  "synth_design -top %s -part %s -mode out_of_context" % (name, part),
-                  "write_checkpoint -force %s" % os.path.join(odir, name + "_synth.dcp"),
-                  "close_design", "remove_files -quiet [get_files -quiet]"]
+    for name in mods:
+        kind, w, d = _link_mod(name)
+        v = os.path.join(odir, name + ".v")
+        if kind == "tx":
+            body = LINK_TX.replace("module rwi_link_tx #(parameter W = 1", "module %s #(parameter W = %d" % (name, w))
+        else:
+            body = LINK_RX.replace("module rwi_link_rx #(parameter W = 1, parameter DEPTH = 8, parameter SLACK = 5",
+                                   "module %s #(parameter W = %d, parameter DEPTH = %d, parameter SLACK = %d" % (name, w, d, d - 3))
+        assert body != (LINK_TX if kind == "tx" else LINK_RX)
+        with open(v, "w") as f:
+            f.write(body)
+        t += ["read_verilog %s" % v,
+              "synth_design -top %s -part %s -mode out_of_context" % (name, part),
+              "write_checkpoint -force %s" % os.path.join(odir, name + "_synth.dcp"),
+              "close_design", "remove_files -quiet [get_files -quiet]"]
     return "\n".join(t) + "\n"
 
 

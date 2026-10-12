@@ -20,9 +20,22 @@ while the consumer takes one per cycle (the FIFO never runs into the ready thres
 """
 
 RX_DEPTH = 8
-# words that can arrive after the receiver deasserts ready: its own ready register, the anchor
-# on ready, the transmitter's register on ready and the anchor + transmitter registers on data
+# words that can arrive after the receiver deasserts ready, for a link over one tile edge: its own
+# ready register, the anchor on ready, the transmitter's register on ready and the anchor +
+# transmitter registers on data. Every further edge (a tile the link passes through as plain wires)
+# adds an anchor on data and one on ready: 3 + 2 * edges (the first overlay model build lost words
+# on a 3-edge link with the fixed slack of 5: output mismatch in verify_accel)
 RX_SLACK = 5
+
+
+def rx_depth(edges):
+    """Receiver FIFO depth for a link over `edges` tile edges: the smallest power of two >= 8 with
+    depth - 3 >= 3 + 2 * edges (slack = depth - 3: ready while at most 3 words are buffered)."""
+    d = RX_DEPTH
+    while d - 3 < 3 + 2 * edges:
+        d *= 2
+    return d
+
 
 LINK_TX = """module rwi_link_tx #(parameter W = 1) (
     input clk,
@@ -47,7 +60,7 @@ LINK_TX = """module rwi_link_tx #(parameter W = 1) (
 endmodule
 """
 
-LINK_RX = """module rwi_link_rx #(parameter W = 1, parameter DEPTH = %d, parameter SLACK = %d) (
+LINK_RX = """module rwi_link_rx #(parameter W = 1, parameter DEPTH = 8, parameter SLACK = 5) (
     input clk,
     input rst,
     // from the link (static anchors)
@@ -79,7 +92,7 @@ LINK_RX = """module rwi_link_rx #(parameter W = 1, parameter DEPTH = %d, paramet
         end
     end
 endmodule
-""" % (RX_DEPTH, RX_SLACK)
+"""
 
 ANCHOR = """module rwi_anchor #(parameter W = 1) (
     input clk,
