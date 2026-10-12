@@ -47,9 +47,14 @@ from finn.transformation.fpgadataflow.create_dataflow_partition import (
     CreateDataflowPartition,
 )
 from finn.transformation.fpgadataflow.insert_dwc import InsertDWC
-from finn.transformation.fpgadataflow.set_folding import Optimizer, SetFolding
+from finn.transformation.fpgadataflow.set_folding import (
+    Optimizer,
+    SetFolding,
+    analytic_fifo_sizer,
+    insert_and_size_fifos,
+)
 from finn.transformation.fpgadataflow.specialize_layers import SpecializeLayers
-from finn.util.basic import part_map
+from finn.util.basic import make_build_dir, part_map
 from finn.util.platforms import DEFAULT_RES_LIMITS, platforms
 from finn.util.test import load_test_checkpoint_or_skip
 
@@ -347,3 +352,79 @@ def test_set_folding_padding_never_worse(target):
     else:
         assert plain_cycles <= target and pad_cycles <= target
         assert pad_res["LUT"] <= plain_res["LUT"] * 1.02
+
+
+def _fifo_lut(model, platform):
+    per_node = model.analysis(lambda m: res_estimation(m, part_map[platform]))
+    return sum(
+        res.get("LUT", 0)
+        for name, res in per_node.items()
+        if model.get_node_from_name(name).op_type.startswith("StreamingFIFO")
+    )
+
+
+@pytest.mark.fpgadataflow
+def test_set_folding_fifo_estimate_tracks_sizer():
+    # the FIFO resources the cost model estimates for a folding must be of the
+    # order of what the analytic sizer makes of it (its LUTs are mostly width)
+    if analytic_fifo_sizer() is None:
+        pytest.skip("no analytic FIFO sizer on this tree")
+    model = make_multi_fclayer_model(48, DataType["INT4"], DataType["INT2"], DataType["INT16"], 4)
+    model = model.transform(GiveUniqueNodeNames())
+    for node, (simd, pe) in zip(model.graph.node, [(8, 3), (6, 6), (12, 2), (16, 48)]):
+        getCustomOp(node).set_nodeattr("SIMD", simd)
+        getCustomOp(node).set_nodeattr("PE", pe)
+    budgets = {"max_cycles": 150, "LUT": 1e5, "BRAM_18K": 1e3, "URAM": 1e2, "DSP": 1e3}
+    opt = Optimizer(model, "x", budgets, fpgapart=part_map["U250"])
+    estimate = opt.fifo_resources(model, opt.graph_nodes())
+    scored = model.transform(InsertDWC()).transform(SpecializeLayers(part_map["U250"]))
+    work_dir = make_build_dir("test_fifo_estimate_")
+    sized = insert_and_size_fifos(scored, part_map["U250"], work_dir)
+    assert sized is not None
+    real = _fifo_lut(sized, "U250")
+    assert real > 0 and 0.5 * real <= estimate["LUT"] <= 2 * real
+
+
+@pytest.mark.fpgadataflow
+def test_set_folding_fifo_aware_mode():
+    # with enable_folding_fifo_heuristic the verdict carries the sized FIFOs'
+    # resources, the search stays synthesis-free and the target is still met
+    if analytic_fifo_sizer() is None:
+        pytest.skip("no analytic FIFO sizer on this tree")
+    results = {}
+    for fifo_aware in (False, True):
+        model = make_multi_fclayer_model(
+            48, DataType["INT4"], DataType["INT2"], DataType["INT16"], 4
+        )
+        model = model.transform(GiveUniqueNodeNames())
+        folder = SetFolding(
+            150,
+            platform="U250",
+            style="optimizer",
+            folding_effort=50,
+            seed=0,
+            enable_folding_fifo_heuristic=fifo_aware,
+        )
+        model = model.transform(folder)
+        built = _with_dwcs(model, "U250")
+        assert built.analysis(dataflow_performance)["max_cycles"] <= 150
+        results[fifo_aware] = folder.last_search_report["resources"]["LUT"]
+    # the sized FIFOs' LUTs are part of the FIFO-aware verdict
+    assert results[True] > 0
+    assert not any(
+        n.op_type.startswith("StreamingFIFO") for n in model.graph.node
+    ), "the returned folding carries no FIFOs"
+
+
+def test_insert_and_size_fifos_unsizeable_graph():
+    # a DWC with a non-integer width ratio has no tree model: the in-loop sizer
+    # must decline (None) rather than synthesize anything
+    if analytic_fifo_sizer() is None:
+        pytest.skip("no analytic FIFO sizer on this tree")
+    model = make_multi_fclayer_model(48, DataType["INT4"], DataType["INT2"], DataType["INT16"], 2)
+    model = model.transform(GiveUniqueNodeNames())
+    getCustomOp(model.graph.node[0]).set_nodeattr("PE", 3)
+    getCustomOp(model.graph.node[1]).set_nodeattr("SIMD", 4)
+    scored = model.transform(InsertDWC()).transform(SpecializeLayers(part_map["U250"]))
+    with pytest.warns(UserWarning, match="no tree model"):
+        assert insert_and_size_fifos(scored, part_map["U250"], make_build_dir("test_fifo_")) is None
