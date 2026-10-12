@@ -1201,3 +1201,16 @@ xfail "not tested". Larger points instead: MobileNet 4x and VGG10 16x (no relax)
   on the row edges) being built.
 - Timed (before the threshold fix, so for reference only): VGG10 0.25x on lane B, overlay cached:
   overlay 759 s (synthesis 276, tiles 414), islands 935 s, global 1172 s, Vivado 2116 s.
+- Post-fix (FLOW_VERSION 9, rx_depth) VGG10 0.25x builds verified: overlay (22-tile overlay, 4
+  tiles used) 8 frames with --vary-amplitude, labels [0,0,0,21,21,18,0,0] = stitched-IP RTL;
+  islands 4 frames match. Timed post-fix (U55C 100 MHz, 48-thread lane, shell/overlay cached):
+  VGG10 0.25x overlay 816 s (synthesis 283, tiles done at 745), islands 918, global 1168,
+  Vivado 2116; VGG10 8x grid16x60_split16 2947 (Vivado 6742), islands 3058; MobileNet
+  grid16x60_split16 2639 (Vivado 5287), islands 2940.
+- ZCU104 TFC (new frontend) "hang" was not one: its MVAU_hls (152k instructions after unrolling)
+  takes > 1 h in Vitis HLS; the ZCU104 jobs were requeued at the end. HLS synthesis of all
+  partitions' HLS nodes now runs in one flat pool of spawned processes.
+- Overlay reset: a direct static wire from the shell's reset to the far tiles took 14.7 ns (VGG10
+  8x tiles 14-21 failed setup only on their first reset stage). Now a static register chain along
+  the snake plus one DONT_TOUCH register per tile (a register shared by the chain and a tile, or
+  merged by synthesis into one, failed DFX routing: Constraints 18-4430). OVERLAY_VERSION 6.
