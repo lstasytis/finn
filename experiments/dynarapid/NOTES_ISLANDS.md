@@ -1269,3 +1269,10 @@ registering between islands (latency between adjacent DFG nodes does not matter)
   with "..." once long (~600 node repositories), dropping partition 1's stitched IP. Fixed (Tcl
   variable); ResNet50 Vivado runs at 300 / 100 MHz restarted (campaign6b, 8-core sub-lane).
 - 300 MHz: VGG10 0.25x overlay 858 s vs Vivado 2511 s (WNS +0.297) = 2.9x.
+- 300 MHz global baseline (island synthesis + cached shell + one Vivado P&R): VGG10 8x 5176 s,
+  met (FINN's Vivado flow 8619 s, failed) -> overlay 1278 s = 4.0x vs global, 6.7x vs Vivado.
+- VGG10 16x does not fit the 22-tile overlay: 4994 DSPs after synthesis; the overlay's tiles hold
+  6720 DSPs (74 % of the device: shell area + static gaps), and the in-order packing of 128-DSP
+  split parts leaves ~30 % of the 368-DSP tiles empty (2 parts per tile). Even 96-DSP parts and
+  tile 0 for compute would give ~5000. A capacity limit of the overlay geometry (gaps, shell
+  rows); Vivado can use all 9024 DSPs.
