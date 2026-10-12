@@ -38,9 +38,10 @@ def overlay_knobs():
     FINN_RWI_GRID, clock-region aligned), link widths forward / backward, the boundary tile's
     height (tile 0 holds the IODMAs and all shell boundary signals: one clock region did not route
     1772 of them, scratchpad DFX test 2026-10-10), tiles: only the first N snake tiles (0: all),
-    gap_cols / gap_rows: tile columns / rows left to the static design on each side of a tile."""
+    gap_cols / gap_rows: tile columns / rows left to the static design on each side of a tile,
+    crs: clock-region columns per tile."""
     kn = {"cols": 16, "rows": 60, "order": "rows", "wf": 1024, "wb": 256, "boundary_rows": 120, "tiles": 0,
-          "gap_cols": 1, "gap_rows": 1}
+          "gap_cols": 1, "gap_rows": 1, "crs": 1}
     for kv in filter(None, os.environ.get("FINN_RWI_OVERLAY", "").split(",")):
         k, v = kv.split("=")
         kn[k] = v if k == "order" else int(v)
@@ -50,7 +51,7 @@ def overlay_knobs():
 def overlay_tiles(dev, region, kn, anchor):
     """Tile rectangles in snake order; tile 0 (next to the shell) is boundary_rows high."""
     tiles = grid_tiles(dev, region, cols=kn["cols"], rows=kn["rows"], order=kn["order"],
-                       start="right" if anchor is not None else "origin", align="cr")
+                       start="right" if anchor is not None else "origin", align="cr", crs=kn.get("crs", 1))
     if kn["boundary_rows"] > kn["rows"] and tiles:
         x0, x1, y0, y1 = tiles[0]
         y1b = y0 + kn["boundary_rows"] - 1

@@ -509,7 +509,7 @@ def cr_columns(dev, x0, x1):
     return [(a, b) for _, a, b in groups]
 
 
-def grid_tiles(dev, rects, cols=12, rows=60, order="rows", start="origin", align=None):
+def grid_tiles(dev, rects, cols=12, rows=60, order="rows", start="origin", align=None, crs=1):
     """Fixed grid of island tiles over the region rectangles (e.g. one per SLR), in snake order.
 
     Every rectangle is cut into column bands of about `cols` tile columns (make_lanes: similar
@@ -520,15 +520,18 @@ def grid_tiles(dev, rects, cols=12, rows=60, order="rows", start="origin", align
     visited in the given order, the snake continuing its direction. start "right": the first band
     is walked from the right (e.g. from the Alveo shell, right of SLR0). align "cr": column bands
     are cut inside clock-region columns (with rows a divisor of 60, every tile lies in one clock
-    region). Returns [(x0, x1, y0, y1)] in snake order."""
+    region). crs: with align "cr", that many neighbouring clock-region columns form one column
+    band group (larger tiles). Returns [(x0, x1, y0, y1)] in snake order."""
     out = []
     flip = start == "right"
     for x0, x1, y0, y1 in rects:
         if align == "cr":
             # column bands inside clock-region columns: a tile never spans two clock regions
             lanes = []
-            for a, b in cr_columns(dev, x0, x1):
-                lanes += make_lanes(dev, a, b, max(1, round((b - a + 1) / float(cols))))
+            crc = cr_columns(dev, x0, x1)
+            crc = [(crc[i][0], crc[min(i + crs, len(crc)) - 1][1]) for i in range(0, len(crc), crs)]
+            for a, b in crc:
+                lanes += make_lanes(dev, a, b, max(1, round((b - a + 1) / float(cols * crs))))
         else:
             lanes = make_lanes(dev, x0, x1, max(1, round((x1 - x0 + 1) / float(cols))))
         bands = []

@@ -176,9 +176,46 @@ class Floorplan(Transformation):
                     node_inst.set_nodeattr("partition_id", partition_cnt)
                     partition_cnt += 1
 
+        # A new partition after every AXI-Lite node (above) can make the partitions cyclic when the
+        # graph branches (ResNet: runtime-writeable MVAUs on the residual branches, the shortcut's
+        # partition both before and after the branch's): then one partition per SLR instead
+        if _partitions_cyclic(model, non_dma_nodes):
+            warnings.warn("Floorplan: partitions after AXI-Lite nodes form a cycle, one partition per SLR")
+            slr_part = {}
+            for node in non_dma_nodes:
+                node_inst = getCustomOp(node)
+                slr = node_inst.get_nodeattr("slr")
+                if slr not in slr_part:
+                    slr_part[slr] = partition_cnt
+                    partition_cnt += 1
+                node_inst.set_nodeattr("partition_id", slr_part[slr])
+            if _partitions_cyclic(model, non_dma_nodes):
+                warnings.warn("Floorplan: partitions per SLR form a cycle as well")
+
         # save the updated floorplan
         floorplan = model.analysis(floorplan_params)
         with open(model.get_metadata_prop("floorplan_json"), "w") as f:
             json.dump(floorplan, f, indent=4)
 
         return (model, False)
+
+
+def _partitions_cyclic(model, nodes):
+    """Whether the partitions (partition_id) of the nodes depend on each other in a cycle."""
+    pid = {n.name: getCustomOp(n).get_nodeattr("partition_id") for n in nodes}
+    edges = {}
+    for n in nodes:
+        for c in model.find_direct_successors(n) or []:
+            if c.name in pid and pid[c.name] != pid[n.name]:
+                edges.setdefault(pid[n.name], set()).add(pid[c.name])
+    state = {}
+
+    def visit(p):
+        state[p] = 1
+        for q in edges.get(p, ()):
+            if state.get(q) == 1 or (q not in state and visit(q)):
+                return True
+        state[p] = 2
+        return False
+
+    return any(p not in state and visit(p) for p in set(pid.values()))
