@@ -547,6 +547,9 @@ class Optimizer:
     # rough LUT cost of an HLS DWC relative to an RTL one (DWC-avoidance heuristic)
     HLS_DWC_COST_PENALTY = 8
 
+    # depth of the FIFOs on the graph's input and output (DeriveFIFOSizes)
+    IO_FIFO_DEPTH = 5
+
     @staticmethod
     def max_folding_factor(node_inst, op_type, param):
         """Largest useful value for a folding parameter (``PE`` or ``SIMD``) on a
@@ -599,6 +602,8 @@ class Optimizer:
         # may weight memories be placed in URAM? (requires making them
         # runtime-writeable, so it is opt-in at the SetFolding level)
         allow_uram_weights=False,
+        # estimate the FIFOs' resources in the cost model (see fifo_resources)
+        fifo_proxy=True,
     ):
         self.params = None
         self.targets = targets
@@ -628,6 +633,7 @@ class Optimizer:
         self.resource_type_params = resource_type_params
         self.resource_weights = resource_weights or {}
         self.allow_uram_weights = allow_uram_weights
+        self.fifo_proxy = fifo_proxy
 
     def compute_hls_dwc_cost(
         self, model, nodes, lut_capacity, hls_dwc_cost_penalty=HLS_DWC_COST_PENALTY
@@ -673,37 +679,112 @@ class Optimizer:
                     # use default folded input shape
                     n1_in_shape = node.get_folded_input_shape()
 
-                # dwcs cannot be inserted between mvau/vvau and pool/swg
-                # so we only run it for other combinations
-                if not (
-                    (
-                        prod.name.startswith("ConvolutionInputGenerator")
-                        or prod.name.startswith("Pool")
-                    )
-                    and (
-                        node.onnx_node.name.startswith("Pool")
-                        or node.onnx_node.name.startswith("MVAU")
-                        or node.onnx_node.name.startswith("VVAU")
-                    )
+                # check if we need a DWC
+                if (
+                    np.prod(n0_out_shape) != np.prod(n1_in_shape)
+                    or n0_out_shape[-1] != n1_in_shape[-1]
                 ):
-                    n1_in_shape = node.get_folded_input_shape()
-
-                    # check if we need a DWC
-                    if (
+                    # HLS DWC needed, expensive
+                    if (max(inWidth, outWidth) % min(inWidth, outWidth) != 0) or (
                         np.prod(n0_out_shape) != np.prod(n1_in_shape)
-                        or n0_out_shape[-1] != n1_in_shape[-1]
                     ):
-                        # HLS DWC needed, expensive
-                        if (max(inWidth, outWidth) % min(inWidth, outWidth) != 0) or (
-                            np.prod(n0_out_shape) != np.prod(n1_in_shape)
-                        ):
-                            cost += ((inWidth + outWidth) * hls_dwc_cost_penalty) / lut_capacity
+                        cost += ((inWidth + outWidth) * hls_dwc_cost_penalty) / lut_capacity
 
-                        # RTL DWC can be used cheaply
-                        else:
-                            cost += (inWidth + outWidth) / lut_capacity
+                    # RTL DWC can be used cheaply
+                    else:
+                        cost += (inWidth + outWidth) / lut_capacity
 
         return cost
+
+    @staticmethod
+    def fifo_model():
+        """fifo.sv's cost model (what StreamingFIFO estimates with), or None on
+        a tree without it."""
+        try:
+            from finn.util.resource_models import _fifo_cost, _resolve  # noqa: PLC0415
+        except ImportError:
+            return None
+        return _fifo_cost, _resolve
+
+    def fifo_resources(self, model, nodes):
+        """Estimated resources of the FIFOs the build will put in front of
+        ``nodes`` (one per edge, two around a DWC), without sizing them.
+
+        Mirrors the analytic sizer to first order: a FIFO holds what its
+        producer writes before the consumer reads it. With the upstream chain
+        finishing a frame in ``t_up`` cycles (its slowest node, since a node
+        paced by a slower one upstream runs no faster) and the consumer taking
+        ``t_c``, the producer runs ahead by ``words * (1 - t_up / t_c)``, and
+        the sizer never charges more than the consumer's demand above the frame
+        rate, ``words * (1 - t_c / T)``, plus one burst of its reads. Every
+        FIFO is at least 2 deep, which already costs about its width in LUTs;
+        the graph's input and output FIFOs are ``IO_FIFO_DEPTH`` deep."""
+        fifo_model = self.fifo_model()
+        totals = {"LUT": 0.0, "BRAM_18K": 0.0, "URAM": 0.0}
+        target = max(float(self.targets.get(self.hard_constraint_target, 1)), 1.0)
+        chain = {}
+
+        def chain_cycles(onnx_node):
+            if onnx_node.name in chain:
+                return chain[onnx_node.name]
+            inst = getCustomOp(onnx_node)
+            cycles = inst.get_exp_cycles()
+            for name in onnx_node.input:
+                prod = model.find_producer(name)
+                if prod is not None and is_fpgadataflow_node(prod):
+                    cycles = max(cycles, chain_cycles(prod))
+            chain[onnx_node.name] = cycles
+            return cycles
+
+        def add(depth, width):
+            depth = max(2, int(depth))
+            if fifo_model is None:
+                # a shift register: its width in LUTs per 32 words
+                totals["LUT"] += width * ((depth + 30) // 32) + 8
+                return
+            fifo_cost, resolve = fifo_model
+            cost = fifo_cost(depth, width, resolve(depth, width, "auto"))
+            totals["LUT"] += cost.lut
+            totals["BRAM_18K"] += cost.bram
+            totals["URAM"] += cost.uram
+
+        graph_inputs = {x.name for x in model.graph.input}
+        graph_outputs = {x.name for x in model.graph.output}
+        for node in nodes:
+            t_c = max(node.get_exp_cycles(), 1)
+            for out_idx, name in enumerate(node.onnx_node.output):
+                if name in graph_outputs:
+                    add(self.IO_FIFO_DEPTH, node.get_outstream_width(out_idx))
+            for in_idx, name in enumerate(node.onnx_node.input):
+                prod = model.find_producer(name)
+                if prod is None or not is_fpgadataflow_node(prod):
+                    if name in graph_inputs:
+                        add(self.IO_FIFO_DEPTH, node.get_instream_width(in_idx))
+                    continue
+                t_up = chain_cycles(prod)
+                n1_in = node.get_folded_input_shape(in_idx)
+                words = int(np.prod(n1_in[:-1]))
+                width = node.get_instream_width(in_idx)
+                burst = self.read_burst(node, in_idx)
+                ahead = words * max(0.0, 1.0 - t_up / t_c)
+                drain = words * max(0.0, 1.0 - t_c / target) + burst
+                add(min(ahead, drain), width)
+                prod_inst = getCustomOp(prod)
+                out_idx = list(prod.output).index(name)
+                n0_out = prod_inst.get_folded_output_shape(out_idx)
+                if n0_out[-1] != n1_in[-1] or np.prod(n0_out) != np.prod(n1_in):
+                    # a DWC in between: the FIFO on its input side as well
+                    add(2, prod_inst.get_outstream_width(out_idx))
+        return totals
+
+    @staticmethod
+    def read_burst(node, in_idx):
+        """Words a node reads at once before pausing: an MVAU/VVAU takes its
+        input window's words and then computes MH/PE outputs from them."""
+        op_type = node.onnx_node.op_type
+        if op_type.startswith("MVAU") or op_type.startswith("VVAU"):
+            return int(node.get_folded_input_shape(in_idx)[-2])
+        return 1
 
     @staticmethod
     def dwc_cycles(model, node):
@@ -799,6 +880,11 @@ class Optimizer:
         if self.enable_folding_dwc_heuristic:
             cost += self.compute_hls_dwc_cost(opt.model, opt.params.nodes, opt.targets["LUT"])
 
+        # 4.2 the FIFOs the build will insert: their width costs LUTs on every
+        # edge, their depth where a node runs ahead of its consumer
+        if self.fifo_proxy:
+            cost += self.resource_cost(self.fifo_resources(opt.model, opt.params.nodes))
+
         # apply the hard-constraint penalty last so it dominates the cost
         cost += constraint_penalty
 
@@ -816,7 +902,7 @@ class Optimizer:
         bounds = encoder.bounds
 
         if len(bounds) == 0:
-            return np.array(init_guess)
+            return list(init_guess)
 
         encoded_init_guess = encoder.encode(init_guess)
 
@@ -842,9 +928,7 @@ class Optimizer:
             bounds=bounds,
         )
 
-        optimized_params = np.array(encoder.decode(optimal_args.x))
-
-        return optimized_params
+        return encoder.decode(optimal_args.x)
 
     def optimize(
         self,
@@ -974,6 +1058,11 @@ class Optimizer:
     def _nearest_value(param, value):
         if isinstance(value, str):
             return param.possible_values[0]
+        if isinstance(value, tuple):
+            return min(
+                param.possible_values,
+                key=lambda x: sum(abs(a - b) for a, b in zip(x, value)),
+            )
         return min(param.possible_values, key=lambda x: abs(x - value))
 
     def cheapest_guess(self):
@@ -1004,27 +1093,41 @@ class Optimizer:
                 fastest = min(c[0] for c in combos)
                 feasible = [c for c in combos if c[0] == fastest]
             best = None
+            estimates = {}
             for cycles, combo in feasible:
                 for i, v in zip(indices, combo):
                     params[i].update_value(v)
                     params[i].apply_value(filter=self.parameters_to_apply)
-                resources = self.get_resources(nodes)
-                cost = sum(
-                    self.resource_weights.get(r, 1.0) * resources.get(r, 0.0) / self.targets[r]
-                    for r in self.targets
-                    if r != self.hard_constraint_target
-                )
+                cost = 0.0
+                for n in nodes:
+                    # a node's estimate depends on its own attributes only
+                    key = (id(n), str(n.onnx_node.attribute))
+                    if key not in estimates:
+                        estimates[key] = self.resource_cost(n.node_res_estimation(self.fpgapart))
+                    cost += estimates[key]
                 if best is None or cost < best[0]:
                     best = (cost, combo)
             for i, v in zip(indices, best[1]):
                 guess[i] = v
         return guess
 
+    def graph_nodes(self):
+        """Every hardware node of the model as a custom op instance."""
+        return [getCustomOp(n) for n in self.model.graph.node if is_fpgadataflow_node(n)]
+
     def get_resources(self, nodes):
         resources = {}
         for n in nodes:
             resources[n] = n.node_res_estimation(self.fpgapart)
         return aggregate_dict_keys(resources)
+
+    def resource_cost(self, resources):
+        """Resources normalized by their budgets and weighted, as in cost_model."""
+        return sum(
+            self.resource_weights.get(r, 1.0) * resources.get(r, 0.0) / self.targets[r]
+            for r in self.targets
+            if r != self.hard_constraint_target
+        )
 
     def generate_parameter_set(self):
         """Extract every optimizable folding parameter from the model.
@@ -1342,60 +1445,71 @@ class Optimizer:
         return [self._meta("SIMD", simd_values, real_values, node_index)]
 
     def _pair_swg_with_mvau(self, swg, swg_node, mvau, mvau_node, node_index, max_padding):
-        """SWG -> MVAU (dense convolution): optimize SWG SIMD together with the
-        MVAU SIMD (folding MW = kernel * IFMChannels), plus the MVAU PE (folding
-        MH) as an independent parameter. parallel_window on the SWG is enabled
-        once the MVAU SIMD reaches the full input channel count."""
-        simd_values, ifm_values, kernel_size = self._swg_simd_choices(swg, max_padding)
+        """SWG -> MVAU (dense convolution): one meta parameter chooses the MVAU
+        SIMD (folding MW = kernel * IFMChannels) together with the SWG's SIMD
+        and parallel_window, plus the MVAU PE (folding MH) as an independent
+        parameter. The SWG is not tied to the MVAU's SIMD: with a (cheap) DWC
+        between them it can run at its own, slower pace, which is what keeps the
+        FIFO in front of the MVAU shallow -- an SWG matched to the MVAU's SIMD
+        is MH/PE times faster than the MVAU and runs that far ahead of it. The
+        SWG emits the whole kernel window at once (parallel_window) only when
+        the MVAU SIMD exceeds the input channel count."""
+        _, ifm_values, kernel_size = self._swg_simd_choices(swg, max_padding)
+        ifm_real = swg.get_nodeattr("IFMChannels")
         weight_bits = mvau.get_input_datatype(1).bitwidth()
 
-        # --- joint SWG SIMD + MVAU SIMD (over MW) ---
+        # --- joint (MVAU SIMD, SWG SIMD, parallel_window) over MW ---
+        # value = (mvau_simd, swg_simd, parallel_window); de-duplicated by the
+        # folding factors, so a padded channel count only adds factors the
+        # unpadded one does not have (ascending: the unpadded count claims its
+        # values first and the padded search space is a superset)
         simd_real_values = []
         simd_meta_values = []
         seen_factors = []
-        # ascending, so the unpadded channel count claims its SIMD values first and
-        # the padded search space is a superset of the unpadded one
         for ifm_channels in sorted(set(ifm_values)):
             mw = kernel_size * ifm_channels
             mvau_simd_values, mw_values = allowed_divisors(mw, 1, 0)
             for mvau_simd, mw_value in zip(mvau_simd_values, mw_values):
-                # mvau_simd <= ifm_channels folds within one kernel position
-                # (parallel_window=0); mvau_simd a multiple of ifm_channels needs
-                # the SWG to emit the full window (parallel_window=1), which lets
-                # the MVAU fold over the whole MW (up to kernel*IFMChannels).
-                channels_ok = (ifm_channels % mvau_simd == 0) or (mvau_simd % ifm_channels == 0)
                 if not (
-                    channels_ok
-                    and mvau_simd not in simd_meta_values
-                    and mw_value // mvau_simd not in seen_factors
-                    and (weight_bits * mvau_simd) < self.mvau_wwidth_max
+                    (weight_bits * mvau_simd) < self.mvau_wwidth_max
                     and mvau_simd > (mw_value / 1024)
                 ):
                     continue
-                simd_meta_values.append(mvau_simd)
-                seen_factors.append(mw_value // mvau_simd)
-
-                parallel_window = int(mvau_simd >= ifm_channels)
-                swg_simd_value = ifm_channels if parallel_window else mvau_simd
-                simd_real_values.append(
-                    self._swg_params(
-                        swg, swg_node, node_index, swg_simd_value, ifm_channels, parallel_window
-                    )
-                    + [
-                        self._param(
-                            "MVAU_SIMD",
-                            "SIMD",
-                            mvau_simd,
-                            mvau,
-                            node_index + 1,
-                            mvau_node.op_type,
-                            bound_name="MW",
-                            bound_value=mw_value,
-                            update_weights=True,
-                            update_thresholds=True,
+                # a padding DWC pads only within a word, so a padded channel count
+                # must be the smallest multiple of the SWG's SIMD above the real one
+                swg_choices = [
+                    (d, 0)
+                    for d in divisors(ifm_channels)
+                    if d <= mvau_simd and -(-ifm_real // d) * d == ifm_channels
+                ]
+                if mvau_simd > ifm_channels:
+                    swg_choices.append((ifm_channels, 1))
+                for swg_simd, parallel_window in swg_choices:
+                    value = (mvau_simd, swg_simd, parallel_window)
+                    factors = (mw_value // mvau_simd, ifm_channels // swg_simd, parallel_window)
+                    if value in simd_meta_values or factors in seen_factors:
+                        continue
+                    simd_meta_values.append(value)
+                    seen_factors.append(factors)
+                    simd_real_values.append(
+                        self._swg_params(
+                            swg, swg_node, node_index, swg_simd, ifm_channels, parallel_window
                         )
-                    ]
-                )
+                        + [
+                            self._param(
+                                "MVAU_SIMD",
+                                "SIMD",
+                                mvau_simd,
+                                mvau,
+                                node_index + 1,
+                                mvau_node.op_type,
+                                bound_name="MW",
+                                bound_value=mw_value,
+                                update_weights=True,
+                                update_thresholds=True,
+                            )
+                        ]
+                    )
 
         simd_meta = self._meta("SIMD", simd_meta_values, simd_real_values, node_index)
 
@@ -1568,9 +1682,10 @@ def common_divisors(numbers):
 
 
 # a folding the search produced: the folded model, whether it fits the budget,
-# its resources and cycles per frame (both with the DWCs the build inserts) and
-# the meta values of every parameter, to start another search from
-FoldResult = namedtuple("FoldResult", "model fits metrics achieved values")
+# its resources and cycles per frame (both with the DWCs the build inserts),
+# the meta values of every parameter, to start another search from, and its
+# cost (the search's objective: weighted resources incl. the estimated FIFOs)
+FoldResult = namedtuple("FoldResult", "model fits metrics achieved values cost")
 
 # Find the op-type names for all HLS specializations of elementwise binary
 # operations
@@ -1643,6 +1758,9 @@ class SetFolding(Transformation):
     # DWCs are inserted by a later build step; folding only accounts for them
     insert_dwcs = False
     consider_dwc_costs = True
+    # FIFOs too: estimated in the cost model (Optimizer.fifo_resources); with
+    # enable_folding_fifo_heuristic they are sized for real when a folding is scored
+    fifo_proxy = True
 
     def __init__(
         self,
@@ -1800,6 +1918,7 @@ class SetFolding(Transformation):
             resource_type_params=self.resource_type_params,
             resource_weights=self.resource_weights,
             allow_uram_weights=self.allow_uram_weights,
+            fifo_proxy=self.fifo_proxy,
             seed=self.seed,
             # only override what the caller actually set
             **{
@@ -2158,7 +2277,7 @@ class SetFolding(Transformation):
         b_ok = b.fits and (target is None or b.achieved <= target)
         if a_ok != b_ok:
             return b if b_ok else a
-        a_cost, b_cost = self._cost(a.metrics, targets), self._cost(b.metrics, targets)
+        a_cost, b_cost = a.cost, b.cost
         a_util, b_util = self._utilization(a.metrics, targets), self._utilization(
             b.metrics, targets
         )
@@ -2270,7 +2389,8 @@ class SetFolding(Transformation):
         solver usually lands somewhere near the target rather than on it. The
         search compares candidates on what they achieved, never on what they
         were asked for. Both it and the resources are scored on the graph with
-        the DWCs the build inserts (``_score``)."""
+        the DWCs the build inserts (``_score``) and, with
+        ``enable_folding_fifo_heuristic``, its sized FIFOs."""
         targets["max_cycles"] = target_cycles
         opt = copy.deepcopy(opt_template)
         opt.targets = targets
@@ -2294,7 +2414,7 @@ class SetFolding(Transformation):
                 target_parameters=list(Optimizer.RESOURCE_TYPE_ATTRS),
             )
         # third pass: repair and polish on the whole graph, DWCs included
-        _, achieved, metrics = self._refine(opt, targets, target_cycles)
+        _, achieved, metrics, cost = self._refine(opt, targets, target_cycles)
 
         # in place, no deepcopy and no cleanup pass: this runs once per search
         # probe (~15 per call) and opt.model is already a private copy, so the
@@ -2302,10 +2422,15 @@ class SetFolding(Transformation):
         # whole graph per probe -- on MobileNet that dominated the search.
         opt.model = opt.model.transform(AnnotateCycles(), make_deepcopy=False, cleanup=False)
         return FoldResult(
-            opt.model, self._fits(metrics, targets), metrics, achieved, opt.params.get_meta_values()
+            opt.model,
+            self._fits(metrics, targets),
+            metrics,
+            achieved,
+            opt.params.get_meta_values(),
+            cost,
         )
 
-    def _score(self, model):
+    def _score(self, model, opt):
         """Cycles and resources of the graph the build will carry: with the DWCs
         InsertDWC adds, since a non-integer-ratio or padding DWC can be slower
         than both its neighbours and costs resources of its own. Optionally
@@ -2358,7 +2483,7 @@ class SetFolding(Transformation):
         step at a time wherever that keeps the target (and the budget, if met)
         and reduces the cost. Every step is scored like the verdict, so the
         search and the verdict agree. Leaves the model at the chosen values and
-        returns ``(scored graph, cycles, resources)``."""
+        returns ``(scored graph, cycles, resources, cost)``."""
         params = opt.params.parameters
         opt.params.add_all_params_to_index_list()
         folding = [i for i, p in enumerate(params) if p.name in ("SIMD", "PE")]
@@ -2366,8 +2491,12 @@ class SetFolding(Transformation):
         def evaluate(values):
             opt.params.set_values(values)
             opt.params.apply_updates(final=False, filter=opt.parameters_to_apply)
-            scored, achieved, metrics = self._score(opt.model)
-            return scored, achieved, metrics, self._cost(metrics, targets)
+            scored, achieved, metrics = self._score(opt.model, opt)
+            cost = self._cost(metrics, targets)
+            if opt.fifo_proxy and not self.enable_folding_fifo_heuristic:
+                # the FIFOs are not in the scored graph: estimate them
+                cost += opt.resource_cost(opt.fifo_resources(opt.model, opt.graph_nodes()))
+            return scored, achieved, metrics, cost
 
         def step(values, i, direction):
             p = params[i]
@@ -2422,7 +2551,7 @@ class SetFolding(Transformation):
 
         opt.params.set_values(values)
         opt.params.apply_updates(final=True, filter=opt.parameters_to_apply)
-        return scored, achieved, metrics
+        return scored, achieved, metrics, cost
 
     def _slowest_cycles(self, opt_template):
         """Cycles per frame at minimal folding -- the least-resource
