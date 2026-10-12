@@ -35,6 +35,7 @@ import inspect
 import itertools
 import numpy as np
 import scipy
+import shutil
 import time
 import warnings
 from collections import namedtuple
@@ -50,9 +51,9 @@ from qonnx.util.basic import gen_finn_dt_tensor
 import finn.custom_op.fpgadataflow.hls.elementwise_binary_hls as elementwise_binary_hls
 from finn.analysis.fpgadataflow.dataflow_performance import dataflow_performance
 from finn.analysis.fpgadataflow.op_and_param_counts import aggregate_dict_keys
-from finn.builder.build_dataflow_config import DataflowBuildConfig
 from finn.transformation.fpgadataflow.annotate_cycles import AnnotateCycles
 from finn.transformation.fpgadataflow.insert_dwc import InsertDWC
+from finn.transformation.fpgadataflow.insert_fifo import InsertFIFO
 from finn.transformation.fpgadataflow.minimize_accumulator_width import (
     MinimizeAccumulatorWidth,
 )
@@ -61,7 +62,7 @@ from finn.transformation.fpgadataflow.minimize_weight_bit_width import (
 )
 from finn.transformation.fpgadataflow.specialize_layers import SpecializeLayers
 from finn.transformation.streamline.round_thresholds import RoundAndClipThresholds
-from finn.util.basic import part_map
+from finn.util.basic import make_build_dir, part_map
 from finn.util.fpgadataflow import is_fpgadataflow_node, is_hls_node, is_rtl_node
 from finn.util.platforms import DEFAULT_RES_LIMITS, platforms
 
@@ -1610,66 +1611,78 @@ class Optimizer:
         return [self._meta("SIMD", meta_values, real_values, node_index)]
 
 
-def insert_and_size_fifos(
-    model_dir, model, board, fpga_part, consider_dwc_costs, auto_fifo_strategy
-):
-    """
-    force a fifo sizing step after folding to test the resource consumption
-    and throughput changes introduced by fifo sizing. This pass must be
-    performed using tree-based TAV generation. Otherwise,
-    it will take an extremely long amount of time.
-    """
-    # deferred: build_dataflow_steps imports SetFolding, so a top-level import
-    # here would be circular
-    from finn.builder.build_dataflow_steps import step_set_fifo_depths  # noqa: PLC0415
-
-    if not consider_dwc_costs:
-        model = model.transform(InsertDWC())
-
-    # this scoring copy is sized before step_minimize_bit_width has run, but
-    # RTL Thresholding codegen (needed by the sizer's characterization pass)
-    # requires integer thresholds -- round them here like the real flow will
-    model = model.transform(RoundAndClipThresholds())
-
-    # per this function's contract, the in-loop sizing must run tree-model TAV
-    # generation and stay synthesis-free: the default (rtlsim characterization,
-    # trailing re-synth) invokes vitis_hls per node per scoring candidate. The
-    # TAV knobs only exist on trees that carry the analytic FIFO sizer.
-    tav_kwargs = {}
+def analytic_fifo_sizer():
+    """The analytic FIFO sizer -- token access vectors from the operators' tree
+    models, no IP generation -- or None on a tree without it."""
     try:
-        # deferred on purpose: these enums only exist on trees that carry the
-        # analytic FIFO sizer, so this is a feature probe rather than a dependency
-        from finn.builder.build_dataflow_config import (  # noqa: PLC0415
-            TAVGenerationMethod,
-            TAVUtilizationMethod,
+        from finn.transformation.fpgadataflow.derive_characteristic import (  # noqa: PLC0415
+            _UNCHARACTERIZED_OPS,
+            DeriveFIFOSizes,
+            DeriveTokenAccessVectors,
+            is_stream_join,
         )
-
-        tav_kwargs = dict(
-            tav_generation_strategy=TAVGenerationMethod.TREE_MODEL,
-            tav_utilization_strategy=TAVUtilizationMethod.CONSERVATIVE_RELAXATION,
-            skip_resynth_during_fifo_sizing=True,
-        )
+        from finn.util.fpgadataflow import cleanup_characterization  # noqa: PLC0415
     except ImportError:
-        pass
+        return None
 
-    cfg = DataflowBuildConfig(
-        output_dir="",
-        auto_fifo_depths=True,
-        split_large_fifos=True,
-        auto_fifo_strategy=auto_fifo_strategy,
-        folding_config_file=None,
-        synth_clk_period_ns=5.0,
-        fpga_part=fpga_part,
-        steps=["step_set_fifo_depths"],
-        generate_outputs=[],
-        board=board,
-        extract_hw_config=False,
-        **tav_kwargs,
+    def characterized(node):
+        return node.op_type not in _UNCHARACTERIZED_OPS and not is_stream_join(node)
+
+    return DeriveTokenAccessVectors, DeriveFIFOSizes, cleanup_characterization, characterized
+
+
+def insert_and_size_fifos(model, fpga_part, work_dir):
+    """Insert the FIFOs of a folded graph (DWCs already in), sized by the analytic
+    sizer, so that their resources count in the folding's score. Synthesis-free:
+    every node's schedule comes from its tree model, never from HLS or rtlsim.
+    Returns None, after a warning, on a tree without the sizer or for a graph
+    with a node that has no tree model (e.g. a DWC with a non-integer width
+    ratio); the caller then estimates the FIFOs instead. The sizer's sidecar
+    files go to ``work_dir``."""
+    sizer = analytic_fifo_sizer()
+    if sizer is None:
+        warnings.warn(
+            "SetFolding: the analytic FIFO sizer is not available on this tree; "
+            "the FIFOs are estimated instead"
+        )
+        return None
+    DeriveTokenAccessVectors, DeriveFIFOSizes, cleanup_characterization, characterized = sizer
+
+    model = model.transform(GiveUniqueNodeNames())
+    hw_nodes = [n for n in model.graph.node if is_hls_node(n) or is_rtl_node(n)]
+    without_tree = [
+        n.name for n in hw_nodes if characterized(n) and getCustomOp(n).get_tree_model() is None
+    ]
+    if without_tree:
+        warnings.warn(
+            "SetFolding: no tree model for %s; the FIFOs of this folding are estimated"
+            % ", ".join(without_tree)
+        )
+        return None
+
+    # the RTL thresholding tree model expects integer thresholds, as the build
+    # will have after step_minimize_bit_width
+    model = model.transform(RoundAndClipThresholds())
+    model = model.transform(AnnotateCycles())
+    # the sizer keeps each node's schedule in a file next to its generated code;
+    # none has been generated here, so point them all at the work directory
+    for node in model.graph.node:
+        if is_hls_node(node) or is_rtl_node(node):
+            getCustomOp(node).set_nodeattr("code_gen_dir_ipgen", work_dir)
+    period = int(model.analysis(dataflow_performance)["max_cycles"])
+    model = model.transform(
+        DeriveTokenAccessVectors(model, period, "tree_model", fpga_part, 0.0, num_workers=1)
     )
-
-    model = step_set_fifo_depths(model, cfg)
-
-    return model
+    period = int(
+        model.analysis(functools.partial(dataflow_performance, use_characterized=True))[
+            "max_cycles"
+        ]
+    )
+    model = model.transform(DeriveFIFOSizes(period=period))
+    model = model.transform(InsertFIFO(create_shallow_fifos=True))
+    cleanup_characterization(model)
+    model = model.transform(SpecializeLayers(fpga_part))
+    return model.transform(GiveUniqueNodeNames())
 
 
 def common_divisors(numbers):
@@ -1783,7 +1796,9 @@ class SetFolding(Transformation):
         mvau_wwidth_max=1024,
         enable_folding_dwc_heuristic=True,
         enable_folding_fifo_heuristic=False,
-        auto_fifo_strategy="analytic",
+        # the build's FIFO sizing strategy; the in-loop sizing is always the
+        # analytic one (see insert_and_size_fifos)
+        auto_fifo_strategy=None,
         # --- naive-style knobs (style="naive" only) -------------------------
         two_pass_relaxation=True,
         # --- simulated-annealing internals (optimizer style only) -----------
@@ -1859,7 +1874,16 @@ class SetFolding(Transformation):
         self.last_search_report = None
         self.enable_folding_dwc_heuristic = enable_folding_dwc_heuristic
         self.enable_folding_fifo_heuristic = enable_folding_fifo_heuristic
-        self.auto_fifo_strategy = auto_fifo_strategy
+        if enable_folding_fifo_heuristic and auto_fifo_strategy not in (
+            None,
+            "heuristic_analytical",
+        ):
+            warnings.warn(
+                "SetFolding: the FIFO-aware folding sizes FIFOs with the analytic sizer, "
+                f"not {auto_fifo_strategy}; the build's own FIFO sizing is unaffected"
+            )
+        # sidecar files of the in-loop FIFO sizer, removed after the search
+        self._fifo_work_dir = None
 
         # simulated-annealing internals
         self.maxiter = maxiter
@@ -2040,7 +2064,14 @@ class SetFolding(Transformation):
         opt_template = self._make_optimizer(model, "folding", targets, False)
         opt_template.generate_parameter_set()
 
-        model = self._search_folding(opt_template, targets, fastest_cycles, attempts, maximize)
+        if self.enable_folding_fifo_heuristic:
+            self._fifo_work_dir = make_build_dir(prefix="folding_fifo_")
+        try:
+            model = self._search_folding(opt_template, targets, fastest_cycles, attempts, maximize)
+        finally:
+            if self._fifo_work_dir is not None:
+                shutil.rmtree(self._fifo_work_dir, ignore_errors=True)
+                self._fifo_work_dir = None
 
         if self.insert_dwcs:
             # only needed if downstream steps will not insert DWCs themselves
@@ -2439,15 +2470,17 @@ class SetFolding(Transformation):
         scored = model.transform(InsertDWC())
         scored = scored.transform(SpecializeLayers(self.fpgapart))
         if self.enable_folding_fifo_heuristic:
-            scored = insert_and_size_fifos(
-                "folded_model.onnx",
-                scored,
-                self.platform,
-                self.fpgapart,
-                self.consider_dwc_costs,
-                self.auto_fifo_strategy,
-            )
-            scored = scored.transform(SpecializeLayers(self.fpgapart))
+            sized = insert_and_size_fifos(scored, self.fpgapart, self._fifo_work_dir)
+            if sized is None:
+                # not sizeable: estimate the FIFOs so that this folding is scored
+                # on the same footing as the sized ones
+                scored = scored.transform(AnnotateCycles(), make_deepcopy=False, cleanup=False)
+                achieved = scored.analysis(dataflow_performance)["max_cycles"]
+                metrics = self._aggregate_resources(scored)
+                for r, v in opt.fifo_resources(model, opt.graph_nodes()).items():
+                    metrics[r] = metrics.get(r, 0.0) + v
+                return scored, achieved, metrics
+            scored = sized
         scored = scored.transform(AnnotateCycles(), make_deepcopy=False, cleanup=False)
         achieved = scored.analysis(dataflow_performance)["max_cycles"]
         return scored, achieved, self._aggregate_resources(scored)
