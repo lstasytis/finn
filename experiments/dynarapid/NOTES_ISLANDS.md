@@ -1222,3 +1222,23 @@ xfail "not tested". Larger points instead: MobileNet 4x and VGG10 16x (no relax)
   of which ~70 s device/netlist model build (26 s for the 1088-bit tiles of VGG10 0.25x: the
   partition pins), ~100 s global, ~60 s detail, ~90 s post-commit + cleanup; route 120-230 s,
   partial bitstream ~50 s. Per-tile fixed costs, at 2 threads per tile on a 48-thread lane.
+
+## 2026-10-12 (midday): focus on long P&R jobs - incremental ladder towards 300 MHz
+
+User direction: the target are builds whose Vivado P&R takes hours to a day (U55C at ~300 MHz);
+grow the Vivado time in steps (1-2 h now, then 3-4 h, 4-5 h, ...) and fix the island / overlay
+flow where it fails to route or where stitching explodes in rip-up; avoid that with aggressive
+registering between islands (latency between adjacent DFG nodes does not matter).
+- Earlier scaling data (rwscale): Vivado at 200 MHz VGG10 8x 7021 s, MobileNet 2x 8640 s; no
+  300 MHz baseline existed.
+- Running: Vivado baselines at 300 MHz (3.333 ns) for VGG10 8x and MobileNet (hand folding),
+  each on an 8-core sub-lane of lane C (Vivado uses <= 8 threads); next ResNet50 at 100 MHz and
+  VGG10 0.25x at 300 MHz (campaign6). The 300 MHz runs use the 100 MHz frontends (folding and
+  FIFO depths are clock independent; HLS / RTL generation takes the clock in ZynqBuild).
+- Overlay links pipelining knob `pipe=p` (links.link_regs): transmitter p output and p ready
+  registers, receiver p-1 input and p ready registers, p-1 registers per transit tile and
+  direction (rwi_link_thru, instead of a plain wire across the tile), one static anchor per edge;
+  receiver FIFO depth from the round trip (links.link_slack). xsim, 1 and 3 edges, pipe 1-3,
+  random stalls and backpressure: 0 errors, 1.00-1.008 cycles/word.
+- Queued (campaign7, lanes A/B after campaign5): 300 MHz overlay (wf=2304, pipe=2), grid islands
+  and global for VGG10 8x and MobileNet.
