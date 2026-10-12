@@ -583,7 +583,10 @@ class ZynqBuild(Transformation):
             "vivado_synth_rpt",
             res.get("utilization_xml") or os.path.join(out_dir, "assembly", "utilization.rpt"),
         )
-        model.set_metadata_prop("vivado_timing_rpt", res["timing_rpt"])
+        # (a tile overlay has no global timing report: one per tile, timing in the result)
+        model.set_metadata_prop("vivado_timing_rpt", res.get("timing_rpt") or "")
+        if res.get("partial_bitfiles"):
+            model.set_metadata_prop("partial_bitfiles", json.dumps(res["partial_bitfiles"]))
         model.set_metadata_prop("platform", "zynq-iodma")
         return (model, False)
 

@@ -19,6 +19,7 @@ import hashlib
 import json
 import os
 import re
+import warnings
 
 from finn.util.dynarapid.shell import CORE_MODULE, _bus
 from finn.util.dynarapid.tools import run_vivado, vivado_version
@@ -31,6 +32,11 @@ OVERLAY_VERSION = 3
 # rows, and routing containment makes Vivado block the hard blocks at their edges (VGG10 0.25x,
 # tile 5 at the device edge: 19 of 54 DSP sites blocked, 16 by place.closeUnroutableSites)
 HARD_UTIL = 0.6
+# write_bitstream fails with more reconfigurable partitions in the design (Designutils 20-1700
+# "bitset::set: __position (which is 32) >= _Nb (which is 32)", also for a single tile's partial
+# bitstream, Vivado 2024.2 and 2025.1; the 79-tile static placed and routed fine): the snake is
+# cut after MAX_TILES tiles
+MAX_TILES = 32
 
 
 def overlay_knobs():
@@ -59,6 +65,9 @@ def overlay_tiles(dev, region, kn, anchor):
         tiles = [(x0, x1, y0, y1b)] + [t for t in tiles[1:] if not (t[0] <= x1 and t[1] >= x0 and t[2] <= y1b and t[3] >= y0)]
     # tiles=N: only the first N tiles of the snake (a smaller overlay for smaller models)
     tiles = tiles[:kn["tiles"]] if kn.get("tiles") else tiles
+    if len(tiles) > MAX_TILES:
+        warnings.warn("overlay: %d tiles, cut to the first %d of the snake (bitstream limit)" % (len(tiles), MAX_TILES))
+        tiles = tiles[:MAX_TILES]
     # every tile pblock shrunk by gap_cols / gap_rows on each side: the gaps are static channels
     # for the link anchors (abutting tiles left them no static sites nearby; RapidStream reserves
     # anchor columns between its islands for the same reason), and the tile edges no longer lie
