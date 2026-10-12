@@ -473,7 +473,7 @@ def grid_knobs():
     return kn
 
 
-def plan_grid(names, node_res, dev, rects, first, res, g, costs, anchor):
+def plan_grid(names, node_res, dev, rects, first, res, g, costs, anchor, front=()):
     """Islands on a fixed grid of tiles in snake order (floorplan.grid_tiles / allocate_grid):
     consecutive nodes share a tile while they fit, a node that does not fit starts a new island
     on the next tiles, a large node takes as many consecutive tiles as it needs. Tiles start on
@@ -483,6 +483,12 @@ def plan_grid(names, node_res, dev, rects, first, res, g, costs, anchor):
     from finn.util.rwislands.floorplan import allocate_grid, grid_tiles, merge_tiles, tile_groups
 
     kn = grid_knobs()
+    # the IODMAs (front) first, next to the shell: at the end of the snake the output DMA's AXI
+    # paths to its shell bridge crossed two SLRs (VGG10 8x / MobileNet grid runs, setup -0.6 to
+    # -1.2 ns at 100 MHz)
+    cost_of = dict(zip(names, costs))
+    names = [n for n in names if n in front] + [n for n in names if n not in front]
+    costs = [cost_of[n] for n in names]
     nres = [node_res[n] for n in names]
 
     def extra(idx):
@@ -547,7 +553,9 @@ def plan_islands(
     costs = [island_cost(node_res[n]) for n in names]
     rect_list = region if isinstance(region, list) else [region]
     if packing == "grid":
-        return plan_grid(names, node_res, dev, rect_list, list(first), res, g, costs, anchor)
+        # (node names carry their op type: StreamingDataflowPartition_<k>_IODMA_hls_<i>)
+        iodma = {n for n in names if "_IODMA_" in n}
+        return plan_grid(names, node_res, dev, rect_list, list(first), res, g, costs, anchor, front=iodma)
 
     def anchors_of(isl_k):
         if anchor is None or not boundary:

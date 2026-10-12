@@ -105,6 +105,8 @@ def shell_key(board, part, clk_ns, ports, shell_x0=0, strip_cols=SHELL_STRIP_COL
         ],
         "version": 4,
         "bridge_slices": BRIDGE_SLICES,
+        # 2: registered s_ready
+        "bridge_slice_version": 2 if BRIDGE_SLICES else 0,
         "vivado": vivado_version(),
     }
     if part in ALVEO_SHELL:
@@ -181,27 +183,34 @@ BRIDGE_SLICE_MODULE = """module rwi_bridge_slice #(parameter W = 1) (
     output m_valid,
     input m_ready
 );
+    // two-entry register slice; s_ready comes straight from a register (no reset or other logic
+    // behind it: a combinational ~v1 & rst crossed two SLRs to a far DMA island, 6.7 ns)
     reg [W-1:0] d0, d1;
-    reg v0 = 1'b0, v1 = 1'b0;
-    assign s_ready = ~v1 & rst;
+    reg v0 = 1'b0, v1 = 1'b0, rdy = 1'b0;
+    wire take = !v0 || m_ready;
+    wire acc = s_valid && rdy;
+    assign s_ready = rdy;
     assign m_valid = v0;
     assign m_data = d0;
     always @(posedge clk) begin
         if (!rst) begin
             v0 <= 1'b0;
             v1 <= 1'b0;
-        end else if (!v0 || m_ready) begin
-            if (v1) begin
-                d0 <= d1;
-                v0 <= 1'b1;
-                v1 <= 1'b0;
-            end else begin
-                d0 <= s_data;
-                v0 <= s_valid;
+            rdy <= 1'b0;
+        end else begin
+            if (take) begin
+                if (v1) begin
+                    d0 <= d1;
+                    v0 <= 1'b1;
+                end else begin
+                    d0 <= s_data;
+                    v0 <= acc;
+                end
+            end else if (acc) begin
+                d1 <= s_data;
             end
-        end else if (s_valid && !v1) begin
-            d1 <= s_data;
-            v1 <= 1'b1;
+            v1 <= take ? 1'b0 : (v1 | acc);
+            rdy <= !(take ? 1'b0 : (v1 | acc));
         end
     end
 endmodule
