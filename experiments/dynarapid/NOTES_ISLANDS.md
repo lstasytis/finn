@@ -1250,3 +1250,7 @@ registering between islands (latency between adjacent DFG nodes does not matter)
   MHz: MobileNet 6222 s (WNS 0.000, 8-core sub-lane), VGG10 8x still running after 2 h.
   MobileNet at 300 MHz is still a 1-2 h job; VGG10 16x and ResNet50 (100 / 300 MHz) queued as
   the next rungs.
+- 300 MHz timed (shell + overlay cached; Vivado on an 8-core sub-lane, overlay on a 48-thread
+  lane): **VGG10 8x: overlay 1278 s, all tiles WNS >= +0.38; Vivado 8619 s and failed timing
+  (WNS -0.516)** = 6.7x and the only one that closes. MobileNet: overlay 1541 s (synthesis 586 s),
+  Vivado 6222 s (WNS 0.000) = 4.0x.
