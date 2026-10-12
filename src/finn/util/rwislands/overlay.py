@@ -26,7 +26,7 @@ from finn.util.rwislands.device import pblock_ranges
 from finn.util.rwislands.floorplan import grid_tiles
 from finn.util.rwislands.links import ANCHOR
 
-OVERLAY_VERSION = 2
+OVERLAY_VERSION = 3
 # DSP / BRAM / URAM share of a tile's sites a model may use: the tile pblocks end on clock-region
 # rows, and routing containment makes Vivado block the hard blocks at their edges (VGG10 0.25x,
 # tile 5 at the device edge: 19 of 54 DSP sites blocked, 16 by place.closeUnroutableSites)
@@ -60,10 +60,10 @@ def overlay_tiles(dev, region, kn, anchor):
     # tiles=N: only the first N tiles of the snake (a smaller overlay for smaller models)
     tiles = tiles[:kn["tiles"]] if kn.get("tiles") else tiles
     # every tile pblock shrunk by gap_cols / gap_rows on each side: the gaps are static channels
-    # for the link anchors (abutting tiles left them no static sites nearby: from ~23 tiles on,
-    # place_design hung single-threaded after detail placement phase 3.2; RapidStream reserves
+    # for the link anchors (abutting tiles left them no static sites nearby; RapidStream reserves
     # anchor columns between its islands for the same reason), and the tile edges no longer lie
-    # on clock-region boundaries (Constraints 18-5648: limited routability at such edges)
+    # on clock-region boundaries (Constraints 18-5648: limited routability at such edges). (The
+    # place_design "hang" from ~16 tiles on was the grey boxes' detail placement: PLACE_GREYBOX_TCL)
     gc, gr = kn.get("gap_cols", 0), kn.get("gap_rows", 0)
     return [(x0 + gc, x1 - gc, y0 + gr, y1 - gr) for x0, x1, y0, y1 in tiles]
 
@@ -144,6 +144,65 @@ def grey_box(name, decls):
     return "module %s (\n%s\n);\n    genvar i;\n%s\nendmodule" % (name, ",\n".join("    " + x for x in decls), "\n".join(body))
 
 
+# the grey boxes placed by hand before place_design: left to the placer, its detail placement of
+# the ~2.4k unconnected DONT_TOUCH LUT1s per tile grew super-linearly with the tile count (10
+# tiles: 4 min in phase 3.3, 24 tiles: 29 min, 22 large tiles: > 30 min in Area Swap - the
+# "hang"); pre-placed, place_design of the 22-tile static took 5.5 min. Each link's LUTs go to
+# the slices nearest to the neighbour tile (they pull the partition pins to that edge).
+PLACE_GREYBOX_TCL = r"""
+proc site_xy {s} { regexp {X(\d+)Y(\d+)} $s - x y; list $x $y }
+proc box_of {pb} {
+    set xs {}; set ys {}
+    foreach s [get_sites -of $pb -filter {SITE_TYPE =~ SLICE*}] { lassign [site_xy $s] x y; lappend xs $x; lappend ys $y }
+    set xs [lsort -integer $xs]; set ys [lsort -integer $ys]
+    list [lindex $xs 0] [lindex $xs end] [lindex $ys 0] [lindex $ys end]
+}
+proc place_greybox {rp n} {
+    set t0 [clock milliseconds]
+    set total 0
+    for {set k 0} {$k < $n} {incr k} {
+        set c [get_cells $rp/t$k]
+        set sites [get_sites -of [get_pblocks pb_t$k] -filter {SITE_TYPE =~ SLICE* && IS_USED == 0}]
+        set free [dict create]
+        foreach s $sites { dict set free $s 1 }
+        set pairs {}
+        foreach {side nb} [list w [expr {$k - 1}] e [expr {$k + 1}] x -1] {
+            if {$side eq "x"} {
+                set luts [get_cells -quiet -hier -filter "NAME =~ $c/gb_* && NAME !~ $c/gb_w_* && NAME !~ $c/gb_e_* && REF_NAME == LUT1"]
+                set order [dict keys $free]
+            } else {
+                if {$nb < 0 || $nb >= $n} continue
+                set luts [get_cells -quiet -hier -filter "NAME =~ $c/gb_${side}_* && REF_NAME == LUT1"]
+                if {![llength $luts]} continue
+                lassign [box_of [get_pblocks pb_t$nb]] bx0 bx1 by0 by1
+                set dist {}
+                foreach s [dict keys $free] {
+                    lassign [site_xy $s] x y
+                    set dx [expr {$x < $bx0 ? $bx0 - $x : ($x > $bx1 ? $x - $bx1 : 0)}]
+                    set dy [expr {$y < $by0 ? $by0 - $y : ($y > $by1 ? $y - $by1 : 0)}]
+                    lappend dist [list $s [expr {$dx + $dy}]]
+                }
+                set order {}
+                foreach e [lsort -integer -index 1 $dist] { lappend order [lindex $e 0] }
+            }
+            set i 0
+            foreach l $luts {
+                set s [lindex $order [expr {$i / 8}]]
+                lappend pairs $l $s/[lindex {A B C D E F G H} [expr {$i % 8}]]6LUT
+                incr i
+            }
+            foreach s [lrange $order 0 [expr {($i + 7) / 8 - 1}]] { dict unset free $s }
+        }
+        set ff [get_cells -quiet $c/gb_clk]
+        if {[llength $ff]} { lappend pairs $ff [lindex [dict keys $free] 0]/AFF }
+        place_cell $pairs
+        incr total [expr {[llength $pairs] / 2}]
+    }
+    puts "placed $total grey-box cells in [expr {([clock milliseconds] - $t0) / 1000.0}] s"
+}
+"""
+
+
 def static_tcl(shell_dir, part, odir, n, ranges, threads=16):
     """Static overlay: the shell with the container in its accelerator cell, the tiles as
     reconfigurable partitions (grey boxes) in fabric-only pblocks (whole clock regions include the
@@ -177,6 +236,9 @@ def static_tcl(shell_dir, part, odir, n, ranges, threads=16):
         "stamp partitions",
         "write_checkpoint -force %s/static_parts.dcp" % odir,
         "stamp write_parts",
+        PLACE_GREYBOX_TCL,
+        "place_greybox %s %d" % (rp, n),
+        "stamp place_greybox",
         "set_property IS_ROUTE_FIXED 0 [get_nets -hier -quiet -filter {TYPE == POWER || TYPE == GROUND}]",
         # the shell's locked kernel clock spans only the clock regions of its old loads (Place
         # 30-678 for tiles outside them): unrouted before placement, re-routed under DFX rules
