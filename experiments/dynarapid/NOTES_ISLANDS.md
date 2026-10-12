@@ -1254,3 +1254,11 @@ registering between islands (latency between adjacent DFG nodes does not matter)
   lane): **VGG10 8x: overlay 1278 s, all tiles WNS >= +0.38; Vivado 8619 s and failed timing
   (WNS -0.516)** = 6.7x and the only one that closes. MobileNet: overlay 1541 s (synthesis 586 s),
   Vivado 6222 s (WNS 0.000) = 4.0x.
+- Grid island flow (RapidWright stitch + global final route) at 300 MHz, VGG10 8x: timing_failed
+  after 3204 s (islands met timing alone, worst +0.53; assembly route 1435 s, 4051 failed nets at
+  start, 3 rip-up iterations / 293 s, 461 nets re-routed by the stitch; final WNS -3.842,
+  21894 failing endpoints). Worst path: island_0 reset register -> combinational s_ready of a
+  register slice (~v1 & rst) -> across the device to island_26's output slice (the last island's
+  stream returns to the IODMA island at the shell): one flip-flop-to-flip-flop crossing cannot span
+  the device at 3.33 ns, and the flow has no static fabric for relay registers. The overlay (static
+  anchors per edge, pipe registers, no global route) is the island design for this regime.
