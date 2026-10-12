@@ -68,8 +68,9 @@ _VOLATILE_ATTRS = {
 #   6: pblock estimate: >= 85 % of the LUT cells, LUTRAM at half SLICEM density (2024.2)
 #   7: pblocks built by one resize_pblock (2024.2 dropped sites); estimate of 6 reverted
 #   8: ElementwiseBinary in1_V is a port (was dropped as an internal weight stream)
+#   9: memory init files (.dat, e.g. Thresholding_rtl thresholds) copied into the synthesis dir
 # the Vivado release is part of the key as well (tools.vivado_version)
-FLOW_VERSION = 8
+FLOW_VERSION = 9
 
 
 def component_name(model, node, part, clk_ns):
@@ -567,9 +568,19 @@ def direct_synth_tcl(
     with open(adapter, "w") as f:
         f.write(direct_adapter_verilog(dcp, node, top, module_port_dirs(files, top)))
     dcp_file = os.path.join(synth_dir, dcp + "_synth.dcp")
+    # memory initialization files next to the generated HDL (Thresholding_rtl: THRESHOLDS_PATH
+    # "./<node>_" + threshs_<pe>_<stage>.dat, read by $readmemh relative to Vivado's working
+    # directory): copied into comp_dir, Vivado works there. Without them synthesis only warns
+    # (Synth 8-4445) and builds all-zero threshold memories (wrong outputs; found 2026-10-12)
+    import glob
+    import shutil
+
+    code_dir = getCustomOp(node).get_nodeattr("code_gen_dir_ipgen") if node is not None else ""
+    for f in glob.glob(os.path.join(code_dir, "*.dat")) if code_dir else []:
+        shutil.copy(f, comp_dir)
     sv = [f for f in files if f.endswith((".sv", ".svh"))]
     v = [f for f in files if f.endswith((".v", ".vh"))]
-    tcl = ["set_param general.maxThreads %d" % threads]
+    tcl = ["set_param general.maxThreads %d" % threads, "cd %s" % comp_dir]
     if sv:
         tcl.append("read_verilog -sv [list %s]" % " ".join(sv))
     if v:

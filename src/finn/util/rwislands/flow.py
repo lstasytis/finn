@@ -210,8 +210,12 @@ def synthesize(accel, dcps, work, part, clk_ns, cpus, slots, links=None):
             f.write("\n".join(tcl_lines) + "\n")
         t0 = time.time()
         rc, t = run_vivado(tcl, os.path.join(d, "synth.log"), d)
+        # a memory init file synthesis could not open leaves the memory all zero (Synth 8-4445 is
+        # only a critical warning): a wrong accelerator, so the node counts as failed
+        log = open(os.path.join(d, "synth.log"), errors="ignore").read()
+        bad_init = "Synth 8-4445" in log
         for dcp, _ in items:
-            ok = os.path.isfile(os.path.join(synth_dir, dcp + "_synth.dcp"))
+            ok = os.path.isfile(os.path.join(synth_dir, dcp + "_synth.dcp")) and not bad_init
             res[dcp] = {
                 "status": "ok" if ok else "synth_failed",
                 "synth_s": t,
