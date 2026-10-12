@@ -472,15 +472,12 @@ class Optimizer:
         "VVAU_hls": lambda inst: int(np.prod(inst.get_nodeattr("Kernel"))),
         "VVAU_rtl": lambda inst: int(np.prod(inst.get_nodeattr("Kernel"))),
     }
-    # LabelSelect folds PE over its labels, of which it outputs only the top K.
-    PE_MAX_OVERRIDE = {
-        "LabelSelect_hls": lambda inst: int(inst.get_nodeattr("Labels")),
-    }
-
-    # Parameters we deliberately keep unfolded (fixed at 1). LabelSelect PE is
-    # folded like the naive folder does, only as far as the target needs (the
-    # polish pass prefers less folding at equal cost); folding it can hurt fmax.
+    # Parameters we deliberately keep unfolded (fixed at 1).
     DO_NOT_FOLD = {
+        # Folding LabelSelect ruins fmax (OOC place & route, xczu7ev: 10 labels
+        # 610 MHz at PE=1, 390 at PE=2, 230 at PE=5; 1000 labels 530 MHz at PE=1,
+        # 140 at PE=10, 13 at PE=100).
+        ("LabelSelect_hls", "PE"),
         # A VVAU_hls only supports SIMD (kernel-window) folding in its RTL sibling.
         ("VVAU_hls", "SIMD"),
         # Multi-stream concat/split fold their SIMD over per-stream channel
@@ -556,8 +553,6 @@ class Optimizer:
         """Largest useful value for a folding parameter (``PE`` or ``SIMD``) on a
         node, read from the tensor shapes with the documented per-op exceptions."""
         if param == "PE":
-            if op_type in Optimizer.PE_MAX_OVERRIDE:
-                return Optimizer.PE_MAX_OVERRIDE[op_type](node_inst)
             return int(node_inst.get_normal_output_shape()[-1])
         # param == "SIMD"
         if op_type in Optimizer.SIMD_MAX_OVERRIDE:
