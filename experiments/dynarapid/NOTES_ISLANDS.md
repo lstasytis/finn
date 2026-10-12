@@ -1214,3 +1214,11 @@ xfail "not tested". Larger points instead: MobileNet 4x and VGG10 16x (no relax)
   8x tiles 14-21 failed setup only on their first reset stage). Now a static register chain along
   the snake plus one DONT_TOUCH register per tile (a register shared by the chain and a tile, or
   merged by synthesis into one, failed DFX routing: Constraints 18-4430). OVERLAY_VERSION 6.
+- **VGG10 8x on the overlay** (22 tiles, 2x2 clock regions, wf=2304, wb=32, gap_rows=2, hard=95,
+  OVERLAY_VERSION 6, overlay cached; lane = 48 threads, timed): 1189 s, rc 0, all 22 tiles met
+  timing (WNS +2.14 / WHS +0.008) = 5.7x vs Vivado 6742 s (grid16x60_split16: 2947 s, 2.3x).
+  Synthesis 342 s, tiles 401-775 s in parallel (2 threads each). overlay_fast (RuntimeOptimized
+  opt/place/route, no phys_opt): 1230 s - no gain: a 25k-LUT tile places in ~350 s either way,
+  of which ~70 s device/netlist model build (26 s for the 1088-bit tiles of VGG10 0.25x: the
+  partition pins), ~100 s global, ~60 s detail, ~90 s post-commit + cleanup; route 120-230 s,
+  partial bitstream ~50 s. Per-tile fixed costs, at 2 threads per tile on a 48-thread lane.

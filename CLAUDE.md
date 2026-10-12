@@ -77,6 +77,17 @@ of magnitude needs a DFX overlay (no global step), reuse across builds, or split
 Thresholding_rtl: 53 min with the baseline's settings), not re-run. Vitis U55C platform: per-model
 v++ link (2-2.4 h) dominates; cached-platform-region attempt (nested DFX) stopped 2026-10-05.
 
+Status 2026-10-12 (NOTES_ISLANDS.md, sections of 2026-10-12): **DFX tile overlay**
+(`rwislands/overlay.py`, mode `overlay`, knobs FINN_RWI_OVERLAY): static shell + up to 32 tiles
+(write_bitstream limit) as reconfigurable partitions, links through static anchors, per model only
+the used tiles are implemented in their abstract shells (parallel), no global step. U55C, 100 MHz,
+48-thread lane, shell + overlay cached: VGG10 8x 1189 s = 5.7x vs Vivado 6742 s (22 tiles, wf=2304,
+hard=95; per-tile P&R 400-775 s at 2 threads); VGG10 0.25x 816 s (2.6x), verified 8 frames.
+Fixed today: Thresholding_rtl thresholds were synthesized as zero since the upstream merge
+(FLOW_VERSION 9; all non-Vivado results before invalid, reruns labelled *_f9); multi-edge link FIFO
+depth; reset chain; grey boxes pre-placed (the "placer hang"). Run verify_accel on every new
+model / flow variant before reporting timings.
+
 Read this first; it is meant to replace re-reading the code. Deeper history and all
 measurements: `experiments/dynarapid/NOTES.md` (long; read only the section you need).
 Main branch for PRs: `expanded-finnexamples`.
