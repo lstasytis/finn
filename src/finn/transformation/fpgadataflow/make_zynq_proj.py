@@ -94,23 +94,59 @@ def collect_ip_dirs(model, ipstitch_path):
 
 
 def _hls_synth_partition(model_file):
-    """HLS synthesis of the HLS nodes of a partition model (in place; module level, so that it
-    can run in a spawned process)."""
-    import multiprocessing
+    """HLS synthesis of the HLS nodes of a partition model (in place)."""
+    model = ModelWrapper(model_file)
+    model = model.transform(HLSSynthIP())
+    model.save(model_file)
 
-    from qonnx.util.basic import get_num_default_workers
+
+_HLS_IP_ATTRS = ("ipgen_path", "ip_path", "ip_vlnv")
+
+
+def _hls_synth_node(task):
+    """HLS synthesis of one node of a partition model file (module level: runs in a spawned
+    process). Returns (model file, node name, {attribute: value}) for the caller to set."""
+    model_file, name = task
+    model = ModelWrapper(model_file)
+    inst = getCustomOp(model.get_node_from_name(name))
+    inst.ipgen_singlenode_code()
+    return model_file, name, {a: inst.get_nodeattr(a) for a in _HLS_IP_ATTRS}
+
+
+def _hls_synth_partitions(model_files, workers):
+    """HLS synthesis of all HLS nodes of several partition models in one flat pool of spawned
+    processes (one node each), instead of a process per partition with HLSSynthIP's own pool
+    inside (nested pools; and the slowest node of a partition no longer holds up the others).
+    (ZCU104 TFC-w1a1, new frontend: its MVAU_hls takes > 1 h in Vitis HLS, 152k instructions.)"""
+    import multiprocessing
+    from concurrent.futures import ProcessPoolExecutor
 
     from finn.util.fpgadataflow import is_hls_node
 
-    # HLSSynthIP's pool forks by default; this spawned process has threads by now (torch), and a
-    # forked pool deadlocked (ZCU104 TFC, 2026-10-12: workers waiting for tasks, the parent for
-    # results, no HLS run started): spawned workers, no more than the partition has HLS nodes
-    # (one node: no pool at all)
-    multiprocessing.set_start_method("spawn", force=True)
-    model = ModelWrapper(model_file)
-    n_hls = sum(1 for n in model.graph.node if is_hls_node(n))
-    model = model.transform(HLSSynthIP(num_workers=max(1, min(get_num_default_workers(), n_hls))))
-    model.save(model_file)
+    tasks = []
+    for f in model_files:
+        m = ModelWrapper(f)
+        for n in m.graph.node:
+            if not is_hls_node(n):
+                continue
+            inst = getCustomOp(n)
+            ipp = inst.get_nodeattr("ipgen_path")
+            if os.path.exists(ipp) and inst.get_nodeattr("code_gen_dir_ipgen") in ipp:
+                continue  # (HLSSynthIP's rule: existing IP of this code generation is kept)
+            tasks.append((f, n.name))
+    if not tasks:
+        return
+    ctx = multiprocessing.get_context("spawn")
+    with ProcessPoolExecutor(max_workers=max(1, min(workers, len(tasks))), mp_context=ctx) as ex:
+        results = list(ex.map(_hls_synth_node, tasks))
+    for f in model_files:
+        m = ModelWrapper(f)
+        for mf, name, attrs in results:
+            if mf == f:
+                inst = getCustomOp(m.get_node_from_name(name))
+                for a, v in attrs.items():
+                    inst.set_nodeattr(a, v)
+        m.save(f)
 
 
 class MakeZYNQProject(Transformation):
@@ -539,12 +575,9 @@ class ZynqBuild(Transformation):
         # forked from several threads of one process (MobileNet hung this way)
         prepared = [prepare(n) for n in sdp_nodes]
         if opts.get("flow") == "islands" and len(prepared) > 1:
-            import multiprocessing
-            from concurrent.futures import ProcessPoolExecutor
+            from qonnx.util.basic import get_num_default_workers
 
-            ctx = multiprocessing.get_context("spawn")
-            with ProcessPoolExecutor(max_workers=len(prepared), mp_context=ctx) as ex:
-                list(ex.map(_hls_synth_partition, [f for f, _ in prepared]))
+            _hls_synth_partitions([f for f, _ in prepared], get_num_default_workers())
         else:
             for f, _ in prepared:
                 _hls_synth_partition(f)
