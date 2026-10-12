@@ -1262,3 +1262,10 @@ registering between islands (latency between adjacent DFG nodes does not matter)
   stream returns to the IODMA island at the shell): one flip-flop-to-flip-flop crossing cannot span
   the device at 3.33 ns, and the flow has no static fabric for relay registers. The overlay (static
   anchors per edge, pipe registers, no global route) is the island design for this regime.
+- Verified: VGG10 8x on the 22-tile wide-link overlay (100 MHz build, OVERLAY_VERSION 6), 2 frames
+  --vary-amplitude, labels [21, 0] = stitched-IP RTL (netlist simulation ~3.5 h).
+- ResNet50 Vivado baseline (FINN's MakeZYNQProject) failed with BD 5-336 "IP definition not
+  found": the ip_config Tcl read ip_repo_paths back from the project, which returns a value cut
+  with "..." once long (~600 node repositories), dropping partition 1's stitched IP. Fixed (Tcl
+  variable); ResNet50 Vivado runs at 300 / 100 MHz restarted (campaign6b, 8-core sub-lane).
+- 300 MHz: VGG10 0.25x overlay 858 s vs Vivado 2511 s (WNS +0.297) = 2.9x.
