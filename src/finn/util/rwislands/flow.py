@@ -1225,7 +1225,7 @@ def _overlay_build(accel, g, dcps, synth, dev, work, part, shell_dir, shell_lib,
                 tot[k] = tot.get(k, 0) + 2 * v
         return tot
 
-    where, util = ov.plan_overlay(names, node_res, g, dev, tiles, boundary, extra=extra)
+    where, util = ov.plan_overlay(names, node_res, g, dev, tiles, boundary, extra=extra, hard=kn["hard"] / 100.0)
     if where is None:
         res.update(status="overlay_plan_failed", reason=util)
         return _done(res, stamps, out_dir, t_total)

@@ -28,7 +28,7 @@ from qonnx.custom_op.registry import getCustomOp
 
 from finn.transformation.fpgadataflow.create_stitched_ip import CreateStitchedIP
 from finn.util.dynarapid.graph import mm_ports
-from finn.util.dynarapid.shell import CORE_MODULE, bridge_verilog
+from finn.util.dynarapid.shell import BRIDGE_SLICE_MODULE, BRIDGE_SLICES, CORE_MODULE, bridge_verilog
 from finn.util.dynarapid.tools import run_vivado
 
 IN_BASE = 0x10000000
@@ -411,7 +411,8 @@ def main():
             assert rc == 0 and os.path.isfile(netlist), "netlist export failed"
             core_ports = verilog_ports(netlist, CORE_MODULE)
             br = os.path.join(sim, "bridges.v")
-            open(br, "w").write("".join(bridge_verilog(d) for d in ports))
+            # (the shell's bridges instantiate the register slice module when BRIDGE_SLICES)
+            open(br, "w").write((BRIDGE_SLICE_MODULE if BRIDGE_SLICES else "") + "".join(bridge_verilog(d) for d in ports))
             dut = os.path.join(sim, "dut.v")
             open(dut, "w").write(dut_dr(ports, core_ports, gm_dw))
             glbl = os.path.join(os.environ["XILINX_VIVADO"], "data", "verilog", "src", "glbl.v")

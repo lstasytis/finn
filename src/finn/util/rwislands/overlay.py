@@ -28,10 +28,13 @@ from finn.util.rwislands.floorplan import grid_tiles
 from finn.util.rwislands.links import ANCHOR
 
 OVERLAY_VERSION = 3
-# DSP / BRAM / URAM share of a tile's sites a model may use: the tile pblocks end on clock-region
-# rows, and routing containment makes Vivado block the hard blocks at their edges (VGG10 0.25x,
-# tile 5 at the device edge: 19 of 54 DSP sites blocked, 16 by place.closeUnroutableSites)
-HARD_UTIL = 0.6
+# DSP / BRAM / URAM share of a tile's sites a model may use (knob hard=<percent>). Was 0.6: with
+# tiles abutting on clock-region rows, routing containment blocked hard blocks at their edges (VGG10
+# 0.25x, 1-region tile 5 at the device edge: 19 of 54 DSP sites blocked). With the static gaps around
+# the tiles, a 2x2-region tile (22-tile overlay, tile 7) placed and routed 352 connected DSPs = all
+# sites of its snapped pblock (96 % of the nominal 368; BRAM36 66 of 69): VGG10 8x needs 65 % of
+# the overlay's DSPs.
+HARD_UTIL = 0.9
 # write_bitstream fails with more reconfigurable partitions in the design (Designutils 20-1700
 # "bitset::set: __position (which is 32) >= _Nb (which is 32)", also for a single tile's partial
 # bitstream, Vivado 2024.2 and 2025.1; the 79-tile static placed and routed fine): the snake is
@@ -45,9 +48,11 @@ def overlay_knobs():
     height (tile 0 holds the IODMAs and all shell boundary signals: one clock region did not route
     1772 of them, scratchpad DFX test 2026-10-10), tiles: only the first N snake tiles (0: all),
     gap_cols / gap_rows: tile columns / rows left to the static design on each side of a tile,
-    crs: clock-region columns per tile."""
+    crs: clock-region columns per tile; per model (not part of the overlay's key): hard: DSP / BRAM /
+    URAM share of a tile a model may use (percent), part: size of a split layer's part (percent of a
+    tile)."""
     kn = {"cols": 16, "rows": 60, "order": "rows", "wf": 1024, "wb": 256, "boundary_rows": 120, "tiles": 0,
-          "gap_cols": 1, "gap_rows": 1, "crs": 1}
+          "gap_cols": 1, "gap_rows": 1, "crs": 1, "hard": int(HARD_UTIL * 100), "part": 45}
     for kv in filter(None, os.environ.get("FINN_RWI_OVERLAY", "").split(",")):
         k, v = kv.split("=")
         kn[k] = v if k == "order" else int(v)
@@ -332,7 +337,7 @@ def build_overlay(shell_dir, part, dev, region, anchor, lib, kn=None, jobs=16):
 # per model
 
 
-def plan_overlay(names, node_res, g, dev, tiles, boundary, extra=None):
+def plan_overlay(names, node_res, g, dev, tiles, boundary, extra=None, hard=HARD_UTIL):
     """Nodes to tiles: the nodes with shell ports (IODMAs) into tile 0, the others along the snake
     from tile 1: consecutive nodes share a tile while they fit; the next node goes to the next tile
     that can hold it on its own (tiles in between stay empty and only pass streams through - the
@@ -357,7 +362,7 @@ def plan_overlay(names, node_res, g, dev, tiles, boundary, extra=None):
 
     last = "the nodes do not fit the overlay's tiles"
     for u in (0.5, 0.6, 0.7, 0.8, 0.9):
-        util = {"lut": u, "bram": HARD_UTIL, "dsp": HARD_UTIL, "uram": HARD_UTIL}
+        util = {"lut": u, "bram": hard, "dsp": hard, "uram": hard}
 
         def fits(t, mem):
             req = need(total(mem), util)
@@ -609,8 +614,9 @@ def assemble_tcl(overlay_dir, rp, rms, netlist, core_module):
 
 
 def tile_split_limits(part, kn=None):
-    """Resources one part of a split layer may use so that it fits a (median) overlay tile: LUTs at
-    50 %, DSP / BRAM at 90 % of HARD_UTIL of the tile."""
+    """Resources one part of a split layer may use: `part` percent of a (median) overlay tile's
+    usable resources (LUTs at 50 % utilization, DSP / BRAM at `hard`); the default 45 % lets two
+    parts share a tile (one part per tile left 40 % of the DSPs of the 22-tile overlay empty)."""
     import statistics
 
     from finn.util.rwislands.device import capacity, load_device
@@ -622,4 +628,5 @@ def tile_split_limits(part, kn=None):
     tiles = overlay_tiles(dev, region + list(first), kn, shell_anchor(part, dev))[1:]
     caps = [capacity(dev.sites_in(*t)) for t in tiles]
     med = {k: statistics.median(c[k] for c in caps) for k in ("slice", "dsp", "bram")}
-    return {"lut": 0.5 * 8 * med["slice"], "dsp": 0.9 * HARD_UTIL * med["dsp"], "bram": 0.9 * HARD_UTIL * med["bram"]}
+    f, hard = kn["part"] / 100.0, kn["hard"] / 100.0
+    return {"lut": f * 0.5 * 8 * med["slice"], "dsp": f * hard * med["dsp"], "bram": f * hard * med["bram"]}
