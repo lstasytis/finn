@@ -1176,3 +1176,28 @@ xfail "not tested". Larger points instead: MobileNet 4x and VGG10 16x (no relax)
   (synthesis 464 s, 4 tiles used, tiles in parallel 412 s: 261-412 s each, 0 routing errors,
   WNS +2.81 / WHS +0.010). The first run, which built the overlay (static 991 s + 22 abstract
   shells), took 2868 s.
+
+## 2026-10-12 (morning): two functional bugs found by verify_accel - results since the merge invalid
+
+- **Thresholding_rtl thresholds synthesized as all-zero memories** (all island / grid / global /
+  overlay builds since the upstream merge of 2026-10-10; the Vivado baselines use FINN's own flow
+  and are not affected). Upstream's thresholding.sv reads `threshs_<pe>_<stage>.dat` via
+  `$readmemh` with THRESHOLDS_PATH "./<node>_" relative to Vivado's working directory; the direct
+  HDL synthesis read only the HDL, so Vivado could not open the files (Synth 8-4445, a critical
+  warning) and built zero memories. VGG10 0.25x: islands and overlay both gave labels [0, 3] for
+  2 frames, the stitched-IP RTL and FINN's Python execution of the streamlined model [0, 0]; with
+  the bridge register slices removed from the simulation still [0, 3]. Fix: the node's .dat files
+  are copied into the synthesis directory (Vivado cd's there); a synthesis log with Synth 8-4445
+  fails the node; FLOW_VERSION 9. Zero thresholds also let synthesis shrink the threshold logic,
+  so the timings of these runs are not comparable either: VGG10 8x / MobileNet / VGG10 0.25x
+  islands, grid, global and overlay runs are repeated (campaign5, labels *_f9).
+- **Overlay links lost words on links over more than one tile edge**: receivers had a fixed
+  FIFO (depth 8, ready slack 5) sized for one edge; every transit tile adds an anchor on data and
+  on ready (in flight: 3 + 2 * edges). xsim over 3 edges: depth 8 drops words, depth 16 (slack
+  13) 0 errors at 1 word / cycle. Receivers now per (width, depth = links.rx_depth(edges)).
+- VGG10 8x on the 22-tile overlay: with hard=95 the plan fits (LUT 0.6), but the forward link
+  bundle needs 2151 bits (split layers send their input to every part: several 416-bit copies
+  cross the same edges); overlay with wf=2304, wb=32 (backward needs 15), gap_rows=2 (anchor room
+  on the row edges) being built.
+- Timed (before the threshold fix, so for reference only): VGG10 0.25x on lane B, overlay cached:
+  overlay 759 s (synthesis 276, tiles 414), islands 935 s, global 1172 s, Vivado 2116 s.
