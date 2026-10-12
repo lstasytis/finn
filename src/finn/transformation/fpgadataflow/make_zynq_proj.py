@@ -96,8 +96,20 @@ def collect_ip_dirs(model, ipstitch_path):
 def _hls_synth_partition(model_file):
     """HLS synthesis of the HLS nodes of a partition model (in place; module level, so that it
     can run in a spawned process)."""
+    import multiprocessing
+
+    from qonnx.util.basic import get_num_default_workers
+
+    from finn.util.fpgadataflow import is_hls_node
+
+    # HLSSynthIP's pool forks by default; this spawned process has threads by now (torch), and a
+    # forked pool deadlocked (ZCU104 TFC, 2026-10-12: workers waiting for tasks, the parent for
+    # results, no HLS run started): spawned workers, no more than the partition has HLS nodes
+    # (one node: no pool at all)
+    multiprocessing.set_start_method("spawn", force=True)
     model = ModelWrapper(model_file)
-    model = model.transform(HLSSynthIP())
+    n_hls = sum(1 for n in model.graph.node if is_hls_node(n))
+    model = model.transform(HLSSynthIP(num_workers=max(1, min(get_num_default_workers(), n_hls))))
     model.save(model_file)
 
 

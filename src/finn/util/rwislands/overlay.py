@@ -27,7 +27,7 @@ from finn.util.rwislands.device import pblock_ranges
 from finn.util.rwislands.floorplan import grid_tiles
 from finn.util.rwislands.links import ANCHOR
 
-OVERLAY_VERSION = 3
+OVERLAY_VERSION = 4
 # DSP / BRAM / URAM share of a tile's sites a model may use (knob hard=<percent>). Was 0.6: with
 # tiles abutting on clock-region rows, routing containment blocked hard blocks at their edges (VGG10
 # 0.25x, 1-region tile 5 at the device edge: 19 of 54 DSP sites blocked). With the static gaps around
@@ -124,8 +124,14 @@ def container_verilog(ports, n, kn):
         t += ["    wire [%d:0] f%d_a, f%d_b;" % (kn["wf"] - 1, k, k), "    wire [%d:0] b%d_a, b%d_b;" % (kn["wb"] - 1, k, k),
               "    rwi_anchor #(.W(%d)) af%d (.clk(clk), .d(f%d_a), .q(f%d_b));" % (kn["wf"], k, k, k),
               "    rwi_anchor #(.W(%d)) ab%d (.clk(clk), .d(b%d_a), .q(b%d_b));" % (kn["wb"], k, k, k)]
+    # the reset runs along the snake through one static register per edge (tile k sees it k
+    # cycles late): a direct wire from the shell's reset to the far tiles took 14.7 ns (VGG10 8x,
+    # 22 tiles, tiles 14-21 failed setup on their first reset stage). The tiles only talk through
+    # the link handshakes, so they need not leave reset in the same cycle
+    t += ["    wire r0 = rst;"] + ["    wire r%d; rwi_anchor #(.W(1)) ar%d (.clk(clk), .d(r%d), .q(r%d));" % (k + 1, k, k, k + 1)
+                                  for k in range(n - 1)]
     for k in range(n):
-        c = ["    .clk(clk)", "    .rst(rst)"]
+        c = ["    .clk(clk)", "    .rst(r%d)" % k]
         if k > 0:
             c += ["    .w_in(f%d_b)" % (k - 1), "    .w_out(b%d_a)" % (k - 1)]
         if k < n - 1:
