@@ -99,7 +99,7 @@ def main():
     ap.add_argument(
         "--mode",
         choices=["vivado", "dynarapid", "dynarapid-kernel", "islands", "global", "islands_fast", "global_fast",
-                 "islands_split", "islands_fast_split", "overlay"],
+                 "islands_split", "islands_fast_split", "overlay", "overlay_fast"],
         required=True,
         help="dynarapid: whole accelerator by DynaRapid in a pre-implemented shell; "
         "dynarapid-kernel: only the compute kernel by DynaRapid, shell implemented by Vivado",
