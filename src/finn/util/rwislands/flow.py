@@ -31,6 +31,8 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 from finn.util.dynarapid.components import (
+    batch_groups,
+    batch_synth_tcl,
     component_name,
     direct_sources,
     direct_synth_tcl,
@@ -39,7 +41,7 @@ from finn.util.dynarapid.components import (
 )
 from finn.util.dynarapid.graph import mm_ports
 from finn.util.dynarapid.shell import PS_BOUNDARY_INT_X, build_shell
-from finn.util.dynarapid.tools import TIMEOUT_RC, java_bin, kill_run, run_vivado, usable_cpus, vivado_slots
+from finn.util.dynarapid.tools import TIMEOUT_RC, java_bin, kill_run, run_vivado, usable_cpus, vivado_slots, vivado_version
 from finn.util.dynarapid.zynq import _reports, merge_partitions
 from finn.util.rwislands.assembly import assemble_tcl, final_tcl
 from finn.util.rwislands.device import load_device, pblock_ranges
@@ -150,6 +152,27 @@ def _synth_estimate(node):
         return 1e9
 
 
+def build_cache():
+    """FINN_RWI_CACHE=<dir>: incremental builds (PLD -O1 / HiPR: unchanged pages are kept). Node
+    checkpoints (content-addressed component names), routed tiles (keyed by the tile netlist and
+    everything that enters its implementation) and the last plan per model are kept there; a tile
+    whose key is cached is not implemented again. Unset: cold builds (the default for timing)."""
+    d = os.environ.get("FINN_RWI_CACHE")
+    if d:
+        for sub in ("synth", "tiles", "plans"):
+            os.makedirs(os.path.join(d, sub), exist_ok=True)
+    return d
+
+
+def _copy(src, dst):
+    try:
+        if os.path.exists(dst):
+            os.remove(dst)
+        os.link(src, dst)
+    except OSError:
+        shutil.copy(src, dst)
+
+
 def link_modules(mods, links, work, part):
     """Synthesizes the overlay link modules `mods` (overlay._link_mod names) that
     are not in the cache dir `links` yet, one Vivado session each (callers run them in parallel)."""
@@ -189,7 +212,14 @@ def synthesize(accel, dcps, work, part, clk_ns, cpus, slots, links=None):
         else:
             single.append((dcp, n))
     res = {}
-    # checkpoints left by an interrupted run of the same build directory are reused
+    cache = build_cache()
+    if cache:
+        for dcp in first:
+            for ext in ("_synth.dcp", ".util"):
+                f = os.path.join(cache, "synth", dcp + ext)
+                if os.path.isfile(f) and os.path.isfile(os.path.join(cache, "synth", dcp + ".util")):
+                    _copy(f, os.path.join(synth_dir, dcp + ext))
+    # checkpoints left by an interrupted run of the same build directory (or cached) are reused
     for dcp, n in list(first.items()):
         f = os.path.join(synth_dir, dcp + "_synth.dcp")
         u = os.path.join(synth_dir, dcp + ".util")
@@ -197,6 +227,24 @@ def synthesize(accel, dcps, work, part, clk_ns, cpus, slots, links=None):
             res[dcp] = {"status": "ok", "synth_s": 0.0, "done_s": 0.0, "util": parse_util(u), "reused": True}
     single = [it for it in single if it[0] not in res]
     cheap = [it for it in cheap if it[0] not in res]
+    batches = []
+    if os.environ.get("FINN_RWI_SYNTH_BATCH", "1") == "1":
+        # batch synthesis (components.batch_synth_tcl): every node with plain HDL, up to ~12 per
+        # Vivado run, one synth_design for all of them (ResNet50, U55C: 18 nodes in 156 s instead
+        # of ~750 slot-seconds); the largest few stay single so that no batch waits behind them
+        direct = [(dcp, n) for dcp, n in single + cheap if direct_sources(n) is not None]
+        rest_ = [(dcp, n) for dcp, n in single if direct_sources(n) is None]
+        direct.sort(key=lambda it: -_synth_estimate(it[1]))
+        n_big = len(direct) // 20
+        single = rest_ + direct[:n_big]
+        direct = direct[n_big:]
+        if direct:
+            n_b = min(len(direct), max(slots, -(-len(direct) // 12)))
+            items = [(dcp, n) + tuple(direct_sources(n)) for dcp, n in direct]
+            groups, left = batch_groups(items, n_b)
+            batches = [[(dcp, n) for dcp, n, _, _ in grp] for grp in groups]
+            single += [(dcp, n) for dcp, n, _, _ in left]
+        cheap = []
     single.sort(key=lambda it: -_synth_estimate(it[1]))
     # sessions of a few cheap nodes each (they queue behind the heavy nodes)
     n_sess = max(1, min(len(cheap), min(cpus, slots)))
@@ -240,6 +288,18 @@ def synthesize(accel, dcps, work, part, clk_ns, cpus, slots, links=None):
             )
         run(body.splitlines(), dcp, [item])
 
+    def batch_job(items):
+        name = "batch_" + items[0][0]
+        d = os.path.join(work, "components", name)
+        shutil.rmtree(d, ignore_errors=True)
+        body = batch_synth_tcl([(dcp, n) + tuple(direct_sources(n)) for dcp, n in items], d, synth_dir, part, 1,
+                               synth_args(part), edif=not links)
+        run(body.splitlines(), name, items)
+        # a failed batch (one node's HDL, a missing memory init file): every node on its own
+        bad = [it for it in items if res[it[0]]["status"] != "ok"]
+        for it in bad if len(items) > 1 else []:
+            single_job(it)
+
     def sess_job(items):
         lines = ["set_param general.maxThreads 1"]
         for dcp, n in items:
@@ -275,17 +335,40 @@ def synthesize(accel, dcps, work, part, clk_ns, cpus, slots, links=None):
 
         pipe = overlay_knobs()["pipe"]
         lk_mods = [m for w in stream_widths(channel_graph(accel))
-                   for m in ("rwi_link_tx_w%d_p%d" % (w, pipe), "rwi_link_rx_w%d_d%d_p%d" % (w, rx_depth(1, pipe), pipe))
-                   if not os.path.isfile(os.path.join(links, m + "_synth.dcp"))]
+                   for m in ("rwi_link_tx_w%d_p%d" % (w, pipe), "rwi_link_rx_w%d_d%d_p%d" % (w, rx_depth(1, pipe), pipe))]
+        # configuration chain (cfgnet): the funnel, its links and the chain nodes of up to 8 local
+        # slaves (more are synthesized after the plan)
+        from finn.util.dynarapid.graph import mm_ports
+        from finn.util.rwislands import cfgnet
+
+        cfg_ports = [e for e in mm_ports(accel) if not e["iodma"]]
+        if cfg_ports and overlay_knobs().get("plan", "dp") == "dp":
+            n_c = len(cfg_ports)
+            a_w = max(c["width"] for e in cfg_ports for c in e["in"] if c["name"].endswith("_AW"))
+            rq = cfgnet.req_width(a_w, n_c)
+            lk_mods += [cfgnet.funnel_name(n_c, a_w, n_c)]
+            lk_mods += [cfgnet.node_name(l, a_w, n_c, e) for l in range(min(n_c, 8) + 1) for e in (0, 1)]
+            lk_mods += ["rwi_link_tx_w%d_p%d" % (w, pipe) for w in (rq, cfgnet.RESP_W)]
+            lk_mods += ["rwi_link_rx_w%d_d%d_p%d" % (w, rx_depth(1, pipe), pipe) for w in (rq, cfgnet.RESP_W)]
+        lk_mods = [m for m in sorted(set(lk_mods)) if not os.path.isfile(os.path.join(links, m + "_synth.dcp"))]
 
     def links_job(m):
         link_modules([m], links, work, part)
 
-    with ThreadPoolExecutor(max_workers=max(1, min(slots, len(single) + len(sessions) + len(rs_groups) + len(lk_mods)))) as ex:
+    with ThreadPoolExecutor(max_workers=max(1, min(slots, len(single) + len(sessions) + len(batches) + len(rs_groups)
+                                                       + len(lk_mods)))) as ex:
         futs = [ex.submit(rs_job, ws) for ws in rs_groups] + [ex.submit(links_job, m) for m in lk_mods]
         futs += [ex.submit(single_job, it) for it in single] + [ex.submit(sess_job, s) for s in sessions]
+        futs += [ex.submit(batch_job, b) for b in batches]
         for f in futs:
             f.result()
+    if cache:
+        for dcp, r in res.items():
+            if r["status"] == "ok" and not r.get("reused"):
+                for ext in ("_synth.dcp", ".util"):
+                    f = os.path.join(synth_dir, dcp + ext)
+                    if os.path.isfile(f):
+                        _copy(f, os.path.join(cache, "synth", dcp + ext))
     return res
 
 
@@ -1233,7 +1316,20 @@ def _overlay_build(accel, g, dcps, synth, dev, work, part, shell_dir, shell_lib,
     tiles = [tuple(t) for t in oinfo["tiles"]]
     names = [n.name for n in accel.graph.node]
     node_res = {n: synth[dcps[n]]["util"] for n in names}
-    boundary = {n for n in names if len(boundary_ports(g, [n])) > 1}
+    ports = json.load(open(os.path.join(shell_dir, "ports.json")))
+    # compute nodes whose only shell ports are AXI-Lite slaves (runtime-writeable weights) may go
+    # to any tile: the configuration chain (cfgnet) reaches them; it takes bundle bits on the edges
+    # up to its last tile (the planner keeps them free on every edge)
+    plan_dp = kn.get("plan", "dp") == "dp"
+    cfg_nodes = {e["node"] for e in ports if not e["iodma"]} if plan_dp else set()
+    boundary = {n for n in names if len(boundary_ports(g, [n])) > 1} - cfg_nodes
+    kn_plan = dict(oinfo["kn"], pipe=kn["pipe"])
+    if cfg_nodes:
+        from finn.util.rwislands import cfgnet
+
+        a_w = max(c["width"] for e in ports if e["node"] in cfg_nodes for c in e["in"] if c["name"].endswith("_AW"))
+        rf, rb = cfgnet.reserved_bits(a_w, len(cfg_nodes))
+        kn_plan.update(wf=kn_plan["wf"] - rf, wb=kn_plan["wb"] - rb)
 
     def extra(idx):
         tot = {}
@@ -1243,22 +1339,37 @@ def _overlay_build(accel, g, dcps, synth, dev, work, part, shell_dir, shell_lib,
                 tot[k] = tot.get(k, 0) + 2 * v
         return tot
 
-    where, util = ov.plan_overlay(names, node_res, g, dev, tiles, boundary, extra=extra, hard=kn["hard"] / 100.0,
-                                  tile0=bool(kn.get("tile0", 1)))
+    # incremental builds: the last plan of this model (same overlay) is kept while it stays
+    # feasible, so that unchanged tiles keep their keys
+    cache = build_cache()
+    plan_key = hashlib.sha1(json.dumps([oinfo["key"], accel.get_metadata_prop("rwi_model_family") or
+                                        sorted(n for n in names if "StreamingFIFO" not in n)[:50]]).encode()).hexdigest()[:12]
+    prefer = None
+    if cache and os.path.isfile(os.path.join(cache, "plans", plan_key + ".json")):
+        prefer = json.load(open(os.path.join(cache, "plans", plan_key + ".json")))
+    if plan_dp:
+        where, util = ov.plan_overlay_dp(names, node_res, g, dev, tiles, boundary, hard=kn["hard"] / 100.0,
+                                         tile0=bool(kn.get("tile0", 1)), kn=kn_plan, prefer=prefer)
+    else:
+        where, util = ov.plan_overlay(names, node_res, g, dev, tiles, boundary, extra=extra, hard=kn["hard"] / 100.0,
+                                      tile0=bool(kn.get("tile0", 1)))
     if where is None:
         res.update(status="overlay_plan_failed", reason=util)
         return _done(res, stamps, out_dir, t_total)
+    cfg = ov.cfg_plan(ports, where) if cfg_nodes else None
     try:
-        links, usage = ov.link_plan(g, where, len(tiles), oinfo["kn"])
+        links, usage = ov.link_plan(g, where, len(tiles), oinfo["kn"], reserved=cfg["reserved"] if cfg else None)
     except RuntimeError as e:
         res.update(status="overlay_plan_failed", reason=str(e))
         return _done(res, stamps, out_dir, t_total)
-    # tiles with nodes and the tiles the links pass through (implemented as plain wires)
-    used = sorted(set(where.values()) | {t for hops in links.values() for e, _, _, _ in hops for t in (e, e + 1)})
+    # tiles with nodes and the tiles the links pass through (implemented as plain wires), and the
+    # configuration chain's tiles
+    used = sorted(set(where.values()) | {t for hops in links.values() for e, _, _, _ in hops for t in (e, e + 1)}
+                  | (set(range(cfg["K"] + 1)) if cfg else set()))
     res["overlay_plan"] = {"util": util, "tiles_used": len(used), "tiles": len(tiles),
+                           "cfg_chain": {"nodes": cfg["n"], "last_tile": cfg["K"]} if cfg else None,
                            "link_bits_max": {d: max([v for (e, dd), v in usage.items() if dd == d] or [0]) for d in ("f", "b")}}
     stamp("plan")
-    ports = json.load(open(os.path.join(shell_dir, "ports.json")))
     lk_dir = overlay_links_dir(shell_lib)
     synth_dir = os.path.join(work, "synth")
     steps = profile(part)
@@ -1271,7 +1382,8 @@ def _overlay_build(accel, g, dcps, synth, dev, work, part, shell_dir, shell_lib,
     for k in used:
         members = [n for n in names if where[n] == k]
         # (the link pipelining is a per-model knob: the current one, not the overlay's)
-        gen[k] = (members,) + ov.tile_verilog(k, len(tiles), dict(oinfo["kn"], pipe=kn["pipe"]), ports, g, members, dcps, links)
+        gen[k] = (members,) + ov.tile_verilog(k, len(tiles), dict(oinfo["kn"], pipe=kn["pipe"]), ports, g, members, dcps, links,
+                                              cfg=cfg, where=where)
     for (src, j), hops in links.items():
         dstn, i = g[src]["dst"][j]
         if "tx_%s_%d " % (g[src]["id"], j) not in gen[where[src]][1] or "rx_%s_%d " % (g[dstn]["id"], i) not in gen[where[dstn]][1]:
@@ -1296,10 +1408,19 @@ def _overlay_build(accel, g, dcps, synth, dev, work, part, shell_dir, shell_lib,
         files += [os.path.join(lk_dir, m + "_synth.dcp") for m in widths]
         tcl = os.path.join(d, "tile.tcl")
         with open(tcl, "w") as f:
-            f.write(ov.tile_tcl(k, d, tv, files, part, odir, oinfo["rp"], steps, threads=max(1, min(8, cpus // max(1, len(used))))))
-        rc, t = run_vivado(tcl, os.path.join(d, "tile.log"), d, timeout=island_time_limit(
-            sum(island_cost(node_res[n]) for n in members)))
-        info = {"members": len(members), "rc": rc, "s": t, "timed_out": rc == TIMEOUT_RC}
+            f.write(ov.tile_tcl(k, d, tv, files, part, odir, oinfo["rp"], steps, threads=max(1, min(8, cpus // max(1, n_build)))))
+        outs = ("tile%d_partial.bit" % k, "tile%d_rm_routed.dcp" % k, "timing_summary.rpt", "route_status.rpt", "tile.log")
+        key = keys[k]
+        cdir = os.path.join(cache, "tiles", key) if cache else None
+        if cdir and all(os.path.isfile(os.path.join(cdir, o)) for o in outs):
+            for o in outs:
+                _copy(os.path.join(cdir, o), os.path.join(d, o))
+            rc, t = 0, 0.0
+        else:
+            rc, t = run_vivado(tcl, os.path.join(d, "tile.log"), d, timeout=island_time_limit(
+                sum(island_cost(node_res[n]) for n in members)))
+        info = {"members": len(members), "rc": rc, "s": t, "timed_out": rc == TIMEOUT_RC, "key": key,
+                "cached": t == 0.0 and rc == 0}
         info["stamps"] = {kk: float(vv) for kk, vv in re.findall(r"^STAMP (\w+) ([\d.]+)", open(os.path.join(d, "tile.log")).read(), re.M)}
         info.update(timing_summary(os.path.join(d, "timing_summary.rpt")))
         rs = os.path.join(d, "route_status.rpt")
@@ -1311,13 +1432,32 @@ def _overlay_build(accel, g, dcps, synth, dev, work, part, shell_dir, shell_lib,
         info["ok"] = (rc == 0 and os.path.isfile(info["partial"]) and info.get("routing_errors") == 0
                       and info.get("wns") is not None and info["wns"] >= 0
                       and info.get("whs") is not None and info["whs"] >= 0)
+        if cdir and info["ok"] and not info["cached"]:
+            os.makedirs(cdir, exist_ok=True)
+            for o in outs:
+                _copy(os.path.join(d, o), os.path.join(cdir, o))
         return k, info
 
+    # incremental builds (build_cache): a tile's key covers its netlist (content-addressed
+    # component and link module names, bit positions), the overlay, the directives and the tools;
+    # the threads go to the tiles that are implemented
+    cache = build_cache()
+    keys = {}
+    for k in used:
+        members, v, widths = gen[k]
+        fl = sorted({dcps[n] + "_synth.dcp" for n in members}) + sorted(m + "_synth.dcp" for m in widths)
+        keys[k] = hashlib.sha1(json.dumps([v, fl, oinfo["key"], oinfo["rp"], k, steps, part, vivado_version()],
+                                          sort_keys=True).encode()).hexdigest()[:16]
+    n_build = sum(1 for k in used if not (cache and os.path.isfile(os.path.join(cache, "tiles", keys[k], "tile.log"))))
+    res["tiles_built"] = n_build
     with ThreadPoolExecutor(max_workers=max(1, min(slots, len(used)))) as ex:
         for k, info in ex.map(tile_job, sorted(used, key=lambda k: -sum(island_cost(node_res[n]) for n in names if where[n] == k))):
             infos[k] = info
     stamp("tiles")
     res["tiles"] = {"t%d" % k: v for k, v in infos.items()}
+    res["plan"] = where
+    if cache:
+        json.dump(where, open(os.path.join(cache, "plans", plan_key + ".json"), "w"), indent=0)
     bad = [k for k, v in infos.items() if not v["ok"]]
     if bad:
         res.update(status="tile_failed", failed=bad)

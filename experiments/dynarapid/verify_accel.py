@@ -54,11 +54,14 @@ def verilog_ports(path, module):
 DRAIN_CYCLES = 5000
 
 
-def tb_sv(dmas, dw, nbytes_in, nbytes_out, frames, cycles):
-    """Testbench: dmas = [{"k", "dir", "mem_dw"}]; the DUT is module `dut`."""
+def tb_sv(dmas, dw, nbytes_in, nbytes_out, frames, cycles, lites=(), lite_writes=()):
+    """Testbench: dmas = [{"k", "dir", "mem_dw"}]; lites = port indices of compute nodes with an
+    AXI-Lite slave (runtime-writeable weights); lite_writes = [(k, address, value)] written before
+    the run (the same in both simulations), each read back (LITE lines in the log). The DUT is
+    module `dut`."""
     L = ["`timescale 1ns/1ps", "module tb;", "  reg clk = 0; always #2.5 clk = ~clk;", "  reg rstn = 0;"]
     conns = ["    .ap_clk(clk)", "    .ap_rst_n(rstn)"]
-    for d in dmas:
+    for d in list(dmas) + [{"k": k, "mem_dw": None} for k in lites]:
         k, mdw = d["k"], d["mem_dw"]
         c, m = "c%d_" % k, "m%d_" % k
         sig = [
@@ -67,6 +70,9 @@ def tb_sv(dmas, dw, nbytes_in, nbytes_out, frames, cycles):
             (c + "bvalid", 1), (c + "bready", 1), (c + "araddr", 32), (c + "arvalid", 1),
             (c + "arready", 1), (c + "rdata", 32), (c + "rresp", 2), (c + "rvalid", 1),
             (c + "rready", 1),
+        ]
+        if mdw is not None:
+            sig += [
             (m + "awaddr", 64), (m + "awlen", 8), (m + "awvalid", 1), (m + "awready", 1),
             (m + "wdata", mdw), (m + "wstrb", mdw // 8), (m + "wlast", 1), (m + "wvalid", 1),
             (m + "wready", 1), (m + "bresp", 2), (m + "bvalid", 1), (m + "bready", 1),
@@ -109,6 +115,8 @@ def tb_sv(dmas, dw, nbytes_in, nbytes_out, frames, cycles):
             "    end",
             "  endtask",
         ]
+        if mdw is None:
+            continue
         # AXI memory slave (one outstanding burst per direction, INCR, full-width beats)
         nb = mdw // 8
         L += [
@@ -171,6 +179,16 @@ def tb_sv(dmas, dw, nbytes_in, nbytes_out, frames, cycles):
             "    $fclose(fd);",
         ]
     L += ["    repeat (20) @(posedge clk); rstn <= 1; repeat (20) @(posedge clk);"]
+    # runtime-writeable weights: writes, then read back (through the configuration chain in the
+    # overlay build)
+    if lite_writes:
+        L += ["    begin : lite", "      reg [31:0] v;"]
+        for k, a, v in lite_writes:
+            L.append("      lite_write_%d(32'h%x, 32'h%08x);" % (k, a, v))
+        for k, a, v in lite_writes:
+            L += ["      lite_read_%d(32'h%x, v);" % (k, a),
+                  "      $display(\"LITE k=%d a=%x v=%%h t=%%0t\", v, $time);" % (k, a)]
+        L += ["    end"]
     for d in odmas:
         k = d["k"]
         L += [
@@ -213,8 +231,13 @@ def dut_dr(ports, core_ports, gm_dw):
     for k, d in enumerate(ports):
         decl += _tb_port_decl(k, gm_dw[k])
         bp = ["    .ap_clk(ap_clk)", "    .ap_rst_n(ap_rst_n)"]
-        for sig, tb in _axi_map(k, "m_axi_gmem_", "s_axi_control_"):
+        s_if = [c["name"] for c in d["in"] if c["name"].startswith("s_axi")][0].rsplit("_", 1)[0] + "_"
+        for sig, tb in _axi_map(k, "m_axi_gmem_" if gm_dw[k] else None, s_if):
             bp.append("    .%s(%s)" % (sig, tb))
+        for c in d["in"]:
+            for sg, w in c["signals"]:
+                if sg.endswith("PROT"):
+                    bp.append("    .%s(%d'b0)" % (sg, w))
         for c in d["in"] + d["out"]:
             for p in (c["data"], c["valid"], c["ready"]):
                 w = c["width"] if p == c["data"] else 1
@@ -236,13 +259,17 @@ def dut_dr(ports, core_ports, gm_dw):
 
 
 def dut_ref(wrapper, wports, n, gm_dw, gm_names, ctrl_names):
-    """dut: FINN stitched IP wrapper mapped to the testbench signals."""
+    """dut: FINN stitched IP wrapper mapped to the testbench signals (gm_names / ctrl_names per
+    port; None: no such interface)."""
     decl, conns = [], ["    .ap_clk(ap_clk)", "    .ap_rst_n(ap_rst_n)"]
     for k in range(n):
         decl += _tb_port_decl(k, gm_dw[k])
-        for sig, tb in _axi_map(k, gm_names[k] + "_", ctrl_names[k] + "_", lower=True):
+        for sig, tb in _axi_map(k, gm_names[k] + "_" if gm_names[k] else None, ctrl_names[k] + "_", lower=True):
             if sig in wports:
                 conns.append("    .%s(%s)" % (sig, tb))
+        for sig in wports:
+            if sig.startswith(ctrl_names[k] + "_") and sig.endswith("prot"):
+                conns.append("    .%s(%d'b0)" % (sig, wports[sig]))
     # tie off the remaining inputs of the wrapper (AXI IDs, users, ...)
     return (
         "module dut (input ap_clk, input ap_rst_n,\n"
@@ -255,14 +282,16 @@ def _tb_port_decl(k, dw):
     c, m = "c%d_" % k, "m%d_" % k
     ins = [(c + "awaddr", 32), (c + "awvalid", 1), (c + "wdata", 32), (c + "wstrb", 4),
            (c + "wvalid", 1), (c + "bready", 1), (c + "araddr", 32), (c + "arvalid", 1),
-           (c + "rready", 1), (m + "awready", 1), (m + "wready", 1), (m + "bresp", 2),
-           (m + "bvalid", 1), (m + "arready", 1), (m + "rdata", dw), (m + "rresp", 2),
-           (m + "rlast", 1), (m + "rvalid", 1)]
+           (c + "rready", 1)]
     outs = [(c + "awready", 1), (c + "wready", 1), (c + "bresp", 2), (c + "bvalid", 1),
-            (c + "arready", 1), (c + "rdata", 32), (c + "rresp", 2), (c + "rvalid", 1),
-            (m + "awaddr", 64), (m + "awlen", 8), (m + "awvalid", 1), (m + "wdata", dw),
-            (m + "wstrb", dw // 8), (m + "wlast", 1), (m + "wvalid", 1), (m + "bready", 1),
-            (m + "araddr", 64), (m + "arlen", 8), (m + "arvalid", 1), (m + "rready", 1)]
+            (c + "arready", 1), (c + "rdata", 32), (c + "rresp", 2), (c + "rvalid", 1)]
+    if dw:
+        ins += [(m + "awready", 1), (m + "wready", 1), (m + "bresp", 2),
+                (m + "bvalid", 1), (m + "arready", 1), (m + "rdata", dw), (m + "rresp", 2),
+                (m + "rlast", 1), (m + "rvalid", 1)]
+        outs += [(m + "awaddr", 64), (m + "awlen", 8), (m + "awvalid", 1), (m + "wdata", dw),
+                 (m + "wstrb", dw // 8), (m + "wlast", 1), (m + "wvalid", 1), (m + "bready", 1),
+                 (m + "araddr", 64), (m + "arlen", 8), (m + "arvalid", 1), (m + "rready", 1)]
     r = []
     for s, w in ins:
         r.append("  input %s%s" % ("[%d:0] " % (w - 1) if w > 1 else "", s))
@@ -282,7 +311,8 @@ def _axi_map(k, m_pre, c_pre, lower=False):
     for s in ("AWADDR", "AWLEN", "AWVALID", "AWREADY", "WDATA", "WSTRB", "WLAST", "WVALID",
               "WREADY", "BRESP", "BVALID", "BREADY", "ARADDR", "ARLEN", "ARVALID", "ARREADY",
               "RDATA", "RRESP", "RLAST", "RVALID", "RREADY"):
-        pairs.append((m_pre + (s.lower() if lower else s), m + s.lower()))
+        if m_pre is not None:
+            pairs.append((m_pre + (s.lower() if lower else s), m + s.lower()))
     return pairs
 
 
@@ -327,6 +357,8 @@ def main():
     ap.add_argument("--max-polls", type=int, default=200000)
     ap.add_argument("--variants", default="dr,ref", help="simulations to (re)run; others reused")
     ap.add_argument("--vary-amplitude", action="store_true", help="scale the input per frame")
+    ap.add_argument("--lite-words", type=int, default=4,
+                    help="random words written to (and read back from) each runtime-writeable weight memory")
     args = ap.parse_args()
     out = os.path.abspath(args.out)
     os.makedirs(out, exist_ok=True)
@@ -346,8 +378,13 @@ def main():
     iodmas = [n for n in accel.graph.node if n.op_type.startswith("IODMA")]
     gm_dw = []
     for d in ports:
-        w = [c for c in d["in"] + d["out"] if c["name"].endswith("_R") and c["name"].startswith("m_axi")][0]
-        gm_dw.append([wd for s, wd in w["signals"] if s.endswith("RDATA")][0])
+        w = [c for c in d["in"] + d["out"] if c["name"].endswith("_R") and c["name"].startswith("m_axi")]
+        gm_dw.append([wd for s, wd in w[0]["signals"] if s.endswith("RDATA")][0] if w else None)
+    # compute nodes with an AXI-Lite slave (runtime-writeable weights): random words written to
+    # the first addresses of each (same values in both simulations), read back
+    lites = [k for k, d in enumerate(ports) if not d["iodma"]]
+    rng = np.random.RandomState(1)
+    lite_writes = [(k, 4 * j, int(rng.randint(0, 2 ** 31))) for k in lites for j in range(args.lite_words)]
     # buffer sizes: input bytes of the first idma, output bytes of the first odma
     def nbytes(node, tensor):
         inst = getCustomOp(node)
@@ -363,9 +400,9 @@ def main():
     nout = nbytes(odma, odma.output[0]) * args.frames
     dmas = [
         {"k": k, "dir": "in" if d["id"].startswith("i") else "out", "mem_dw": gm_dw[k]}
-        for k, d in enumerate(ports)
+        for k, d in enumerate(ports) if d["iodma"]
     ]
-    tb = tb_sv(dmas, None, nin, nout, args.frames, args.max_polls)
+    tb = tb_sv(dmas, None, nin, nout, args.frames, args.max_polls, lites=lites, lite_writes=lite_writes)
     np.random.seed(0)
     data = np.random.randint(0, 256, size=nin)
     if args.vary_amplitude:
@@ -429,8 +466,14 @@ def main():
             wname = os.path.basename(wrapper_file).rsplit(".", 1)[0]
             wports = verilog_ports(wrapper_file, wname)
             ifn = eval(ref.get_metadata_prop("vivado_stitch_ifnames"))
-            gm_names = [n for n, _ in ifn["aximm"]]
-            ctrl_names = list(ifn["axilite"])
+            # (the stitched IP names its external interfaces in graph order; the ports list
+            # IODMAs first: map by node)
+            def has(n, kind):
+                return len(getCustomOp(n).get_verilog_top_module_intf_names()[kind]) > 0
+            lite_nodes = [n.name for n in ref.graph.node if has(n, "axilite")]
+            mm_nodes = [n.name for n in ref.graph.node if has(n, "aximm")]
+            ctrl_names = [ifn["axilite"][lite_nodes.index(d["node"])] for d in ports]
+            gm_names = [ifn["aximm"][mm_nodes.index(d["node"])][0] if d["iodma"] else None for d in ports]
             dut = os.path.join(sim, "dut.v")
             open(dut, "w").write(dut_ref(wname, wports, len(ports), gm_dw, gm_names, ctrl_names))
             srcs = [l.strip() for l in open(os.path.join(proj, "all_verilog_srcs.txt")) if l.strip()]
@@ -449,6 +492,7 @@ def main():
             "done": m is not None and (int(m.group(1), 16) & 2) != 0,
             "sim_ns": int(m.group(3)) / 1000.0 if m else None,
             "out": open(os.path.join(sim, "out.hex")).read().split() if os.path.isfile(os.path.join(sim, "out.hex")) else None,
+            "lite": re.findall(r"LITE (k=\d+ a=\w+ v=\w+)", log),
         }
     same = results["dr"]["out"] is not None and results["dr"]["out"] == results["ref"]["out"]
     written = results["ref"]["out"] is not None and any(x != "xx" for x in results["ref"]["out"])
@@ -461,6 +505,9 @@ def main():
         "output_bytes": nout,
         "ref_wrote_output": written,
         "outputs_match": same,
+        "lite_readback": len(results["ref"].get("lite") or []),
+        "lite_match": results["dr"].get("lite") == results["ref"].get("lite"),
+        "lite_head_dr": (results["dr"].get("lite") or [])[:4],
         "out_head_ref": results["ref"]["out"][:16] if results["ref"]["out"] else None,
         "out_head_dr": results["dr"]["out"][:16] if results["dr"]["out"] else None,
     }

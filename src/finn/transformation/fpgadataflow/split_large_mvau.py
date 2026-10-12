@@ -64,6 +64,24 @@ def parts_to_fit(node, fpgapart, max_res):
     return k
 
 
+def uram_parts(node, fpgapart, max_res):
+    """Parts an MVAU with URAM weights needs so that each part's URAMs fit max_res["uram"] (0: fits).
+    URAM weight memories are depth-bound (MW / SIMD * MH / PE words of SIMD * PE * wbits, mostly
+    narrower than a URAM's 72 bits): only an output channel (MH) split reduces the depth."""
+    if not max_res.get("uram"):
+        return 0
+    est = getCustomOp(node).node_res_estimation(fpgapart)
+    need = est.get("URAM", 0)
+    return int(np.ceil(need / float(max_res["uram"]))) if need > max_res["uram"] else 0
+
+
+def _smallest_divisor_at_least(n, k):
+    for d in range(max(2, k), n + 1):
+        if n % d == 0:
+            return d
+    return None
+
+
 def _largest_divisor(n, k_max):
     for k in range(min(k_max, n), 1, -1):
         if n % k == 0:
@@ -83,11 +101,13 @@ def split_plan(node, k_want):
     return None, 1
 
 
-def splittable(model, node):
+def splittable(model, node, allow_rww=False):
     inst = getCustomOp(node)
     if node.op_type not in MVAU_TYPES:
         return False
-    if inst.get_nodeattr("runtime_writeable_weights") == 1 or inst.get_nodeattr("mem_mode") == "external":
+    if inst.get_nodeattr("mem_mode") == "external":
+        return False
+    if inst.get_nodeattr("runtime_writeable_weights") == 1 and not allow_rww:
         return False
     if inst.get_nodeattr("binaryXnorMode") == 1:
         return False
@@ -129,6 +149,15 @@ class SplitLargeMVAU(Transformation):
         target = total / float(self.n_parts)
         changed = False
         for node in mvaus:
+            if self.max_res and splittable(model, node, allow_rww=True):
+                k_u = uram_parts(node, self.fpgapart, self.max_res)
+                if k_u:
+                    inst = getCustomOp(node)
+                    k = _smallest_divisor_at_least(inst.get_nodeattr("MH") // inst.get_nodeattr("PE"), k_u)
+                    if k is not None and k <= self.k_max:
+                        self.split_mh(model, node, k)
+                        changed = True
+                        continue
             if not splittable(model, node):
                 continue
             want = min(self.k_max, int(np.ceil(work(node) / target)))
@@ -208,6 +237,54 @@ class SplitLargeMVAU(Transformation):
             "StreamingLaneMerge", ys, [y], name=name + "_merge", domain=FPGADATAFLOW, backend="fpgadataflow",
             NumChannels=mh, Lanes=pe, NumParts=k, dataType=odt.name, numInputVectors=vecs,
             inFIFODepths=[2] * k, outFIFODepths=list(inst.get_nodeattr("outFIFODepths"))))
+        self._replace(model, node, new)
+
+    def split_mh(self, model, node, k):
+        """Output channel split in blocks (any PE; for URAM-depth-bound weight memories):
+            X -> DuplicateStreams(k) -> MVAU_i(MW, MH/k, PE, SIMD) -> StreamingConcat -> Y
+        MVAU_i computes the output channels [i*MH/k, (i+1)*MH/k); the concatenation takes per
+        input vector the k blocks in order. A part's output FIFO holds a whole block (MH/k/PE
+        words): otherwise part i > 0 stalls while the concatenation reads part 0, the duplicated
+        input stops and part 0 starves (deadlock). A runtime-writeable layer keeps that property
+        per part (each part has its own AXI-Lite slave with its slice of the weights)."""
+        inst = getCustomOp(node)
+        mw, mh, pe, simd = (inst.get_nodeattr(a) for a in ("MW", "MH", "PE", "SIMD"))
+        vecs = list(inst.get_nodeattr("numInputVectors"))
+        idt, odt = inst.get_input_datatype(), inst.get_output_datatype()
+        x, y, name = node.input[0], node.output[0], node.name
+        W = model.get_initializer(node.input[1])
+        T = model.get_initializer(node.input[2]) if len(node.input) > 2 else None
+        b = mh // k
+        new = []
+        xs = ["%s_dup_out%d" % (name, i) for i in range(k)]
+        for t in xs:
+            self._tensor(model, t, vecs + [mw], idt)
+        new.append(helper.make_node(
+            "DuplicateStreams", [x], xs, name=name + "_dup", domain=FPGADATAFLOW, backend="fpgadataflow",
+            NumChannels=mw, PE=simd, NumOutputStreams=k, inputDataType=idt.name, numInputVectors=vecs,
+            inFIFODepths=list(inst.get_nodeattr("inFIFODepths")), outFIFODepths=[2] * k))
+        ys = []
+        for i in range(k):
+            cols = list(range(i * b, (i + 1) * b))
+            w = "%s_W%d" % (name, i)
+            model.set_initializer(w, W[:, cols].copy())
+            model.set_tensor_datatype(w, model.get_tensor_datatype(node.input[1]))
+            ins = [xs[i], w]
+            if T is not None:
+                t = "%s_T%d" % (name, i)
+                model.set_initializer(t, T.copy() if T.shape[0] == 1 else T[cols].copy())
+                model.set_tensor_datatype(t, model.get_tensor_datatype(node.input[2]))
+                ins.append(t)
+            yi = "%s_part%d_out" % (name, i)
+            self._tensor(model, yi, vecs + [b], odt)
+            part = self._part(model, node, "%s_part%d" % (name, i), ins, yi, {"MH": b})
+            getCustomOp(part).set_nodeattr("outFIFODepths", [b // pe + 2])
+            new.append(part)
+            ys.append(yi)
+        new.append(helper.make_node(
+            "StreamingConcat", ys, [y], name=name + "_concat", domain=FPGADATAFLOW, backend="fpgadataflow",
+            SIMD=pe, ChannelsPerStream=[b] * k, inputDataTypes=[odt.name] * k, numInputVectors=vecs,
+            inFIFODepths=[b // pe + 2] * k, outFIFODepths=list(inst.get_nodeattr("outFIFODepths"))))
         self._replace(model, node, new)
 
     def split_in(self, model, node, k):

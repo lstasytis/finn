@@ -1284,3 +1284,65 @@ registering between islands (latency between adjacent DFG nodes does not matter)
   16x it gains one node; the DSP-heavy models also need smaller split parts (part=30) - to test.
 - Verified at 300 MHz: VGG10 0.25x overlay (pipe=2), 8 frames --vary-amplitude, labels
   [0,0,0,21,21,18,0,0] = stitched-IP RTL (reference block design at 10 ns: --ref-clk 10).
+
+## 2026-10-12 (evening): ResNet50 blockers, DP planner, configuration chain, batch synthesis
+
+User direction: run larger experiments to complete the report; use related work to improve the
+overlay.
+- Vivado baselines finished: **VGG10 8x at 300 MHz on 48 threads: 7831 s, WNS -0.516** (same
+  netlist result as on 8 cores, 8619 s: 9 % faster with 6x the threads); **ResNet50 at 100 MHz:
+  9487 s, WNS +0.286** (place 15 min, route 16 min; the rest is FINN's HLS / stitched-IP / IP
+  synthesis). ResNet50 at 300 MHz (10595 s, WNS -1.729) spent ~5300 s before its Vivado project
+  (HLS, CreateStitchedIP of a 630-node partition), ~88 min in synthesis + P&R.
+- **Functional bug in the ResNet50 model (folding_pe_div2)**: a depthwise SWG emits (C/SIMD, K,
+  SIMD); Pool_hls (finn-hlslib Pool_batch) sums K consecutive words of PE channels; FINN's
+  InsertDWC put a width converter between SWG SIMD 4 / 2048 and Pool PE 2 without reordering. Node
+  rtlsim vs python: max pool 21386 of 200704 outputs wrong, global average pool wrong (output =
+  sums over 49 consecutive 2-channel words). Fix (experiments/dynarapid/fix_pool_swg_simd.py):
+  max pool Pool PE 2 -> 4 (= SWG SIMD, its DWC removed), global pool SWG SIMD 2048 -> 2 (= Pool
+  PE; the 12288-bit streams and ~50k LUT incl. 39k LUTRAM of the tail disappear, bottleneck
+  3.6 M cycles unchanged). rtlsim after the fix: max pool 0 of 200704 wrong; global pool output
+  = floor(channel sum / 64) for all 2048 channels (FINN's python Pool reference divides by 256
+  instead: a python-vs-HLS scaling difference unrelated to the layout). Model r50_h2u_t; the
+  Vivado baseline is rerun on it (campaign11, 48 threads).
+- ResNet50 overlay plan failure, real cause: 50 MVAUs have runtime-writeable URAM weights =
+  AXI-Lite slaves = shell ports, and every node with a shell port was pinned to tile 0.
+  **Configuration chain** (rwislands/cfgnet.py; PLD / PRflow control network): tile 0 funnel
+  (one transaction of the shell's AXI-Lite ports at a time -> request packet {we, tag, addr+prot,
+  wdata+wstrb}), chain node per tile up to the last AXI-Lite node (local tags execute on the node's
+  AXI-Lite port, others go east; responses {resp, rdata} go west), between tiles normal link tx /
+  rx on reserved bundle bits (forward 69 + 2, backward 36 for ResNet50 -> overlay wb=128).
+  Generic modules (funnel by (n, addr, tag) widths, node by local count; tags are constant inputs)
+  cached like the link modules. xsim (link modules + anchors, register-file slaves with random
+  ready / response delays, concurrent masters): 300 / 400 / 600 random ops, pipe 1 / 2 / 3, transit
+  tiles: 0 errors.
+- The final layer (2048x1000, PE 1, SIMD 4, INT8, URAM) needs 125 URAM; a tile has <= 56, and a
+  URAM weight memory is depth-bound (MW/SIMD * MH/PE words), so neither PE nor SIMD splits help.
+  **Output-block split** (split_large_mvau.split_mh): DuplicateStreams -> k MVAUs with MH/k
+  outputs each -> StreamingConcat; a part's output FIFO holds a whole block (else the duplicated
+  input stalls and part 0 starves). Used when FINN's URAM estimate exceeds 60 % of the URAM-richest
+  tile (tile_split_limits "uram"), also for runtime-writeable layers (each part gets its slice of
+  the weights and its own AXI-Lite slave). ResNet50: 4 parts of 32 URAM.
+- **DP planner** (overlay.plan_overlay_dp, knob plan=dp default): exact chain partition of the
+  nodes in graph order into tiles (AutoBridge / RapidStream floorplanning restricted to the snake):
+  minimal max logic utilization U (bisection, floor umin=35 %), DSP/BRAM/URAM <= hard, bits over
+  every tile edge <= wf / wb (cuts at narrow streams), link ends and transit registers counted.
+  Same U as the greedy planner on VGG10 8x / MobileNet (0.50 / 0.48), finds plans greedy cannot
+  (cut widths), 2 tiles for VGG10 0.25x instead of spreading. Run: **VGG10 8x 300 MHz, dp: 1186 s,
+  WNS +0.268** (greedy 1278 s; same U, difference within run-to-run variation).
+- VGG10 16x does not fit (DP, part=30): 5122 DSPs vs 6373 usable at 95 %, 15 of 170 cut positions
+  wider than 2304 bits (broadcast inputs of split parts). Kept as a capacity limit.
+- Per-tile fixed cost (VGG10 8x / MobileNet 300 MHz): a transit tile without nodes takes ~317 s
+  (link 20, open abstract 11, read 12, opt 8, **place ~180**, route 40, bitstream 37).
+- **Batch synthesis** (components.batch_synth_tcl, flow.synthesize, FINN_RWI_SYNTH_BATCH=1
+  default): all nodes with plain HDL in batches of ~12, one synth_design per batch (keep_hierarchy
+  instances, all ports to wrapper ports), per-instance write_checkpoint / report_utilization -cell;
+  failed batch -> nodes singly. ResNet50 nodes: 18 in 156 s (synth_design 55 s) instead of ~750
+  slot-seconds (sessions ~37 s per node, singles ~57 s); utilization equal except +1 LUT on 3 of
+  4 Thresholding nodes. Functional check running (VGG10 0.25x overlay + verify_accel).
+- verify_accel: AXI-Lite masters for compute nodes; --lite-words random words written to each
+  runtime-writeable weight memory in both simulations, read back and compared; stitched-IP
+  interfaces mapped by node name.
+- Runs: campaign10 (lane B): VGG10 0.25x with 4 runtime-writeable MVAUs (test of the chain; new
+  shell + overlay wb=128), then ResNet50 r50_h2u_t overlay; campaign11 (lane A): ResNet50 r50_h2u_t
+  Vivado 300 MHz, 48 threads.

@@ -141,8 +141,10 @@ def main():
             "workers": args.workers,
             "out_dir": os.path.join(args.out, "islands"),
             "shell_lib": args.shell_lib,
-            # HLS IP of this build only (no reuse across builds: cold)
-            "library_dir": os.path.join(args.out, "iplib", "lib"),
+            # HLS IP of this build only (no reuse across builds: cold), or of the incremental
+            # build cache (FINN_RWI_CACHE, rwislands.flow.build_cache)
+            "library_dir": os.path.join(os.environ["FINN_RWI_CACHE"], "iplib", "lib") if os.environ.get("FINN_RWI_CACHE")
+            else os.path.join(args.out, "iplib", "lib"),
             # a failed island build is a result here, no fallback to the regular flow
             "fallback": False,
             "split": split,

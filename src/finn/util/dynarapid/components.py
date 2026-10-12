@@ -600,6 +600,97 @@ def direct_synth_tcl(
     return "\n".join(tcl) + "\n"
 
 
+def _module_defs(files):
+    """{module name: sha1 of its defining file} for HDL files."""
+    import hashlib
+
+    defs = {}
+    for f in files:
+        txt = open(f, errors="ignore").read()
+        h = hashlib.sha1(txt.encode(errors="ignore")).hexdigest()
+        for m in re.findall(r"^\s*module\s+(\w+)", txt, re.M):
+            defs[m] = h
+    return defs
+
+
+def batch_groups(items, n_batches):
+    """Directly synthesized components [(dcp, node, files, top)] into at most n_batches groups
+    whose HDL does not define one module name differently (files with equal module definitions
+    are read once). Round-robin by size."""
+    groups = [{"items": [], "defs": {}} for _ in range(max(1, n_batches))]
+    left = []
+    for it in items:
+        defs = _module_defs(it[2])
+        for g in sorted(groups, key=lambda g: len(g["items"])):
+            if all(g["defs"].get(m, h) == h for m, h in defs.items()):
+                g["items"].append(it)
+                g["defs"].update(defs)
+                break
+        else:
+            left.append(it)
+    return [g["items"] for g in groups if g["items"]], left
+
+
+def batch_synth_tcl(items, batch_dir, synth_dir, part, threads=1, directive=None, edif=True):
+    """One synthesis of several directly synthesized components [(dcp, node, files, top)]: a
+    wrapper instantiates each component's adapter (keep_hierarchy, every port to a wrapper port:
+    no optimization across component boundaries), then each instance is written as the
+    component's checkpoint / EDIF / utilization report (write_checkpoint -cell). The start and
+    the device load of Vivado are paid once (~35-40 s of the ~37 s per component in a synthesis
+    session, ResNet50 on the U55C)."""
+    import glob
+    import hashlib
+    import shutil
+
+    os.makedirs(batch_dir, exist_ok=True)
+    srcs, seen, decl, inst = [], set(), [], []
+    for k, (dcp, node, files, top) in enumerate(items):
+        adapter = os.path.join(batch_dir, dcp + ".v")
+        pdirs = module_port_dirs(files, top)
+        with open(adapter, "w") as f:
+            f.write(direct_adapter_verilog(dcp, node, top, pdirs))
+        code_dir = getCustomOp(node).get_nodeattr("code_gen_dir_ipgen") if node is not None else ""
+        for f in glob.glob(os.path.join(code_dir, "*.dat")) if code_dir else []:
+            shutil.copy(f, batch_dir)
+        for f in files:
+            h = hashlib.sha1(open(f, "rb").read()).hexdigest()
+            key = (os.path.basename(f), h)
+            if key not in seen:
+                seen.add(key)
+                srcs.append(f)
+        srcs.append(adapter)
+        # the adapter's ports, from its own text
+        ports = re.findall(r"^\s*(input|output)\s*(\[[^\]]*\])?\s*(\w+)", open(adapter).read(), re.M)
+        conns = []
+        for d, rng, name in ports:
+            w = rng or ""
+            if name in ("clk", "rst"):
+                conns.append(".%s(%s)" % (name, name))
+                continue
+            decl.append("    %s %s b%d_%s" % (d, w, k, name))
+            conns.append(".%s(b%d_%s)" % (name, k, name))
+        inst.append('    (* keep_hierarchy = "yes" *) %s u%d (%s);' % (dcp, k, ", ".join(conns)))
+    top_v = os.path.join(batch_dir, "batch_top.v")
+    with open(top_v, "w") as f:
+        f.write("module batch_top (\n    input clk,\n    input rst%s\n);\n%s\nendmodule\n"
+                % ("".join(",\n" + d for d in decl), "\n".join(inst)))
+    sv = [f for f in srcs if f.endswith((".sv", ".svh"))]
+    v = [f for f in srcs if f.endswith((".v", ".vh"))] + [top_v]
+    tcl = ["set_param general.maxThreads %d" % threads, "cd %s" % batch_dir]
+    if sv:
+        tcl.append("read_verilog -sv [list %s]" % " ".join(sv))
+    tcl.append("read_verilog [list %s]" % " ".join(v))
+    tcl.append("synth_design -top batch_top -part %s -mode out_of_context -max_bram_cascade_height 1%s"
+               % (part, _synth_args(directive)))
+    for k, (dcp, _, _, _) in enumerate(items):
+        dcp_file = os.path.join(synth_dir, dcp + "_synth.dcp")
+        tcl += ["write_checkpoint -force -cell u%d %s" % (k, dcp_file)]
+        if edif:
+            tcl += ["write_edif -force -cell u%d %s" % (k, dcp_file.replace(".dcp", ".edf"))]
+        tcl += ["report_utilization -packthru -cells u%d -file %s" % (k, os.path.join(synth_dir, dcp + ".util"))]
+    return "\n".join(tcl) + "\n"
+
+
 def _metadata_tcl(dcp_file, synth_dir):
     rw_tcl = os.path.join(dynarapid_root(), "RapidWright", "tcl", "rapidwright.tcl")
     return ["source %s" % rw_tcl, "generate_metadata %s %s 0" % (dcp_file, synth_dir)]

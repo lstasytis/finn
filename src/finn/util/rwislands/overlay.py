@@ -51,12 +51,14 @@ def overlay_knobs():
     crs: clock-region columns per tile; per model (not part of the overlay's key): hard: DSP / BRAM /
     URAM share of a tile a model may use (percent), part: size of a split layer's part (percent of a
     tile), pipe: link pipelining depth (links.link_regs; registers in transit tiles from 2 on),
-    tile0: compute nodes may share tile 0 with the IODMAs."""
+    tile0: compute nodes may share tile 0 with the IODMAs, plan: dp (plan_overlay_dp, default) | greedy
+    (plan_overlay, the planner of the first results), umin: the dp planner's lowest target logic
+    utilization (percent)."""
     kn = {"cols": 16, "rows": 60, "order": "rows", "wf": 1024, "wb": 256, "boundary_rows": 120, "tiles": 0,
-          "gap_cols": 1, "gap_rows": 1, "crs": 1, "hard": int(HARD_UTIL * 100), "part": 45, "pipe": 1, "tile0": 1}
+          "gap_cols": 1, "gap_rows": 1, "crs": 1, "hard": int(HARD_UTIL * 100), "part": 45, "pipe": 1, "tile0": 1, "plan": "dp", "umin": 35}
     for kv in filter(None, os.environ.get("FINN_RWI_OVERLAY", "").split(",")):
         k, v = kv.split("=")
-        kn[k] = v if k == "order" else int(v)
+        kn[k] = v if k in ("order", "plan") else int(v)
     return kn
 
 
@@ -411,12 +413,234 @@ def plan_overlay(names, node_res, g, dev, tiles, boundary, extra=None, hard=HARD
     return None, last
 
 
-def link_plan(g, where, n_tiles, kn):
+def link_res(w, edges_in=None, pipe=1, kind="rx"):
+    """Resources of one link end for the planner: tx = PO output registers; rx = RI input registers
+    + the FIFO (distributed RAM, ~1 LUT per 2 bits per 32 words); thru = transit registers."""
+    from finn.util.rwislands.links import link_regs, rx_depth
+
+    po, pi, ri, ro, t = link_regs(pipe)
+    if kind == "tx":
+        return {"ff": (w + 1) * po + pi, "lut": 2}
+    if kind == "thru":
+        return {"ff": (w + 2) * t}
+    lr = ((w + 1) // 2) * max(1, rx_depth(edges_in or 1, pipe) // 32)
+    return {"ff": (w + 1) * ri + ro + 16, "lut": lr + 16, "lutram": lr}
+
+
+def plan_overlay_dp(names, node_res, g, dev, tiles, boundary, hard=HARD_UTIL, tile0=True, kn=None, lut_max=0.9,
+                    prefer=None):
+    """Nodes to tiles by an exact chain partition (the floorplanning step of RapidStream /
+    AutoBridge restricted to the snake): the nodes in graph (topological) order are cut into
+    contiguous segments, segment s goes to tile t_s (t_s increasing; tiles in between only pass
+    streams through), so that
+
+      * every tile's slice and SLICEM utilization (nodes + link ends + transit registers) is at
+        most U <= lut_max, its DSP / BRAM / URAM utilization at most `hard`,
+      * every tile edge carries at most wf forward and wb backward bits (data + valid + ready),
+
+    with the smallest U (min-max logic utilization: balanced tiles, so the slowest tile's place and
+    route, which grows with its logic cells, is as short as the overlay allows; hard blocks are
+    only a capacity limit; cuts at narrow streams follow from the bit limits and the
+    link costs). U by bisection, feasibility by a DP over the cut positions (earliest next free
+    tile). Returns ({node: tile}, {"U": ..., "lut": ..., ...}) or (None, reason)."""
+    import numpy as np
+
+    from finn.util.rwislands.device import capacity
+    from finn.util.rwislands.floorplan import FFS_PER_SLICE, LUTS_PER_SLICE
+
+    kn = kn or overlay_knobs()
+    pipe = kn.get("pipe", 1)
+    wf, wb = kn["wf"], kn["wb"]
+    rest = [n for n in names if n not in boundary]
+    pos = {n: i for i, n in enumerate(rest)}
+    for b in boundary:
+        pos[b] = -1
+    N, T = len(rest), len(tiles)
+    caps = np.array([[c["slice"], c["slicem"], c["dsp"], c["bram"], c["uram"]] for c in
+                     (capacity(dev.sites_in(*t)) for t in tiles)], dtype=float)
+    caps[caps == 0] = 1e-9
+
+    # streams: (a, b, w) with producer / consumer positions (-1 = tile 0's boundary nodes)
+    streams = []
+    for n in g:
+        for j, (_, w) in enumerate(g[n]["outs"]):
+            d = g[n]["dst"].get(j)
+            if d is not None and n in pos and d[0] in pos and not (pos[n] == -1 and pos[d[0]] == -1):
+                streams.append((pos[n], pos[d[0]], w))
+    # bits over the tile edge at cut c (the edge before rest[c]; a stream from a to b crosses the
+    # cuts min < c <= max): forward data + valid + the backward streams' ready, and the reverse
+    fw = np.zeros(N + 1)
+    bw = np.zeros(N + 1)
+    for a, b, w in streams:
+        lo, hi = min(a, b), max(a, b)
+        fwd = b > a
+        fw[lo + 1: hi + 1] += (w + 1) if fwd else 1
+        bw[lo + 1: hi + 1] += 1 if fwd else (w + 1)
+    cut_ok = (fw <= wf) & (bw <= wb)
+    ins = {i: [] for i in range(N)}
+    outs = {i: [] for i in range(N)}
+    for a, b, w in streams:
+        if b >= 0:
+            ins[b].append((a, w))
+        if a >= 0:
+            outs[a].append((b, w))
+
+    def node_vec(res):
+        lut, ff, carry, lr = res.get("lut", 0), res.get("ff", 0), res.get("carry", 0), res.get("lutram", 0)
+        return np.array([lut, ff, carry, lr, res.get("dsp", 0), res.get("bram", 0), res.get("uram", 0)], dtype=float)
+
+    vec = np.array([node_vec(node_res[n]) for n in rest]) if N else np.zeros((0, 7))
+    bvec = sum((node_vec(node_res[b]) for b in names if b in boundary), np.zeros(7))
+    big = caps.max(axis=0)
+
+    def sites(v):
+        # [slice, slicem, dsp, bram, uram] needed by the resource vector v at 100 % utilization
+        return np.array([max(v[0] / LUTS_PER_SLICE, v[1] / FFS_PER_SLICE, v[2]), v[3] / LUTS_PER_SLICE, v[4], v[5], v[6]])
+
+    def add(v, r):
+        v[0] += r.get("lut", 0)
+        v[1] += r.get("ff", 0)
+        v[3] += r.get("lutram", 0)
+
+    # every segment [i, j) up to the size of the largest tile: its site needs, nodes + link ends;
+    # computed once (the bisection only changes the limits)
+    segs = {}
+    thru_ff = link_res(0, pipe=pipe, kind="thru")["ff"] // 2  # per stream: (w + 2) * stages
+    for i in range(N):
+        v = np.zeros(7)
+        rx, tx = [], {}
+        # streams over cut i, by their far end: transit through [i, j) while far end >= j
+        cross = sorted((max(a, b), w) for a, b, w in streams if min(a, b) < i <= max(a, b))
+        cw = [0.0] * (len(cross) + 1)
+        for q in range(len(cross) - 1, -1, -1):
+            cw[q] = cw[q + 1] + cross[q][1] + 2
+        q = 0
+        for j in range(i + 1, N + 1):
+            k = j - 1
+            v += vec[k]
+            for a, w in ins[k]:
+                if a >= i:
+                    tx.pop((a, k), None)
+                else:
+                    rx.append(w)
+            for b, w in outs[k]:
+                tx[(k, b)] = w
+            while q < len(cross) and cross[q][0] < j:
+                q += 1
+            lv = v.copy()
+            for w in tx.values():
+                add(lv, link_res(w, pipe=pipe, kind="tx"))
+            for w in rx:
+                add(lv, link_res(w, edges_in=1, pipe=pipe, kind="rx"))
+            lv[1] += cw[q] * thru_ff
+            segs[(i, j)] = (sites(lv), sites(lv + bvec))
+            if np.any(sites(v) > big):
+                break
+
+    def feasible(U):
+        lim = np.array([min(U, lut_max)] * 2 + [hard] * 3)
+        INF = T + 1
+        f = [INF] * (N + 1)
+        par = [None] * (N + 1)
+        f[0] = 0
+        for i in range(N):
+            if f[i] >= INF:
+                continue
+            for j in range(i + 1, N + 1):
+                if (i, j) not in segs:
+                    break
+                s, s0 = segs[(i, j)]
+                t = f[i]
+                # tile 0 holds the boundary nodes too (and compute nodes only with tile0)
+                if t == 0:
+                    if i == 0 and tile0 and np.all(s0 <= caps[0] * lim):
+                        if 1 < f[j]:
+                            f[j], par[j] = 1, (i, 0)
+                        continue
+                    t = 1
+                if not cut_ok[i]:
+                    break
+                while t < T and not np.all(s <= caps[t] * lim):
+                    t += 1
+                if t < T and t + 1 < f[j]:
+                    f[j], par[j] = t + 1, (i, t)
+        if f[N] >= INF:
+            reach[0] = max(i for i in range(N + 1) if f[i] < INF)
+            return None
+        where = {b: 0 for b in names if b in boundary}
+        j = N
+        while j > 0:
+            i, t = par[j]
+            for k in range(i, j):
+                where[rest[k]] = t
+            j = i
+        return where
+
+    if N == 0:
+        return {b: 0 for b in names if b in boundary}, {"U": 0.0}
+    if prefer is not None:
+        # incremental build: keep the previous plan if every node has a tile there, the tiles
+        # still follow the snake, and every tile and cut is within the limits
+        lim = np.array([lut_max] * 2 + [hard] * 3)
+        tl = [prefer.get(n) for n in rest]
+        ok = all(t is not None for t in tl) and all(a <= b for a, b in zip(tl, tl[1:])) and \
+            all(prefer.get(b) == 0 for b in names if b in boundary)
+        i = 0
+        while ok and i < N:
+            j = i
+            while j < N and tl[j] == tl[i]:
+                j += 1
+            seg = segs.get((i, j))
+            t = tl[i]
+            need = seg[1] if (t == 0 and i == 0) else (seg[0] if seg is not None else None)
+            ok = seg is not None and (t > 0 or (i == 0 and tile0)) and np.all(need <= caps[t] * lim) and \
+                (cut_ok[i] or (i == 0 and t == 0))
+            i = j
+        if ok:
+            return {n: prefer[n] for n in names}, {"U": None, "kept": True, "lut": lut_max, "dsp": hard, "bram": hard,
+                                                   "uram": hard}
+    lo, hi = 0.0, 1.0
+    reach = [0]
+    best = feasible(hi)
+    if best is None:
+        lim = np.array([lut_max] * 2 + [hard] * 3)
+        bad = [rest[i] for i in range(N) if not np.any(np.all(segs[(i, i + 1)][0] <= caps * lim, axis=1))]
+        if bad:
+            return None, "node larger than every tile (split it): %s" % bad[0]
+        r = reach[0]
+        need_tot = sites(vec.sum(axis=0) + bvec)
+        return None, ("no plan: nodes placed up to %d of %d (%s), cut there %d / %d forward / backward bits "
+                      "(limits %d / %d), %d of %d cut positions over the limits; model / tiles: slices %.2f, "
+                      "DSP %.2f, BRAM %.2f, URAM %.2f" % (
+                          r, N, rest[min(r, N - 1)], fw[r], bw[r], wf, wb, int((~cut_ok).sum()), N + 1,
+                          need_tot[0] / caps[:, 0].sum(), need_tot[2] / caps[:, 2].sum(),
+                          need_tot[3] / caps[:, 3].sum(), need_tot[4] / caps[:, 4].sum()))
+    # (no gain below umin: a tile's place and route has a fixed cost of ~300 s; a small model
+    # would otherwise be spread over every tile, one node each)
+    umin = kn.get("umin", 35) / 100.0
+    w = feasible(umin)
+    if w is not None:
+        return w, {"U": umin, "lut": umin, "dsp": hard, "bram": hard, "uram": hard}
+    lo = umin
+    for _ in range(12):
+        mid = (lo + hi) / 2
+        w = feasible(mid)
+        if w is None:
+            lo = mid
+        else:
+            hi, best = mid, w
+    return best, {"U": round(hi, 3), "lut": min(hi, lut_max), "dsp": hard, "bram": hard, "uram": hard}
+
+
+def link_plan(g, where, n_tiles, kn, reserved=None):
     """Bit ranges of the streams between tiles. A stream from tile a to tile b uses every snake edge
     between them: data + valid in the bundle of its direction (forward: away from tile 0), ready in
     the other one. Returns ({(producer, j): [(edge, dir, data_off, ready_off)]}, usage) or raises
     if a bundle overflows."""
     used = {(e, d): 0 for e in range(n_tiles - 1) for d in ("f", "b")}
+    # (bits at the start of the bundles of some edges belong to the configuration chain: cfgnet)
+    for e, (rf, rb) in (reserved or {}).items():
+        used[(e, "f")], used[(e, "b")] = rf, rb
     cap = {"f": kn["wf"], "b": kn["wb"]}
     plan = {}
     for n in g:
@@ -440,7 +664,119 @@ def link_plan(g, where, n_tiles, kn):
     return plan, used
 
 
-def tile_verilog(k, n_tiles, kn, ports, g, members, dcps, links):
+def cfg_plan(ports, where):
+    """The configuration chain (cfgnet) of a model: None if no compute node with an AXI-Lite slave
+    lies outside tile 0; else {"n" (all such nodes = funnel ports, tag = index), "A" (AW / AR
+    payload bits), "K" (last tile of the chain), "rq" (request bits), "order" [node], "nodes"
+    {node: {"tag", "ch": {AW | W | AR | R | B: channel of ports.json}}}, "reserved" {edge: (forward,
+    backward) bits}}."""
+    from finn.util.rwislands import cfgnet
+
+    ents = [e for e in ports if not e["iodma"]]
+    if not ents or max(where[e["node"]] for e in ents) == 0:
+        return None
+    n = len(ents)
+    nodes = {}
+    for i, e in enumerate(ents):
+        ch = {c["name"].rsplit("_", 1)[1]: c for c in e["in"] + e["out"]}
+        assert set(ch) == {"AW", "W", "AR", "R", "B"}, "%s: only AXI-Lite slaves can use the configuration chain" % e["node"]
+        nodes[e["node"]] = {"tag": i, "ch": ch}
+    a = max(v["ch"]["AW"]["width"] for v in nodes.values())
+    K = max(where[e["node"]] for e in ents)
+    rf, rb = cfgnet.reserved_bits(a, n)
+    return {"n": n, "A": a, "K": K, "rq": cfgnet.req_width(a, n), "order": [e["node"] for e in ents], "nodes": nodes,
+            "reserved": {e: (rf, rb) for e in range(K)}}
+
+
+def _cfg_tile(k, cfg, where, members, pipe):
+    """Netlist lines of tile k's part of the configuration chain (cfgnet): the funnel (tile 0) or a
+    chain node, their link transmitters / receivers on the reserved bundle bits. Returns (lines,
+    module names, {island port name: wire} for the AXI-Lite ports of local nodes)."""
+    from finn.util.rwislands import cfgnet
+    from finn.util.rwislands.links import rx_depth
+
+    n, a, K, rq = cfg["n"], cfg["A"], cfg["K"], cfg["rq"]
+    rw = cfgnet.RESP_W
+    t = cfgnet.tag_width(n)
+    txq, rxq = "rwi_link_tx_w%d_p%d" % (rq, pipe), "rwi_link_rx_w%d_d%d_p%d" % (rq, rx_depth(1, pipe), pipe)
+    txp, rxp = "rwi_link_tx_w%d_p%d" % (rw, pipe), "rwi_link_rx_w%d_d%d_p%d" % (rw, rx_depth(1, pipe), pipe)
+    L, mods, isl = [], [], {}
+    for x, w in (("q", rq), ("p", rw)):
+        for side in ("w", "e"):
+            L += ["    wire [%d:0] cfg_%s%s_data;" % (w - 1, x, side), "    wire cfg_%s%s_valid, cfg_%s%s_ready;" % (x, side, x, side)]
+
+    def tx(inst, mod, x, side, out, out_v, rdy):
+        L.append("    %s %s (.clk(clk), .rst(rst_q), .s_data(cfg_%s%s_data), .s_valid(cfg_%s%s_valid), "
+                 ".s_ready(cfg_%s%s_ready), .l_data(%s), .l_valid(%s), .l_ready(%s));"
+                 % (mod, inst, x, side, x, side, x, side, out, out_v, rdy))
+        mods.append(mod)
+
+    def rx(inst, mod, x, side, inp, inp_v, rdy):
+        L.append("    %s %s (.clk(clk), .rst(rst_q), .l_data(%s), .l_valid(%s), .l_ready(%s), .m_data(cfg_%s%s_data), "
+                 ".m_valid(cfg_%s%s_valid), .m_ready(cfg_%s%s_ready));" % (mod, inst, inp, inp_v, rdy, x, side, x, side, x, side))
+        mods.append(mod)
+
+    # bundle bits (cfgnet docstring): forward [rq-1:0] request, [rq] its valid, [rq+1] response
+    # ready; backward [0] request ready, [rw:1] response, [rw+1] its valid
+    if k < K:
+        tx("cfg_txq", txq, "q", "e", "e_out[%d:0]" % (rq - 1), "e_out[%d]" % rq, "e_in[0]")
+        rx("cfg_rxp", rxp, "p", "e", "e_in[%d:1]" % rw, "e_in[%d]" % (rw + 1), "e_out[%d]" % (rq + 1))
+    if k > 0:
+        rx("cfg_rxq", rxq, "q", "w", "w_in[%d:0]" % (rq - 1), "w_in[%d]" % rq, "w_out[0]")
+        tx("cfg_txp", txp, "p", "w", "w_out[%d:1]" % rw, "w_out[%d]" % (rw + 1), "w_in[%d]" % (rq + 1))
+    if k == 0:
+        name = cfgnet.funnel_name(n, a, n)
+        c = [".clk(clk)", ".rst(rst_q)"]
+        for i, nd in enumerate(cfg["order"]):
+            ch = cfg["nodes"][nd]["ch"]
+            if where[nd] == 0:
+                # (a node in tile 0 keeps its direct shell connection; its funnel port idles)
+                c += [".s%d_aw_data(%d'b0)" % (i, a), ".s%d_aw_valid(1'b0)" % i, ".s%d_w_data(36'b0)" % i,
+                      ".s%d_w_valid(1'b0)" % i, ".s%d_ar_data(%d'b0)" % (i, a), ".s%d_ar_valid(1'b0)" % i,
+                      ".s%d_r_ready(1'b0)" % i, ".s%d_b_ready(1'b0)" % i]
+                continue
+            for x in ("aw", "ar"):
+                cc = ch[x.upper()]
+                pad = "" if cc["width"] == a else "%d'b0, " % (a - cc["width"])
+                c += [".s%d_%s_data({%s%s})" % (i, x, pad, cc["data"]), ".s%d_%s_valid(%s)" % (i, x, cc["valid"]),
+                      ".s%d_%s_ready(%s)" % (i, x, cc["ready"])]
+            for x in ("w", "r", "b"):
+                cc = ch[x.upper()]
+                c += [".s%d_%s_data(%s)" % (i, x, cc["data"]), ".s%d_%s_valid(%s)" % (i, x, cc["valid"]),
+                      ".s%d_%s_ready(%s)" % (i, x, cc["ready"])]
+        c += [".q_data(cfg_qe_data)", ".q_valid(cfg_qe_valid)", ".q_ready(cfg_qe_ready)",
+              ".p_data(cfg_pe_data)", ".p_valid(cfg_pe_valid)", ".p_ready(cfg_pe_ready)"]
+    else:
+        loc = [nd for nd in cfg["order"] if nd in members]
+        name = cfgnet.node_name(len(loc), a, n, k < K)
+        c = [".clk(clk)", ".rst(rst_q)", ".qi_data(cfg_qw_data)", ".qi_valid(cfg_qw_valid)", ".qi_ready(cfg_qw_ready)",
+             ".po_data(cfg_pw_data)", ".po_valid(cfg_pw_valid)", ".po_ready(cfg_pw_ready)"]
+        if k < K:
+            c += [".qo_data(cfg_qe_data)", ".qo_valid(cfg_qe_valid)", ".qo_ready(cfg_qe_ready)",
+                  ".pi_data(cfg_pe_data)", ".pi_valid(cfg_pe_valid)", ".pi_ready(cfg_pe_ready)"]
+        if loc:
+            c.append(".tags({%s})" % ", ".join("%d'd%d" % (t, cfg["nodes"][nd]["tag"]) for nd in reversed(loc)))
+        for j, nd in enumerate(loc):
+            ch = cfg["nodes"][nd]["ch"]
+            for x in ("aw", "w", "ar", "r", "b"):
+                cc = ch[x.upper()]
+                for sig in ("data", "valid", "ready"):
+                    isl[cc[sig]] = "isl_" + cc[sig]
+                    w = cc["width"] if sig == "data" else 1
+                    L.append("    wire %s%s;" % ("[%d:0] " % (w - 1) if w > 1 else "", "isl_" + cc[sig]))
+                if x in ("aw", "ar") and cc["width"] < a:
+                    L += ["    wire [%d:0] cfg_m%d_%s;" % (a - 1, j, x),
+                          "    assign isl_%s = cfg_m%d_%s[%d:0];" % (cc["data"], j, x, cc["width"] - 1)]
+                    c.append(".m%d_%s_data(cfg_m%d_%s)" % (j, x, j, x))
+                else:
+                    c.append(".m%d_%s_data(isl_%s)" % (j, x, cc["data"]))
+                c += [".m%d_%s_valid(isl_%s)" % (j, x, cc["valid"]), ".m%d_%s_ready(isl_%s)" % (j, x, cc["ready"])]
+    L.append("    %s cfg (%s);" % (name, ", ".join(c)))
+    mods.append(name)
+    return L, mods, isl
+
+
+def tile_verilog(k, n_tiles, kn, ports, g, members, dcps, links, cfg=None, where=None):
     """tile<k>: the island of its members (netlist.island_verilog, without register slices) plus a
     link receiver per stream entering the tile, a transmitter per stream leaving it, and wires for
     the streams passing through (pipe > 1: through registers). Returns (verilog, link module
@@ -502,31 +838,41 @@ def tile_verilog(k, n_tiles, kn, ports, g, members, dcps, links):
                 else:
                     body.append("    assign %s = %s;" % (bit(side_of(e), d, off, w + 1), bit(side_of(pe), pd, poff, w + 1)))
                     body.append("    assign %s = %s;" % (bit(side_of(pe), rd, proff), bit(side_of(e), rd, roff)))
+    # the reset of the link logic: the island has its own 2-FF pipeline; one more FDRE here
+    rst = ["    wire rst_q;", "    FDRE #(.INIT(1'b0)) rst_ff (.C(clk), .CE(1'b1), .R(1'b0), .D(rst), .Q(rst_q));"]
+    cfg_isl = {}
+    if cfg is not None and k <= cfg["K"]:
+        lines, mods, cfg_isl = _cfg_tile(k, cfg, where, members, pipe)
+        body += lines
+        widths += mods
     if not members:
         # transit only: the streams passing through, no island
         hdr = "module tile%d (\n%s\n);\n" % (k, ",\n".join("    " + p for p in tile_ports(k, n_tiles, kn, ports)))
         stubs = "".join(_link_stub(m) for m in sorted(set(widths)))
-        return hdr + "\n".join(body + _ties(k, n_tiles, wf, wb, body)) + "\nendmodule\n" + stubs, sorted(set(widths))
+        return hdr + "\n".join((rst if cfg_isl or "rst_q" in "\n".join(body) else []) + body + _ties(k, n_tiles, wf, wb, body)) \
+            + "\nendmodule\n" + stubs, sorted(set(widths))
     # the island
     isl = island_verilog("island_t%d" % k, g, members, dcps, regslices=False)
     conns = ["        .clk(clk)", "        .rst(rst)"]
     for nn, i, w in ins:
         dname, vname, rname = _in_names(g[nn]["id"], i)
-        if g[nn]["src"].get(i) is None:  # shell boundary (tile 0)
+        if dname in cfg_isl:  # AXI-Lite slave on the configuration chain (cfgnet)
+            conns += ["        .%s(%s)" % (x, cfg_isl[x]) for x in (dname, vname, rname)]
+        elif g[nn]["src"].get(i) is None:  # shell boundary (tile 0)
             conns += ["        .%s(%s)" % (x, x) for x in (dname, vname, rname)]
         else:
             body += ["    wire %s%s;" % (_bus(w), "isl_" + dname), "    wire %s, %s;" % ("isl_" + vname, "isl_" + rname)]
             conns += ["        .%s(%s)" % (x, "isl_" + x) for x in (dname, vname, rname)]
     for nn, j, w in outs:
         dname, vname, rname = _out_names(g[nn]["id"], j)
-        if g[nn]["dst"].get(j) is None:
+        if dname in cfg_isl:
+            conns += ["        .%s(%s)" % (x, cfg_isl[x]) for x in (dname, vname, rname)]
+        elif g[nn]["dst"].get(j) is None:
             conns += ["        .%s(%s)" % (x, x) for x in (dname, vname, rname)]
         else:
             body += ["    wire %s%s;" % (_bus(w), "isl_" + dname), "    wire %s, %s;" % ("isl_" + vname, "isl_" + rname)]
             conns += ["        .%s(%s)" % (x, "isl_" + x) for x in (dname, vname, rname)]
     hdr = "module tile%d (\n%s\n);\n" % (k, ",\n".join("    " + p for p in tile_ports(k, n_tiles, kn, ports)))
-    # the reset of the link logic: the island has its own 2-FF pipeline; one more FDRE here
-    rst = ["    wire rst_q;", "    FDRE #(.INIT(1'b0)) rst_ff (.C(clk), .CE(1'b1), .R(1'b0), .D(rst), .Q(rst_q));"]
     inst = "    island_t%d isl (\n%s\n    );" % (k, ",\n".join(conns))
     v = hdr + "\n".join(rst + body + _ties(k, n_tiles, wf, wb, body)) + "\n" + inst + "\nendmodule\n" + isl
     stubs = "".join(_link_stub(m) for m in sorted(set(widths)))
@@ -569,6 +915,10 @@ def _link_mod(name):
 
 
 def _link_stub(name):
+    from finn.util.rwislands import cfgnet
+
+    if cfgnet.parse_name(name):
+        return cfgnet.module_stub(name)
     lm = _link_mod(name)
     w = lm["w"]
     if lm["kind"] == "tx":
@@ -586,8 +936,20 @@ def link_synth_tcl(mods, odir, part):
     rwi_link_thru_w<W>_s<S>; out of context, checkpoints in odir)."""
     from finn.util.rwislands.links import LINK_RX, LINK_THRU, LINK_TX, link_regs
 
+    from finn.util.rwislands import cfgnet
+
     t = ["set_param general.maxThreads 1"]
     for name in mods:
+        if cfgnet.parse_name(name):
+            # configuration network modules (cfgnet)
+            v = os.path.join(odir, name + ".v")
+            with open(v, "w") as f:
+                f.write(cfgnet.module_verilog(name))
+            t += ["read_verilog %s" % v,
+                  "synth_design -top %s -part %s -mode out_of_context" % (name, part),
+                  "write_checkpoint -force %s" % os.path.join(odir, name + "_synth.dcp"),
+                  "close_design", "remove_files -quiet [get_files -quiet]"]
+            continue
         lm = _link_mod(name)
         w, d = lm["w"], lm["d"]
         po, pi, ri, ro, _ = link_regs(lm["p"])
@@ -666,7 +1028,8 @@ def assemble_tcl(overlay_dir, rp, rms, netlist, core_module):
 
 def tile_split_limits(part, kn=None):
     """Resources one part of a split layer may use: `part` percent of a (median) overlay tile's
-    usable resources (LUTs at 50 % utilization, DSP / BRAM at `hard`); the default 45 % lets two
+    usable resources (LUTs at 50 % utilization, DSP / BRAM at `hard`), URAM 60 % of the richest
+    tile's; the default 45 % lets two
     parts share a tile (one part per tile left 40 % of the DSPs of the 22-tile overlay empty)."""
     import statistics
 
@@ -680,4 +1043,7 @@ def tile_split_limits(part, kn=None):
     caps = [capacity(dev.sites_in(*t)) for t in tiles]
     med = {k: statistics.median(c[k] for c in caps) for k in ("slice", "dsp", "bram")}
     f, hard = kn["part"] / 100.0, kn["hard"] / 100.0
-    return {"lut": f * 0.5 * 8 * med["slice"], "dsp": f * hard * med["dsp"], "bram": f * hard * med["bram"]}
+    # URAM: the URAM-richest tile (URAM weight memories are depth-bound and split by output
+    # channel blocks, split_large_mvau.split_mh; ResNet50's last layer needs 125 of a tile's <= 56)
+    return {"lut": f * 0.5 * 8 * med["slice"], "dsp": f * hard * med["dsp"], "bram": f * hard * med["bram"],
+            "uram": hard * max(c["uram"] for c in caps) * 0.6}
