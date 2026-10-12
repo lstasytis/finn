@@ -50,9 +50,10 @@ def overlay_knobs():
     gap_cols / gap_rows: tile columns / rows left to the static design on each side of a tile,
     crs: clock-region columns per tile; per model (not part of the overlay's key): hard: DSP / BRAM /
     URAM share of a tile a model may use (percent), part: size of a split layer's part (percent of a
-    tile), pipe: link pipelining depth (links.link_regs; registers in transit tiles from 2 on)."""
+    tile), pipe: link pipelining depth (links.link_regs; registers in transit tiles from 2 on),
+    tile0: compute nodes may share tile 0 with the IODMAs."""
     kn = {"cols": 16, "rows": 60, "order": "rows", "wf": 1024, "wb": 256, "boundary_rows": 120, "tiles": 0,
-          "gap_cols": 1, "gap_rows": 1, "crs": 1, "hard": int(HARD_UTIL * 100), "part": 45, "pipe": 1}
+          "gap_cols": 1, "gap_rows": 1, "crs": 1, "hard": int(HARD_UTIL * 100), "part": 45, "pipe": 1, "tile0": 1}
     for kv in filter(None, os.environ.get("FINN_RWI_OVERLAY", "").split(",")):
         k, v = kv.split("=")
         kn[k] = v if k == "order" else int(v)
@@ -349,9 +350,10 @@ def build_overlay(shell_dir, part, dev, region, anchor, lib, kn=None, jobs=16):
 # per model
 
 
-def plan_overlay(names, node_res, g, dev, tiles, boundary, extra=None, hard=HARD_UTIL):
+def plan_overlay(names, node_res, g, dev, tiles, boundary, extra=None, hard=HARD_UTIL, tile0=True):
     """Nodes to tiles: the nodes with shell ports (IODMAs) into tile 0, the others along the snake
-    from tile 1: consecutive nodes share a tile while they fit; the next node goes to the next tile
+    from tile 0 (tile0=True: the first nodes share tile 0 with the IODMAs while they fit; else from
+    tile 1): consecutive nodes share a tile while they fit; the next node goes to the next tile
     that can hold it on its own (tiles in between stay empty and only pass streams through - the
     tiles differ in their DSP / BRAM / URAM columns). A node that fits no tile must be split.
     Tries LUT utilizations 0.5..0.9. Returns ({node: tile}, util) or (None, reason)."""
@@ -362,13 +364,13 @@ def plan_overlay(names, node_res, g, dev, tiles, boundary, extra=None, hard=HARD
     caps = [capacity(dev.sites_in(*t)) for t in tiles]
     kinds = ("slice", "slicem", "bram", "dsp", "uram")
 
-    def total(mem):
+    def total(mem, t=None):
         tot = {}
-        for n in mem:
+        for n in mem + ([b for b in names if b in boundary] if t == 0 else []):
             for k, v in node_res[n].items():
                 tot[k] = tot.get(k, 0) + v
         if extra is not None:
-            for k, v in extra([rest.index(n) for n in mem]).items():
+            for k, v in extra([rest.index(n) for n in mem if n in rest]).items():
                 tot[k] = tot.get(k, 0) + v
         return tot
 
@@ -377,11 +379,11 @@ def plan_overlay(names, node_res, g, dev, tiles, boundary, extra=None, hard=HARD
         util = {"lut": u, "bram": hard, "dsp": hard, "uram": hard}
 
         def fits(t, mem):
-            req = need(total(mem), util)
+            req = need(total(mem, t), util)
             return all(caps[t][k] >= req[k] for k in kinds)
 
         where = {n: 0 for n in names if n in boundary}
-        t, mem, ok = 1, [], True
+        t, mem, ok = (0 if tile0 else 1), [], True
         for n in rest:
             if mem and fits(t, mem + [n]):
                 mem.append(n)
