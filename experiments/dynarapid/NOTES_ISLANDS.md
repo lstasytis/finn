@@ -1242,3 +1242,11 @@ registering between islands (latency between adjacent DFG nodes does not matter)
   random stalls and backpressure: 0 errors, 1.00-1.008 cycles/word.
 - Queued (campaign7, lanes A/B after campaign5): 300 MHz overlay (wf=2304, pipe=2), grid islands
   and global for VGG10 8x and MobileNet.
+- **300 MHz, first results**: the 300 MHz shells and overlays (22 tiles, wf=2304, wb=32,
+  gap_rows=2) close timing (static WNS +0.29 / +0.26, WHS +0.009 / +0.010, 0 routing errors).
+  Overlay builds with pipe=2 met 300 MHz in every tile at the first attempt: VGG10 8x timed (shell
+  + overlay cached) 1278 s, 22 tiles 449-846 s each, worst tile WNS +0.38 / WHS +0.005;
+  MobileNet (hand folding) first run ok (tiles phase ~770 s), timed rerun pending. Vivado at 300
+  MHz: MobileNet 6222 s (WNS 0.000, 8-core sub-lane), VGG10 8x still running after 2 h.
+  MobileNet at 300 MHz is still a 1-2 h job; VGG10 16x and ResNet50 (100 / 300 MHz) queued as
+  the next rungs.
