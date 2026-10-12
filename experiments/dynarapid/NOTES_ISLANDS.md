@@ -1276,3 +1276,9 @@ registering between islands (latency between adjacent DFG nodes does not matter)
   split parts leaves ~30 % of the 368-DSP tiles empty (2 parts per tile). Even 96-DSP parts and
   tile 0 for compute would give ~5000. A capacity limit of the overlay geometry (gaps, shell
   rows); Vivado can use all 9024 DSPs.
+- Vivado at 300 MHz, VGG10 16x: ~9820 s (Python wrapper killed by mistake mid-run; Vivado's own
+  impl run finished, time = job start to bitstream), **timing failed (WNS -0.188)**. Three of the
+  four 300 MHz Vivado baselines so far miss or barely meet timing (VGG10 8x -0.516, VGG10 16x
+  -0.188, MobileNet 0.000; VGG10 0.25x +0.297), while every overlay build met it.
+- Overlay plan knob tile0 (default 1): compute nodes may share tile 0 with the IODMAs. For VGG10
+  16x it gains one node; the DSP-heavy models also need smaller split parts (part=30) - to test.
