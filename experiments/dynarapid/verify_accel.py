@@ -320,6 +320,10 @@ def main():
     ap.add_argument("--accel-dir", required=True, help="out_dir of dynarapid_zynq_build")
     ap.add_argument("--out", required=True)
     ap.add_argument("--frames", type=int, default=2)
+    ap.add_argument("--ref-clk", type=float, default=None,
+                    help="clock (ns) of the reference stitched IP's block design (only its interface "
+                    "FREQ_HZ; default: the build's clock). CreateStitchedIP at 3.333 ns failed on a "
+                    "StreamingLaneMerge_rtl left at 100 MHz (BD 41-237)")
     ap.add_argument("--max-polls", type=int, default=200000)
     ap.add_argument("--variants", default="dr,ref", help="simulations to (re)run; others reused")
     ap.add_argument("--vary-amplitude", action="store_true", help="scale the input per frame")
@@ -419,7 +423,7 @@ def main():
             srcs = [netlist, br, dut, glbl, os.path.join(sim, "tb.sv")]
             log = run_xsim(sim, srcs, libs=("unisims_ver", "secureip"))
         else:
-            ref = accel.transform(CreateStitchedIP(part, clk_ns))
+            ref = accel.transform(CreateStitchedIP(part, args.ref_clk or clk_ns))
             proj = ref.get_metadata_prop("vivado_stitch_proj")
             wrapper_file = ref.get_metadata_prop("wrapper_filename")
             wname = os.path.basename(wrapper_file).rsplit(".", 1)[0]
