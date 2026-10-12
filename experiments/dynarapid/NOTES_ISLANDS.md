@@ -1282,3 +1282,5 @@ registering between islands (latency between adjacent DFG nodes does not matter)
   -0.188, MobileNet 0.000; VGG10 0.25x +0.297), while every overlay build met it.
 - Overlay plan knob tile0 (default 1): compute nodes may share tile 0 with the IODMAs. For VGG10
   16x it gains one node; the DSP-heavy models also need smaller split parts (part=30) - to test.
+- Verified at 300 MHz: VGG10 0.25x overlay (pipe=2), 8 frames --vary-amplitude, labels
+  [0,0,0,21,21,18,0,0] = stitched-IP RTL (reference block design at 10 ns: --ref-clk 10).
