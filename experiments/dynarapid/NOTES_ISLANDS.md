@@ -1149,3 +1149,20 @@ xfail "not tested". Larger points instead: MobileNet 4x and VGG10 16x (no relax)
   subset of the tiles non-reconfigurable crashes the placer ("internal error while setting
   boundary constraints"). Next to try: fewer, larger tiles (<= ~16 RPs, e.g. 2x1 clock regions),
   narrower links (wf), or pre-placed grey-box cells / HD.PARTPIN_RANGE.
+
+## 2026-10-12: overlay placer "hang" root-caused - grey boxes placed by hand
+
+- The "hang" was not a hang: the detail placement phases (3.3 Small Shape DP / Area Swap, 3.5
+  Re-assign LUT pins, 3.6 Pipeline Register Opt) grew super-linearly with the number of RP grey
+  boxes (~2.4k unconnected DONT_TOUCH LUT1s per tile): 10 tiles 4 min in phase 3.3, 24 tiles 29
+  min, 22 large tiles (2x2 clock regions) > 30 min in Area Swap (logs of the earlier runs).
+- Tested with the Vivado MCP on the 22-tile `static_parts.dcp`: all 52,888 grey-box cells placed
+  by `place_cell` (one call per tile, 10 s), then place_design 5.5 min (phase 3 in 1.2 min),
+  route_design 4.3 min, 0 failed nets, WNS +3.9 ns, WHS +0.003 ns, DFX DRC clean.
+- `PLACE_GREYBOX_TCL` in overlay.py (OVERLAY_VERSION 3): each link's LUTs on the slices nearest the
+  neighbour tile's pblock (pulls the partition pins to that edge), the shell-boundary ports'
+  LUTs on the rest, the clock FDCE on an AFF. Batch builds (lane C, shared with other jobs):
+  * 22 tiles (`rows=120,crs=2`): static 985 s (place 5.5 min, route 3.3 min), 0 routing errors,
+    WNS +3.89 / WHS +0.003; with the 22 abstract shells 2109 s.
+  * 79 tiles (`rows=60,crs=1`, the full grid): grey boxes 191,626 cells in 52 s, place ~17 min,
+    static routed at 1904 s, 0 routing errors, WNS +3.28 / WHS +0.003.
