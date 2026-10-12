@@ -597,8 +597,12 @@ def tile_tcl(k, odir_tile, tile_v, dcp_files, part, overlay_dir, rp, steps, thre
 def assemble_tcl(overlay_dir, rp, rms, netlist, core_module):
     """Verification: the static overlay with the routed tiles {k: rm_dcp} read into their
     partitions (the others stay grey boxes), the accelerator cell as a functional netlist."""
-    t = ["open_checkpoint %s/static_routed.dcp" % overlay_dir]
-    t += ["read_checkpoint -cell %s/t%d %s" % (rp, k, f) for k, f in sorted(rms.items())]
+    # (the static is locked: the grey boxes' GND / VCC / clock routing cannot be removed otherwise,
+    # Constraints 18-11729)
+    t = ["open_checkpoint %s/static_routed.dcp" % overlay_dir, "lock_design -unlock -level routing"]
+    for k, f in sorted(rms.items()):
+        # (the static's tiles are grey boxes: read_checkpoint -cell needs a black box, Vivado 12-12243)
+        t += ["update_design -cell %s/t%d -black_box" % (rp, k), "read_checkpoint -cell %s/t%d %s" % (rp, k, f)]
     t += ["report_route_status -file %s.route_status.rpt" % netlist,
           "write_verilog -mode funcsim -force -cell %s -rename_top %s %s" % (rp, core_module, netlist)]
     return "\n".join(t) + "\n"

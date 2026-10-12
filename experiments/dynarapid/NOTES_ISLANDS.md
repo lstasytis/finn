@@ -1166,3 +1166,13 @@ xfail "not tested". Larger points instead: MobileNet 4x and VGG10 16x (no relax)
     WNS +3.89 / WHS +0.003; with the 22 abstract shells 2109 s.
   * 79 tiles (`rows=60,crs=1`, the full grid): grey boxes 191,626 cells in 52 s, place ~17 min,
     static routed at 1904 s, 0 routing errors, WNS +3.28 / WHS +0.003.
+- **write_bitstream limit: 32 reconfigurable partitions.** The 79-tile static failed in
+  write_bitstream (Designutils 20-1700 "bitset::set: __position (which is 32) >= _Nb (which is
+  32)"); a single tile's partial (`write_bitstream -cell`) fails the same way, also in Vivado
+  2025.1. Overlays are now cut to the first 32 snake tiles (`MAX_TILES`). The per-tile runs (one
+  RP in the abstract shell) are not affected.
+- First complete overlay model build: VGG10 0.25x (`vgg10_s0.25r`) on the 22-tile overlay
+  (`rows=120,crs=2`, shell `shelledc4d189214f`, lane C = 16 cores, overlay cached): 956 s, rc 0
+  (synthesis 464 s, 4 tiles used, tiles in parallel 412 s: 261-412 s each, 0 routing errors,
+  WNS +2.81 / WHS +0.010). The first run, which built the overlay (static 991 s + 22 abstract
+  shells), took 2868 s.
