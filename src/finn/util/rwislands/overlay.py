@@ -50,9 +50,9 @@ def overlay_knobs():
     gap_cols / gap_rows: tile columns / rows left to the static design on each side of a tile,
     crs: clock-region columns per tile; per model (not part of the overlay's key): hard: DSP / BRAM /
     URAM share of a tile a model may use (percent), part: size of a split layer's part (percent of a
-    tile)."""
+    tile), pipe: link pipelining depth (links.link_regs; registers in transit tiles from 2 on)."""
     kn = {"cols": 16, "rows": 60, "order": "rows", "wf": 1024, "wb": 256, "boundary_rows": 120, "tiles": 0,
-          "gap_cols": 1, "gap_rows": 1, "crs": 1, "hard": int(HARD_UTIL * 100), "part": 45}
+          "gap_cols": 1, "gap_rows": 1, "crs": 1, "hard": int(HARD_UTIL * 100), "part": 45, "pipe": 1}
     for kv in filter(None, os.environ.get("FINN_RWI_OVERLAY", "").split(",")):
         k, v = kv.split("=")
         kn[k] = v if k == "order" else int(v)
@@ -441,16 +441,18 @@ def link_plan(g, where, n_tiles, kn):
 def tile_verilog(k, n_tiles, kn, ports, g, members, dcps, links):
     """tile<k>: the island of its members (netlist.island_verilog, without register slices) plus a
     link receiver per stream entering the tile, a transmitter per stream leaving it, and wires for
-    the streams passing through. Returns (verilog, link module names used: rwi_link_tx_w<W>,
-    rwi_link_rx_w<W>_d<FIFO depth for the link's edge count>)."""
-    from finn.util.rwislands.links import rx_depth
+    the streams passing through (pipe > 1: through registers). Returns (verilog, link module
+    names used: rwi_link_tx_w<W>_p<pipe>, rwi_link_rx_w<W>_d<FIFO depth>_p<pipe>,
+    rwi_link_thru_w<W>_s<stages>)."""
+    from finn.util.rwislands.links import link_regs, rx_depth
     from finn.util.rwislands.netlist import _in_names, _out_names, island_ports, island_verilog
 
     body, widths = [], []
     ins, outs = island_ports(g, members)
     mem = set(members)
     wf, wb = kn["wf"], kn["wb"]
-    drive = {}  # output bundle bit ranges -> expression
+    pipe = kn.get("pipe", 1)
+    thru = link_regs(pipe)[4]
 
     def bit(side, d, off, w=1):
         # (west side: edge k-1, east side: edge k; f = forward = west->east)
@@ -474,28 +476,35 @@ def tile_verilog(k, n_tiles, kn, ports, g, members, dcps, links):
                 # transmitter: island output -> link
                 dname, vname, rname = _out_names(g[src]["id"], j)
                 body.append(
-                    "    rwi_link_tx_w%d tx_%s_%d (.clk(clk), .rst(rst_q), .s_data(%s), .s_valid(%s), .s_ready(%s), "
+                    "    rwi_link_tx_w%d_p%d tx_%s_%d (.clk(clk), .rst(rst_q), .s_data(%s), .s_valid(%s), .s_ready(%s), "
                     ".l_data(%s), .l_valid(%s), .l_ready(%s));"
-                    % (w, g[src]["id"], j, "isl_" + dname, "isl_" + vname, "isl_" + rname,
+                    % (w, pipe, g[src]["id"], j, "isl_" + dname, "isl_" + vname, "isl_" + rname,
                        bit(side_of(e), d, off, w), bit(side_of(e), d, off + w), bit(side_of(e), rd, roff)))
-                widths.append("rwi_link_tx_w%d" % w)
+                widths.append("rwi_link_tx_w%d_p%d" % (w, pipe))
             elif dstn in mem and h == len(hops) - 1:
                 dname, vname, rname = _in_names(g[dstn]["id"], i)
                 body.append(
-                    "    rwi_link_rx_w%d_d%d rx_%s_%d (.clk(clk), .rst(rst_q), .l_data(%s), .l_valid(%s), .l_ready(%s), "
+                    "    rwi_link_rx_w%d_d%d_p%d rx_%s_%d (.clk(clk), .rst(rst_q), .l_data(%s), .l_valid(%s), .l_ready(%s), "
                     ".m_data(%s), .m_valid(%s), .m_ready(%s));"
-                    % (w, rx_depth(len(hops)), g[dstn]["id"], i, bit(side_of(e), d, off, w), bit(side_of(e), d, off + w),
+                    % (w, rx_depth(len(hops), pipe), pipe, g[dstn]["id"], i, bit(side_of(e), d, off, w), bit(side_of(e), d, off + w),
                        bit(side_of(e), rd, roff), "isl_" + dname, "isl_" + vname, "isl_" + rname))
-                widths.append("rwi_link_rx_w%d_d%d" % (w, rx_depth(len(hops))))
+                widths.append("rwi_link_rx_w%d_d%d_p%d" % (w, rx_depth(len(hops), pipe), pipe))
             elif prev_hop is not None and prev_hop[0] in (k - 1, k) and e != prev_hop[0]:
                 # transit: from the previous hop's bundle (entering) to this hop's bundle (leaving)
                 pe, pd, poff, proff = prev_hop
-                body.append("    assign %s = %s;" % (bit(side_of(e), d, off, w + 1), bit(side_of(pe), pd, poff, w + 1)))
-                body.append("    assign %s = %s;" % (bit(side_of(pe), rd, proff), bit(side_of(e), rd, roff)))
+                if thru:
+                    body.append("    rwi_link_thru_w%d_s%d thru_%s_%d (.clk(clk), .f_in(%s), .f_out(%s), .r_in(%s), .r_out(%s));"
+                                % (w, thru, g[src]["id"], j, bit(side_of(pe), pd, poff, w + 1), bit(side_of(e), d, off, w + 1),
+                                   bit(side_of(e), rd, roff), bit(side_of(pe), rd, proff)))
+                    widths.append("rwi_link_thru_w%d_s%d" % (w, thru))
+                else:
+                    body.append("    assign %s = %s;" % (bit(side_of(e), d, off, w + 1), bit(side_of(pe), pd, poff, w + 1)))
+                    body.append("    assign %s = %s;" % (bit(side_of(pe), rd, proff), bit(side_of(e), rd, roff)))
     if not members:
         # transit only: the streams passing through, no island
         hdr = "module tile%d (\n%s\n);\n" % (k, ",\n".join("    " + p for p in tile_ports(k, n_tiles, kn, ports)))
-        return hdr + "\n".join(body + _ties(k, n_tiles, wf, wb, body)) + "\nendmodule\n", []
+        stubs = "".join(_link_stub(m) for m in sorted(set(widths)))
+        return hdr + "\n".join(body + _ties(k, n_tiles, wf, wb, body)) + "\nendmodule\n" + stubs, sorted(set(widths))
     # the island
     isl = island_verilog("island_t%d" % k, g, members, dcps, regslices=False)
     conns = ["        .clk(clk)", "        .rst(rst)"]
@@ -550,34 +559,49 @@ def _covers(text, name, b):
 
 
 def _link_mod(name):
-    """("tx" | "rx", width, FIFO depth or None) of a link module name."""
-    m = re.match(r"rwi_link_(tx|rx)_w(\d+)(?:_d(\d+))?$", name)
-    return m.group(1), int(m.group(2)), int(m.group(3)) if m.group(3) else None
+    """{"kind": tx | rx | thru, "w", "d" (rx FIFO depth), "p" (pipe), "s" (thru stages)} of a link
+    module name."""
+    m = re.match(r"rwi_link_(tx|rx|thru)_w(\d+)(?:_d(\d+))?(?:_p(\d+))?(?:_s(\d+))?$", name)
+    return {"kind": m.group(1), "w": int(m.group(2)), "d": int(m.group(3) or 0), "p": int(m.group(4) or 1),
+            "s": int(m.group(5) or 0)}
 
 
 def _link_stub(name):
-    kind, w, _ = _link_mod(name)
-    if kind == "tx":
+    lm = _link_mod(name)
+    w = lm["w"]
+    if lm["kind"] == "tx":
         return ("(* black_box *)\nmodule %s (input clk, input rst, input [%d:0] s_data, input s_valid, "
                 "output s_ready, output [%d:0] l_data, output l_valid, input l_ready);\nendmodule\n" % (name, w - 1, w - 1))
+    if lm["kind"] == "thru":
+        return ("(* black_box *)\nmodule %s (input clk, input [%d:0] f_in, output [%d:0] f_out, input r_in, "
+                "output r_out);\nendmodule\n" % (name, w, w))
     return ("(* black_box *)\nmodule %s (input clk, input rst, input [%d:0] l_data, input l_valid, "
             "output l_ready, output [%d:0] m_data, output m_valid, input m_ready);\nendmodule\n" % (name, w - 1, w - 1))
 
 
 def link_synth_tcl(mods, odir, part):
-    """One session: the link modules `mods` (rwi_link_tx_w<W>, rwi_link_rx_w<W>_d<D>; out of
-    context, checkpoints in odir)."""
-    from finn.util.rwislands.links import LINK_RX, LINK_TX
+    """One session: the link modules `mods` (rwi_link_tx_w<W>_p<P>, rwi_link_rx_w<W>_d<D>_p<P>,
+    rwi_link_thru_w<W>_s<S>; out of context, checkpoints in odir)."""
+    from finn.util.rwislands.links import LINK_RX, LINK_THRU, LINK_TX, link_regs
+
     t = ["set_param general.maxThreads 1"]
     for name in mods:
-        kind, w, d = _link_mod(name)
+        lm = _link_mod(name)
+        w, d = lm["w"], lm["d"]
+        po, pi, ri, ro, _ = link_regs(lm["p"])
         v = os.path.join(odir, name + ".v")
-        if kind == "tx":
-            body = LINK_TX.replace("module rwi_link_tx #(parameter W = 1", "module %s #(parameter W = %d" % (name, w))
+        if lm["kind"] == "tx":
+            body = LINK_TX.replace("module rwi_link_tx #(parameter W = 1, parameter PO = 1, parameter PI = 1",
+                                   "module %s #(parameter W = %d, parameter PO = %d, parameter PI = %d" % (name, w, po, pi))
+        elif lm["kind"] == "thru":
+            body = LINK_THRU.replace("module rwi_link_thru #(parameter W = 1, parameter S = 1",
+                                     "module %s #(parameter W = %d, parameter S = %d" % (name, w, lm["s"]))
         else:
-            body = LINK_RX.replace("module rwi_link_rx #(parameter W = 1, parameter DEPTH = 8, parameter SLACK = 5",
-                                   "module %s #(parameter W = %d, parameter DEPTH = %d, parameter SLACK = %d" % (name, w, d, d - 3))
-        assert body != (LINK_TX if kind == "tx" else LINK_RX)
+            body = LINK_RX.replace(
+                "module rwi_link_rx #(parameter W = 1, parameter DEPTH = 8, parameter SLACK = 5, parameter RI = 0, parameter RO = 1",
+                "module %s #(parameter W = %d, parameter DEPTH = %d, parameter SLACK = %d, parameter RI = %d, parameter RO = %d"
+                % (name, w, d, d - 3, ri, ro))
+        assert body not in (LINK_TX, LINK_RX, LINK_THRU)
         with open(v, "w") as f:
             f.write(body)
         t += ["read_verilog %s" % v,

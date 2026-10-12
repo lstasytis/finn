@@ -151,7 +151,7 @@ def _synth_estimate(node):
 
 
 def link_modules(mods, links, work, part):
-    """Synthesizes the overlay link modules `mods` (rwi_link_tx_w<W> / rwi_link_rx_w<W>_d<D>) that
+    """Synthesizes the overlay link modules `mods` (overlay._link_mod names) that
     are not in the cache dir `links` yet, one Vivado session each (callers run them in parallel)."""
     from finn.util.rwislands.overlay import link_synth_tcl
 
@@ -270,7 +270,12 @@ def synthesize(accel, dcps, work, part, clk_ns, cpus, slots, links=None):
     if links:
         os.makedirs(links, exist_ok=True)
         # (receivers for one-edge links; deeper ones for longer links after the plan: link_modules)
-        lk_mods = [m for w in stream_widths(channel_graph(accel)) for m in ("rwi_link_tx_w%d" % w, "rwi_link_rx_w%d_d8" % w)
+        from finn.util.rwislands.links import rx_depth
+        from finn.util.rwislands.overlay import overlay_knobs
+
+        pipe = overlay_knobs()["pipe"]
+        lk_mods = [m for w in stream_widths(channel_graph(accel))
+                   for m in ("rwi_link_tx_w%d_p%d" % (w, pipe), "rwi_link_rx_w%d_d%d_p%d" % (w, rx_depth(1, pipe), pipe))
                    if not os.path.isfile(os.path.join(links, m + "_synth.dcp"))]
 
     def links_job(m):
@@ -1200,9 +1205,9 @@ def overlay_links_dir(shell_lib):
     import hashlib
 
     from finn.util.dynarapid.tools import vivado_version
-    from finn.util.rwislands.links import LINK_RX, LINK_TX
+    from finn.util.rwislands.links import LINK_RX, LINK_THRU, LINK_TX
 
-    h = hashlib.sha1((LINK_TX + LINK_RX).encode()).hexdigest()[:8]
+    h = hashlib.sha1((LINK_TX + LINK_RX + LINK_THRU).encode()).hexdigest()[:8]
     return os.path.join(shell_lib, "links", "%s_%s" % (vivado_version(), h))
 
 
@@ -1264,7 +1269,8 @@ def _overlay_build(accel, g, dcps, synth, dev, work, part, shell_dir, shell_lib,
     gen = {}
     for k in used:
         members = [n for n in names if where[n] == k]
-        gen[k] = (members,) + ov.tile_verilog(k, len(tiles), oinfo["kn"], ports, g, members, dcps, links)
+        # (the link pipelining is a per-model knob: the current one, not the overlay's)
+        gen[k] = (members,) + ov.tile_verilog(k, len(tiles), dict(oinfo["kn"], pipe=kn["pipe"]), ports, g, members, dcps, links)
     for (src, j), hops in links.items():
         dstn, i = g[src]["dst"][j]
         if "tx_%s_%d " % (g[src]["id"], j) not in gen[where[src]][1] or "rx_%s_%d " % (g[dstn]["id"], i) not in gen[where[dstn]][1]:

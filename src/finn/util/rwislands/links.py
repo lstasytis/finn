@@ -20,24 +20,37 @@ while the consumer takes one per cycle (the FIFO never runs into the ready thres
 """
 
 RX_DEPTH = 8
-# words that can arrive after the receiver deasserts ready, for a link over one tile edge: its own
-# ready register, the anchor on ready, the transmitter's register on ready and the anchor +
-# transmitter registers on data. Every further edge (a tile the link passes through as plain wires)
-# adds an anchor on data and one on ready: 3 + 2 * edges (the first overlay model build lost words
-# on a 3-edge link with the fixed slack of 5: output mismatch in verify_accel)
+# The words that can still arrive after the receiver deasserts ready = the registers of the
+# round trip: on the ready path the receiver's RO, one anchor per tile edge, (p - 1) per transit
+# tile and the transmitter's PI; on the data path the transmitter's PO, the anchors, the transit
+# registers and the receiver's RI. pipe=1 (PO = PI = RO = 1, RI = 0, no transit registers):
+# 3 + 2 * edges (the first overlay model build lost words on a 3-edge link with a fixed slack of
+# 5: output mismatch in verify_accel). Latency between nodes does not matter (FINN dataflow), so
+# high clock rates get deeper pipelines (knob pipe=p) at the cost of FIFO depth only.
 RX_SLACK = 5
 
 
-def rx_depth(edges):
+def link_regs(pipe):
+    """(PO, PI, RI, RO, registers per transit tile and direction) of link pipelining depth pipe."""
+    return pipe, pipe, pipe - 1, pipe, pipe - 1
+
+
+def link_slack(edges, pipe=1):
+    po, pi, ri, ro, t = link_regs(pipe)
+    return po + pi + ri + ro + 2 * edges + 2 * (edges - 1) * t
+
+
+def rx_depth(edges, pipe=1):
     """Receiver FIFO depth for a link over `edges` tile edges: the smallest power of two >= 8 with
-    depth - 3 >= 3 + 2 * edges (slack = depth - 3: ready while at most 3 words are buffered)."""
+    depth - 3 >= the in-flight words (slack = depth - 3: ready while at most 3 words are
+    buffered)."""
     d = RX_DEPTH
-    while d - 3 < 3 + 2 * edges:
+    while d - 3 < link_slack(edges, pipe):
         d *= 2
     return d
 
 
-LINK_TX = """module rwi_link_tx #(parameter W = 1) (
+LINK_TX = """module rwi_link_tx #(parameter W = 1, parameter PO = 1, parameter PI = 1) (
     input clk,
     input rst,
     // from the tile's logic
@@ -45,52 +58,101 @@ LINK_TX = """module rwi_link_tx #(parameter W = 1) (
     input s_valid,
     output s_ready,
     // to the link (static anchors)
-    output reg [W-1:0] l_data,
-    output reg l_valid,
+    output [W-1:0] l_data,
+    output l_valid,
     input l_ready
 );
-    // l_ready: the receiver's permission (late); a word is sent in every cycle in which it holds
-    reg rdy = 1'b0;
+    // l_ready: the receiver's permission (late, through PI registers); a word is sent in every
+    // cycle in which it holds; data + valid leave through PO registers
+    reg [PI-1:0] rq = {PI{1'b0}};
+    wire rdy = rq[PI-1];
     assign s_ready = rdy;
+    reg [W:0] oq [0:PO-1];
+    integer i;
+    initial for (i = 0; i < PO; i = i + 1) oq[i] = {(W + 1){1'b0}};
     always @(posedge clk) begin
-        rdy <= rst & l_ready;
-        l_valid <= rst & s_valid & rdy;
-        l_data <= s_data;
+        rq <= {rq, rst & l_ready};
+        oq[0] <= {rst & s_valid & rdy, s_data};
+        for (i = 1; i < PO; i = i + 1) oq[i] <= oq[i - 1];
     end
+    assign {l_valid, l_data} = oq[PO - 1];
 endmodule
 """
 
-LINK_RX = """module rwi_link_rx #(parameter W = 1, parameter DEPTH = 8, parameter SLACK = 5) (
+LINK_RX = """module rwi_link_rx #(parameter W = 1, parameter DEPTH = 8, parameter SLACK = 5, parameter RI = 0, parameter RO = 1) (
     input clk,
     input rst,
     // from the link (static anchors)
     input [W-1:0] l_data,
     input l_valid,
-    output reg l_ready,
+    output l_ready,
     // to the tile's logic
     output [W-1:0] m_data,
     output m_valid,
     input m_ready
 );
+    // RI input registers, then the FIFO; its ready goes out through RO registers
+    wire [W:0] iw;
+    genvar k;
+    generate
+        if (RI == 0) begin : noin
+            assign iw = {l_valid, l_data};
+        end else begin : inp
+            reg [W:0] iq [0:RI-1];
+            integer j;
+            initial for (j = 0; j < RI; j = j + 1) iq[j] = {(W + 1){1'b0}};
+            always @(posedge clk) begin
+                iq[0] <= {l_valid, l_data};
+                for (j = 1; j < RI; j = j + 1) iq[j] <= iq[j - 1];
+            end
+            assign iw = iq[RI - 1];
+        end
+    endgenerate
+    wire wv = iw[W];
     reg [W-1:0] mem [0:DEPTH-1];
     reg [$clog2(DEPTH):0] wp = 0, rp = 0;
+    reg [RO-1:0] rq = {RO{1'b0}};
     wire [$clog2(DEPTH):0] used = wp - rp;
     assign m_valid = used != 0;
     assign m_data = mem[rp[$clog2(DEPTH)-1:0]];
+    assign l_ready = rq[RO-1];
     always @(posedge clk) begin
         if (!rst) begin
             wp <= 0;
             rp <= 0;
-            l_ready <= 1'b0;
+            rq <= {RO{1'b0}};
         end else begin
-            if (l_valid) begin
-                mem[wp[$clog2(DEPTH)-1:0]] <= l_data;
+            if (wv) begin
+                mem[wp[$clog2(DEPTH)-1:0]] <= iw[W-1:0];
                 wp <= wp + 1;
             end
             if (m_valid && m_ready) rp <= rp + 1;
-            l_ready <= used + (l_valid ? 1 : 0) <= DEPTH - SLACK;
+            rq <= {rq, used + (wv ? 1 : 0) <= DEPTH - SLACK};
         end
     end
+endmodule
+"""
+
+# registers of a link through a transit tile (pipe > 1): S stages on data + valid (forward
+# bundle) and on ready (backward bundle), so that no wire crosses a whole tile unregistered
+LINK_THRU = """module rwi_link_thru #(parameter W = 1, parameter S = 1) (
+    input clk,
+    input [W:0] f_in,
+    output [W:0] f_out,
+    input r_in,
+    output r_out
+);
+    reg [W:0] fq [0:S-1];
+    reg [S-1:0] rq = {S{1'b0}};
+    integer i;
+    initial for (i = 0; i < S; i = i + 1) fq[i] = {(W + 1){1'b0}};
+    always @(posedge clk) begin
+        fq[0] <= f_in;
+        for (i = 1; i < S; i = i + 1) fq[i] <= fq[i - 1];
+        rq <= {rq, r_in};
+    end
+    assign f_out = fq[S - 1];
+    assign r_out = rq[S - 1];
 endmodule
 """
 
