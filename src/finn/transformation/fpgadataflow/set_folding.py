@@ -1553,11 +1553,12 @@ class SetFolding(Transformation):
     def _bottleneck_nodes(scored):
         """Names of the folded nodes that bound a scored graph's cycles: the slowest
         nodes, or both neighbours of a slowest DWC."""
-        cycles = {n.name: getCustomOp(n).get_nodeattr("cycles_estimate") for n in scored.graph.node}
-        worst = max(cycles.values())
+        # by position: the DWCs InsertDWC adds are unnamed
+        cycles = [getCustomOp(n).get_nodeattr("cycles_estimate") for n in scored.graph.node]
+        worst = max(cycles)
         names = set()
-        for node in scored.graph.node:
-            if cycles[node.name] != worst:
+        for node, node_cycles in zip(scored.graph.node, cycles):
+            if node_cycles != worst:
                 continue
             if node.op_type.startswith("StreamingDataWidthConverter"):
                 names.add(scored.find_producer(node.input[0]).name)

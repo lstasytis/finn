@@ -355,6 +355,23 @@ def test_set_folding_padding_never_worse(target):
         assert pad_res["LUT"] <= plain_res["LUT"] * 1.02
 
 
+@pytest.mark.fpgadataflow
+def test_set_folding_bottleneck_is_unnamed_dwc():
+    # the DWCs InsertDWC adds are unnamed: the slowest one must still be found
+    # (4 -> 6 bits, 24 + 16 words), and with it both its neighbours
+    model = make_multi_fclayer_model(48, DataType["INT4"], DataType["INT2"], DataType["INT16"], 4)
+    model = model.transform(GiveUniqueNodeNames())
+    for node, (simd, pe) in zip(model.graph.node, [(48, 2), (3, 48), (48, 48), (24, 48)]):
+        getCustomOp(node).set_nodeattr("SIMD", simd)
+        getCustomOp(node).set_nodeattr("PE", pe)
+    scored = model.transform(InsertDWC()).transform(SpecializeLayers(part_map["U250"]))
+    scored = scored.transform(AnnotateCycles())
+    dwcs = [n for n in scored.graph.node if n.op_type.startswith("StreamingDataWidthConverter")]
+    assert [n.name for n in dwcs] == ["", ""]
+    assert [getCustomOp(n).get_nodeattr("cycles_estimate") for n in dwcs] == [40, 2]
+    assert SetFolding._bottleneck_nodes(scored) == {"MVAU_hls_0", "MVAU_hls_1"}
+
+
 def _fifo_lut(model, platform):
     per_node = model.analysis(lambda m: res_estimation(m, part_map[platform]))
     return sum(
