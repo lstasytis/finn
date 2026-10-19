@@ -120,6 +120,7 @@ def test_espcn(board, bench_recorder):
 
 FEATURE_BUILDS = ["KV260_SOM"]
 FOLDING_MAX_PADDING = 4
+DWC_SEEDS = [1, 2, 3, 4]
 # optimizer folding (fixed seed) instead of the committed JSON, FIFOs sized analytically
 OPTIMIZER_FOLDING = dict(
     folding_config_file=None,
@@ -222,11 +223,18 @@ def test_espcn_folding(board, mode):
 @pytest.mark.parametrize("board", FEATURE_BUILDS)
 def test_espcn_dwc(board):
     target_fps = int(estimated_throughput(reference_estimate(board)))
-    padded = dict(
-        OPTIMIZER_FOLDING, target_fps=target_fps, folding_maximum_padding=FOLDING_MAX_PADDING
-    )
-    # the folding search is cheap: skip the hardware build if nothing gets padded
-    if not run_feature_build(board, "dwc-est", estimate_only=True, **padded)["pad_dwcs"]:
-        pytest.skip("no padding needed: the padded folding inserts no padding DWC")
+    # the folding search is cheap: find a seed whose padded folding pads (padding wins
+    # only on some search paths), skip the hardware build if none does
+    for seed in DWC_SEEDS:
+        padded = dict(
+            OPTIMIZER_FOLDING,
+            target_fps=target_fps,
+            folding_maximum_padding=FOLDING_MAX_PADDING,
+            folding_seed=seed,
+        )
+        if run_feature_build(board, "dwc-est", estimate_only=True, **padded)["pad_dwcs"]:
+            break
+    else:
+        pytest.skip("no padding needed: no padded folding inserts a padding DWC")
     metrics = run_feature_build(board, "dwc", **padded)
     assert metrics["est_fps"] >= target_fps
