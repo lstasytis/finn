@@ -4,7 +4,7 @@
 set -e
 L=/home/lstasytis/finn/build/finn_build/fx/logs/campaign
 T=/home/lstasytis/finn/claude-tools/finn-examples-features/tools
-BUDGET=${BUDGET:-120}
+BUDGET=${BUDGET:-160}
 DEADLINE=${DEADLINE:-19:10}
 mkdir -p $L/superseded
 for j in "$@"; do

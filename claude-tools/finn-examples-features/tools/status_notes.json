@@ -18,7 +18,11 @@
     "dwc__resnet50__V80": "#003",
     "fold-target__bert__VCK190": "#003",
     "fold-max__bert__VCK190": "#003",
-    "dwc__bert__VCK190": "#003"
+    "dwc__bert__VCK190": "#003",
+    "fold-max__bnn-pynq__AUP-ZU3_8GB-cnv-w1a2": "#006",
+    "fold-max__bnn-pynq__AUP-ZU3_8GB-cnv-w2a2": "#006",
+    "fold-max__bnn-pynq__KV260_SOM-cnv-w1a2": "#006",
+    "fifo__espcn__KV260_SOM": "#007 (stitched-IP rtlsim output 10 % wrong)"
   },
   "tfc-w1a1 (AUP-ZU3_8GB)": "folding target: committed folding near-fully unrolled (9 cycles) - beyond the optimizer's ZU3 budget and LabelSelect kept at PE=1; optimizer 15 cycles, rtlsim = estimate",
   "resnet18_8w8a (U55C)": "FIFO: n/a, committed folding has runtime-writeable URAM weights, not initialized in stitched-IP rtlsim",
@@ -27,11 +31,12 @@
     "* #001 fixed: bert dynamic MVAUs now characterized (tree model + in1 TAV); landed on feature/dev/analytical-fifo-sizing.",
     "* #002 fixed: MVAU_hls/LabelSelect_hls per-frame HLS overhead (+7/+4 cycles) added to get_exp_cycles on the new standalone branch feature/dev/hls-exp-cycles-overhead; tfc/cybersecurity jobs rerun with it.",
     "* #003 folding optimizer raises on branching graphs (SWG consumer = next node) for resnet18/50 and yolov8, and on bert (dynamic MVAU without weight initializer).",
-    "* DWC tests: at the reference target the seeded optimizer inserts no padding DWC on most models (skip = no padding needed).",
     "* #004 fixed: optimizer repair loop missed unnamed DWC bottlenecks (vgg10 1280 -> 1028 cycles); no padding next to a reshape (InsertDWC assert).",
     "* #005 fixed: phantom URAM estimate of embedded MVAU weights (dev bug) + maximize search fixes; maximize now fits the budget and matches/beats the committed folding where that fits.",
     "* #006 open (agent running): balanced optimizer foldings on cnv: rtlsim 0.95-0.98x of the estimate.",
-    "* Folding/DWC jobs of bnn-pynq, gtsrb, vgg10 rerun after fixes 004/005 (13:47)."
+    "* Folding/DWC jobs of bnn-pynq, gtsrb, vgg10 rerun after fixes 004/005 (13:47).",
+    "* DWC tests: at the reference targets the padded optimizer (seeds 1-8 tried) inserts no padding DWC on the small models; same with the pre-fix set_folding.py (checked on tfc-w1a1), so padding is not broken, it just doesn't pay off at these targets.",
+    "* #007 open (agent running): espcn stitched-IP rtlsim output differs from the golden (10 % of values, structured: rows >= 76, left columns)."
   ],
   "bert (VCK190)": "FIFO: #001 fixed (dynamic MVAU characterization), rerun; estimate 4x pessimistic for tiled MVAUs (TH), rtlsim 4.0x est"
 }
