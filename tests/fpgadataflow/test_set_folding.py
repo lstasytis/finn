@@ -507,3 +507,123 @@ def test_insert_and_size_fifos_unsizeable_graph():
     scored = model.transform(InsertDWC()).transform(SpecializeLayers(part_map["U250"]))
     with pytest.warns(UserWarning, match="no tree model"):
         assert insert_and_size_fifos(scored, part_map["U250"], make_build_dir("test_fifo_")) is None
+
+
+def _hw_node(op_type, inputs, outputs, **attrs):
+    return helper.make_node(
+        op_type,
+        inputs,
+        outputs,
+        domain="finn.custom_op.fpgadataflow.rtl",
+        backend="fpgadataflow",
+        **attrs,
+    )
+
+
+@pytest.mark.fpgadataflow
+def test_set_folding_swg_pair_in_branching_graph():
+    # two SWG -> MVAU branches, interleaved: an SWG is paired with its consumer,
+    # not with the next node in the graph (here the other branch's SWG)
+    ch, mh, ifm, k = 8, 16, 6, 3
+    ofm = ifm - k + 1
+    swgs, mvaus, inputs, outputs, inner = [], [], [], [], []
+    for b in "ab":
+        inputs.append(
+            helper.make_tensor_value_info("in_" + b, TensorProto.FLOAT, [1, ifm, ifm, ch])
+        )
+        outputs.append(
+            helper.make_tensor_value_info("out_" + b, TensorProto.FLOAT, [1, ofm, ofm, mh])
+        )
+        inner.append(
+            helper.make_tensor_value_info("win_" + b, TensorProto.FLOAT, [1, ofm, ofm, k * k * ch])
+        )
+        swgs.append(
+            _hw_node(
+                "ConvolutionInputGenerator_rtl",
+                ["in_" + b],
+                ["win_" + b],
+                ConvKernelDim=[k, k],
+                IFMChannels=ch,
+                IFMDim=[ifm, ifm],
+                OFMDim=[ofm, ofm],
+                SIMD=1,
+                Stride=[1, 1],
+                Dilation=[1, 1],
+                inputDataType="INT4",
+                outputDataType="INT4",
+            )
+        )
+        mvaus.append(
+            _hw_node(
+                "MVAU_rtl",
+                ["win_" + b, "w_" + b],
+                ["out_" + b],
+                MW=k * k * ch,
+                MH=mh,
+                SIMD=1,
+                PE=1,
+                numInputVectors=[1, ofm, ofm],
+                inputDataType="INT4",
+                weightDataType="INT4",
+                outputDataType="INT32",
+                noActivation=1,
+                mem_mode="internal_decoupled",
+            )
+        )
+    graph = helper.make_graph(swgs + mvaus, "branches", inputs, outputs, value_info=inner)
+    model = ModelWrapper(qonnx_make_model(graph))
+    for b in "ab":
+        model.set_initializer("w_" + b, np.ones((k * k * ch, mh), dtype=np.float32))
+        for name, dt in (("in_", "INT4"), ("win_", "INT4"), ("w_", "INT4"), ("out_", "INT32")):
+            model.set_tensor_datatype(name + b, DataType[dt])
+    target = ofm * ofm * 4
+    model = model.transform(SetFolding(target, platform="U250", folding_effort=20, seed=0))
+    assert max(model.analysis(exp_cycles_per_layer).values()) <= target
+
+
+@pytest.mark.fpgadataflow
+def test_set_folding_dynamic_mvau():
+    # an MVAU with streamed weights (mem_mode="dynamic") has no weight initializer:
+    # it is folded, but neither its weights nor its MW / MH are padded
+    mw, mh, vecs = 30, 18, 8
+    graph = helper.make_graph(
+        [
+            _hw_node(
+                "MVAU_rtl",
+                ["inp", "wfm"],
+                ["outp"],
+                MW=mw,
+                MH=mh,
+                SIMD=1,
+                PE=1,
+                numInputVectors=[1, vecs],
+                inputDataType="INT4",
+                weightDataType="INT4",
+                outputDataType="INT32",
+                noActivation=1,
+                mem_mode="dynamic",
+            )
+        ],
+        "dynamic_mvau",
+        [
+            helper.make_tensor_value_info("inp", TensorProto.FLOAT, [1, vecs, mw]),
+            helper.make_tensor_value_info("wfm", TensorProto.FLOAT, [mw, mh]),
+        ],
+        [helper.make_tensor_value_info("outp", TensorProto.FLOAT, [1, vecs, mh])],
+    )
+    model = ModelWrapper(qonnx_make_model(graph))
+    for name, dt in (("inp", "INT4"), ("wfm", "INT4"), ("outp", "INT32")):
+        model.set_tensor_datatype(name, DataType[dt])
+    folder = SetFolding(
+        vecs * 6,
+        platform="U250",
+        folding_effort=20,
+        folding_maximum_padding=4,
+        folding_pad_io_nodes=True,
+        seed=0,
+    )
+    model = model.transform(folder)
+    inst = getCustomOp(model.graph.node[0])
+    assert (inst.get_nodeattr("MW"), inst.get_nodeattr("MH")) == (mw, mh)
+    assert model.get_tensor_shape("wfm") == [mw, mh]
+    assert inst.get_exp_cycles() <= vecs * 6
