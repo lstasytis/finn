@@ -138,10 +138,11 @@ def test_resnet50(board, bench_recorder):
 # 2 % of the build's own analytic estimate.
 
 FEATURE_BUILDS = ["V80"]
-# optimizer folding instead of the committed JSON, FIFOs sized by characterization
+# optimizer folding (fixed seed) instead of the committed JSON, FIFOs sized by characterization
 OPTIMIZER_FOLDING = dict(
     folding_config_file=None,
     folding_style="optimizer",
+    folding_seed=1,
     auto_fifo_depths=True,
     auto_fifo_strategy="characterize",
 )

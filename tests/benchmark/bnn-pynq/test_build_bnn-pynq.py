@@ -181,10 +181,11 @@ def test_bnnpynq(board, model, bench_recorder):
 FEATURE_BUILDS = [
     pytest.param(board, model, marks=pytest.mark.xdist_group(model)) for board, model in BNN_BUILDS
 ]
-# optimizer folding instead of the committed JSON, FIFOs sized by characterization
+# optimizer folding (fixed seed) instead of the committed JSON, FIFOs sized by characterization
 OPTIMIZER_FOLDING = dict(
     folding_config_file=None,
     folding_style="optimizer",
+    folding_seed=1,
     auto_fifo_depths=True,
     auto_fifo_strategy="characterize",
 )

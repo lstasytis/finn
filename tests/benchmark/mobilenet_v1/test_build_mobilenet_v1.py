@@ -133,10 +133,11 @@ def test_mobilenetv1(board, bench_recorder):
 
 # ZCU104 is left out: its stitched-IP rtlsim gives X outputs (URAM init)
 FEATURE_BUILDS = ["U55C"]
-# optimizer folding instead of the committed JSON, FIFOs sized by characterization
+# optimizer folding (fixed seed) instead of the committed JSON, FIFOs sized by characterization
 OPTIMIZER_FOLDING = dict(
     folding_config_file=None,
     folding_style="optimizer",
+    folding_seed=1,
     auto_fifo_depths=True,
     auto_fifo_strategy="characterize",
 )
