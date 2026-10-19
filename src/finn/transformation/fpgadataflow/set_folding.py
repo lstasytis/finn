@@ -753,7 +753,29 @@ class Optimizer:
         """Padding budget of a node: none for the model's IO nodes unless allowed."""
         if not self.pad_io_nodes and node_index in (0, len(self.model.graph.node) - 1):
             return 0
+        # nor next to a reshape: a DWC pads or crops rows, the same on both of its sides
+        if self.padding and self._borders_reshape(self.model.graph.node[node_index]):
+            return 0
         return self.padding
+
+    def _borders_reshape(self, node):
+        """Whether a node (an SWG: or the node it feeds, padded with it) streams to or from
+        a node with a different number of rows, e.g. the flatten in front of a dense layer."""
+        nodes = [node]
+        if node.op_type in self.SWG_OPS:
+            nodes.append(self.model.find_consumer(node.output[0]))
+        for n in nodes:
+            # every edge into and out of the node
+            edges = [(self.model.find_producer(name), name, n) for name in n.input]
+            edges += [(n, name, c) for name in n.output for c in self.model.find_consumers(name)]
+            for prod, name, cons in edges:
+                if prod is None or not (is_fpgadataflow_node(prod) and is_fpgadataflow_node(cons)):
+                    continue
+                out_shape = getCustomOp(prod).get_normal_output_shape(list(prod.output).index(name))
+                in_shape = getCustomOp(cons).get_normal_input_shape(list(cons.input).index(name))
+                if np.prod(out_shape[:-1]) != np.prod(in_shape[:-1]):
+                    return True
+        return False
 
     def _param(self, inst, idx, attr, value, bound=(None, None), tensors=False, **kwargs):
         """A Parameter of ``inst`` (node ``idx``); ``bound`` is the (attribute, value) of its

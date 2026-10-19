@@ -371,6 +371,67 @@ def test_set_folding_bottleneck_is_unnamed_dwc():
     assert SetFolding._bottleneck_nodes(scored) == {"MVAU_hls_0", "MVAU_hls_1"}
 
 
+def _flatten_fc_model(rows=4, ch=8):
+    """Four MVAUs, the third one a dense layer over the flattened rows of the second."""
+    mvaus = [(rows, 2 * ch), (rows, ch), (1, rows * ch), (1, ch)]  # (input rows, MW)
+    shapes = [[1, rows, 2 * ch], [1, rows, ch], [1, rows, ch], [1, ch], [1, ch]]
+    names = ["inp", "t0", "t1", "t2", "outp"]
+    model = ModelWrapper(
+        qonnx_make_model(
+            helper.make_graph(
+                [
+                    helper.make_node(
+                        "MVAU_hls",
+                        [names[i], f"w{i}"],
+                        [names[i + 1]],
+                        domain="finn.custom_op.fpgadataflow.hls",
+                        backend="fpgadataflow",
+                        MW=mw,
+                        MH=ch,
+                        SIMD=1,
+                        PE=1,
+                        numInputVectors=[1, n] if n > 1 else [1],
+                        inputDataType="INT4",
+                        weightDataType="INT4",
+                        outputDataType="INT4",
+                        noActivation=1,
+                        binaryXnorMode=0,
+                    )
+                    for i, (n, mw) in enumerate(mvaus)
+                ],
+                "flatten_fc",
+                [helper.make_tensor_value_info("inp", TensorProto.FLOAT, shapes[0])],
+                [helper.make_tensor_value_info("outp", TensorProto.FLOAT, shapes[-1])],
+                value_info=[
+                    helper.make_tensor_value_info(n, TensorProto.FLOAT, s)
+                    for n, s in zip(names[1:-1], shapes[1:-1])
+                ],
+            )
+        )
+    )
+    for i, (_, mw) in enumerate(mvaus):
+        model.set_initializer(f"w{i}", np.ones((mw, ch), dtype=np.float32))
+        model.set_tensor_datatype(f"w{i}", DataType["INT4"])
+    model.set_tensor_datatype("inp", DataType["INT4"])
+    return model.transform(GiveUniqueNodeNames())
+
+
+@pytest.mark.fpgadataflow
+def test_set_folding_no_padding_next_to_reshape():
+    # a DWC pads or crops rows, the same on both sides: across the flatten in front
+    # of a dense layer neither neighbour may be padded
+    model = _flatten_fc_model()
+    opt = Optimizer(model, "test", {"max_cycles": 1}, padding=4, pad_io_nodes=True)
+    assert [opt._max_padding_for_node(i) for i in range(4)] == [4, 0, 0, 4]
+    folder = SetFolding(
+        32, platform="Pynq-Z1", folding_effort=10, folding_maximum_padding=4, seed=0
+    )
+    folded = model.transform(folder)
+    assert getCustomOp(folded.graph.node[1]).get_nodeattr("MH") == 8
+    assert getCustomOp(folded.graph.node[2]).get_nodeattr("MW") == 32
+    _with_dwcs(folded, "Pynq-Z1")
+
+
 def _fifo_lut(model, platform):
     per_node = model.analysis(lambda m: res_estimation(m, part_map[platform]))
     return sum(
