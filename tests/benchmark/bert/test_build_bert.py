@@ -148,7 +148,7 @@ def test_bert(board, bench_recorder):
 
 FEATURE_BUILDS = ["VCK190"]
 FOLDING_MAX_PADDING = 4
-DWC_SEEDS = [1, 2, 3, 4]
+DWC_SEEDS = list(range(1, 9))
 # optimizer folding (fixed seed) instead of the committed JSON, FIFOs sized analytically
 OPTIMIZER_FOLDING = dict(
     folding_config_file=None,

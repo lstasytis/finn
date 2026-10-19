@@ -182,7 +182,7 @@ FEATURE_BUILDS = [
     pytest.param(board, model, marks=pytest.mark.xdist_group(model)) for board, model in BNN_BUILDS
 ]
 FOLDING_MAX_PADDING = 4
-DWC_SEEDS = [1, 2, 3, 4]
+DWC_SEEDS = list(range(1, 9))
 # optimizer folding (fixed seed) instead of the committed JSON, FIFOs sized analytically
 OPTIMIZER_FOLDING = dict(
     folding_config_file=None,
