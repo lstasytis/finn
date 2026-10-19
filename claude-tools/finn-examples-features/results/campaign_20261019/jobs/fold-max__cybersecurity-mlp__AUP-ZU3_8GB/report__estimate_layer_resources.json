@@ -1,0 +1,112 @@
+{
+  "StreamingFIFO_rtl_0": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 613,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "MVAU_hls_0": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 28886,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "StreamingFIFO_rtl_1": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 16,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "StreamingDataWidthConverter_rtl_0": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 132,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "StreamingFIFO_rtl_2": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 136,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "MVAU_hls_1": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 4208,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "StreamingFIFO_rtl_3": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 16,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "StreamingDataWidthConverter_rtl_1": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 132,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "StreamingFIFO_rtl_4": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 136,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "MVAU_hls_2": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 4204,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "StreamingFIFO_rtl_5": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 16,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "MVAU_hls_3": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 364,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "StreamingFIFO_rtl_6": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 21,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "total": {
+    "BRAM_18K": 0.0,
+    "LUT": 38880.0,
+    "URAM": 0.0,
+    "DSP": 0.0
+  }
+}

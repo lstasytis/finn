@@ -1,0 +1,13 @@
+{
+  "output_dir": "/home/lstasytis/finn/build/finn_build/fx/folding/fold-max_resnet18_resnet18_8w8a_U55C_f0sf8e9q",
+  "est_fps": null,
+  "ref_est_fps": 1695.4210069444443,
+  "rtlsim_fps": null,
+  "rtlsim_vs_est": null,
+  "est_vs_ref": null,
+  "verified": false,
+  "test": "fold-max",
+  "step_times_s": {
+    "step_target_fps_parallelization": 0.1559591293334961
+  }
+}

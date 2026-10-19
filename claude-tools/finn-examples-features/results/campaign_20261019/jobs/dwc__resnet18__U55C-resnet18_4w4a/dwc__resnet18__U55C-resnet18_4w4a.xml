@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="83.241" timestamp="2026-10-19T13:44:02.501265" hostname="finn_dev_lstasytis"><testcase classname="tests.benchmark.resnet18.test_build_resnet18" name="test_resnet18_dwc[U55C-resnet18_4w4a]" time="81.409"><properties><property name="finn_test_rng_seed" value="1177715499" /></properties><failure message="AssertionError: build failed, see /home/lstasytis/finn/build/finn_build/fx/dwc/dwc-est_resnet18_resnet18_4w4a_U55C_7bb2taky/build_dataflow.log&#10;assert -1 == 0&#10;  +-1&#10;  -0">board = 'U55C', model = 'resnet18_4w4a'
+
+    @pytest.mark.slow
+    @pytest.mark.vivado
+    @pytest.mark.finn_examples
+    @pytest.mark.dwc
+    @pytest.mark.parametrize("board,model", FEATURE_BUILDS)
+    def test_resnet18_dwc(board, model):
+        target_fps = int(estimated_throughput(reference_estimate(board, model)))
+        padded = dict(
+            OPTIMIZER_FOLDING, target_fps=target_fps, folding_maximum_padding=FOLDING_MAX_PADDING
+        )
+        # the folding search is cheap: skip the hardware build if nothing gets padded
+&gt;       if not run_feature_build(board, model, "dwc-est", estimate_only=True, **padded)["pad_dwcs"]:
+
+tests/benchmark/resnet18/test_build_resnet18.py:258: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+board = 'U55C', model = 'resnet18_4w4a', name = 'dwc-est', estimate_only = True
+overrides = {'auto_fifo_depths': True, 'auto_fifo_strategy': 'heuristic_analytical', 'folding_config_file': None, 'folding_maximum_padding': 4, ...}
+ref_dir = '/home/lstasytis/finn/build/finn_build/fx/dwc/est_resnet18_resnet18_4w4a_U55C_jv8qa6p2'
+output_dir = '/home/lstasytis/finn/build/finn_build/fx/dwc/dwc-est_resnet18_resnet18_4w4a_U55C_7bb2taky'
+cfg = DataflowBuildConfig(output_dir='/home/lstasytis/finn/build/finn_build/fx/dwc/dwc-est_resnet18_resnet18_4w4a_U55C_7bb2t...y_range=None, cpp_driver_version='latest', mute_config_assertions=False, inject_steps_after={}, inject_steps_before={})
+key = 'folding_maximum_padding', value = 4
+step_times = {'step_target_fps_parallelization': 0.04800271987915039}, ret = -1
+
+    def run_feature_build(board, model, name, estimate_only=False, **overrides):
+        """Resume the reference checkpoint with ``overrides`` and, unless
+        ``estimate_only``, check the stitched IP in rtlsim. Returns the metrics."""
+        ref_dir = reference_estimate(board, model)
+        output_dir = make_build_dir(f"{name}_resnet18_{model}_{board}_")
+        cfg = configure_build(
+            board,
+            model,
+            output_dir,
+            steps=feature_steps(resnet18_build_steps),
+            generate_outputs=ESTIMATE_OUTPUTS if estimate_only else FEATURE_OUTPUTS,
+            stop_step=ESTIMATE_PHASE if estimate_only else None,
+            verify_steps=[] if estimate_only else ["stitched_ip_rtlsim"],
+            stitched_ip_gen_dcp=False,
+            save_intermediate_models=True,
+            **overrides,
+        )
+        # make_benchmark_cfg drops None values: apply them afterwards (e.g. no folding JSON)
+        for key, value in overrides.items():
+            if value is None:
+                setattr(cfg, key, None)
+        with timed_steps() as step_times:
+            ret = build.build_dataflow_cfg(resume_checkpoint(ref_dir, output_dir), cfg)
+        metrics = feature_metrics(output_dir, ref_dir, test=name, step_times_s=step_times)
+&gt;       assert ret == 0, f"build failed, see {output_dir}/build_dataflow.log"
+E       AssertionError: build failed, see /home/lstasytis/finn/build/finn_build/fx/dwc/dwc-est_resnet18_resnet18_4w4a_U55C_7bb2taky/build_dataflow.log
+E       assert -1 == 0
+E         +-1
+E         -0
+
+tests/benchmark/resnet18/test_build_resnet18.py:201: AssertionError</failure></testcase></testsuite></testsuites>

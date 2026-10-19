@@ -1,0 +1,16 @@
+{
+  "output_dir": "/home/lstasytis/finn/build/finn_build/fx/fifo/fifo-heuristic_analytical_bnn-pynq_tfc-w1a1_AUP-ZU3_8GB_4ngzk3if",
+  "est_fps": 11111111.111111112,
+  "ref_est_fps": 11111111.111111112,
+  "rtlsim_fps": 11111111.111111112,
+  "rtlsim_vs_est": 1.0,
+  "est_vs_ref": 1.0,
+  "verified": true,
+  "fifo_kbit": 18.279296875,
+  "pad_dwcs": 0,
+  "test": "fifo-heuristic_analytical",
+  "step_times_s": {
+    "step_target_fps_parallelization": 2.86102294921875e-05,
+    "step_set_fifo_depths": 0.13379812240600586
+  }
+}

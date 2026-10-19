@@ -1,0 +1,23 @@
+{
+  "N_IN_TXNS": 32,
+  "N_OUT_TXNS": 2,
+  "cycles": 7121,
+  "N": 2,
+  "latency_cycles": 5066,
+  "interval_cycles": 2054,
+  "interval_valid": 1,
+  "completed_output_frames": 2,
+  "steady_state_frames": 1,
+  "steady_state_cycles": 2054,
+  "TIMEOUT": 0,
+  "UNFINISHED_INS": 0,
+  "UNFINISHED_OUTS": 0,
+  "RUNTIME_S": 3,
+  "runtime[ms]": 0.07121000000000001,
+  "throughput[images/s]": 28085.942985535738,
+  "fclk[mhz]": 100.0,
+  "interval_is_steady_state": true,
+  "fps_from_interval": 48685.49172346641,
+  "stable_throughput_valid": true,
+  "stable_throughput[images/s]": 48685.49172346641
+}

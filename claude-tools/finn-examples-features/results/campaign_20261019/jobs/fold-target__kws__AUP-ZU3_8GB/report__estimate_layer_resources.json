@@ -1,0 +1,160 @@
+{
+  "StreamingFIFO_rtl_0": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 45,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "Thresholding_rtl_0": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 288.0,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "StreamingFIFO_rtl_1": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 16,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "StreamingDataWidthConverter_rtl_0": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 17,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "StreamingFIFO_rtl_2": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 153,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "MVAU_hls_0": {
+    "BRAM_18K": 24,
+    "BRAM_efficiency": 0.8506944444444444,
+    "LUT": 2359,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "StreamingFIFO_rtl_3": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 56,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "StreamingDataWidthConverter_rtl_1": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 97,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "StreamingFIFO_rtl_4": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 109,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "MVAU_hls_1": {
+    "BRAM_18K": 12,
+    "BRAM_efficiency": 0.8888888888888888,
+    "LUT": 941,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "StreamingFIFO_rtl_5": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 16,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "StreamingDataWidthConverter_rtl_2": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 101,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "StreamingFIFO_rtl_6": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 104,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "MVAU_hls_2": {
+    "BRAM_18K": 12,
+    "BRAM_efficiency": 0.8888888888888888,
+    "LUT": 941,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "StreamingFIFO_rtl_7": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 73,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "MVAU_hls_3": {
+    "BRAM_18K": 1,
+    "BRAM_efficiency": 0.5,
+    "LUT": 328,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "StreamingFIFO_rtl_8": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 24,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "LabelSelect_hls_0": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 0,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "StreamingFIFO_rtl_9": {
+    "BRAM_18K": 0,
+    "BRAM_efficiency": 1,
+    "LUT": 21,
+    "URAM": 0,
+    "URAM_efficiency": 1,
+    "DSP": 0
+  },
+  "total": {
+    "BRAM_18K": 49.0,
+    "LUT": 5689.0,
+    "URAM": 0.0,
+    "DSP": 0.0
+  }
+}

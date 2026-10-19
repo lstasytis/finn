@@ -1,0 +1,17 @@
+{
+  "StreamingFIFO_rtl_0": 0,
+  "Thresholding_rtl_0": 16,
+  "StreamingFIFO_rtl_1": 0,
+  "MVAU_hls_0": 519,
+  "StreamingFIFO_rtl_2": 0,
+  "MVAU_hls_1": 519,
+  "StreamingFIFO_rtl_3": 0,
+  "MVAU_hls_2": 519,
+  "StreamingFIFO_rtl_4": 0,
+  "StreamingDataWidthConverter_rtl_0": 128,
+  "StreamingFIFO_rtl_5": 0,
+  "MVAU_hls_3": 135,
+  "StreamingFIFO_rtl_6": 0,
+  "LabelSelect_hls_0": 6,
+  "StreamingFIFO_rtl_7": 0
+}

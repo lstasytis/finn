@@ -1,0 +1,16 @@
+{
+  "output_dir": "/home/lstasytis/finn/build/finn_build/fx/fifo/fifo-heuristic_rtlsim_bnn-pynq_tfc-w2a2_AUP-ZU3_8GB_5td08i0u",
+  "est_fps": 6666666.666666667,
+  "ref_est_fps": 6666666.666666667,
+  "rtlsim_fps": 6666666.666666667,
+  "rtlsim_vs_est": 1.0,
+  "est_vs_ref": 1.0,
+  "verified": true,
+  "fifo_kbit": 6.6875,
+  "pad_dwcs": 0,
+  "test": "fifo-heuristic_rtlsim",
+  "step_times_s": {
+    "step_target_fps_parallelization": 2.6464462280273438e-05,
+    "step_set_fifo_depths": 1225.3455529212952
+  }
+}

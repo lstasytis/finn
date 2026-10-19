@@ -1,0 +1,16 @@
+{
+  "output_dir": "/home/lstasytis/finn/build/finn_build/fx/folding/fold-max_bnn-pynq_lfc-w1a1_AUP-ZU3_8GB__xfsdlny",
+  "est_fps": 192678.2273603083,
+  "ref_est_fps": 192678.2273603083,
+  "rtlsim_fps": 192678.2273603083,
+  "rtlsim_vs_est": 1.0,
+  "est_vs_ref": 1.0,
+  "verified": true,
+  "fifo_kbit": 5.3544921875,
+  "pad_dwcs": 0,
+  "test": "fold-max",
+  "step_times_s": {
+    "step_target_fps_parallelization": 34.03198790550232,
+    "step_set_fifo_depths": 0.6805803775787354
+  }
+}

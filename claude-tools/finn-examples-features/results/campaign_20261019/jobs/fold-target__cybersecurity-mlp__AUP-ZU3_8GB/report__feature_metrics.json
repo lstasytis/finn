@@ -1,0 +1,16 @@
+{
+  "output_dir": "/home/lstasytis/finn/build/finn_build/fx/folding/fold-target_cybersecurity-mlp_AUP-ZU3_8GB_trzoyway",
+  "est_fps": 12500000.0,
+  "ref_est_fps": 12500000.0,
+  "rtlsim_fps": 16666666.666666666,
+  "rtlsim_vs_est": 1.3333333333333333,
+  "est_vs_ref": 1.0,
+  "verified": true,
+  "fifo_kbit": 3.6845703125,
+  "pad_dwcs": 0,
+  "test": "fold-target",
+  "step_times_s": {
+    "step_target_fps_parallelization": 1.2725751399993896,
+    "step_set_fifo_depths": 0.11627554893493652
+  }
+}

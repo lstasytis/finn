@@ -1,0 +1,7 @@
+{
+  "critical_path_cycles": 69821475,
+  "max_cycles": 1105920,
+  "max_cycles_node_name": "MVAU_rtl_1",
+  "estimated_throughput_fps": 90.42245370370371,
+  "estimated_latency_ns": 698214750.0
+}

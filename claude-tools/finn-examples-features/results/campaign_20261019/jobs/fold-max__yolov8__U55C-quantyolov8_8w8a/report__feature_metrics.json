@@ -1,0 +1,13 @@
+{
+  "output_dir": "/home/lstasytis/finn/build/finn_build/fx/folding/fold-max_yolov8_quantyolov8_8w8a_U55C_oeyenzm7",
+  "est_fps": null,
+  "ref_est_fps": 90.42245370370371,
+  "rtlsim_fps": null,
+  "rtlsim_vs_est": null,
+  "est_vs_ref": null,
+  "verified": false,
+  "test": "fold-max",
+  "step_times_s": {
+    "step_target_fps_parallelization": 0.27295827865600586
+  }
+}

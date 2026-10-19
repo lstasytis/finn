@@ -1,0 +1,16 @@
+{
+  "output_dir": "/home/lstasytis/finn/build/finn_build/fx/folding/fold-max_mobilenet_v1_U55C_b4hzwgx8",
+  "est_fps": 6642.355645005944,
+  "ref_est_fps": 422.7200173146119,
+  "rtlsim_fps": 5633.390230574662,
+  "rtlsim_vs_est": 0.848101265822785,
+  "est_vs_ref": 15.713369069206703,
+  "verified": true,
+  "fifo_kbit": 641.7724609375,
+  "pad_dwcs": 0,
+  "test": "fold-max",
+  "step_times_s": {
+    "step_target_fps_parallelization": 1172.8856070041656,
+    "step_set_fifo_depths": 30.71886420249939
+  }
+}

@@ -1,0 +1,1 @@
+/home/lstasytis/finn/build/finn_build/fx/fifo/fifo-heuristic_analytical_bnn-pynq_lfc-w1a1_AUP-ZU3_8GB_y22riq1k

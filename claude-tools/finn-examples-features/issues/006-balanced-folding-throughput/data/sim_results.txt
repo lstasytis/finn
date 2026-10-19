@@ -1,0 +1,68 @@
+ns_mnet_ConvolutionInputGenerator_rtl_0.log:RESULT ConvolutionInputGenerator_rtl_0 N 4 latency 49951 last_interval 50176 avg_interval 50176.333333333336 in_txns 200704 out_txns 49284 timeout 0
+ns_mnet_ConvolutionInputGenerator_rtl_12.log:RESULT ConvolutionInputGenerator_rtl_12 N 4 latency 34533 last_interval 35102 avg_interval 35102.0 in_txns 65536 out_txns 112896 timeout 0
+ns_mnet_Thresholding_rtl_3.log:RESULT Thresholding_rtl_3 N 4 latency 50185 last_interval 50176 avg_interval 50176.333333333336 in_txns 200704 out_txns 200704 timeout 0
+ns_mnet_VVAU_hls_0.log:RESULT VVAU_hls_0 N 4 latency 36975 last_interval 36973 avg_interval 36973.0 in_txns 147852 out_txns 49284 timeout 0
+ns_w2a2_ConvolutionInputGenerator_rtl_3.log:RESULT ConvolutionInputGenerator_rtl_3 N 4 latency 21089 last_interval 21090 avg_interval 21090.0 in_txns 12544 out_txns 82944 timeout 0
+ns_w2a2_MVAU_hls_0.log:RESULT MVAU_hls_0 N 4 latency 24304 last_interval 24306 avg_interval 24306.0 in_txns 97200 out_txns 3600 timeout 0
+df_w2a2.log:RESULT DEEPFIFO:8192 N 2 latency 107897 last_interval 27655 avg_interval 27655.0 in_txns 6144 out_txns 2 timeout 0
+df_w2a2.log:RESULT DEEPFIFO:8192 N 4 latency 107897 last_interval 27655 avg_interval 27655.0 in_txns 12288 out_txns 4 timeout 0
+d_deep.log:RESULT set:ALL=16384 N 2 latency 1410974 last_interval 788552 avg_interval 788552.0 timeout 0
+gt_w2a2.log:RESULT gauge:throttle N 2 latency 107737 last_interval 27656 avg_interval 27656.0 timeout 0
+ns_mnet_ConvolutionInputGenerator_rtl_4.log:RESULT ConvolutionInputGenerator_rtl_4 N 4 latency 29499 last_interval 29528 avg_interval 29528.0 in_txns 53824 out_txns 112896 timeout 0
+ns_w1a2_ConvolutionInputGenerator_rtl_3.log:RESULT ConvolutionInputGenerator_rtl_3 N 4 latency 10545 last_interval 10546 avg_interval 10546.0 in_txns 6272 out_txns 41472 timeout 0
+ns_w2a2_MVAU_hls_2.log:RESULT MVAU_hls_2 N 4 latency 27653 last_interval 27655 avg_interval 27655.0 in_txns 1728 out_txns 36864 timeout 0
+x_gtsrb_cov.log:RESULT set:StreamingFIFO_rtl_8=65 N 2 latency 58510 last_interval 12806 avg_interval 12806.0 timeout 0
+g_w2a2.log:RESULT gauge N 2 latency 107737 last_interval 27655 avg_interval 27655.0 timeout 0
+ns_mnet_FMPadding_rtl_6.log:RESULT FMPadding_rtl_6 N 4 latency 32768 last_interval 32768 avg_interval 32768.0 in_txns 100352 out_txns 131072 timeout 0
+ns_w1a2_MVAU_hls_0.log:RESULT MVAU_hls_0 N 4 latency 10804 last_interval 10806 avg_interval 10806.0 in_txns 10800 out_txns 14400 timeout 0
+ns_w2a2_MVAU_hls_4.log:RESULT MVAU_hls_4 N 4 latency 27653 last_interval 27655 avg_interval 27655.0 in_txns 432 out_txns 9216 timeout 0
+mf_w2a2.log:RESULT 2 latency 107769 last_interval 28226 avg_interval 28226.0 cycles 135996
+mf_w2a2.log:RESULT 4 latency 107769 last_interval 28226 avg_interval 28226.0 cycles 192448
+mf_w2a2.log:RESULT 8 latency 107769 last_interval 28226 avg_interval 28226.0 cycles 305352
+x_w1a1max_cov.log:RESULT set:StreamingFIFO_rtl_4=56 N 2 latency 53249 last_interval 14406 avg_interval 14406.0 timeout 0
+x_w2a2_f1521.log:RESULT set:StreamingFIFO_rtl_15=48,StreamingFIFO_rtl_21=49 N 2 latency 107769 last_interval 27655 avg_interval 27655.0 timeout 0
+ns_mnet_Pool_hls_0.log:RESULT Pool_hls_0 N 4 latency 25091 last_interval 25088 avg_interval 25088.0 in_txns 100352 out_txns 2048 timeout 0
+ns_w1a2_StreamingDataWidthConverter_rtl_5.log:RESULT StreamingDataWidthConverter_rtl_5 N 4 latency 10368 last_interval 10368 avg_interval 10368.333333333334 in_txns 41472 out_txns 5184 timeout 0
+df_w1a2.log:RESULT DEEPFIFO:8192 N 2 latency 37660 last_interval 12551 avg_interval 12551.0 in_txns 6144 out_txns 2 timeout 0
+df_w1a2.log:RESULT DEEPFIFO:8192 N 4 latency 37660 last_interval 12551 avg_interval 12551.0 in_txns 12288 out_txns 4 timeout 0
+ns_mnet_StreamingDataWidthConverter_rtl_6.log:RESULT StreamingDataWidthConverter_rtl_6 N 4 latency 28224 last_interval 28224 avg_interval 28224.0 in_txns 12544 out_txns 112896 timeout 0
+x_w1a2_f8_260.log:RESULT set:StreamingFIFO_rtl_8=260 N 2 latency 37516 last_interval 12551 avg_interval 12551.0 timeout 0
+g_w1a2.log:RESULT gauge N 2 latency 37475 last_interval 12551 avg_interval 12551.0 timeout 0
+mf_w1a2.log:RESULT 2 latency 37513 last_interval 13262 avg_interval 13262.0 cycles 50776
+mf_w1a2.log:RESULT 4 latency 37513 last_interval 13262 avg_interval 13262.0 cycles 77300
+mf_w1a2.log:RESULT 8 latency 37513 last_interval 13262 avg_interval 13262.0 cycles 130348
+ns_w1a2_StreamingDataWidthConverter_rtl_8.log:RESULT StreamingDataWidthConverter_rtl_8 N 4 latency 10368 last_interval 10368 avg_interval 10368.333333333334 in_txns 41472 out_txns 576 timeout 0
+ns_mnet_StreamingDataWidthConverter_rtl_7.log:RESULT StreamingDataWidthConverter_rtl_7 N 4 latency 50176 last_interval 50176 avg_interval 50176.0 in_txns 12544 out_txns 200704 timeout 0
+ns_mnet_FMPadding_rtl_12.log:RESULT FMPadding_rtl_12 N 4 latency 41472 last_interval 41472 avg_interval 41472.0 in_txns 100352 out_txns 165888 timeout 0
+ns_mnet_ConvolutionInputGenerator_rtl_1.log:RESULT ConvolutionInputGenerator_rtl_1 N 4 latency 12769 last_interval 12770 avg_interval 12770.0 in_txns 51076 out_txns 49284 timeout 0
+x_w1a2_f8.log:RESULT set:StreamingFIFO_rtl_8=404 N 2 latency 37516 last_interval 12551 avg_interval 12551.0 timeout 0
+x_w1a2_f8.log:RESULT set:StreamingFIFO_rtl_8=404 N 4 latency 37516 last_interval 12551 avg_interval 12551.0 timeout 0
+ns_mnet_MVAU_rtl_0.log:RESULT MVAU_rtl_0 N 4 latency 25611 last_interval 25600 avg_interval 25600.0 in_txns 4096 out_txns 100 timeout 0
+ns_mnet_MVAU_hls_13.log:RESULT MVAU_hls_13 N 4 latency 50185 last_interval 50186 avg_interval 50186.0 in_txns 196 out_txns 200704 timeout 0
+ns_w1a2_ConvolutionInputGenerator_rtl_6.log:RESULT ConvolutionInputGenerator_rtl_6 N 4 latency 10881 last_interval 10882 avg_interval 10882.0 in_txns 12800 out_txns 41472 timeout 0
+ns_w2a2_ConvolutionInputGenerator_rtl_0.log:RESULT ConvolutionInputGenerator_rtl_0 N 4 latency 24475 last_interval 24476 avg_interval 24476.0 in_txns 12288 out_txns 97200 timeout 0
+ns_mnet_MVAU_hls_2.log:RESULT MVAU_hls_2 N 4 latency 50184 last_interval 50185 avg_interval 50185.0 in_txns 12544 out_txns 200704 timeout 0
+ns_w1a2_StreamingDataWidthConverter_rtl_3.log:RESULT StreamingDataWidthConverter_rtl_3 N 4 latency 9408 last_interval 9408 avg_interval 9408.0 in_txns 28224 out_txns 12544 timeout 0
+ns_w2a2_MVAU_hls_3.log:RESULT MVAU_hls_3 N 4 latency 25605 last_interval 25607 avg_interval 25607.0 in_txns 1600 out_txns 25600 timeout 0
+ns_mnet_VVAU_hls_1.log:RESULT VVAU_hls_1 N 4 latency 28234 last_interval 28232 avg_interval 28232.0 in_txns 112896 out_txns 12544 timeout 0
+ns_w1a2_MVAU_hls_1.log:RESULT MVAU_hls_1 N 4 latency 12549 last_interval 12551 avg_interval 12551.0 in_txns 12544 out_txns 12544 timeout 0
+gt_w1a2.log:RESULT gauge:throttle N 2 latency 37475 last_interval 12551 avg_interval 12551.0 timeout 0
+ns_w1a2_MVAU_hls_2.log:RESULT MVAU_hls_2 N 4 latency 10373 last_interval 10375 avg_interval 10375.0 in_txns 5184 out_txns 4608 timeout 0
+ns_w2a2_MVAU_hls_1.log:RESULT MVAU_hls_1 N 4 latency 25093 last_interval 25095 avg_interval 25095.0 in_txns 6272 out_txns 50176 timeout 0
+x_gtsrb_rd.log:RESULT set:StreamingFIFO_rtl_8=71 N 2 latency 58510 last_interval 12806 avg_interval 12806.0 timeout 0
+x_w2a2_f21.log:RESULT set:StreamingFIFO_rtl_21=49 N 2 latency 107769 last_interval 28226 avg_interval 28226.0 timeout 0
+x_w1a1max_rd.log:RESULT set:StreamingFIFO_rtl_4=58 N 2 latency 53249 last_interval 14406 avg_interval 14406.0 timeout 0
+x_w2a2_f15.log:RESULT set:StreamingFIFO_rtl_15=48 N 2 latency 107769 last_interval 27655 avg_interval 27655.0 timeout 0
+x_w2a2_f11.log:RESULT set:StreamingFIFO_rtl_11=98 N 2 latency 107769 last_interval 28226 avg_interval 28226.0 timeout 0
+x_w1a2_f8_100.log:RESULT set:StreamingFIFO_rtl_8=100 N 2 latency 37513 last_interval 12881 avg_interval 12881.0 timeout 0
+x_w1a2_f8_184.log:RESULT set:StreamingFIFO_rtl_8=184 N 2 latency 37513 last_interval 12551 avg_interval 12551.0 timeout 0
+x_w1a2_f8_190.log:RESULT set:StreamingFIFO_rtl_8=190 N 2 latency 37513 last_interval 12551 avg_interval 12551.0 timeout 0
+m_fix.log:RESULT set:StreamingFIFO_rtl_17=43,StreamingFIFO_rtl_19=25,Streamin N 2 latency 142392 last_interval 56832 avg_interval 56832.0 timeout 0
+m_deep.log:RESULT set:ALL=8192 N 2 latency 142932 last_interval 56832 avg_interval 56832.0 timeout 0
+y_kv_base.log:RESULT set:StreamingFIFO_rtl_13=41,StreamingFIFO_rtl_22=477,Streami N 2 latency 88561 last_interval 18439 avg_interval 18439.0 timeout 0
+y_kv_cover.log:RESULT set:StreamingFIFO_rtl_13=50 N 2 latency 88561 last_interval 18439 avg_interval 18439.0 timeout 0
+x_w2a2_peak3.log:RESULT set:StreamingFIFO_rtl_11=98,StreamingFIFO_rtl_15=48,Streamin N 2 latency 107769 last_interval 27655 avg_interval 27655.0 timeout 0
+x_w2a2_peak3.log:RESULT set:StreamingFIFO_rtl_11=98,StreamingFIFO_rtl_15=48,Streamin N 4 latency 107769 last_interval 27655 avg_interval 27655.0 timeout 0
+y_w2a2_base.log:RESULT set:StreamingFIFO_rtl_15=32,StreamingFIFO_rtl_21=41 N 2 latency 107769 last_interval 28226 avg_interval 28226.0 timeout 0
+x_w2a2tgt_rd.log:RESULT set:StreamingFIFO_rtl_3=242 N 2 latency 44054 last_interval 33206 avg_interval 33206.0 timeout 0
+x_w2a2tgt_cov.log:RESULT set:StreamingFIFO_rtl_3=225 N 2 latency 44054 last_interval 33206 avg_interval 33206.0 timeout 0

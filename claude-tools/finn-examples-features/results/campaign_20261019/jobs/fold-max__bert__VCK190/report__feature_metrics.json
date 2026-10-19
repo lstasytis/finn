@@ -1,0 +1,13 @@
+{
+  "output_dir": "/home/lstasytis/finn/build/finn_build/fx/folding/fold-max_bert_VCK190_3e90jhfe",
+  "est_fps": null,
+  "ref_est_fps": 508.6263020833333,
+  "rtlsim_fps": null,
+  "rtlsim_vs_est": null,
+  "est_vs_ref": null,
+  "verified": false,
+  "test": "fold-max",
+  "step_times_s": {
+    "step_target_fps_parallelization": 0.13115501403808594
+  }
+}

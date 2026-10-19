@@ -1,0 +1,420 @@
+{
+ "updated": "2026-10-19 19:10:10.388461",
+ "budget": 160,
+ "running": {},
+ "pending": [],
+ "finished": {
+  "fifo__kws__AUP-ZU3_8GB": {
+   "result": "passed",
+   "duration_s": 282.29083275794983
+  },
+  "fifo__bnn-pynq__AUP-ZU3_8GB-cnv-w1a2": {
+   "result": "passed",
+   "duration_s": 714.778028011322
+  },
+  "fifo__bnn-pynq__AUP-ZU3_8GB-cnv-w2a2": {
+   "result": "passed",
+   "duration_s": 754.8669695854187
+  },
+  "fifo__bnn-pynq__KV260_SOM-cnv-w1a2": {
+   "result": "passed",
+   "duration_s": 752.9279267787933
+  },
+  "fifo__bnn-pynq__U55C-cnv-w2a2": {
+   "result": "passed",
+   "duration_s": 773.0137102603912
+  },
+  "fifo__gtsrb__AUP-ZU3_8GB": {
+   "result": "passed",
+   "duration_s": 1255.734593629837
+  },
+  "fifo__resnet18__U55C-resnet18_8w8a": {
+   "result": "skipped",
+   "duration_s": 22.02279543876648
+  },
+  "fifo__bnn-pynq__AUP-ZU3_8GB-cnv-w1a1": {
+   "result": "passed",
+   "duration_s": 1490.4177043437958
+  },
+  "fifo__bnn-pynq__AUP-ZU3_8GB-lfc-w1a2": {
+   "result": "passed",
+   "duration_s": 2373.4572246074677
+  },
+  "fifo__bnn-pynq__AUP-ZU3_8GB-lfc-w1a1": {
+   "result": "passed",
+   "duration_s": 2497.845558643341
+  },
+  "fold-target__kws__AUP-ZU3_8GB": {
+   "result": "passed",
+   "duration_s": 204.51925611495972
+  },
+  "fifo__mobilenet_v1__U55C": {
+   "result": "passed",
+   "duration_s": 1553.1760623455048
+  },
+  "fold-max__kws__AUP-ZU3_8GB": {
+   "result": "passed",
+   "duration_s": 329.43693017959595
+  },
+  "fifo__bnn-pynq__AUP-ZU3_8GB-tfc-w1a2": {
+   "result": "passed",
+   "duration_s": 1020.8134474754333
+  },
+  "fifo__bnn-pynq__AUP-ZU3_8GB-tfc-w2a2": {
+   "result": "passed",
+   "duration_s": 1019.1615345478058
+  },
+  "fold-target__resnet18__U55C-resnet18_4w4a": {
+   "result": "failed",
+   "duration_s": 22.023974180221558
+  },
+  "fold-target__resnet18__U55C-resnet18_8w8a": {
+   "result": "failed",
+   "duration_s": 22.022927284240723
+  },
+  "fold-target__yolov8__U55C-quantyolov8_4w4a": {
+   "result": "failed",
+   "duration_s": 22.023680686950684
+  },
+  "fold-target__yolov8__U55C-quantyolov8_8w8a": {
+   "result": "failed",
+   "duration_s": 22.012819290161133
+  },
+  "fold-target__bert__VCK190": {
+   "result": "failed",
+   "duration_s": 22.025445222854614
+  },
+  "fold-target__resnet50__V80": {
+   "result": "failed",
+   "duration_s": 22.020570993423462
+  },
+  "fifo__bert__VCK190": {
+   "result": "passed",
+   "duration_s": 3191.4144282341003
+  },
+  "fold-max__resnet18__U55C-resnet18_4w4a": {
+   "result": "failed",
+   "duration_s": 22.02421498298645
+  },
+  "fold-max__resnet18__U55C-resnet18_8w8a": {
+   "result": "failed",
+   "duration_s": 22.003771781921387
+  },
+  "fold-max__yolov8__U55C-quantyolov8_4w4a": {
+   "result": "failed",
+   "duration_s": 22.02417778968811
+  },
+  "fold-max__yolov8__U55C-quantyolov8_8w8a": {
+   "result": "failed",
+   "duration_s": 22.022653102874756
+  },
+  "fold-max__bert__VCK190": {
+   "result": "failed",
+   "duration_s": 22.023283004760742
+  },
+  "fold-max__resnet50__V80": {
+   "result": "failed",
+   "duration_s": 22.023166179656982
+  },
+  "fifo__cybersecurity-mlp__AUP-ZU3_8GB": {
+   "result": "passed",
+   "duration_s": 3773.9663500785828
+  },
+  "dwc__resnet18__U55C-resnet18_4w4a": {
+   "result": "failed",
+   "duration_s": 102.09229755401611
+  },
+  "dwc__resnet18__U55C-resnet18_8w8a": {
+   "result": "failed",
+   "duration_s": 102.11208963394165
+  },
+  "dwc__yolov8__U55C-quantyolov8_4w4a": {
+   "result": "failed",
+   "duration_s": 237.6010935306549
+  },
+  "fold-target__bnn-pynq__AUP-ZU3_8GB-tfc-w1a1": {
+   "result": "failed",
+   "duration_s": 709.1519165039062
+  },
+  "fold-target__bnn-pynq__AUP-ZU3_8GB-lfc-w1a1": {
+   "result": "passed",
+   "duration_s": 604.9325816631317
+  },
+  "fold-target__bnn-pynq__AUP-ZU3_8GB-tfc-w1a2": {
+   "result": "passed",
+   "duration_s": 1132.407526254654
+  },
+  "fold-target__cybersecurity-mlp__AUP-ZU3_8GB": {
+   "result": "passed",
+   "duration_s": 3794.641009569168
+  },
+  "fold-target__bnn-pynq__AUP-ZU3_8GB-tfc-w2a2": {
+   "result": "passed",
+   "duration_s": 1213.3329818248749
+  },
+  "fold-target__bnn-pynq__AUP-ZU3_8GB-cnv-w1a1": {
+   "result": "passed",
+   "duration_s": 832.0879654884338
+  },
+  "fold-target__bnn-pynq__AUP-ZU3_8GB-cnv-w1a2": {
+   "result": "passed",
+   "duration_s": 712.0905568599701
+  },
+  "fold-target__bnn-pynq__KV260_SOM-cnv-w1a2": {
+   "result": "passed",
+   "duration_s": 748.153356552124
+  },
+  "fold-max__bnn-pynq__AUP-ZU3_8GB-tfc-w1a2": {
+   "result": "passed",
+   "duration_s": 298.32985615730286
+  },
+  "fold-max__bnn-pynq__AUP-ZU3_8GB-tfc-w2a2": {
+   "result": "passed",
+   "duration_s": 296.8297049999237
+  },
+  "fold-max__bnn-pynq__AUP-ZU3_8GB-tfc-w1a1": {
+   "result": "passed",
+   "duration_s": 345.99474906921387
+  },
+  "fold-target__gtsrb__AUP-ZU3_8GB": {
+   "result": "passed",
+   "duration_s": 674.1987409591675
+  },
+  "fold-target__bnn-pynq__AUP-ZU3_8GB-lfc-w1a2": {
+   "result": "passed",
+   "duration_s": 1654.723638534546
+  },
+  "fold-max__bnn-pynq__AUP-ZU3_8GB-lfc-w1a1": {
+   "result": "passed",
+   "duration_s": 585.7712001800537
+  },
+  "fold-max__bnn-pynq__AUP-ZU3_8GB-lfc-w1a2": {
+   "result": "passed",
+   "duration_s": 584.2974705696106
+  },
+  "dwc__bnn-pynq__AUP-ZU3_8GB-tfc-w1a1": {
+   "result": "skipped",
+   "duration_s": 45.60830521583557
+  },
+  "dwc__bnn-pynq__AUP-ZU3_8GB-tfc-w1a2": {
+   "result": "skipped",
+   "duration_s": 50.157137632369995
+  },
+  "dwc__bnn-pynq__AUP-ZU3_8GB-tfc-w2a2": {
+   "result": "skipped",
+   "duration_s": 51.122379302978516
+  },
+  "fold-target__vgg10-radioml__ZCU104": {
+   "result": "passed",
+   "duration_s": 752.7856965065002
+  },
+  "dwc__bnn-pynq__AUP-ZU3_8GB-lfc-w1a2": {
+   "result": "skipped",
+   "duration_s": 70.6548683643341
+  },
+  "dwc__kws__AUP-ZU3_8GB": {
+   "result": "skipped",
+   "duration_s": 42.04616975784302
+  },
+  "dwc__yolov8__U55C-quantyolov8_8w8a": {
+   "result": "failed",
+   "duration_s": 227.05628180503845
+  },
+  "dwc__bnn-pynq__AUP-ZU3_8GB-cnv-w1a1": {
+   "result": "skipped",
+   "duration_s": 172.4929859638214
+  },
+  "dwc__bnn-pynq__AUP-ZU3_8GB-cnv-w1a2": {
+   "result": "skipped",
+   "duration_s": 197.0934636592865
+  },
+  "dwc__bnn-pynq__AUP-ZU3_8GB-cnv-w2a2": {
+   "result": "skipped",
+   "duration_s": 195.67155957221985
+  },
+  "dwc__cybersecurity-mlp__AUP-ZU3_8GB": {
+   "result": "skipped",
+   "duration_s": 27.222898483276367
+  },
+  "dwc__bnn-pynq__KV260_SOM-cnv-w1a2": {
+   "result": "skipped",
+   "duration_s": 182.27515053749084
+  },
+  "dwc__resnet50__V80": {
+   "result": "failed",
+   "duration_s": 423.1855585575104
+  },
+  "fold-max__vgg10-radioml__ZCU104": {
+   "result": "passed",
+   "duration_s": 1083.1920511722565
+  },
+  "dwc__vgg10-radioml__ZCU104": {
+   "result": "passed",
+   "duration_s": 1003.3461949825287
+  },
+  "fifo-rtlsim__kws__AUP-ZU3_8GB": {
+   "result": "passed",
+   "duration_s": 545.2044739723206
+  },
+  "fifo-rtlsim__bnn-pynq__AUP-ZU3_8GB-tfc-w2a2": {
+   "result": "passed",
+   "duration_s": 1349.168868780136
+  },
+  "fifo-rtlsim__bnn-pynq__AUP-ZU3_8GB-tfc-w1a2": {
+   "result": "passed",
+   "duration_s": 1433.908507347107
+  },
+  "fold-max__mobilenet_v1__U55C": {
+   "result": "failed",
+   "duration_s": 6049.939501047134
+  },
+  "fifo-rtlsim__bnn-pynq__AUP-ZU3_8GB-cnv-w1a2": {
+   "result": "passed",
+   "duration_s": 2108.095962047577
+  },
+  "fifo-rtlsim__bnn-pynq__AUP-ZU3_8GB-cnv-w2a2": {
+   "result": "passed",
+   "duration_s": 2126.2134861946106
+  },
+  "fifo-rtlsim__bnn-pynq__KV260_SOM-cnv-w1a2": {
+   "result": "passed",
+   "duration_s": 2046.0342755317688
+  },
+  "fifo-rtlsim__bnn-pynq__U55C-cnv-w2a2": {
+   "result": "passed",
+   "duration_s": 2104.090790271759
+  },
+  "fifo-rtlsim__resnet18__U55C-resnet18_8w8a": {
+   "result": "skipped",
+   "duration_s": 22.012311935424805
+  },
+  "dwc__mobilenet_v1__U55C": {
+   "result": "failed",
+   "duration_s": 6424.91987323761
+  },
+  "dwc__espcn__KV260_SOM": {
+   "result": "skipped",
+   "duration_s": 2886.238749742508
+  },
+  "fifo-rtlsim__vgg10-radioml__ZCU104": {
+   "result": "passed",
+   "duration_s": 1241.5566873550415
+  },
+  "fifo-rtlsim__gtsrb__AUP-ZU3_8GB": {
+   "result": "passed",
+   "duration_s": 2575.569776535034
+  },
+  "fifo-rtlsim__bnn-pynq__AUP-ZU3_8GB-cnv-w1a1": {
+   "result": "passed",
+   "duration_s": 2949.4180030822754
+  },
+  "fifo__bnn-pynq__AUP-ZU3_8GB-tfc-w1a1": {
+   "result": "passed",
+   "duration_s": 10253.077390909195
+  },
+  "fifo-rtlsim__bnn-pynq__AUP-ZU3_8GB-lfc-w1a1": {
+   "result": "passed",
+   "duration_s": 3856.012498140335
+  },
+  "fifo-rtlsim__cybersecurity-mlp__AUP-ZU3_8GB": {
+   "result": "passed",
+   "duration_s": 4776.449337720871
+  },
+  "fifo-rtlsim__bnn-pynq__AUP-ZU3_8GB-lfc-w1a2": {
+   "result": "passed",
+   "duration_s": 5477.320337533951
+  },
+  "fifo-rtlsim__bert__VCK190": {
+   "result": "passed",
+   "duration_s": 4913.706922531128
+  },
+  "fold-max__bnn-pynq__U55C-cnv-w2a2": {
+   "result": "failed",
+   "duration_s": 9075.661896944046
+  },
+  "fifo-rtlsim__mobilenet_v1__U55C": {
+   "result": "passed",
+   "duration_s": 9375.999737262726
+  },
+  "fifo__vgg10-radioml__ZCU104": {
+   "result": "passed",
+   "duration_s": 1135.2766737937927
+  },
+  "fold-max__bnn-pynq__AUP-ZU3_8GB-cnv-w1a2": {
+   "result": "passed",
+   "duration_s": 1390.8264677524567
+  },
+  "fold-target__bnn-pynq__AUP-ZU3_8GB-cnv-w2a2": {
+   "result": "passed",
+   "duration_s": 1456.1264762878418
+  },
+  "fold-max__bnn-pynq__AUP-ZU3_8GB-cnv-w1a1": {
+   "result": "passed",
+   "duration_s": 1455.263370513916
+  },
+  "fifo-rtlsim__bnn-pynq__AUP-ZU3_8GB-tfc-w1a1": {
+   "result": "passed",
+   "duration_s": 14191.419052362442
+  },
+  "fold-max__gtsrb__AUP-ZU3_8GB": {
+   "result": "passed",
+   "duration_s": 1509.648411989212
+  },
+  "fold-max__bnn-pynq__AUP-ZU3_8GB-cnv-w2a2": {
+   "result": "passed",
+   "duration_s": 1534.8138678073883
+  },
+  "fold-max__bnn-pynq__KV260_SOM-cnv-w1a2": {
+   "result": "passed",
+   "duration_s": 1673.9734227657318
+  },
+  "fifo__espcn__KV260_SOM": {
+   "result": "aborted",
+   "duration_s": 25704.899874448776
+  },
+  "fifo__resnet18__U55C-resnet18_4w4a": {
+   "result": "aborted",
+   "duration_s": 25704.938948392868
+  },
+  "fifo__yolov8__U55C-quantyolov8_4w4a": {
+   "result": "aborted",
+   "duration_s": 25704.951028347015
+  },
+  "fifo__yolov8__U55C-quantyolov8_8w8a": {
+   "result": "aborted",
+   "duration_s": 25704.95916891098
+  },
+  "fifo__resnet50__V80": {
+   "result": "aborted",
+   "duration_s": 25704.988740444183
+  },
+  "fold-target__espcn__KV260_SOM": {
+   "result": "aborted",
+   "duration_s": 24990.25710272789
+  },
+  "fold-max__espcn__KV260_SOM": {
+   "result": "aborted",
+   "duration_s": 23884.165766477585
+  },
+  "fifo-rtlsim__espcn__KV260_SOM": {
+   "result": "aborted",
+   "duration_s": 14902.323839902878
+  },
+  "fifo-rtlsim__resnet18__U55C-resnet18_4w4a": {
+   "result": "aborted",
+   "duration_s": 14155.562244176865
+  },
+  "fifo-rtlsim__yolov8__U55C-quantyolov8_4w4a": {
+   "result": "aborted",
+   "duration_s": 13989.308335065842
+  },
+  "fifo-rtlsim__yolov8__U55C-quantyolov8_8w8a": {
+   "result": "aborted",
+   "duration_s": 13906.591788053513
+  },
+  "fifo-rtlsim__resnet50__V80": {
+   "result": "aborted",
+   "duration_s": 13741.038496255875
+  }
+ }
+}

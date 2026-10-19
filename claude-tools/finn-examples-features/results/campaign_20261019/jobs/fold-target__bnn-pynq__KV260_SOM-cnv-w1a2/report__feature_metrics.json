@@ -1,0 +1,16 @@
+{
+  "output_dir": "/home/lstasytis/finn/build/finn_build/fx/folding/fold-target_bnn-pynq_cnv-w1a2_KV260_SOM_ji7rary9",
+  "est_fps": 3028.4675953967294,
+  "ref_est_fps": 3028.4675953967294,
+  "rtlsim_fps": 3051.199121254653,
+  "rtlsim_vs_est": 1.0075059498382863,
+  "est_vs_ref": 1.0,
+  "verified": true,
+  "fifo_kbit": 29.916015625,
+  "pad_dwcs": 0,
+  "test": "fold-target",
+  "step_times_s": {
+    "step_target_fps_parallelization": 11.410295248031616,
+    "step_set_fifo_depths": 2.9133987426757812
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "output_dir": "/home/lstasytis/finn/build/finn_build/fx/folding/fold-target_resnet18_resnet18_8w8a_U55C_t6m9h5ms",
+  "est_fps": null,
+  "ref_est_fps": 1695.4210069444443,
+  "rtlsim_fps": null,
+  "rtlsim_vs_est": null,
+  "est_vs_ref": null,
+  "verified": false,
+  "test": "fold-target",
+  "step_times_s": {
+    "step_target_fps_parallelization": 0.14963436126708984
+  }
+}

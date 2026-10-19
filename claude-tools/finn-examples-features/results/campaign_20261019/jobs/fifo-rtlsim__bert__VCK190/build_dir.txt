@@ -1,0 +1,1 @@
+/home/lstasytis/finn/build/finn_build/fx/fifo/fifo-heuristic_rtlsim_bert_VCK190_xrszkifs

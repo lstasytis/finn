@@ -1,0 +1,1 @@
+/home/lstasytis/finn/build/finn_build/fx/folding/fold-target_mobilenet_v1_U55C_b66iy6gx

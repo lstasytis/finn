@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="2.324" timestamp="2026-10-19T13:30:56.172916" hostname="finn_dev_lstasytis"><testcase classname="tests.benchmark.resnet50.test_build_resnet50" name="test_resnet50_folding[V80-maximize]" time="0.566"><properties><property name="finn_test_rng_seed" value="2979421641" /></properties><failure message="AssertionError: build failed, see /home/lstasytis/finn/build/finn_build/fx/folding/fold-max_resnet50_V80_omzvj6c8/build_dataflow.log&#10;assert -1 == 0&#10;  +-1&#10;  -0">board = 'V80', mode = 'maximize'
+
+    @pytest.mark.slow
+    @pytest.mark.vivado
+    @pytest.mark.finn_examples
+    @pytest.mark.folding
+    @pytest.mark.xdist_group("resnet50")
+    @pytest.mark.parametrize("mode", ["target", "maximize"])
+    @pytest.mark.parametrize("board", FEATURE_BUILDS)
+    def test_resnet50_folding(board, mode):
+        target_fps = int(estimated_throughput(reference_estimate(board)))
+        if mode == "target":
+            metrics = run_feature_build(
+                board, "fold-target", target_fps=target_fps, **OPTIMIZER_FOLDING
+            )
+            assert metrics["est_fps"] &gt;= target_fps
+        else:
+            # no target: the optimizer maximizes the throughput within the budget
+&gt;           metrics = run_feature_build(board, "fold-max", **OPTIMIZER_FOLDING)
+
+tests/benchmark/resnet50/test_build_resnet50.py:231: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+board = 'V80', name = 'fold-max', estimate_only = False
+overrides = {'auto_fifo_depths': True, 'auto_fifo_strategy': 'heuristic_analytical', 'folding_config_file': None, 'folding_seed': 1, ...}
+ref_dir = '/home/lstasytis/finn/build/finn_build/fx/folding/est_resnet50_V80_pwvwsa12'
+output_dir = '/home/lstasytis/finn/build/finn_build/fx/folding/fold-max_resnet50_V80_omzvj6c8'
+cfg = DataflowBuildConfig(output_dir='/home/lstasytis/finn/build/finn_build/fx/folding/fold-max_resnet50_V80_omzvj6c8', synt...y_range=None, cpp_driver_version='latest', mute_config_assertions=False, inject_steps_after={}, inject_steps_before={})
+key = 'auto_fifo_strategy', value = 'heuristic_analytical'
+step_times = {'step_target_fps_parallelization': 0.3908998966217041}, ret = -1
+
+    def run_feature_build(board, name, estimate_only=False, **overrides):
+        """Resume the reference checkpoint with ``overrides`` and, unless
+        ``estimate_only``, check the stitched IP in rtlsim. Returns the metrics."""
+        ref_dir = reference_estimate(board)
+        output_dir = make_build_dir(f"{name}_resnet50_{board}_")
+        cfg = configure_build(
+            board,
+            output_dir,
+            steps=feature_steps(resnet50_build_steps),
+            generate_outputs=ESTIMATE_OUTPUTS if estimate_only else FEATURE_OUTPUTS,
+            stop_step=ESTIMATE_PHASE if estimate_only else None,
+            verify_steps=[] if estimate_only else ["stitched_ip_rtlsim"],
+            stitched_ip_gen_dcp=False,
+            save_intermediate_models=True,
+            **overrides,
+        )
+        # make_benchmark_cfg drops None values: apply them afterwards (e.g. no folding JSON)
+        for key, value in overrides.items():
+            if value is None:
+                setattr(cfg, key, None)
+        with timed_steps() as step_times:
+            ret = build.build_dataflow_cfg(resume_checkpoint(ref_dir, output_dir), cfg)
+        metrics = feature_metrics(output_dir, ref_dir, test=name, step_times_s=step_times)
+&gt;       assert ret == 0, f"build failed, see {output_dir}/build_dataflow.log"
+E       AssertionError: build failed, see /home/lstasytis/finn/build/finn_build/fx/folding/fold-max_resnet50_V80_omzvj6c8/build_dataflow.log
+E       assert -1 == 0
+E         +-1
+E         -0
+
+tests/benchmark/resnet50/test_build_resnet50.py:194: AssertionError</failure></testcase></testsuite></testsuites>

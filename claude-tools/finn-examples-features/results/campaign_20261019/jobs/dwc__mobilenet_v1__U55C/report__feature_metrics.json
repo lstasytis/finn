@@ -1,0 +1,16 @@
+{
+  "output_dir": "/home/lstasytis/finn/build/finn_build/fx/dwc/dwc_mobilenet_v1_U55C_e2sz4_5w",
+  "est_fps": 422.7162648114495,
+  "ref_est_fps": 422.7200173146119,
+  "rtlsim_fps": 412.3937519047436,
+  "rtlsim_vs_est": 0.9755805163747125,
+  "est_vs_ref": 0.999991122958439,
+  "verified": true,
+  "fifo_kbit": 740.0048828125,
+  "pad_dwcs": 16,
+  "test": "dwc",
+  "step_times_s": {
+    "step_target_fps_parallelization": 122.97614598274231,
+    "step_set_fifo_depths": 651.8542783260345
+  }
+}

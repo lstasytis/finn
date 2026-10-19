@@ -1,0 +1,16 @@
+{
+  "output_dir": "/home/lstasytis/finn/build/finn_build/fx/folding/fold-max_gtsrb_AUP-ZU3_8GB_gk1x3zdu",
+  "est_fps": 7808.229874287499,
+  "ref_est_fps": 8133.387555917039,
+  "rtlsim_fps": 7808.839606434484,
+  "rtlsim_vs_est": 1.0000780883960645,
+  "est_vs_ref": 0.960021863043648,
+  "verified": true,
+  "fifo_kbit": 75.2646484375,
+  "pad_dwcs": 0,
+  "test": "fold-max",
+  "step_times_s": {
+    "step_target_fps_parallelization": 153.0603542327881,
+    "step_set_fifo_depths": 3.4987881183624268
+  }
+}

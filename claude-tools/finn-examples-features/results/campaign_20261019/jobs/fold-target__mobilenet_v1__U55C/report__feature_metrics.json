@@ -1,0 +1,16 @@
+{
+  "output_dir": "/home/lstasytis/finn/build/finn_build/fx/folding/fold-target_mobilenet_v1_U55C_b66iy6gx",
+  "est_fps": 422.7162648114495,
+  "ref_est_fps": 422.7200173146119,
+  "rtlsim_fps": 417.0294823162818,
+  "rtlsim_vs_est": 0.9865470459299591,
+  "est_vs_ref": 0.999991122958439,
+  "verified": true,
+  "fifo_kbit": 87.8896484375,
+  "pad_dwcs": 0,
+  "test": "fold-target",
+  "step_times_s": {
+    "step_target_fps_parallelization": 59.59806942939758,
+    "step_set_fifo_depths": 115.98006200790405
+  }
+}

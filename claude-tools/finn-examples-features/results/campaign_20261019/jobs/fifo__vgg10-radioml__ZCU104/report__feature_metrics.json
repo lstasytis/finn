@@ -1,0 +1,16 @@
+{
+  "output_dir": "/home/lstasytis/finn/build/finn_build/fx/fifo/fifo-heuristic_analytical_vgg10-radioml_ZCU104_20_aako2",
+  "est_fps": 243190.6614785992,
+  "ref_est_fps": 243190.6614785992,
+  "rtlsim_fps": 243427.45861733204,
+  "rtlsim_vs_est": 1.0009737098344693,
+  "est_vs_ref": 1.0,
+  "verified": true,
+  "fifo_kbit": 15.6796875,
+  "pad_dwcs": 0,
+  "test": "fifo-heuristic_analytical",
+  "step_times_s": {
+    "step_target_fps_parallelization": 2.5272369384765625e-05,
+    "step_set_fifo_depths": 0.6990838050842285
+  }
+}

@@ -1,0 +1,1 @@
+/home/lstasytis/finn/build/finn_build/fx/fifo/fifo-heuristic_analytical_resnet50_V80_dbfur_wt

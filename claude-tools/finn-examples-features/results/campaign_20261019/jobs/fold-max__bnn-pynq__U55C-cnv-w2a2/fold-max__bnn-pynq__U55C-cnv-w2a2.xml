@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="9068.509" timestamp="2026-10-19T14:21:07.745168" hostname="finn_dev_lstasytis"><testcase classname="tests.benchmark.bnn-pynq.test_build_bnn-pynq" name="test_bnnpynq_folding[U55C-cnv-w2a2-maximize]" time="9066.588"><properties><property name="finn_test_rng_seed" value="875063485" /></properties><failure message="AssertionError: rtlsim 59737.15651135006 fps, estimate 63492.06349206349 fps&#10;assert ((0.9408602150537635)) &gt;= 0.98">board = 'U55C', model = 'cnv-w2a2', mode = 'maximize'
+
+    @pytest.mark.slow
+    @pytest.mark.vivado
+    @pytest.mark.finn_examples
+    @pytest.mark.folding
+    @pytest.mark.parametrize("mode", ["target", "maximize"])
+    @pytest.mark.parametrize("board,model", FEATURE_BUILDS)
+    def test_bnnpynq_folding(board, model, mode):
+        target_fps = int(estimated_throughput(reference_estimate(board, model)))
+        if mode == "target":
+            metrics = run_feature_build(
+                board, model, "fold-target", target_fps=target_fps, **OPTIMIZER_FOLDING
+            )
+            assert metrics["est_fps"] &gt;= target_fps
+        else:
+            # no target: the optimizer maximizes the throughput within the budget
+&gt;           metrics = run_feature_build(board, model, "fold-max", **OPTIMIZER_FOLDING)
+
+tests/benchmark/bnn-pynq/test_build_bnn-pynq.py:276: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+board = 'U55C', model = 'cnv-w2a2', name = 'fold-max', estimate_only = False
+overrides = {'auto_fifo_depths': True, 'auto_fifo_strategy': 'heuristic_analytical', 'folding_config_file': None, 'folding_seed': 1, ...}
+ref_dir = '/home/lstasytis/finn/build/finn_build/fx/folding/est_bnn-pynq_cnv-w2a2_U55C_mqydxr7n'
+output_dir = '/home/lstasytis/finn/build/finn_build/fx/folding/fold-max_bnn-pynq_cnv-w2a2_U55C_0j3zn7zp'
+cfg = DataflowBuildConfig(output_dir='/home/lstasytis/finn/build/finn_build/fx/folding/fold-max_bnn-pynq_cnv-w2a2_U55C_0j3zn..._finn': [&lt;function custom_step_add_preproc at 0x747c787be440&gt;, &lt;function custom_step_add_postproc at 0x747c787be830&gt;]})
+key = 'auto_fifo_strategy', value = 'heuristic_analytical'
+step_times = {'step_set_fifo_depths': 1.899263620376587, 'step_target_fps_parallelization': 151.73457527160645}
+ret = 0
+
+    def run_feature_build(board, model, name, estimate_only=False, **overrides):
+        """Resume the reference checkpoint with ``overrides`` and, unless
+        ``estimate_only``, check the stitched IP in rtlsim. Returns the metrics."""
+        ref_dir = reference_estimate(board, model)
+        output_dir = make_build_dir(f"{name}_bnn-pynq_{model}_{board}_")
+        cfg = configure_build(
+            board,
+            model,
+            output_dir,
+            steps=feature_steps(None),
+            generate_outputs=ESTIMATE_OUTPUTS if estimate_only else FEATURE_OUTPUTS,
+            stop_step=ESTIMATE_PHASE if estimate_only else None,
+            verify_steps=[] if estimate_only else ["stitched_ip_rtlsim"],
+            stitched_ip_gen_dcp=False,
+            save_intermediate_models=True,
+            **overrides,
+        )
+        # make_benchmark_cfg drops None values: apply them afterwards (e.g. no folding JSON)
+        for key, value in overrides.items():
+            if value is None:
+                setattr(cfg, key, None)
+        with timed_steps() as step_times:
+            ret = build.build_dataflow_cfg(resume_checkpoint(ref_dir, output_dir), cfg)
+        metrics = feature_metrics(output_dir, ref_dir, test=name, step_times_s=step_times)
+        assert ret == 0, f"build failed, see {output_dir}/build_dataflow.log"
+        if not estimate_only:
+            assert metrics["verified"], "stitched-IP rtlsim output differs from the golden output"
+&gt;           assert (metrics["rtlsim_vs_est"] or 0) &gt;= 0.98, "rtlsim %s fps, estimate %s fps" % (
+                metrics["rtlsim_fps"],
+                metrics["est_fps"],
+            )
+E           AssertionError: rtlsim 59737.15651135006 fps, estimate 63492.06349206349 fps
+E           assert ((0.9408602150537635)) &gt;= 0.98
+
+tests/benchmark/bnn-pynq/test_build_bnn-pynq.py:242: AssertionError</failure></testcase></testsuite></testsuites>

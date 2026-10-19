@@ -1,0 +1,16 @@
+{
+  "output_dir": "/home/lstasytis/finn/build/finn_build/fx/fifo/fifo-heuristic_analytical_gtsrb_AUP-ZU3_8GB_ytgoo1yc",
+  "est_fps": 8138.020833333333,
+  "ref_est_fps": 8138.020833333333,
+  "rtlsim_fps": 8134.049129656743,
+  "rtlsim_vs_est": 0.9995119570522206,
+  "est_vs_ref": 1.0,
+  "verified": true,
+  "fifo_kbit": 9.8564453125,
+  "pad_dwcs": 0,
+  "test": "fifo-heuristic_analytical",
+  "step_times_s": {
+    "step_target_fps_parallelization": 2.3126602172851562e-05,
+    "step_set_fifo_depths": 2.3327202796936035
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "output_dir": "/home/lstasytis/finn/build/finn_build/fx/folding/fold-max_kws_AUP-ZU3_8GB_9ihs5_64",
+  "est_fps": 204081.6326530612,
+  "ref_est_fps": 25510.20408163265,
+  "rtlsim_fps": 201612.90322580645,
+  "rtlsim_vs_est": 0.9879032258064517,
+  "est_vs_ref": 8.0,
+  "verified": true,
+  "fifo_kbit": 5.4921875,
+  "pad_dwcs": 0,
+  "test": "fold-max",
+  "step_times_s": {
+    "step_target_fps_parallelization": 26.849337100982666,
+    "step_set_fifo_depths": 0.18059921264648438
+  }
+}

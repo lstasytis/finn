@@ -1,0 +1,7 @@
+{
+  "critical_path_cycles": 18481542,
+  "max_cycles": 788544,
+  "max_cycles_node_name": "StreamingDataWidthConverter_rtl_4",
+  "estimated_throughput_fps": 422.7200173146119,
+  "estimated_latency_ns": 55444626.0
+}

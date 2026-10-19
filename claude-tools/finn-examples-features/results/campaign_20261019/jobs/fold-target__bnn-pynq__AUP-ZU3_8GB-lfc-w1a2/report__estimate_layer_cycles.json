@@ -1,0 +1,23 @@
+{
+  "StreamingFIFO_rtl_0": 0,
+  "Thresholding_rtl_0": 784,
+  "StreamingFIFO_rtl_1": 0,
+  "StreamingDataWidthConverter_rtl_0": 784,
+  "StreamingFIFO_rtl_2": 0,
+  "MVAU_hls_0": 2055,
+  "StreamingFIFO_rtl_3": 0,
+  "StreamingDataWidthConverter_rtl_1": 1024,
+  "StreamingFIFO_rtl_4": 0,
+  "MVAU_hls_1": 2055,
+  "StreamingFIFO_rtl_5": 0,
+  "StreamingDataWidthConverter_rtl_2": 1024,
+  "StreamingFIFO_rtl_6": 0,
+  "MVAU_hls_2": 2055,
+  "StreamingFIFO_rtl_7": 0,
+  "MVAU_hls_3": 2055,
+  "StreamingFIFO_rtl_8": 0,
+  "StreamingDataWidthConverter_rtl_3": 10,
+  "StreamingFIFO_rtl_9": 0,
+  "LabelSelect_hls_0": 15,
+  "StreamingFIFO_rtl_10": 0
+}

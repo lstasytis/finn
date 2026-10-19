@@ -1,0 +1,16 @@
+{
+  "output_dir": "/home/lstasytis/finn/build/finn_build/fx/folding/fold-target_gtsrb_AUP-ZU3_8GB_5k86lequ",
+  "est_fps": 8872.327211427557,
+  "ref_est_fps": 8133.387555917039,
+  "rtlsim_fps": 8877.84090909091,
+  "rtlsim_vs_est": 1.0006214488636365,
+  "est_vs_ref": 1.0908526306450181,
+  "verified": true,
+  "fifo_kbit": 26.966796875,
+  "pad_dwcs": 0,
+  "test": "fold-target",
+  "step_times_s": {
+    "step_target_fps_parallelization": 10.389284133911133,
+    "step_set_fifo_depths": 1.4092731475830078
+  }
+}

@@ -1,0 +1,1 @@
+/home/lstasytis/finn/build/finn_build/fx/dwc/dwc_vgg10-radioml_ZCU104_z_3mk19y

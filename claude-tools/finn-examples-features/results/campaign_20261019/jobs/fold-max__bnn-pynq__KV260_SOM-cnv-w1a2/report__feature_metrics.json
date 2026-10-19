@@ -1,0 +1,16 @@
+{
+  "output_dir": "/home/lstasytis/finn/build/finn_build/fx/folding/fold-max_bnn-pynq_cnv-w1a2_KV260_SOM_w_d4twrv",
+  "est_fps": 5423.287596941266,
+  "ref_est_fps": 3028.4675953967294,
+  "rtlsim_fps": 5423.287596941266,
+  "rtlsim_vs_est": 1.0,
+  "est_vs_ref": 1.7907695645100061,
+  "verified": true,
+  "fifo_kbit": 46.873046875,
+  "pad_dwcs": 0,
+  "test": "fold-max",
+  "step_times_s": {
+    "step_target_fps_parallelization": 153.6129059791565,
+    "step_set_fifo_depths": 5.578062534332275
+  }
+}

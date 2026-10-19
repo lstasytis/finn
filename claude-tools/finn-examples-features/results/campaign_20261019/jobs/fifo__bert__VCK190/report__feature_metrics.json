@@ -1,0 +1,16 @@
+{
+  "output_dir": "/home/lstasytis/finn/build/finn_build/fx/fifo/fifo-heuristic_analytical_bert_VCK190_3c4koeii",
+  "est_fps": 508.6263020833333,
+  "ref_est_fps": 508.6263020833333,
+  "rtlsim_fps": 2034.5052083333333,
+  "rtlsim_vs_est": 4.0,
+  "est_vs_ref": 1.0,
+  "verified": true,
+  "fifo_kbit": 6084.98046875,
+  "pad_dwcs": 0,
+  "test": "fifo-heuristic_analytical",
+  "step_times_s": {
+    "step_target_fps_parallelization": 2.193450927734375e-05,
+    "step_set_fifo_depths": 20.121886014938354
+  }
+}

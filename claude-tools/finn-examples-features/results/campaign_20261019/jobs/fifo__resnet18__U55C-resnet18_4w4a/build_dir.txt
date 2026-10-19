@@ -1,0 +1,1 @@
+/home/lstasytis/finn/build/finn_build/fx/fifo/fifo-heuristic_analytical_resnet18_resnet18_4w4a_U55C_vft6f3x5

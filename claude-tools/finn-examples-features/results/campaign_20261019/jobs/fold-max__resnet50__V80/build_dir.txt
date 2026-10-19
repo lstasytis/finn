@@ -1,0 +1,1 @@
+/home/lstasytis/finn/build/finn_build/fx/folding/fold-max_resnet50_V80_omzvj6c8

@@ -1,0 +1,1 @@
+/home/lstasytis/finn/build/finn_build/fx/folding/fold-target_bnn-pynq_tfc-w2a2_AUP-ZU3_8GB_ewwwid17

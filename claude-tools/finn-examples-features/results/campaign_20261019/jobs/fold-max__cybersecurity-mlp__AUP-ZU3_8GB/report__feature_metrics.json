@@ -1,0 +1,16 @@
+{
+  "output_dir": "/home/lstasytis/finn/build/finn_build/fx/folding/fold-max_cybersecurity-mlp_AUP-ZU3_8GB_8r7f8efy",
+  "est_fps": 4347826.0869565215,
+  "ref_est_fps": 12500000.0,
+  "rtlsim_fps": 4347826.0869565215,
+  "rtlsim_vs_est": 1.0,
+  "est_vs_ref": 0.34782608695652173,
+  "verified": true,
+  "fifo_kbit": 3.4814453125,
+  "pad_dwcs": 0,
+  "test": "fold-max",
+  "step_times_s": {
+    "step_target_fps_parallelization": 17.72029995918274,
+    "step_set_fifo_depths": 0.12607407569885254
+  }
+}

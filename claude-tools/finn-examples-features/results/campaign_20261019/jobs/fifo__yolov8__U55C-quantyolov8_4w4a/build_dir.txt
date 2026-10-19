@@ -1,0 +1,1 @@
+/home/lstasytis/finn/build/finn_build/fx/fifo/fifo-heuristic_analytical_yolov8_quantyolov8_4w4a_U55C_nkdvnyop

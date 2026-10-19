@@ -1,9 +1,52 @@
-# finn-examples feature flows: FIFO sizing, folding, DWC padding (handoff, 2026-10-19)
+# finn-examples feature flows: FIFO sizing, folding, DWC padding (handoff)
 
-State of the work started 2026-10-09: benchmark feature-flow tests on the finn-examples models
-for the three feature branches, plus the fixes they triggered. Everything below is committed;
-nothing was running when this was written. The previous agent had **no ssh**: it prepares
-branches locally and the human pushes.
+## 0. State at the end of 2026-10-19 (per-model feature tests, read this first)
+
+The plan `PLAN_per_model_tests.md` was executed in one day (machine reboot at 20:00). Live results:
+**`STATUS.md`** (models x features table), exported raw results: `results/campaign_20261019/`
+(per job: junit XML, pytest log tail, feature metrics and reports of the build), issue manuals and
+fix reports: `issues/NNN-*/{ISSUE,REPORT}.md`, repo primer for agents: `GENERAL.md`, day log and
+resume instructions: `PROGRESS.md` (copy of the repo-root file).
+
+* **Tests:** the generic feature-flow harness is gone; each `tests/benchmark/<model>/test_build_<model>.py`
+  has `test_<m>_fifo_sizing[heuristic_analytical|heuristic_rtlsim]`, `test_<m>_folding[target|maximize]`,
+  `test_<m>_dwc` (markers `fifo_sizing`, `folding`, `dwc`). They resume the convert checkpoint of a
+  cached estimate-only build with the committed folding (its estimate = the throughput reference) and
+  check stitched-IP rtlsim: golden output and >= 0.98 x the build's own estimate. Each PR branch carries
+  only its own tests (dev's models); the integration branch carries all models incl. #1725.
+* **Branches** (all local, see PROGRESS.md for push commands):
+  * `feature/dev/analytical-fifo-sizing`: + per-model FIFO tests, fix 001 (dynamic MVAU
+    characterization: bert), fix 006 (pacer-bound chains + refill floor: balanced foldings).
+  * `feature/dev/set-folding-optimizer`: + builder maximize mode (`folding_style="optimizer"` without
+    target/JSON), `folding_seed`, platforms KV260_SOM/VCK190/V80, per-model folding tests, **refactored
+    `set_folding.py` (2899 -> 1949 lines, behaviour-identical, `agents/folding_refactor/REPORT.md`)**,
+    fix 004 (DWC bottleneck in the repair loop, no padding next to a reshape), fix 005 (phantom URAM
+    estimate of embedded MVAU weights + maximize search within the as-built budget), fix 003 (see
+    PROGRESS.md for whether it landed).
+  * `feature/dev/generalized-datawidthconverter`: rebased onto the new folding tip, per-model DWC tests
+    (pre-check tries folding seeds 1-8 for a padded folding).
+  * **new** `feature/dev/hls-exp-cycles-overhead` (on `upstream/dev`): fix 002, MVAU_hls +7 and
+    LabelSelect_hls +4 cycles per frame in `get_exp_cycles` (HLS top function not frame-pipelined).
+  * `dev-finnexamples-features`: DWC + FIFO + #1725 + HLS overhead + all tests; since 12:00 fixes were
+    cherry-picked (a rebuild would rewrite files under running jobs): rebuild it with
+    `tools/rebuild_branches.sh integ` for a clean history before pushing if preferred.
+  * `test/{fifo,folding,dwc}`: local test branches of the campaign (`tools/rebuild_branches.sh`).
+* **Tooling:** `tools/run_campaign.py` (scheduler: thread/memory budget, watchdog, deadline,
+  restartable, single instance via `runner.pid`), `tools/requeue.sh`, `tools/status_table.py`
+  (+ `status_notes.json`), `tools/export_results.py`, `tools/build_estimates.py`,
+  `tools/rebuild_branches.sh`, `tools/port_feature_tests.py`, `tools/gen_feature_tests.py`,
+  `tools/wtenv.sh`, `tools/wtsetup.sh`.
+* **Open user decisions:** (1) tfc-w1a1 folding target is infeasible for the optimizer (the committed
+  folding is near-fully unrolled and LabelSelect PE=5, the optimizer keeps LabelSelect at PE=1 for
+  fmax and FINN's LUT model rejects the unrolled MVAU on ZU3): cap the target or accept. (2) DWC tests
+  skip on almost every model: at the reference targets padding does not pay off (vgg10 pads with some
+  seeds and passes). (3) upstream bugs found: BIPOLAR weights widened to INT2 by
+  `minimize_weight_bit_width` (2x weight memory), FINN's LUT model for binary HLS MVAUs several times
+  pessimistic, tiled-MVAU `get_exp_cycles` 4x pessimistic (bert), VVAU_hls has a per-frame HLS
+  overhead too; mobilenet maximize folds ~80 nodes at exactly the target period and loses 12 % in
+  rtlsim (the optimizer may need a margin).
+
+The sections below are the previous handoff (2026-10-09..19, before the per-model tests).
 
 ## 1. What the user asked for (decisions that still hold)
 

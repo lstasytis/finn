@@ -1,0 +1,16 @@
+{
+  "output_dir": "/home/lstasytis/finn/build/finn_build/fx/folding/fold-target_bnn-pynq_lfc-w1a1_AUP-ZU3_8GB_rc1e0fwr",
+  "est_fps": 192678.2273603083,
+  "ref_est_fps": 192678.2273603083,
+  "rtlsim_fps": 192678.2273603083,
+  "rtlsim_vs_est": 1.0,
+  "est_vs_ref": 1.0,
+  "verified": true,
+  "fifo_kbit": 5.3544921875,
+  "pad_dwcs": 0,
+  "test": "fold-target",
+  "step_times_s": {
+    "step_target_fps_parallelization": 2.1844491958618164,
+    "step_set_fifo_depths": 0.9598205089569092
+  }
+}

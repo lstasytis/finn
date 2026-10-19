@@ -5,12 +5,14 @@ This branch is **never part of any PR** — it is merged into a working branch o
 give the agent (and you) the analysis scripts and the topic context, then the feature
 PR is cut from source files only.
 
-## LATEST (2026-10-19): finn-examples feature flows
+## LATEST (2026-10-19, evening): per-model feature tests + campaign
 
-Current work: the `feature/dev/*` branches (FIFO sizing, folding, DWC padding on top of
-upstream/dev) and their benchmark feature-flow tests. Start with
-[`finn-examples-features/HANDOFF.md`](finn-examples-features/HANDOFF.md); the section below is
-the older July status.
+Per-model FIFO/folding/DWC tests on all finn-examples models (incl. upstream #1725), a test campaign
+with fixes for everything it found, and the folding refactor. Start with
+[`finn-examples-features/HANDOFF.md`](finn-examples-features/HANDOFF.md) section 0, the results table
+[`finn-examples-features/STATUS.md`](finn-examples-features/STATUS.md) and the repo primer
+[`finn-examples-features/GENERAL.md`](finn-examples-features/GENERAL.md). The section below is the
+older July status.
 
 ## START HERE (status + how to continue) — 2026-07-22
 

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="2.199" timestamp="2026-10-19T13:23:45.996238" hostname="finn_dev_lstasytis"><testcase classname="tests.benchmark.resnet18.test_build_resnet18" name="test_resnet18_folding[U55C-resnet18_4w4a-target]" time="0.230"><properties><property name="finn_test_rng_seed" value="4195220348" /></properties><failure message="AssertionError: build failed, see /home/lstasytis/finn/build/finn_build/fx/folding/fold-target_resnet18_resnet18_4w4a_U55C_8z54zjlm/build_dataflow.log&#10;assert -1 == 0&#10;  +-1&#10;  -0">board = 'U55C', model = 'resnet18_4w4a', mode = 'target'
+
+    @pytest.mark.slow
+    @pytest.mark.vivado
+    @pytest.mark.finn_examples
+    @pytest.mark.folding
+    @pytest.mark.parametrize("mode", ["target", "maximize"])
+    @pytest.mark.parametrize("board,model", FEATURE_BUILDS)
+    def test_resnet18_folding(board, model, mode):
+        target_fps = int(estimated_throughput(reference_estimate(board, model)))
+        if mode == "target":
+&gt;           metrics = run_feature_build(
+                board, model, "fold-target", target_fps=target_fps, **OPTIMIZER_FOLDING
+            )
+
+tests/benchmark/resnet18/test_build_resnet18.py:236: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+board = 'U55C', model = 'resnet18_4w4a', name = 'fold-target'
+estimate_only = False
+overrides = {'auto_fifo_depths': True, 'auto_fifo_strategy': 'heuristic_analytical', 'folding_config_file': None, 'folding_seed': 1, ...}
+ref_dir = '/home/lstasytis/finn/build/finn_build/fx/folding/est_resnet18_resnet18_4w4a_U55C_zyry9v6k'
+output_dir = '/home/lstasytis/finn/build/finn_build/fx/folding/fold-target_resnet18_resnet18_4w4a_U55C_8z54zjlm'
+cfg = DataflowBuildConfig(output_dir='/home/lstasytis/finn/build/finn_build/fx/folding/fold-target_resnet18_resnet18_4w4a_U5...y_range=None, cpp_driver_version='latest', mute_config_assertions=False, inject_steps_after={}, inject_steps_before={})
+key = 'auto_fifo_strategy', value = 'heuristic_analytical'
+step_times = {'step_target_fps_parallelization': 0.15294933319091797}, ret = -1
+
+    def run_feature_build(board, model, name, estimate_only=False, **overrides):
+        """Resume the reference checkpoint with ``overrides`` and, unless
+        ``estimate_only``, check the stitched IP in rtlsim. Returns the metrics."""
+        ref_dir = reference_estimate(board, model)
+        output_dir = make_build_dir(f"{name}_resnet18_{model}_{board}_")
+        cfg = configure_build(
+            board,
+            model,
+            output_dir,
+            steps=feature_steps(resnet18_build_steps),
+            generate_outputs=ESTIMATE_OUTPUTS if estimate_only else FEATURE_OUTPUTS,
+            stop_step=ESTIMATE_PHASE if estimate_only else None,
+            verify_steps=[] if estimate_only else ["stitched_ip_rtlsim"],
+            stitched_ip_gen_dcp=False,
+            save_intermediate_models=True,
+            **overrides,
+        )
+        # make_benchmark_cfg drops None values: apply them afterwards (e.g. no folding JSON)
+        for key, value in overrides.items():
+            if value is None:
+                setattr(cfg, key, None)
+        with timed_steps() as step_times:
+            ret = build.build_dataflow_cfg(resume_checkpoint(ref_dir, output_dir), cfg)
+        metrics = feature_metrics(output_dir, ref_dir, test=name, step_times_s=step_times)
+&gt;       assert ret == 0, f"build failed, see {output_dir}/build_dataflow.log"
+E       AssertionError: build failed, see /home/lstasytis/finn/build/finn_build/fx/folding/fold-target_resnet18_resnet18_4w4a_U55C_8z54zjlm/build_dataflow.log
+E       assert -1 == 0
+E         +-1
+E         -0
+
+tests/benchmark/resnet18/test_build_resnet18.py:201: AssertionError</failure></testcase></testsuite></testsuites>

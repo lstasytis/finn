@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="695.084" timestamp="2026-10-19T13:47:38.435022" hostname="finn_dev_lstasytis"><testcase classname="tests.benchmark.bnn-pynq.test_build_bnn-pynq" name="test_bnnpynq_folding[AUP-ZU3_8GB-tfc-w1a1-target]" time="693.207"><properties><property name="finn_test_rng_seed" value="348400638" /></properties><failure message="assert 6666666.666666667 &gt;= 11111111">board = 'AUP-ZU3_8GB', model = 'tfc-w1a1', mode = 'target'
+
+    @pytest.mark.slow
+    @pytest.mark.vivado
+    @pytest.mark.finn_examples
+    @pytest.mark.folding
+    @pytest.mark.parametrize("mode", ["target", "maximize"])
+    @pytest.mark.parametrize("board,model", FEATURE_BUILDS)
+    def test_bnnpynq_folding(board, model, mode):
+        target_fps = int(estimated_throughput(reference_estimate(board, model)))
+        if mode == "target":
+            metrics = run_feature_build(
+                board, model, "fold-target", target_fps=target_fps, **OPTIMIZER_FOLDING
+            )
+&gt;           assert metrics["est_fps"] &gt;= target_fps
+E           assert 6666666.666666667 &gt;= 11111111
+
+tests/benchmark/bnn-pynq/test_build_bnn-pynq.py:273: AssertionError</failure></testcase></testsuite></testsuites>

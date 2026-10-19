@@ -1,0 +1,1 @@
+/home/lstasytis/finn/build/finn_build/fx/folding/fold-max_bnn-pynq_tfc-w1a1_AUP-ZU3_8GB_spg3tdo6
