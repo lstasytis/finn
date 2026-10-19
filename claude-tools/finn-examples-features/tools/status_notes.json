@@ -1,0 +1,16 @@
+{
+  "issues": {
+    "fifo__bert__VCK190": "#001",
+    "fifo__bnn-pynq__AUP-ZU3_8GB-tfc-w1a1": "#002",
+    "fifo__bnn-pynq__AUP-ZU3_8GB-tfc-w1a2": "#002",
+    "fifo__bnn-pynq__AUP-ZU3_8GB-tfc-w2a2": "#002",
+    "fold-target__bnn-pynq__AUP-ZU3_8GB-tfc-w1a1": "(target infeasible, LabelSelect, see note)"
+  },
+  "tfc-w1a1 (AUP-ZU3_8GB)": "folding target: committed JSON folds LabelSelect (PE=5, 3 cycles); the optimizer keeps LabelSelect at PE=1 by design (fmax), 11 cycles: target infeasible",
+  "resnet18_8w8a (U55C)": "FIFO: n/a, committed folding has runtime-writeable URAM weights, not initialized in stitched-IP rtlsim",
+  "footer": [
+    "Issues: `claude-tools/finn-examples-features/issues/<NNN-...>/ISSUE.md` (+ `REPORT.md` of the fix agent).",
+    "* #001 bert heuristic_analytical: per-node rtlsim characterization of a node without tree model times out (dynamic MVAU suspected).",
+    "* #002 tfc: rtlsim ~15 cycles/frame vs estimate 8 (output correct); per-frame overhead at near-full unrolling suspected."
+  ]
+}
