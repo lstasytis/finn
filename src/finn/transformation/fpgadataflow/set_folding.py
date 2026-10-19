@@ -281,16 +281,32 @@ class Optimizer:
     splits them into partitions of a few neighbouring nodes and minimizes the cost model
     over each partition with scipy's dual annealing.
 
-    ``targets`` maps ``max_cycles`` (the hard constraint) and each resource to its budget;
-    ``effort`` is the annealer's evaluations per parameter; ``init_run`` only applies the
-    initial guess (no search); ``resource_type_params`` are the RESOURCE_TYPE_ATTRS it may
-    tune. ``name`` is informational.
-
     Every hardware node is folded generically: it sweeps whichever of PE / SIMD the node
     declares, up to the output channels (PE) or input channels (SIMD). What is genuinely
     op-specific is in the small tables below and in the SWG pairing rules (``_pair_*``): a
     ConvolutionInputGenerator is folded together with the layer it feeds.
     """
+
+    model: object
+    name: str  # informational
+    #: ``max_cycles`` (the hard constraint) and each resource's budget
+    targets: dict
+    fpgapart: str = "xc7z020clg400-1"
+    #: channels a node may be padded by, and whether the IO nodes may be padded
+    padding: int = 0
+    pad_io_nodes: bool = False
+    #: the annealer's evaluations per parameter, and its seed
+    effort: int = 100
+    seed: int = None
+    mvau_wwidth_max: int = 1024
+    enable_folding_dwc_heuristic: bool = True
+    resource_weights: dict = field(default_factory=dict)
+    allow_uram_weights: bool = False
+    #: only apply the initial guess, no search
+    init_run: bool = False
+    #: the RESOURCE_TYPE_ATTRS that may be tuned
+    resource_type_params: list = field(default_factory=list)
+    params: ParameterSet = None
 
     # a VVAU folds SIMD over its kernel window, not its input channels
     SIMD_MAX_OVERRIDE = {
@@ -358,22 +374,6 @@ class Optimizer:
         if op_type in Optimizer.SIMD_MAX_OVERRIDE:
             return Optimizer.SIMD_MAX_OVERRIDE[op_type](node_inst)
         return int(node_inst.get_normal_input_shape()[-1])
-
-    model: object
-    name: str
-    targets: dict
-    fpgapart: str = "xc7z020clg400-1"
-    padding: int = 0
-    effort: int = 100
-    seed: int = None
-    mvau_wwidth_max: int = 1024
-    pad_io_nodes: bool = False
-    enable_folding_dwc_heuristic: bool = True
-    resource_weights: dict = field(default_factory=dict)
-    allow_uram_weights: bool = False
-    init_run: bool = False
-    resource_type_params: list = field(default_factory=list)
-    params: ParameterSet = None
 
     # ------------------------------------------------------------------ cost model
 
