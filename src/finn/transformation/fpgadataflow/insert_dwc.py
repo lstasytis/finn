@@ -118,8 +118,10 @@ class InsertDWC(Transformation):
                             # and requested
                             in_shape = n0.get_normal_output_shape(out_idx)
                             out_shape = n1.get_normal_input_shape(in_idx)
-                            if np.prod(in_shape) == np.prod(out_shape):
-                                # plain width conversion keeps the producer's shape
+                            if np.prod(n0_out_shape) == np.prod(n1_in_shape):
+                                # plain width conversion keeps the producer's shape (the
+                                # consumer's normal shape may differ: a dynamic MVAU's
+                                # weight input is (MW, MH) without its leading dimensions)
                                 out_shape = in_shape
 
                             dwc_output_tensor = oh.make_tensor_value_info(
