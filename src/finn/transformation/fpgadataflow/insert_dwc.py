@@ -105,7 +105,7 @@ class InsertDWC(Transformation):
                             dtype = n0.get_output_datatype(out_idx)
                             n0_otensor = model.get_tensor_valueinfo(output_name)
                             n0_tensor_dtype = n0_otensor.type.tensor_type.elem_type
-                            n1_dtype = n1.get_input_datatype()
+                            n1_dtype = n1.get_input_datatype(in_idx)
                             assert dtype == n1_dtype, (
                                 "Neighboring node datatypes are Incompatible"
                                 + f" ({dtype}) != ({n1_dtype})"
