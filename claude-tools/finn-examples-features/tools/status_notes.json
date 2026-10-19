@@ -1,8 +1,6 @@
 {
   "issues": {
-    "fold-target__bnn-pynq__AUP-ZU3_8GB-tfc-w1a1": "target infeasible (LabelSelect kept at PE=1)",
-    "fold-target__bnn-pynq__AUP-ZU3_8GB-tfc-w1a2": "target infeasible (LabelSelect kept at PE=1)",
-    "fold-target__bnn-pynq__AUP-ZU3_8GB-tfc-w2a2": "target infeasible (LabelSelect kept at PE=1)",
+    "fold-target__bnn-pynq__AUP-ZU3_8GB-tfc-w1a1": "target infeasible in budget (committed MVAU_hls_0 PE32xSIMD784; LabelSelect PE=1), see #005",
     "fold-target__resnet18__U55C-resnet18_4w4a": "#003",
     "fold-max__resnet18__U55C-resnet18_4w4a": "#003",
     "dwc__resnet18__U55C-resnet18_4w4a": "#003",
@@ -20,24 +18,20 @@
     "dwc__resnet50__V80": "#003",
     "fold-target__bert__VCK190": "#003",
     "fold-max__bert__VCK190": "#003",
-    "dwc__bert__VCK190": "#003",
-    "dwc__vgg10-radioml__ZCU104": "#004 (padded InsertDWC assert, predicted)",
-    "fold-target__vgg10-radioml__ZCU104": "#004 (DWC at 1280 cycles > target 1028; rtlsim 1.18x est)"
+    "dwc__bert__VCK190": "#003"
   },
-  "tfc-w1a1 (AUP-ZU3_8GB)": "folding target: committed JSON folds LabelSelect (PE=5, 3 cycles); the optimizer keeps LabelSelect at PE=1 by design (fmax), 11 cycles: target infeasible",
+  "tfc-w1a1 (AUP-ZU3_8GB)": "folding target: committed folding near-fully unrolled (9 cycles) - beyond the optimizer's ZU3 budget and LabelSelect kept at PE=1; optimizer 15 cycles, rtlsim = estimate",
   "resnet18_8w8a (U55C)": "FIFO: n/a, committed folding has runtime-writeable URAM weights, not initialized in stitched-IP rtlsim",
   "footer": [
     "Issues: `claude-tools/finn-examples-features/issues/<NNN-...>/ISSUE.md` (+ `REPORT.md` of the fix agent).",
     "* #001 fixed: bert dynamic MVAUs now characterized (tree model + in1 TAV); landed on feature/dev/analytical-fifo-sizing.",
     "* #002 fixed: MVAU_hls/LabelSelect_hls per-frame HLS overhead (+7/+4 cycles) added to get_exp_cycles on the new standalone branch feature/dev/hls-exp-cycles-overhead; tfc/cybersecurity jobs rerun with it.",
     "* #003 folding optimizer raises on branching graphs (SWG consumer = next node) for resnet18/50 and yolov8, and on bert (dynamic MVAU without weight initializer).",
-    "* #004 vgg10: optimizer's DWC model disagrees with the DWC estimate (target missed by a DWC at 1280 cycles), and padded folding breaks InsertDWC.",
-    "* #005 maximize folding on AUP-ZU3_8GB: correct but 0.04-0.65x the committed throughput (cnv, lfc, cybersecurity) and over the LUT budget by FINN's estimates (queued for a fix agent).",
-    "* DWC tests: at the reference target the seeded optimizer inserts no padding DWC on most models (skip = no padding needed)."
+    "* DWC tests: at the reference target the seeded optimizer inserts no padding DWC on most models (skip = no padding needed).",
+    "* #004 fixed: optimizer repair loop missed unnamed DWC bottlenecks (vgg10 1280 -> 1028 cycles); no padding next to a reshape (InsertDWC assert).",
+    "* #005 fixed: phantom URAM estimate of embedded MVAU weights (dev bug) + maximize search fixes; maximize now fits the budget and matches/beats the committed folding where that fits.",
+    "* #006 open (agent running): balanced optimizer foldings on cnv: rtlsim 0.95-0.98x of the estimate.",
+    "* Folding/DWC jobs of bnn-pynq, gtsrb, vgg10 rerun after fixes 004/005 (13:47)."
   ],
-  "tfc-w1a2 (AUP-ZU3_8GB)": "LabelSelect kept at PE=1 caps the optimizer at 11 cycles (committed: 8)",
-  "bert (VCK190)": "FIFO: #001 fixed (dynamic MVAU characterization), rerun; estimate 4x pessimistic for tiled MVAUs (TH), rtlsim 4.0x est",
-  "cnv-w1a1 (AUP-ZU3_8GB)": "maximize: #005 (0.04-0.07x committed)",
-  "cnv-w1a2 (AUP-ZU3_8GB)": "maximize: #005 (0.04-0.07x committed)",
-  "cnv-w2a2 (AUP-ZU3_8GB)": "maximize: #005 (0.04-0.07x committed)"
+  "bert (VCK190)": "FIFO: #001 fixed (dynamic MVAU characterization), rerun; estimate 4x pessimistic for tiled MVAUs (TH), rtlsim 4.0x est"
 }

@@ -1,0 +1,33 @@
+== fold-max_bnn-pynq_cnv-w2a2_AUP-ZU3_8GB_2cerznpw/
+{
+  "output_dir": "/home/lstasytis/finn/build/finn_build/fx/fix005/fold-max_bnn-pynq_cnv-w2a2_AUP-ZU3_8GB_2cerznpw",
+  "est_fps": 3615.9826432833124,
+  "ref_est_fps": 3028.4675953967294,
+  "rtlsim_fps": 3542.832849146177,
+  "rtlsim_vs_est": 0.9797704244313752,
+  "est_vs_ref": 1.1939974688121497,
+  "verified": true,
+  "fifo_kbit": 88.880859375,
+  "pad_dwcs": 0,
+  "test": "fold-max",
+  "step_times_s": {
+    "step_target_fps_parallelization": 160.517320394516,
+    "step_set_fifo_depths": 2.9159443378448486
+  }
+}== fold-max_bnn-pynq_cnv-w1a1_AUP-ZU3_8GB_ii9l8ott/
+{
+  "output_dir": "/home/lstasytis/finn/build/finn_build/fx/fix005/fold-max_bnn-pynq_cnv-w1a1_AUP-ZU3_8GB_ii9l8ott",
+  "est_fps": 6941.070313042271,
+  "ref_est_fps": 12244.398187829069,
+  "rtlsim_fps": 6917.064397869544,
+  "rtlsim_vs_est": 0.9965414678010653,
+  "est_vs_ref": 0.5668772124661622,
+  "verified": true,
+  "fifo_kbit": 29.7197265625,
+  "pad_dwcs": 0,
+  "test": "fold-max",
+  "step_times_s": {
+    "step_target_fps_parallelization": 159.1048924922943,
+    "step_set_fifo_depths": 2.790076494216919
+  }
+}

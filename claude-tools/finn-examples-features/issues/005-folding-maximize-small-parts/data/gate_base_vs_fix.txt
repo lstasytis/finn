@@ -1,0 +1,65 @@
+bnn-pynq_cnv-w1a1__AUP-ZU3_8GB__fifo                    base (8167, False, {'BRAM_18K': 1, 'DSP': 0, 'LUT': 169180, 'URAM': 0})
+                                                        fix  (8167, False, {'BRAM_18K': 80, 'DSP': 0, 'LUT': 86167, 'URAM': 0})  attrs: ['PE', 'SIMD', 'cycles_estimate']
+bnn-pynq_cnv-w1a1__AUP-ZU3_8GB__maximize                base (227808, False, {'BRAM_18K': 0, 'DSP': 0, 'LUT': 115341, 'URAM': 0})
+                                                        fix  (14407, True, {'BRAM_18K': 73, 'DSP': 0, 'LUT': 49111, 'URAM': 0})  attrs: ['PE', 'SIMD', 'cycles_estimate', 'parallel_window']
+bnn-pynq_cnv-w1a1__AUP-ZU3_8GB__target                  base (8167, False, {'BRAM_18K': 0, 'DSP': 0, 'LUT': 166265, 'URAM': 0})
+                                                        fix  (8167, False, {'BRAM_18K': 79, 'DSP': 0, 'LUT': 84021, 'URAM': 0})  attrs: ['PE', 'SIMD', 'cycles_estimate']
+bnn-pynq_cnv-w1a2__AUP-ZU3_8GB__fifo                    base (33020, False, {'BRAM_18K': 1, 'DSP': 0, 'LUT': 169473, 'URAM': 0})
+                                                        fix  (33020, True, {'BRAM_18K': 197, 'DSP': 0, 'LUT': 39865, 'URAM': 0})  attrs: ['PE', 'SIMD', 'cycles_estimate']
+bnn-pynq_cnv-w1a2__AUP-ZU3_8GB__maximize                base (227808, False, {'BRAM_18K': 0, 'DSP': 0, 'LUT': 157000, 'URAM': 0})
+                                                        fix  (27655, True, {'BRAM_18K': 200, 'DSP': 0, 'LUT': 44916, 'URAM': 0})  attrs: ['PE', 'SIMD', 'cycles_estimate']
+bnn-pynq_cnv-w1a2__AUP-ZU3_8GB__padded                  base ('error', 'AssertionError: DWC stream width with 52 elements does not divide tensor shape [')
+                                                        fix  ('error', 'AssertionError: DWC stream width with 65 elements does not divide tensor shape [')  attrs: []
+bnn-pynq_cnv-w1a2__AUP-ZU3_8GB__target                  base (33020, False, {'BRAM_18K': 0, 'DSP': 0, 'LUT': 165373, 'URAM': 0})
+                                                        fix  (33020, True, {'BRAM_18K': 197, 'DSP': 0, 'LUT': 39865, 'URAM': 0})  attrs: ['PE', 'SIMD', 'cycles_estimate']
+bnn-pynq_cnv-w1a2__KV260_SOM__fifo                      base (32407, True, {'BRAM_18K': 144, 'DSP': 0, 'LUT': 61198, 'URAM': 11})
+                                                        fix  (33020, True, {'BRAM_18K': 175, 'DSP': 0, 'LUT': 44896, 'URAM': 0})  attrs: ['PE', 'SIMD', 'cycles_estimate']
+bnn-pynq_cnv-w1a2__KV260_SOM__maximize                  base (12551, False, {'BRAM_18K': 144, 'DSP': 0, 'LUT': 104306, 'URAM': 15})
+                                                        fix  (18439, True, {'BRAM_18K': 145, 'DSP': 0, 'LUT': 78003, 'URAM': 0})  attrs: ['PE', 'SIMD', 'cycles_estimate']
+bnn-pynq_cnv-w1a2__KV260_SOM__padded                    base ('error', 'AssertionError: DWC stream width with 6 elements does not divide tensor shape [1')
+                                                        fix  ('error', 'AssertionError: DWC stream width with 65 elements does not divide tensor shape [')  attrs: []
+bnn-pynq_cnv-w1a2__KV260_SOM__target                    base (32407, True, {'BRAM_18K': 144, 'DSP': 0, 'LUT': 61212, 'URAM': 11})
+                                                        fix  (33020, True, {'BRAM_18K': 175, 'DSP': 0, 'LUT': 44896, 'URAM': 0})  attrs: ['PE', 'SIMD', 'cycles_estimate']
+bnn-pynq_cnv-w2a2__AUP-ZU3_8GB__fifo                    base (33020, False, {'BRAM_18K': 1, 'DSP': 0, 'LUT': 236568, 'URAM': 0})
+                                                        fix  (33020, True, {'BRAM_18K': 197, 'DSP': 0, 'LUT': 39865, 'URAM': 0})  attrs: ['PE', 'SIMD', 'cycles_estimate']
+bnn-pynq_cnv-w2a2__AUP-ZU3_8GB__maximize                base (227808, False, {'BRAM_18K': 0, 'DSP': 0, 'LUT': 222488, 'URAM': 0})
+                                                        fix  (27655, True, {'BRAM_18K': 200, 'DSP': 0, 'LUT': 44916, 'URAM': 0})  attrs: ['PE', 'SIMD', 'cycles_estimate']
+bnn-pynq_cnv-w2a2__AUP-ZU3_8GB__padded                  base ('error', 'AssertionError: DWC stream width with 130 elements does not divide tensor shape ')
+                                                        fix  ('error', 'AssertionError: DWC stream width with 65 elements does not divide tensor shape [')  attrs: []
+bnn-pynq_cnv-w2a2__AUP-ZU3_8GB__target                  base (33020, False, {'BRAM_18K': 0, 'DSP': 0, 'LUT': 231928, 'URAM': 0})
+                                                        fix  (33020, True, {'BRAM_18K': 197, 'DSP': 0, 'LUT': 39865, 'URAM': 0})  attrs: ['PE', 'SIMD', 'cycles_estimate']
+bnn-pynq_cnv-w2a2__U55C__fifo                           base (33020, True, {'BRAM_18K': 145, 'DSP': 0, 'LUT': 60085, 'URAM': 10})
+                                                        fix  (33020, True, {'BRAM_18K': 175, 'DSP': 0, 'LUT': 44896, 'URAM': 0})  attrs: ['PE', 'SIMD', 'cycles_estimate']
+bnn-pynq_cnv-w2a2__U55C__maximize                       base (1575, True, {'BRAM_18K': 130, 'DSP': 0, 'LUT': 752891, 'URAM': 23})
+                                                        fix  (1575, True, {'BRAM_18K': 109, 'DSP': 0, 'LUT': 754981, 'URAM': 0})  attrs: ['PE', 'SIMD', 'cycles_estimate']
+bnn-pynq_cnv-w2a2__U55C__target                         base (33020, True, {'BRAM_18K': 145, 'DSP': 0, 'LUT': 60085, 'URAM': 10})
+                                                        fix  (33020, True, {'BRAM_18K': 175, 'DSP': 0, 'LUT': 44896, 'URAM': 0})  attrs: ['PE', 'SIMD', 'cycles_estimate']
+bnn-pynq_lfc-w1a1__AUP-ZU3_8GB__fifo                    base (392, False, {'BRAM_18K': 0, 'DSP': 0, 'LUT': 201915, 'URAM': 0})
+                                                        fix  (519, True, {'BRAM_18K': 159, 'DSP': 0, 'LUT': 41434, 'URAM': 0})  attrs: ['PE', 'SIMD', 'cycles_estimate']
+bnn-pynq_lfc-w1a1__AUP-ZU3_8GB__maximize                base (784, False, {'BRAM_18K': 0, 'DSP': 0, 'LUT': 199964, 'URAM': 0})
+                                                        fix  (519, True, {'BRAM_18K': 159, 'DSP': 0, 'LUT': 41434, 'URAM': 0})  attrs: ['PE', 'SIMD', 'cycles_estimate']
+bnn-pynq_lfc-w1a1__AUP-ZU3_8GB__padded                  base ('error', 'AssertionError: DWC stream width with 1024 elements does not divide tensor shape')
+                                                        fix  ('error', 'AssertionError: DWC stream width with 4 elements does not divide tensor shape [1')  attrs: []
+bnn-pynq_lfc-w1a1__AUP-ZU3_8GB__target                  base (392, False, {'BRAM_18K': 0, 'DSP': 0, 'LUT': 199995, 'URAM': 0})
+                                                        fix  (519, True, {'BRAM_18K': 159, 'DSP': 0, 'LUT': 41434, 'URAM': 0})  attrs: ['PE', 'SIMD', 'cycles_estimate']
+bnn-pynq_lfc-w1a2__AUP-ZU3_8GB__fifo                    base (784, False, {'BRAM_18K': 0, 'DSP': 0, 'LUT': 282089, 'URAM': 0})
+                                                        fix  (2055, True, {'BRAM_18K': 318, 'DSP': 0, 'LUT': 23306, 'URAM': 0})  attrs: ['PE', 'SIMD', 'cycles_estimate']
+bnn-pynq_lfc-w1a2__AUP-ZU3_8GB__maximize                base (784, False, {'BRAM_18K': 0, 'DSP': 0, 'LUT': 278049, 'URAM': 0})
+                                                        fix  (1031, True, {'BRAM_18K': 318, 'DSP': 0, 'LUT': 41355, 'URAM': 0})  attrs: ['PE', 'SIMD', 'cycles_estimate']
+bnn-pynq_lfc-w1a2__AUP-ZU3_8GB__padded                  base ('error', 'AssertionError: DWC stream width with 1024 elements does not divide tensor shape')
+                                                        fix  ('error', 'AssertionError: DWC stream width with 262 elements does not divide tensor shape ')  attrs: []
+bnn-pynq_lfc-w1a2__AUP-ZU3_8GB__target                  base (784, False, {'BRAM_18K': 0, 'DSP': 0, 'LUT': 278049, 'URAM': 0})
+                                                        fix  (2055, True, {'BRAM_18K': 318, 'DSP': 0, 'LUT': 23306, 'URAM': 0})  attrs: ['PE', 'SIMD', 'cycles_estimate']
+bnn-pynq_tfc-w1a2__AUP-ZU3_8GB__fifo                    base (15, False, {'BRAM_18K': 0, 'DSP': 0, 'LUT': 87343, 'URAM': 0})
+                                                        fix  (15, False, {'BRAM_18K': 0, 'DSP': 0, 'LUT': 119027, 'URAM': 0})  attrs: []
+bnn-pynq_tfc-w1a2__AUP-ZU3_8GB__maximize                base (23, False, {'BRAM_18K': 0, 'DSP': 0, 'LUT': 62285, 'URAM': 0})
+                                                        fix  (35, True, {'BRAM_18K': 0, 'DSP': 0, 'LUT': 39185, 'URAM': 0})  attrs: ['PE', 'SIMD', 'cycles_estimate']
+bnn-pynq_tfc-w1a2__AUP-ZU3_8GB__target                  base (15, False, {'BRAM_18K': 0, 'DSP': 0, 'LUT': 87277, 'URAM': 0})
+                                                        fix  (15, False, {'BRAM_18K': 0, 'DSP': 0, 'LUT': 118961, 'URAM': 0})  attrs: []
+gtsrb__AUP-ZU3_8GB__fifo                                base (12032, False, {'BRAM_18K': 237, 'DSP': 0, 'LUT': 57048, 'URAM': 0})
+                                                        fix  (12032, False, {'BRAM_18K': 241, 'DSP': 0, 'LUT': 57822, 'URAM': 0})  attrs: []
+gtsrb__AUP-ZU3_8GB__maximize                            base (12807, True, {'BRAM_18K': 207, 'DSP': 0, 'LUT': 48525, 'URAM': 0})
+                                                        fix  (12807, True, {'BRAM_18K': 207, 'DSP': 0, 'LUT': 48525, 'URAM': 0})  attrs: []
+gtsrb__AUP-ZU3_8GB__target                              base (12032, False, {'BRAM_18K': 236, 'DSP': 0, 'LUT': 54904, 'URAM': 0})
+                                                        fix  (12032, False, {'BRAM_18K': 240, 'DSP': 0, 'LUT': 55678, 'URAM': 0})  attrs: []
+same 76 diff 32

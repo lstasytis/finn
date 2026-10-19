@@ -1,0 +1,39 @@
+cnv-w1a1__AUP-ZU3_8GB            committed     8167 cyc LUT   161619 BRAM    81 URAM   15 fits False
+    base       227808 cyc ratio  0.036 fits False LUT   115042 BRAM     0 URAM    0 DSP    0 probes 8 t 93.2s
+    fix5        14407 cyc ratio  0.567 fits True  LUT    49111 BRAM    73 URAM    0 DSP    0 probes 15 t 149.6s
+cnv-w1a2__AUP-ZU3_8GB            committed    33020 cyc LUT    50178 BRAM   178 URAM   45 fits False
+    base       455616 cyc ratio  0.072 fits False LUT   158186 BRAM     0 URAM    0 DSP    0 probes 8 t 93.0s
+    fix5        27655 cyc ratio  1.194 fits True  LUT    44916 BRAM   200 URAM    0 DSP    0 probes 15 t 151.0s
+cnv-w1a2__KV260_SOM              committed    33020 cyc LUT    50178 BRAM   178 URAM   45 fits True
+    base        12551 cyc ratio  2.631 fits False LUT   104285 BRAM   144 URAM   15 DSP    0 probes 15 t 160.1s
+    fix5        18439 cyc ratio  1.791 fits True  LUT    78003 BRAM   145 URAM    0 DSP    0 probes 15 t 151.3s
+cnv-w2a2__AUP-ZU3_8GB            committed    33020 cyc LUT    49622 BRAM   178 URAM   45 fits False
+    base       455616 cyc ratio  0.072 fits False LUT   222719 BRAM     0 URAM    0 DSP    0 probes 8 t 92.2s
+    fix5        27655 cyc ratio  1.194 fits True  LUT    44916 BRAM   200 URAM    0 DSP    0 probes 15 t 150.6s
+cnv-w2a2__U55C                   committed    33020 cyc LUT    49622 BRAM   178 URAM   45 fits True
+    base         1575 cyc ratio 20.965 fits True  LUT   751491 BRAM   131 URAM   24 DSP    0 probes 15 t 152.8s
+    fix5         1575 cyc ratio 20.965 fits True  LUT   754765 BRAM   109 URAM    0 DSP    0 probes 15 t 148.3s
+cybersecurity-mlp__AUP-ZU3_8GB   committed        8 cyc LUT   584568 BRAM     0 URAM    0 fits False
+    base           23 cyc ratio  0.348 fits True  LUT    37926 BRAM     0 URAM    0 DSP    0 probes 11 t 21.0s
+    fix5           23 cyc ratio  0.348 fits True  LUT    37926 BRAM     0 URAM    0 DSP    0 probes 11 t 18.0s
+gtsrb__AUP-ZU3_8GB               committed    12295 cyc LUT    76152 BRAM   314 URAM    0 fits False
+    base        12807 cyc ratio  0.960 fits True  LUT    48525 BRAM   207 URAM    0 DSP    0 probes 15 t 145.7s
+    fix5        12807 cyc ratio  0.960 fits True  LUT    48525 BRAM   207 URAM    0 DSP    0 probes 15 t 147.9s
+kws__AUP-ZU3_8GB                 committed     3927 cyc LUT    14545 BRAM    69 URAM    0 fits True
+    base          490 cyc ratio  8.014 fits True  LUT    29823 BRAM    69 URAM    0 DSP    0 probes 15 t 40.6s
+    fix5          490 cyc ratio  8.014 fits True  LUT    29823 BRAM    69 URAM    0 DSP    0 probes 15 t 30.6s
+lfc-w1a1__AUP-ZU3_8GB            committed      519 cyc LUT    41002 BRAM   158 URAM   80 fits False
+    base          784 cyc ratio  0.662 fits False LUT   199820 BRAM     0 URAM    0 DSP    0 probes 8 t 26.0s
+    fix5          519 cyc ratio  1.000 fits True  LUT    41764 BRAM   159 URAM    0 DSP    0 probes 15 t 33.2s
+lfc-w1a2__AUP-ZU3_8GB            committed     2055 cyc LUT    27893 BRAM   316 URAM   52 fits False
+    base          135 cyc ratio 15.222 fits False LUT   276972 BRAM     0 URAM    0 DSP    0 probes 8 t 19.0s
+    fix5         1031 cyc ratio  1.993 fits True  LUT    44000 BRAM   318 URAM    0 DSP    0 probes 15 t 34.1s
+tfc-w1a1__AUP-ZU3_8GB            committed        9 cyc LUT   230205 BRAM     0 URAM    0 fits False
+    base           23 cyc ratio  0.391 fits True  LUT    31550 BRAM     0 URAM    0 DSP    0 probes 11 t 24.5s
+    fix5           23 cyc ratio  0.391 fits True  LUT    31550 BRAM     0 URAM    0 DSP    0 probes 11 t 21.7s
+tfc-w1a2__AUP-ZU3_8GB            committed       15 cyc LUT   117724 BRAM     0 URAM    0 fits False
+    base           23 cyc ratio  0.652 fits False LUT    61191 BRAM     0 URAM    0 DSP    0 probes 11 t 24.1s
+    fix5           35 cyc ratio  0.429 fits True  LUT    39270 BRAM     0 URAM    0 DSP    0 probes 12 t 23.9s
+tfc-w2a2__AUP-ZU3_8GB            committed       15 cyc LUT   116974 BRAM     0 URAM    0 fits False
+    base           35 cyc ratio  0.429 fits True  LUT    39236 BRAM     0 URAM    0 DSP    0 probes 12 t 30.3s
+    fix5           35 cyc ratio  0.429 fits True  LUT    39236 BRAM     0 URAM    0 DSP    0 probes 12 t 25.0s
