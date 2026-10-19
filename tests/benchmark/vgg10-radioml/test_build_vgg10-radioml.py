@@ -110,13 +110,13 @@ def test_vgg10radioml(board, bench_recorder):
 
 FEATURE_BUILDS = ["ZCU104"]
 FOLDING_MAX_PADDING = 4
-# optimizer folding (fixed seed) instead of the committed JSON, FIFOs sized by characterization
+# optimizer folding (fixed seed) instead of the committed JSON, FIFOs sized analytically
 OPTIMIZER_FOLDING = dict(
     folding_config_file=None,
     folding_style="optimizer",
     folding_seed=1,
     auto_fifo_depths=True,
-    auto_fifo_strategy="characterize",
+    auto_fifo_strategy="heuristic_analytical",
 )
 
 
@@ -170,6 +170,17 @@ def run_feature_build(board, name, estimate_only=False, **overrides):
             metrics["est_fps"],
         )
     return metrics
+
+
+@pytest.mark.slow
+@pytest.mark.vivado
+@pytest.mark.finn_examples
+@pytest.mark.fifo_sizing
+@pytest.mark.xdist_group("vgg10-radioml")
+@pytest.mark.parametrize("strategy", ["heuristic_analytical", "heuristic_rtlsim"])
+@pytest.mark.parametrize("board", FEATURE_BUILDS)
+def test_vgg10radioml_fifo_sizing(board, strategy):
+    run_feature_build(board, f"fifo-{strategy}", auto_fifo_depths=True, auto_fifo_strategy=strategy)
 
 
 @pytest.mark.slow

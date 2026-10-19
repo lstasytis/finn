@@ -146,6 +146,7 @@ Each model's test file also carries feature tests, selected by marker:
 
 | marker | test | checks |
 |--------|------|--------|
+| `fifo_sizing` | `test_<model>_fifo_sizing[<strategy>]` | committed folding, FIFOs sized by `heuristic_analytical` / `heuristic_rtlsim` |
 | `folding` | `test_<model>_folding[target]` | optimizer folding at the committed folding's estimated throughput; the estimate meets it |
 | `folding` | `test_<model>_folding[maximize]` | optimizer folding without a target (maximum throughput within the board's budget) |
 | `dwc` | `test_<model>_dwc` | optimizer at the committed throughput with `folding_maximum_padding`; skipped if no padding DWC is inserted |
@@ -155,7 +156,7 @@ with the committed folding (`$FINN_BUILD_DIR/est_<model>_<board>_*`), whose esti
 throughput is the reference. They build up to stitched IP (no bitfile) and pass if the
 stitched-IP rtlsim output matches the golden output and the rtlsim throughput is at least
 98 % of the build's own analytic estimate. The folding tests size FIFOs with
-dev's `characterize` strategy. Numbers (estimated and rtlsim throughput, FIFO storage, padding DWCs,
+`heuristic_analytical`. Numbers (estimated and rtlsim throughput, FIFO storage, padding DWCs,
 folding and FIFO sizing step times) are written to `report/feature_metrics.json`.
 
 ```bash
