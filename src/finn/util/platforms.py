@@ -457,6 +457,78 @@ class Alveo_NxU55C_Platform(Platform):
         ]
 
 
+class K26_Platform(Platform):
+    def __init__(
+        self,
+        ndevices=1,
+        limits=DEFAULT_RES_LIMITS,
+        avg_constraints=DEFAULT_AVG_CONSTRAINTS,
+    ):
+        super(K26_Platform, self).__init__(
+            nslr=1,
+            ndevices=ndevices,
+            sll_count=[[0]],
+            ddr_slr=[],
+            eth_slr=0,
+            eth_gbps=1,
+            limits=limits,
+            avg_constraints=avg_constraints,
+        )
+
+    @property
+    def compute_resources(self):
+        # xck26 (Vivado part data)
+        return [[117120, 2 * 117120, 2 * 144, 64, 1248] for i in range(1)]
+
+
+class VC1902_Platform(Platform):
+    def __init__(
+        self,
+        ndevices=1,
+        limits=DEFAULT_RES_LIMITS,
+        avg_constraints=DEFAULT_AVG_CONSTRAINTS,
+    ):
+        super(VC1902_Platform, self).__init__(
+            nslr=1,
+            ndevices=ndevices,
+            sll_count=[[0]],
+            ddr_slr=[],
+            eth_slr=0,
+            eth_gbps=1,
+            limits=limits,
+            avg_constraints=avg_constraints,
+        )
+
+    @property
+    def compute_resources(self):
+        # xcvc1902 (Vivado part data)
+        return [[899840, 2 * 899840, 2 * 967, 463, 1968] for i in range(1)]
+
+
+class V80_Platform(Platform):
+    def __init__(
+        self,
+        ndevices=1,
+        limits=DEFAULT_RES_LIMITS,
+        avg_constraints=DEFAULT_AVG_CONSTRAINTS,
+    ):
+        super(V80_Platform, self).__init__(
+            nslr=1,
+            ndevices=ndevices,
+            sll_count=[[0]],
+            ddr_slr=[],
+            eth_slr=0,
+            eth_gbps=1,
+            limits=limits,
+            avg_constraints=avg_constraints,
+        )
+
+    @property
+    def compute_resources(self):
+        # xcv80 (Vivado part data), its 3 SLRs counted as one
+        return [[2574208, 2 * 2574208, 2 * 3741, 1925, 10848] for i in range(1)]
+
+
 platforms = dict()
 platforms["U50"] = Alveo_NxU50_Platform
 platforms["U200"] = Alveo_NxU200_Platform
@@ -469,3 +541,6 @@ platforms["AUP-ZU3_8GB"] = ZU3EG_Platform
 platforms["ZCU104"] = ZU7EV_Platform
 platforms["ZCU102"] = ZU9EG_Platform
 platforms["ZCU111"] = ZU28DR_Platform
+platforms["KV260_SOM"] = K26_Platform
+platforms["VCK190"] = VC1902_Platform
+platforms["V80"] = V80_Platform
