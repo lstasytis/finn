@@ -698,17 +698,18 @@ class Optimizer:
             feasible = [c for c in combos if c[0] <= target] or [
                 c for c in combos if c[0] == fastest
             ]
-            # a node's estimate depends on its own attributes only
             estimates = {}
+
+            def estimate(n):  # a node's estimate depends on its own attributes only
+                key = (id(n), str(n.onnx_node.attribute))
+                if key not in estimates:
+                    estimates[key] = self.resource_cost(n.node_res_estimation(self.fpgapart))
+                return estimates[key]
+
             best = None
             for _, combo in feasible:
                 set_combo(combo)
-                cost = 0.0
-                for n in nodes:
-                    key = (id(n), str(n.onnx_node.attribute))
-                    if key not in estimates:
-                        estimates[key] = self.resource_cost(n.node_res_estimation(self.fpgapart))
-                    cost += estimates[key]
+                cost = sum(estimate(n) for n in nodes)
                 if best is None or cost < best[0]:
                     best = (cost, combo)
             for i, value in zip(indices, best[1]):
@@ -1272,11 +1273,10 @@ class SetFolding(Transformation):
         }
 
     def _aggregate_resources(self, model):
-        estimates = {}
-        for node in model.graph.node:
-            inst = getCustomOp(node)
-            estimates[inst] = inst.node_res_estimation(self.fpgapart)
-        return aggregate_dict_keys(estimates)
+        insts = [getCustomOp(node) for node in model.graph.node]
+        return aggregate_dict_keys(
+            {inst: inst.node_res_estimation(self.fpgapart) for inst in insts}
+        )
 
     def _cost(self, metrics, targets):
         """The search's objective: resources normalized by budget and weighted."""
@@ -1325,11 +1325,8 @@ class SetFolding(Transformation):
         lo, hi = max(int(fastest_cycles), 1), max(int(slowest), int(fastest_cycles), 1)
         n_sweep = max(4, (attempts + 1) // 2)
         n_refine = max(0, attempts - n_sweep)
-        deadline = (
-            None
-            if self.folding_search_timeout_s is None
-            else time.time() + self.folding_search_timeout_s
-        )
+        timeout = self.folding_search_timeout_s
+        deadline = None if timeout is None else time.time() + timeout
         self._search_truncated = False
 
         def out_of_time():
@@ -1349,13 +1346,10 @@ class SetFolding(Transformation):
         def fold_padded(t):
             return self._fold_at_best(opt_template, targets, t, maximize, fold_unpadded(t))
 
-        best, fallback = self._sweep_and_refine(
-            fold_unpadded, lo, hi, n_sweep, n_refine, out_of_time
-        )
+        search = (lo, hi, n_sweep, n_refine, out_of_time)
+        best, fallback = self._sweep_and_refine(fold_unpadded, *search)
         if self.folding_maximum_padding > 0:
-            best_padded, fallback_padded = self._sweep_and_refine(
-                fold_padded, lo, hi, n_sweep, n_refine, out_of_time
-            )
+            best_padded, fallback_padded = self._sweep_and_refine(fold_padded, *search)
             if best is not None and not out_of_time():
                 direct = self._fold_at_best(opt_template, targets, best.achieved, maximize, best)
                 best_padded = self._better(best_padded, direct, None, maximize)
