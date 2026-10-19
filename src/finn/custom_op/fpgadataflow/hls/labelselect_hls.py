@@ -44,6 +44,15 @@ class LabelSelect_hls(LabelSelect, HLSBackend):
         my_attrs.update(HLSBackend.get_nodeattr_types(self))
         return my_attrs
 
+    def get_exp_cycles(self):
+        """Returns expected number of cycles for execution.
+
+        Adds a constant offset per frame for the HLS function's restart, which
+        does not overlap consecutive frames (3-4 cycles in stitched-IP rtlsim).
+        """
+        hls_overhead = 4
+        return LabelSelect.get_exp_cycles(self) + hls_overhead
+
     def verify_node(self):
         info_messages = []
         # verify that "backend" is set to "fpgadataflow"
