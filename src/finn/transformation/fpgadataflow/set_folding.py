@@ -39,6 +39,7 @@ import shutil
 import time
 import warnings
 from collections import namedtuple
+from dataclasses import dataclass
 from onnx import TensorProto, helper
 from qonnx.custom_op.registry import getCustomOp
 from qonnx.transformation.base import Transformation
@@ -73,488 +74,288 @@ def divisors(num):
             yield x
 
 
-def allowed_divisors(cap, bounding_value_exponent=1, max_padding_count=0, skip_folding=False):
-    """
-    compute all possible folding factors for a given
-    upper bound variable
-
-    max_padding_count allows generating values with the assumption
-    that the bounding variable could be padded by up to that many
-    elements, which dramatically increases the possible folding
-    parameters with even a small amount of extra values
-
-    bounding_value_exponent, if set to two, forces the folding factors into
-    square roots of the bounding variable (applicable in some cases)
-    """
-
-    all_divs = []
-    all_bounding_values = []
-    factors = []
-    if skip_folding:
-        all_divs = [1]
-        all_bounding_values = [cap]
-    else:
-        for i in range(cap, cap + max_padding_count + 1):
-            for x in range(1, i + 1):
-                if (i**bounding_value_exponent % x) == 0:
-                    if (x not in all_divs) and (x <= cap) and (i // x not in factors):
-                        all_divs.append(x)
-                        all_bounding_values.append(i)
-                        factors.append(i // x)
-
-    return zip(*sorted(zip(all_divs, all_bounding_values)))
+def allowed_divisors(cap, max_padding_count=0):
+    """Folding factors for a dimension of size ``cap`` and the (padded) size each one folds,
+    as two ascending tuples. With ``max_padding_count`` > 0 the dimension may be padded by up
+    to that many elements, which adds the divisors of the padded sizes; each folding factor
+    (size // value) is offered once, by the smallest size that has it."""
+    values, bounds, factors = [], [], []
+    for bound in range(cap, cap + max_padding_count + 1):
+        for x in divisors(bound):
+            if x not in values and x <= cap and bound // x not in factors:
+                values.append(x)
+                bounds.append(bound)
+                factors.append(bound // x)
+    return zip(*sorted(zip(values, bounds)))
 
 
 class GridEncoder:
-    """Encode ordered discrete folding values into a continuous index space so a
-    continuous global optimizer (scipy.dual_annealing) can search over them, and
-    decode a searched point back to real values. A parameter with a single
-    possible value is fixed and carries no encoded dimension. This replaces the
-    equivalent wrapdisc GridVar/Objective functionality."""
+    """Encode ordered discrete folding values into a continuous index space so that
+    scipy.dual_annealing can search over them, and decode a point back. A parameter with
+    a single possible value is fixed and carries no encoded dimension."""
 
     _EPS = 1e-9
 
     def __init__(self, choices):
-        # choices: one ordered value tuple per parameter
         self.choices = [tuple(c) for c in choices]
 
     @property
     def bounds(self):
         # half-step bounds keep boundary indices reachable and rounding-safe
-        return [
-            (-0.5 + self._EPS, (len(c) - 1) + 0.5 - self._EPS) for c in self.choices if len(c) > 1
-        ]
+        return [(-0.5 + self._EPS, len(c) - 0.5 - self._EPS) for c in self.choices if len(c) > 1]
 
     def encode(self, decoded):
         return [float(c.index(v)) for c, v in zip(self.choices, decoded) if len(c) > 1]
 
     def decode(self, encoded):
-        out, it = [], iter(encoded)
-        for c in self.choices:
-            if len(c) > 1:
-                idx = min(max(int(round(next(it))), 0), len(c) - 1)
-                out.append(c[idx])
-            else:
-                out.append(c[0])
-        return out
+        it = iter(encoded)
+        return [
+            c[min(max(int(round(next(it))), 0), len(c) - 1)] if len(c) > 1 else c[0]
+            for c in self.choices
+        ]
 
 
+# initializer input index and row-count attribute of the thresholds per op family
+THRESHOLD_INPUTS = {"Thresholding": (1, "NumChannels"), "VVAU": (2, "Channels"), "MVAU": (2, "MH")}
+
+
+@dataclass
 class Parameter:
-    def __init__(
-        self,
-        name=None,  # SWU_SIMD, MVAU_SIMD, MVAU_PE etc
-        target_value_name=None,
-        target_value=None,
-        bound_name=None,
-        bound_value=None,
-        bound_value_last=None,
-        update_threshold_input=False,
-        update_weights_input=False,
-        # every construction in generate_parameter_set updates both io shapes
-        update_input_tensor_shape=True,
-        update_output_tensor_shape=True,
-        node=None,  # node instance!
-        node_index=None,
-        op_type=None,
-        model=None,
-    ):
-        self.name = name
-        self.target_value_name = target_value_name
-        self.target_value = target_value
-        self.bound_name = bound_name
-        self.bound_value = bound_value
-        self.bound_value_last = bound_value_last
-        self.update_threshold_input = update_threshold_input
-        self.update_weights_input = update_weights_input
-        self.update_input_tensor_shape = update_input_tensor_shape
-        self.update_output_tensor_shape = update_output_tensor_shape
-        self.node = node
-        self.node_index = node_index
-        self.op_type = op_type
-        self.model = model
+    """One node attribute behind a meta parameter value: ``attr`` of the custom op ``node``
+    (at ``node_index`` in ``model``) takes ``value``, and the channel count ``bound_name``
+    (MW, MH, NumChannels, IFMChannels, ...) the possibly padded ``bound_value``."""
 
-    def update_threshold_tensor(self):
-        if self.op_type in ["Thresholding_hls", "Thresholding_rtl"]:
-            input_index = 1
-            dim0 = self.node.get_nodeattr("NumChannels")
+    attr: str
+    value: object
+    node: object
+    node_index: int
+    op_type: str
+    model: object
+    bound_name: str = None
+    bound_value: object = None
+    update_weights: bool = False
+    update_thresholds: bool = False
+    reshapes_io: bool = True
 
-        elif self.op_type in ["VVAU_hls", "VVAU_rtl"]:
-            input_index = 2
-            dim0 = self.node.get_nodeattr("Channels")
-            if len(self.model.graph.node[self.node_index].input) < 3:
-                # if the MVAU doesnt have a threshold input, just skip
-                return
-
-        elif self.op_type in ["MVAU_hls", "MVAU_rtl"]:
-            input_index = 2
-            dim0 = self.node.get_nodeattr("MH")
-            if len(self.model.graph.node[self.node_index].input) < 3:
-                # if the MVAU doesnt have a threshold input, just skip
-                return
-
-        # thresholding nodes have a weight matrix which needs to be
-        # adjusted if padding or cropping were introduced
-        # MVAU and VVAU nodes can also have it so we stay flexible
-
-        T = self.model.get_initializer(self.model.graph.node[self.node_index].input[input_index])
-        # a single row is broadcast over all channels and stays valid when padding
-        if T.shape[0] in (1, dim0):
+    def apply(self, final=True):
+        """Set the attribute; with ``final`` also make the tensors follow the (padded)
+        channel counts, which the search itself does not need."""
+        self.node.set_nodeattr(self.attr, self.value)
+        if self.bound_name is not None:
+            self.node.set_nodeattr(self.bound_name, self.bound_value)
+        # an SWG emits the whole window only when its SIMD covers all channels
+        if self.bound_name == "IFMChannels" and self.value < self.bound_value:
+            self.node.set_nodeattr("parallel_window", 0)
+        if not final:
             return
+        onnx_node = self.model.graph.node[self.node_index]
+        if self.reshapes_io:
+            self.model.set_tensor_shape(onnx_node.input[0], self.node.get_normal_input_shape())
+            self.model.set_tensor_shape(onnx_node.output[0], self.node.get_normal_output_shape())
+        if self.update_thresholds:
+            self._resize_thresholds(onnx_node)
+        if self.update_weights:
+            self._resize_weights(onnx_node)
 
-        adt = self.model.get_tensor_datatype(
-            self.model.graph.node[self.node_index].input[input_index]
-        )
-        T_new = gen_finn_dt_tensor(adt, (dim0, T.shape[1]))
-        T_new[...] = 0
+    def _set_initializer(self, name, tensor):
+        self.model.set_initializer(name, tensor)
+        self.model.set_tensor_shape(name, tensor.shape)
 
-        T_new[: min(dim0, T.shape[0]), :] = T[: min(dim0, T.shape[0]), :]
+    def _zeros(self, name, shape):
+        tensor = gen_finn_dt_tensor(self.model.get_tensor_datatype(name), shape)
+        tensor[...] = 0
+        return tensor
 
-        self.model.set_initializer(self.model.graph.node[self.node_index].input[input_index], T_new)
+    def _resize_thresholds(self, onnx_node):
+        """Zero-pad (or crop) the threshold rows to the node's channel count."""
+        in_idx, rows_attr = THRESHOLD_INPUTS[self.op_type.rsplit("_", 1)[0]]
+        if len(onnx_node.input) <= in_idx:
+            return  # an MVAU/VVAU without thresholds
+        rows = self.node.get_nodeattr(rows_attr)
+        name = onnx_node.input[in_idx]
+        T = self.model.get_initializer(name)
+        # a single row is broadcast over all channels and stays valid when padding
+        if T.shape[0] in (1, rows):
+            return
+        T_new = self._zeros(name, (rows, T.shape[1]))
+        T_new[: min(rows, T.shape[0]), :] = T[: min(rows, T.shape[0]), :]
+        self._set_initializer(name, T_new)
 
-        self.model.set_tensor_shape(
-            self.model.graph.node[self.node_index].input[input_index], T_new.shape
-        )
-
-    def update_weight_tensor(self):
-        if self.op_type in ["VVAU_hls", "VVAU_rtl"]:
-            input_index = 1
-            dim0 = self.node.get_nodeattr("Channels")
-            dim1 = self.node.get_nodeattr("Kernel")
-
-        elif self.op_type in ["MVAU_hls", "MVAU_rtl"]:
-            input_index = 1
-            dim0 = self.node.get_nodeattr("MW")
-            dim1 = self.node.get_nodeattr("MH")
-
-        W = self.model.get_initializer(self.model.graph.node[self.node_index].input[input_index])
-
-        if self.op_type in ["MVAU_hls", "MVAU_rtl"]:
-            if (dim0, dim1) == W.shape:
-                return False
-
-        if self.op_type in ["VVAU_hls", "VVAU_rtl"]:
-            if W.shape[0] == dim0 and W.shape[-2:] == tuple(dim1):
-                return False
-
-        wdt = self.model.get_tensor_datatype(
-            self.model.graph.node[self.node_index].input[input_index]
-        )
-
-        if self.op_type in ["MVAU_hls", "MVAU_rtl"]:
+    def _resize_weights(self, onnx_node):
+        """Zero-pad (or crop) the weights to the node's (padded) MW x MH, or for a VVAU to
+        its Channels x Kernel."""
+        name = onnx_node.input[1]
+        W = self.model.get_initializer(name)
+        if self.op_type.startswith("MVAU"):
+            mw, mh = self.node.get_nodeattr("MW"), self.node.get_nodeattr("MH")
+            if (mw, mh) == W.shape:
+                return
             # behind a sliding window generator the rows are (kernel position, channel)
             # with the channel fastest, so channel padding goes into every kernel position
-            producer = self.model.find_producer(self.model.graph.node[self.node_index].input[0])
+            producer = self.model.find_producer(onnx_node.input[0])
             k = 1
             if producer is not None and producer.op_type.startswith("ConvolutionInputGenerator"):
                 k = int(np.prod(getCustomOp(producer).get_nodeattr("ConvKernelDim")))
-            if W.shape[0] % k != 0 or dim0 % k != 0:
+            if W.shape[0] % k != 0 or mw % k != 0:
                 k = 1
-            c_old, c_new = W.shape[0] // k, dim0 // k
-            c, h = min(c_old, c_new), min(dim1, W.shape[1])
-            W_new = gen_finn_dt_tensor(wdt, (k, c_new, dim1))
-            W_new[...] = 0
+            c_old, c_new = W.shape[0] // k, mw // k
+            c, h = min(c_old, c_new), min(mh, W.shape[1])
+            W_new = self._zeros(name, (k, c_new, mh))
             W_new[:, :c, :h] = W.reshape(k, c_old, W.shape[1])[:, :c, :h]
-            W_new = W_new.reshape(dim0, dim1)
-            self.model.set_initializer(self.model.graph.node[self.node_index].input[1], W_new)
-
-        if self.op_type in ["VVAU_hls", "VVAU_rtl"]:
-            W_new = gen_finn_dt_tensor(wdt, (dim0, W.shape[1], dim1[0], dim1[1]))
-            W_new[...] = 0
-
-            W_new[
-                : min(dim0, W.shape[0]), :, : min(dim1[0], W.shape[2]), : min(dim1[1], W.shape[3])
-            ] = W[
-                : min(dim0, W.shape[0]), :, : min(dim1[0], W.shape[2]), : min(dim1[1], W.shape[3])
-            ]
-
-            self.model.set_initializer(
-                self.model.graph.node[self.node_index].input[input_index], W_new
-            )
-
-        self.model.set_tensor_shape(self.model.graph.node[self.node_index].input[1], W_new.shape)
-
-        return True
-
-    def apply_value(self, final=True):
-        # update the target value being optimized
-        self.node.set_nodeattr(self.target_value_name, self.target_value)
-
-        # if the bounding value has changed (ie,. MW of an MVAU) as
-        # a result of padding the node, update it as well
-        # if self.bound_value != self.bound_value_last:
-        if self.bound_name is not None:
-            self.node.set_nodeattr(self.bound_name, self.bound_value)
-
-        # make certain parallel window is set right
-        if self.bound_name == "IFMChannels":
-            if self.target_value < self.bound_value:
-                self.node.set_nodeattr("parallel_window", 0)
-
-        # if this is the end of the minimizer routine, we update the tensor
-        # shapes as well to retain functional correctness
-        if final:
-            # first the io tensors only
-            if self.update_input_tensor_shape:
-                new_shape = self.node.get_normal_input_shape()
-                self.model.set_tensor_shape(
-                    self.model.graph.node[self.node_index].input[0], new_shape
-                )
-
-            if self.update_output_tensor_shape:
-                new_shape = self.node.get_normal_output_shape()
-                self.model.set_tensor_shape(
-                    self.model.graph.node[self.node_index].output[0], new_shape
-                )
-
-            if self.update_threshold_input:
-                self.update_threshold_tensor()
-
-            if self.update_weights_input:
-                self.update_weight_tensor()
+            W_new = W_new.reshape(mw, mh)
+        else:
+            channels, kernel = self.node.get_nodeattr("Channels"), self.node.get_nodeattr("Kernel")
+            if W.shape[0] == channels and W.shape[-2:] == tuple(kernel):
+                return
+            W_new = self._zeros(name, (channels, W.shape[1], kernel[0], kernel[1]))
+            kept = tuple(slice(min(n, m)) for n, m in zip(W_new.shape, W.shape))
+            W_new[kept] = W[kept]
+        self._set_initializer(name, W_new)
 
 
 class MetaParameter:
-    """
-    A meta parameter defines a single optimizable integer value (meta_value)
-    which translates into a set of finn-onnx graph node attributes
-    which are tighly linked together (called values)
+    """One optimizable value that sets a group of tightly linked node attributes, e.g. the
+    SIMD of an SWG together with the SIMD of the MVAU it feeds. ``possible_values`` (sorted)
+    are what the search moves over; ``real_values[i]`` lists the ``Parameter``s value i sets.
+    An MVAU's PE and SIMD are separate meta parameters: SIMD-PE 1-2 and 2-1 cost differently."""
 
-    Examples:
-    -SIMD and PE values of a VVAU + SIMD of the SWU if necessary
-    -SIMD value of an SWU and the PE and SIMD values of an MVAU (convolution)
-    -SWU and Pool layer SIMD values (max pooling using SWU)
-
-    - NOTE that MVAU PE and SIMD values are optimized independently, since
-    - both 1-2 and 2-1 SIMD-PE combinations would have the same meta value
-    - while having different resource characteristics
-
-    All possible (legal) combinations of real values are stored in a list and an
-    address translation is performed to map each meta_value to a set
-    of real values when applying them
-    """
-
-    def __init__(
-        self,
-        name=None,
-        meta_value=None,  # current value
-        possible_values=[],  # all possible values
-        real_values=[],  # list of real values for each possible value
-        model=None,
-        node_index=None,
-    ):
+    def __init__(self, name, values, real_values, node_index):
         self.name = name
-        self.meta_value = None
-        assert len(real_values) == len(possible_values)
-        self.possible_values = possible_values
-        self.real_values = real_values
-        self.model = model
-        self.updated = False
-        self.index = 0
         self.node_index = node_index
-
-        """
-        we build up a list of unique nodes related to this meta parameter
-        for future cycle calculations
-        """
-
-        # sort the values first
-        pairs = [
-            (x, y)
-            for (x, y) in sorted(
-                zip(self.possible_values, self.real_values), key=lambda pair: pair[0]
-            )
-        ]
-        self.possible_values = [x[0] for x in pairs]
-        self.real_values = [x[1] for x in pairs]
-
-        self.unique_nodes = []
-        for val in real_values[0]:
-            if val.node not in self.unique_nodes:
-                self.unique_nodes.append(val.node)
+        self.meta_value = None
+        pairs = sorted(zip(values, real_values), key=lambda pair: pair[0])
+        self.possible_values = [value for value, _ in pairs]
+        self.real_values = [real for _, real in pairs]
+        # the nodes this parameter changes, for the cycle and resource estimates
+        self.unique_nodes = list(dict.fromkeys(p.node for p in real_values[0]))
 
     def update_value(self, value):
-        if self.meta_value == value:
-            self.updated = False
-        else:
-            self.meta_value = value
-            self.updated = True
+        self.meta_value = value
 
-    def apply_value(self, final=False, filter=["PE", "SIMD", "parallel_window"]):
-        # make sure to run this once before minimizing
-        self.index = self.possible_values.index(self.meta_value)
-        for val in self.real_values[self.index]:
-            if val.target_value_name in filter:
-                val.apply_value(final)
-
-    def get_cycles(self):
-        """
-        This function assumes all parameters in the unique nodes are
-        updated.
-        """
-        return max([n.get_exp_cycles() for n in self.unique_nodes])
+    def apply_value(self, final=False, attrs=()):
+        """Apply the current value's attributes named in ``attrs``."""
+        for p in self.real_values[self.possible_values.index(self.meta_value)]:
+            if p.attr in attrs:
+                p.apply(final)
 
 
 class ParameterSet:
-    def __init__(self):
-        self.parameters = []
+    """The meta parameters of a model; ``index_list`` selects the ones being optimized
+    (a partition) and ``nodes`` are the nodes they change."""
+
+    def __init__(self, parameters):
+        self.parameters = parameters
         self.index_list = []
         self.nodes = []
 
-    def filter(self, params_to_filter):
-        # filter parameters we want to use in the set
-        # useful for multi-pass optimization
-        self.parameters = [x for x in self.parameters if x.name in params_to_filter]
-
     def get_max_cycles(self):
         return max([n.get_exp_cycles() for n in self.nodes])
-
-    def get_vals(self):
-        return [p.value for p in self.parameters]
 
     def get_meta_values(self):
         return [p.meta_value for p in self.parameters]
 
     def get_min_vals(self):
-        # get minimum possible folding values in the set
         return [p.possible_values[0] for p in self.parameters]
 
     def get_max_vals(self):
-        # get maximum possible folding values in the set
         return [p.possible_values[-1] for p in self.parameters]
 
     def add_all_params_to_index_list(self):
-        self.index_list = [x for x in range(len(self.parameters))]
+        self.index_list = list(range(len(self.parameters)))
 
     def set_values(self, values):
-        for i in range(len(self.index_list)):
-            self.parameters[self.index_list[i]].update_value(values[i])
+        for i, value in zip(self.index_list, values):
+            self.parameters[i].update_value(value)
 
-    def apply_updates(self, final=False, filter=[]):
-        # a
+    def apply_updates(self, final=False, attrs=()):
         for i in self.index_list:
-            self.parameters[i].apply_value(final, filter)
+            self.parameters[i].apply_value(final, attrs)
 
     def assign_involved_nodes(self):
-        nodes = []
-        for i in range(len(self.index_list)):
-            p = self.parameters[self.index_list[i]]
-            for node in p.unique_nodes:
-                nodes.append(node)
-        self.nodes = list(set(nodes))  # make this unique
+        self.nodes = list(set(n for i in self.index_list for n in self.parameters[i].unique_nodes))
 
 
 class Optimizer:
-    """
-    Class responsible for the 'inner loop' of the folding optimization.
-    We set all minimizer-specific Hyper-parameters here, model
-    node & parameter partitioning, minimizer instantation,
-    cost model function and the overarching loop of minimizing the
-    partitions are performed in this class.
+    """The inner loop of the folding optimizer: extracts the model's folding parameters,
+    splits them into partitions of a few neighbouring nodes and minimizes the cost model
+    over each partition with scipy's dual annealing.
 
-    How the optimizer decides what to fold
-    --------------------------------------
-    EVERY hardware node is folded generically: for each node it reads whichever
-    of PE / SIMD the node declares and sweeps the legal folding factors of that
-    parameter. The maximum useful value comes straight off the tensor shapes::
-
-        max PE   = output channels = get_normal_output_shape()[-1]
-        max SIMD = input channels  = get_normal_input_shape()[-1]
-
-    Only a handful of things are genuinely op-specific, and each is one of the
-    short tables below -- easy to see, and easy to add to or remove. The fifth
-    exception is the SWG pairing rules (``_pair_*``): a
-    ConvolutionInputGenerator must be folded in lockstep with the layer it feeds.
+    Every hardware node is folded generically: it sweeps whichever of PE / SIMD the node
+    declares, up to the output channels (PE) or input channels (SIMD). What is genuinely
+    op-specific is in the small tables below and in the SWG pairing rules (``_pair_*``): a
+    ConvolutionInputGenerator is folded together with the layer it feeds.
     """
 
-    # A VVAU folds SIMD over its kernel window, not its input channels, so the
-    # input-shape rule above does not apply.
+    # a VVAU folds SIMD over its kernel window, not its input channels
     SIMD_MAX_OVERRIDE = {
         "VVAU_hls": lambda inst: int(np.prod(inst.get_nodeattr("Kernel"))),
         "VVAU_rtl": lambda inst: int(np.prod(inst.get_nodeattr("Kernel"))),
     }
-    # Parameters we deliberately keep unfolded (fixed at 1).
+    # parameters kept unfolded (fixed at 1)
     DO_NOT_FOLD = {
-        # Folding LabelSelect ruins fmax (OOC place & route, xczu7ev: 10 labels
-        # 610 MHz at PE=1, 390 at PE=2, 230 at PE=5; 1000 labels 530 MHz at PE=1,
-        # 140 at PE=10, 13 at PE=100).
+        # folding LabelSelect ruins fmax (OOC place & route, xczu7ev: 10 labels 610 MHz at
+        # PE=1, 390 at PE=2, 230 at PE=5; 1000 labels 530 MHz at PE=1, 13 at PE=100)
         ("LabelSelect_hls", "PE"),
-        # A VVAU_hls only supports SIMD (kernel-window) folding in its RTL sibling.
+        # a VVAU_hls only supports SIMD (kernel-window) folding in its RTL sibling
         ("VVAU_hls", "SIMD"),
-        # Multi-stream concat/split fold their SIMD over per-stream channel
-        # counts, which needs the dedicated handling in the naive folder; the
-        # optimizer does not model that yet, so leave them unfolded rather than
-        # fold them wrongly.
+        # concat/split fold SIMD over per-stream channel counts, which only the naive
+        # folder models
         ("StreamingConcat_hls", "SIMD"),
         ("StreamingSplit_hls", "SIMD"),
     }
-
-    # Ops that may be channel-padded to unlock finer folding factors, mapping
-    # (op_type, param) -> the node attribute carrying the padded channel count.
-    # Nodes absent here are still folded, just never padded. VVAU/SWG SIMD are
-    # omitted on purpose: their SIMD tracks a kernel size that must not be padded.
+    # (op_type, param) -> the attribute holding the channel count that may be padded to
+    # unlock finer folding factors; other nodes are folded but never padded (VVAU/SWG SIMD
+    # track a kernel size, which must not be padded)
     PADDING_BOUND_ATTR = {
-        ("MVAU_hls", "SIMD"): "MW",
-        ("MVAU_rtl", "SIMD"): "MW",
-        ("MVAU_hls", "PE"): "MH",
-        ("MVAU_rtl", "PE"): "MH",
-        ("VVAU_hls", "PE"): "Channels",
-        ("VVAU_rtl", "PE"): "Channels",
-        ("Thresholding_hls", "PE"): "NumChannels",
-        ("Thresholding_rtl", "PE"): "NumChannels",
-        ("AddStreams_hls", "PE"): "NumChannels",
-        ("ChannelwiseOp_hls", "PE"): "NumChannels",
-        ("DuplicateStreams_hls", "PE"): "NumChannels",
-        ("StreamingMaxPool_hls", "PE"): "NumChannels",
-        ("StreamingMaxPool_rtl", "PE"): "NumChannels",
-        ("FMPadding_hls", "SIMD"): "NumChannels",
-        ("FMPadding_rtl", "SIMD"): "NumChannels",
-        ("FMPadding_Pixel_hls", "SIMD"): "NumChannels",
-        ("DownSampler_hls", "SIMD"): "NumChannels",
+        **{(f"MVAU_{b}", "SIMD"): "MW" for b in ("hls", "rtl")},
+        **{(f"MVAU_{b}", "PE"): "MH" for b in ("hls", "rtl")},
+        **{(f"VVAU_{b}", "PE"): "Channels" for b in ("hls", "rtl")},
+        **{
+            (op, "PE"): "NumChannels"
+            for op in (
+                "Thresholding_hls",
+                "Thresholding_rtl",
+                "AddStreams_hls",
+                "ChannelwiseOp_hls",
+                "DuplicateStreams_hls",
+                "StreamingMaxPool_hls",
+                "StreamingMaxPool_rtl",
+            )
+        },
+        **{
+            (op, "SIMD"): "NumChannels"
+            for op in ("FMPadding_hls", "FMPadding_rtl", "FMPadding_Pixel_hls", "DownSampler_hls")
+        },
     }
-
-    # Ops whose weight / threshold initializers must be resized when their
-    # folding (and therefore channel count, under padding) changes.
+    # ops whose weight / threshold initializers follow their (padded) channel counts
     OPS_WITH_WEIGHTS = {"MVAU_hls", "MVAU_rtl", "VVAU_hls", "VVAU_rtl"}
-    OPS_WITH_THRESHOLDS = {
-        "MVAU_hls",
-        "MVAU_rtl",
-        "VVAU_hls",
-        "VVAU_rtl",
-        "Thresholding_hls",
-        "Thresholding_rtl",
-    }
-
-    # ConvolutionInputGenerator ("SWG") op types. An SWG is always fused to the
-    # layer it feeds and is folded by a pairing rule, never on its own.
+    OPS_WITH_THRESHOLDS = OPS_WITH_WEIGHTS | {"Thresholding_hls", "Thresholding_rtl"}
     SWG_OPS = {"ConvolutionInputGenerator_hls", "ConvolutionInputGenerator_rtl"}
-
-    # Categorical resource-selection attributes the optimizer can tune to trade
-    # one resource for another (BRAM<->URAM via ram_style, LUT<->DSP via resType).
+    # resource-type attributes tuned to trade BRAM<->URAM and LUT<->DSP
     RESOURCE_TYPE_ATTRS = ["ram_style", "resType", "ram_style_thresholds"]
-
-    # Resource-type values the optimizer must NOT choose, because
-    # node_res_estimation does not account for their real cost and would treat
-    # them as "free": "distributed" maps memory to LUTRAM but is estimated as
-    # 0 LUT/BRAM/URAM, so an unconstrained search would hide all memory there
-    # instead of making a real BRAM<->URAM trade.
+    # values the estimator does not cost: "distributed" (LUTRAM) is estimated as free
     RESOURCE_TYPE_EXCLUDED_VALUES = {
         "ram_style": {"distributed"},
         "ram_style_thresholds": {"distributed"},
     }
-
     # rough LUT cost of an HLS DWC relative to an RTL one (DWC-avoidance heuristic)
     HLS_DWC_COST_PENALTY = 8
-
     # depth of the FIFOs on the graph's input and output (DeriveFIFOSizes)
     IO_FIFO_DEPTH = 5
+    # attributes a cost-model evaluation applies
+    PARAMETERS_TO_APPLY = ["SIMD", "PE", "parallel_window", *RESOURCE_TYPE_ATTRS]
+    # dual_annealing settings: iteration cap (maxfun = effort * parameters usually binds
+    # first), acceptance (-1e4, -5] and visiting (1, 3] distribution parameters
+    MAXITER, ACCEPT, VISIT = 200, -0.5, 2.0
+    # large FINITE cost of a missed cycle target, so that the annealer can climb out of
+    # an infeasible region instead of aborting on inf
+    INFEASIBLE_PENALTY = 1e6
 
     @staticmethod
     def max_folding_factor(node_inst, op_type, param):
-        """Largest useful value for a folding parameter (``PE`` or ``SIMD``) on a
-        node, read from the tensor shapes with the documented per-op exceptions."""
+        """Largest useful PE (output channels) or SIMD (input channels) of a node."""
         if param == "PE":
             return int(node_inst.get_normal_output_shape()[-1])
-        # param == "SIMD"
         if op_type in Optimizer.SIMD_MAX_OVERRIDE:
             return Optimizer.SIMD_MAX_OVERRIDE[op_type](node_inst)
         return int(node_inst.get_normal_input_shape()[-1])
@@ -564,138 +365,148 @@ class Optimizer:
         model,
         name,
         targets,
-        hard_constraint_target="max_cycles",
-        target_cycles_per_frame=1,
-        padding=0,
-        maxfun_per_parameter=100,
         fpgapart="xc7z020clg400-1",
-        parameters_to_apply=["SIMD", "PE", "parallel_window", *RESOURCE_TYPE_ATTRS],
-        enable_folding_dwc_heuristic=True,
-        verbose=False,
-        mvau_wwidth_max=1024,
-        # slack on the hard (max_cycles) constraint: violated only if
-        # metric*this > target; 1.0 makes the throughput target a hard one
-        value_to_minimize_relaxation=1.0,
-        init_run=False,
-        # --- scipy dual_annealing driver ---
-        # global iteration cap (maxfun = effort*N is usually binding first)
-        maxiter=200,
-        # acceptance-distribution parameter (scipy range (-1e4, -5]);
-        # less negative = more accepting
-        accept=-0.5,
-        # visiting-distribution shape parameter (scipy range (1, 3])
-        visit=2.0,
+        padding=0,
+        effort=100,
         seed=None,
-        # large FINITE cost for a hard-constraint violation, so dual_annealing
-        # can climb out of an infeasible region instead of aborting on inf/nan
-        infeasible_penalty=1e6,
+        mvau_wwidth_max=1024,
         pad_io_nodes=False,
-        # resource-type attributes (ram_style/resType) the optimizer may tune to
-        # trade BRAM<->URAM and LUT<->DSP; empty means "fold only, don't retune".
-        resource_type_params=[],
-        # per-resource multipliers in the cost function (see cost_model)
+        enable_folding_dwc_heuristic=True,
         resource_weights=None,
-        # may weight memories be placed in URAM? (requires making them
-        # runtime-writeable, so it is opt-in at the SetFolding level)
         allow_uram_weights=False,
-        # estimate the FIFOs' resources in the cost model (see fifo_resources)
-        fifo_proxy=True,
+        init_run=False,
+        resource_type_params=(),
     ):
-        self.params = None
-        self.targets = targets
-        self.target_cycles_per_frame = target_cycles_per_frame
-        self.padding = padding
-        self.mvau_wwidth_max = mvau_wwidth_max
+        """``targets`` maps ``max_cycles`` (the hard constraint) and each resource to its
+        budget; ``effort`` is the annealer's evaluations per parameter; ``init_run`` only
+        applies the initial guess (no search); ``resource_type_params`` are the
+        RESOURCE_TYPE_ATTRS that may be tuned. ``name`` is informational."""
         self.model = model
-        self.pad_io_nodes = pad_io_nodes
         self.name = name
+        self.targets = targets
         self.fpgapart = fpgapart
-        self.init_run = init_run
-        self.maxiter = maxiter
-        self.accept = accept
-        self.visit = visit
+        self.padding = padding
+        self.effort = effort
         self.seed = seed
-        self.infeasible_penalty = infeasible_penalty
-
-        # 0-100, relax whether we MUST hit the required bounding value,
-        # for example max_cycles
-        self.value_to_minimize_relaxation = value_to_minimize_relaxation
-        self.maxfun_per_parameter = maxfun_per_parameter
-
-        self.hard_constraint_target = hard_constraint_target
-        self.parameters_to_apply = parameters_to_apply
+        self.mvau_wwidth_max = mvau_wwidth_max
+        self.pad_io_nodes = pad_io_nodes
         self.enable_folding_dwc_heuristic = enable_folding_dwc_heuristic
-        self.verbose = verbose
-        self.resource_type_params = resource_type_params
         self.resource_weights = resource_weights or {}
         self.allow_uram_weights = allow_uram_weights
-        self.fifo_proxy = fifo_proxy
+        self.init_run = init_run
+        self.resource_type_params = list(resource_type_params)
+        self.params = None
 
-    def compute_hls_dwc_cost(
-        self, model, nodes, lut_capacity, hls_dwc_cost_penalty=HLS_DWC_COST_PENALTY
-    ):
-        # Given a set of nodes and a model,
-        # consider the stream widths between all adjacent nodes
-        # and apply a cost penalty if the shapes mismatch relative
-        # to the cost of introducing a DataWidthConverter
+    # ------------------------------------------------------------------ cost model
 
-        # this heuristic is critical for preventing overuse of
-        # DWCs with enormous resource costs
+    def cost_model(self, values):
+        """Cost of the current partition at meta ``values`` (lower is better).
 
-        # hls_dwc_cost_penalty is a rough heuristic for how much
-        # an HLS variant consumes in LUTs
+        The sum of the partition's resources, each normalized by its budget and scaled by
+        its weight (``prefer_memory`` / ``prefer_compute`` raise the weight of the resource
+        to avoid), plus the DWC-avoidance term and the estimated FIFOs. A missed cycle
+        target (the slowest node or DWC in front of one) adds INFEASIBLE_PENALTY times the
+        violation ratio, so that any feasible point beats any infeasible one."""
+        self.params.set_values(values)
+        self.params.apply_updates(final=False, attrs=self.PARAMETERS_TO_APPLY)
+        nodes = self.params.nodes
+        cycles = max(
+            self.params.get_max_cycles(), max(self.dwc_cycles(self.model, n) for n in nodes)
+        )
+        cost = self.resource_cost(self.get_resources(nodes))
+        if self.enable_folding_dwc_heuristic:
+            cost += self.compute_hls_dwc_cost(self.model, nodes, self.targets["LUT"])
+        cost += self.resource_cost(self.fifo_resources(self.model, nodes))
+        violation = cycles / self.targets["max_cycles"]
+        if violation > 1:
+            cost += self.INFEASIBLE_PENALTY * violation
+        return cost
 
+    def resource_cost(self, resources):
+        """Resources normalized by their budgets and weighted, as in cost_model."""
+        return sum(
+            self.resource_weights.get(r, 1.0) * resources.get(r, 0.0) / self.targets[r]
+            for r in self.targets
+            if r != "max_cycles"
+        )
+
+    def get_resources(self, nodes):
+        return aggregate_dict_keys({n: n.node_res_estimation(self.fpgapart) for n in nodes})
+
+    def graph_nodes(self):
+        """Every hardware node of the model as a custom op instance."""
+        return [getCustomOp(n) for n in self.model.graph.node if is_fpgadataflow_node(n)]
+
+    def compute_hls_dwc_cost(self, model, nodes, lut_capacity):
+        """DWC-avoidance heuristic: for each node whose input stream shape differs from its
+        producer's, the stream widths around the DWC InsertDWC will place there, relative to
+        the LUT budget, and HLS_DWC_COST_PENALTY times that for a DWC the RTL one cannot do
+        (non-integer width ratio or padding/cropping)."""
         cost = 0
         for node in nodes:
             prod = model.find_producer(node.onnx_node.input[0])
-
-            # check if this is not the first node of a model
-            if prod is not None:
-                output_name = prod.output[0]
-                prod_inst = getCustomOp(prod)
-                inWidth = prod_inst.get_outstream_width()
-                outWidth = prod_inst.get_instream_width()
-
-                n0_out_shape = prod_inst.get_folded_output_shape()
-
-                # mvau has a special case with external memory
-                # where we have to consider a different input
-                if (
-                    node.onnx_node.op_type.startswith("MVAU")
-                    and node.get_nodeattr("mem_mode") == "external"
-                ) or (node.onnx_node.op_type.startswith("StreamingConcat")):
-                    # get input idx
-                    in_idx = None
-                    for idx, n_input in enumerate(node.onnx_node.input):
-                        if output_name == n_input:
-                            in_idx = idx
-                    assert in_idx is not None, "Malformed model"
-                    n1_in_shape = node.get_folded_input_shape(in_idx)
-                else:
-                    # use default folded input shape
-                    n1_in_shape = node.get_folded_input_shape()
-
-                # check if we need a DWC
-                if (
-                    np.prod(n0_out_shape) != np.prod(n1_in_shape)
-                    or n0_out_shape[-1] != n1_in_shape[-1]
-                ):
-                    # HLS DWC needed, expensive
-                    if (max(inWidth, outWidth) % min(inWidth, outWidth) != 0) or (
-                        np.prod(n0_out_shape) != np.prod(n1_in_shape)
-                    ):
-                        cost += ((inWidth + outWidth) * hls_dwc_cost_penalty) / lut_capacity
-
-                    # RTL DWC can be used cheaply
-                    else:
-                        cost += (inWidth + outWidth) / lut_capacity
-
+            if prod is None:
+                continue
+            prod_inst = getCustomOp(prod)
+            # the producer's input width stands in for the DWC's output width here
+            in_width, out_width = prod_inst.get_outstream_width(), prod_inst.get_instream_width()
+            n0_out = prod_inst.get_folded_output_shape()
+            op_type = node.onnx_node.op_type
+            if (
+                op_type.startswith("MVAU") and node.get_nodeattr("mem_mode") == "external"
+            ) or op_type.startswith("StreamingConcat"):
+                in_idx = [
+                    i for i, name in enumerate(node.onnx_node.input) if name == prod.output[0]
+                ]
+                assert in_idx, "Malformed model"
+                n1_in = node.get_folded_input_shape(in_idx[-1])
+            else:
+                n1_in = node.get_folded_input_shape()
+            if np.prod(n0_out) == np.prod(n1_in) and n0_out[-1] == n1_in[-1]:
+                continue
+            hls = (max(in_width, out_width) % min(in_width, out_width) != 0) or (
+                np.prod(n0_out) != np.prod(n1_in)
+            )
+            penalty = self.HLS_DWC_COST_PENALTY if hls else 1
+            cost += ((in_width + out_width) * penalty) / lut_capacity
         return cost
 
     @staticmethod
+    def dwc_cycles(model, node):
+        """Cycles of the DWCs InsertDWC will put in front of ``node`` (0 if the stream
+        shapes match), as StreamingDataWidthConverter estimates them: the busier side for
+        an integer width ratio, both sides in turn for a general conversion or for
+        padding/cropping. The latter can exceed either neighbour's cycles."""
+        worst = 0
+        for in_idx, name in enumerate(node.onnx_node.input):
+            prod = model.find_producer(name)
+            if (
+                prod is None
+                or not is_fpgadataflow_node(prod)
+                or prod.op_type.startswith("StreamingDataWidthConverter")
+                or prod.op_type == "IODMA_hls"
+            ):
+                continue
+            out_idx = list(prod.output).index(name)
+            prod_inst = getCustomOp(prod)
+            n0_out = prod_inst.get_folded_output_shape(out_idx)
+            n1_in = node.get_folded_input_shape(in_idx)
+            if n0_out[-1] == n1_in[-1] and np.prod(n0_out) == np.prod(n1_in):
+                continue
+            inw, outw = prod_inst.get_outstream_width(out_idx), node.get_instream_width(in_idx)
+            in_words, out_words = int(np.prod(n0_out[:-1])), int(np.prod(n1_in[:-1]))
+            pads_or_crops = np.prod(prod_inst.get_normal_output_shape(out_idx)) != np.prod(
+                node.get_normal_input_shape(in_idx)
+            )
+            if max(inw, outw) % min(inw, outw) == 0 and not pads_or_crops:
+                worst = max(worst, max(in_words, out_words))
+            else:
+                worst = max(worst, in_words + out_words)
+        return worst
+
+    @staticmethod
     def fifo_model():
-        """fifo.sv's cost model (what StreamingFIFO estimates with), or None on
-        a tree without it."""
+        """fifo.sv's cost model (what StreamingFIFO estimates with), or None."""
         try:
             from finn.util.resource_models import _fifo_cost, _resolve  # noqa: PLC0415
         except ImportError:
@@ -703,34 +514,31 @@ class Optimizer:
         return _fifo_cost, _resolve
 
     def fifo_resources(self, model, nodes):
-        """Estimated resources of the FIFOs the build will put in front of
-        ``nodes`` (one per edge, two around a DWC), without sizing them.
+        """Estimated resources of the FIFOs the build will put in front of ``nodes`` (one
+        per edge, two around a DWC), without sizing them.
 
-        Mirrors the analytic sizer to first order: a FIFO holds what its
-        producer writes before the consumer reads it. With the upstream chain
-        finishing a frame in ``t_up`` cycles (its slowest node, since a node
-        paced by a slower one upstream runs no faster) and the consumer taking
-        ``t_c``, the producer runs ahead by ``words * (1 - t_up / t_c)``, and
-        the sizer never charges more than the consumer's demand above the frame
-        rate, ``words * (1 - t_c / T)``, plus one burst of its reads. Every
-        FIFO is at least 2 deep, which already costs about its width in LUTs;
-        the graph's input and output FIFOs are ``IO_FIFO_DEPTH`` deep."""
+        Mirrors the analytic sizer to first order: a FIFO holds what its producer writes
+        before the consumer reads it. With the upstream chain finishing a frame in ``t_up``
+        cycles (its slowest node: a node paced by a slower one runs no faster) and the
+        consumer taking ``t_c``, the producer runs ahead by ``words * (1 - t_up / t_c)``,
+        and the sizer never charges more than the consumer's demand above the frame rate,
+        ``words * (1 - t_c / T)``, plus one burst of its reads. Every FIFO is at least 2
+        deep; the graph's input and output FIFOs are IO_FIFO_DEPTH deep."""
         fifo_model = self.fifo_model()
         totals = {"LUT": 0.0, "BRAM_18K": 0.0, "URAM": 0.0}
-        target = max(float(self.targets.get(self.hard_constraint_target, 1)), 1.0)
+        target = max(float(self.targets.get("max_cycles", 1)), 1.0)
+
         chain = {}
 
-        def chain_cycles(onnx_node):
-            if onnx_node.name in chain:
-                return chain[onnx_node.name]
-            inst = getCustomOp(onnx_node)
-            cycles = inst.get_exp_cycles()
-            for name in onnx_node.input:
-                prod = model.find_producer(name)
-                if prod is not None and is_fpgadataflow_node(prod):
-                    cycles = max(cycles, chain_cycles(prod))
-            chain[onnx_node.name] = cycles
-            return cycles
+        def upstream_cycles(onnx_node):
+            if onnx_node.name not in chain:
+                cycles = getCustomOp(onnx_node).get_exp_cycles()
+                for name in onnx_node.input:
+                    prod = model.find_producer(name)
+                    if prod is not None and is_fpgadataflow_node(prod):
+                        cycles = max(cycles, upstream_cycles(prod))
+                chain[onnx_node.name] = cycles
+            return chain[onnx_node.name]
 
         def add(depth, width):
             depth = max(2, int(depth))
@@ -757,14 +565,12 @@ class Optimizer:
                     if name in graph_inputs:
                         add(self.IO_FIFO_DEPTH, node.get_instream_width(in_idx))
                     continue
-                t_up = chain_cycles(prod)
+                t_up = upstream_cycles(prod)
                 n1_in = node.get_folded_input_shape(in_idx)
                 words = int(np.prod(n1_in[:-1]))
-                width = node.get_instream_width(in_idx)
-                burst = self.read_burst(node, in_idx)
                 ahead = words * max(0.0, 1.0 - t_up / t_c)
-                drain = words * max(0.0, 1.0 - t_c / target) + burst
-                add(min(ahead, drain), width)
+                drain = words * max(0.0, 1.0 - t_c / target) + self.read_burst(node, in_idx)
+                add(min(ahead, drain), node.get_instream_width(in_idx))
                 prod_inst = getCustomOp(prod)
                 out_idx = list(prod.output).index(name)
                 n0_out = prod_inst.get_folded_output_shape(out_idx)
@@ -775,280 +581,106 @@ class Optimizer:
 
     @staticmethod
     def read_burst(node, in_idx):
-        """Words a node reads at once before pausing: an MVAU/VVAU takes its
-        input window's words and then computes MH/PE outputs from them."""
-        op_type = node.onnx_node.op_type
-        if op_type.startswith("MVAU") or op_type.startswith("VVAU"):
+        """Words a node reads at once before pausing: an MVAU/VVAU takes its input
+        window's words and then computes MH/PE outputs from them."""
+        if node.onnx_node.op_type.startswith(("MVAU", "VVAU")):
             return int(node.get_folded_input_shape(in_idx)[-2])
         return 1
 
-    @staticmethod
-    def dwc_cycles(model, node):
-        """Cycles of the DWCs InsertDWC will put in front of ``node`` (0 when the
-        producers' stream shapes already match), as StreamingDataWidthConverter
-        estimates them: the busier side for an integer width ratio, both sides in
-        turn for a general conversion or padding/cropping. The latter can exceed
-        either neighbour's cycles, so a folding that meets the target node by node
-        can still miss it once the DWCs are in."""
-        worst = 0
-        for in_idx, name in enumerate(node.onnx_node.input):
-            prod = model.find_producer(name)
-            if (
-                prod is None
-                or not is_fpgadataflow_node(prod)
-                or prod.op_type.startswith("StreamingDataWidthConverter")
-                or prod.op_type == "IODMA_hls"
-            ):
-                continue
-            out_idx = list(prod.output).index(name)
-            prod_inst = getCustomOp(prod)
-            n0_out = prod_inst.get_folded_output_shape(out_idx)
-            n1_in = node.get_folded_input_shape(in_idx)
-            if n0_out[-1] == n1_in[-1] and np.prod(n0_out) == np.prod(n1_in):
-                continue
-            inw = prod_inst.get_outstream_width(out_idx)
-            outw = node.get_instream_width(in_idx)
-            in_words = int(np.prod(n0_out[:-1]))
-            out_words = int(np.prod(n1_in[:-1]))
-            pads_or_crops = np.prod(prod_inst.get_normal_output_shape(out_idx)) != np.prod(
-                node.get_normal_input_shape(in_idx)
-            )
-            if max(inw, outw) % min(inw, outw) == 0 and not pads_or_crops:
-                cycles = max(in_words, out_words)
-            else:
-                cycles = in_words + out_words
-            worst = max(worst, cycles)
-        return worst
-
-    def cost_model(self, param_guess, opt):
-        """
-        Score a folding configuration for the optimizer (lower is better).
-
-        The score sums each soft target (resource) normalized by its budget and
-        scaled by an optional per-resource weight, so a higher weight steers the
-        optimizer away from that resource. This is how ``prefer_memory`` /
-        ``prefer_compute`` bias BRAM<->URAM and LUT<->DSP. The hard constraint
-        (usually ``max_cycles``) is enforced last with a large finite penalty.
-        Extra heuristics (e.g. the DWC-avoidance term) are added on top.
-        """
-        cost = 0
-
-        # 1. apply the folding parameters
-        opt.params.set_values(param_guess)
-        opt.params.apply_updates(final=False, filter=self.parameters_to_apply)
-
-        # 2. compute results; the DWCs in front of the partition's nodes count
-        # towards its cycles, since they are part of what the build carries
-        cycles = max(
-            opt.params.get_max_cycles(),
-            max(self.dwc_cycles(opt.model, n) for n in opt.params.nodes),
-        )
-        resources = self.get_resources(opt.params.nodes)
-        metrics = {**{"max_cycles": cycles}, **resources}
-
-        # 3. update cost based on all minimizable targets
-        # the hard constraint (usually max_cycles) enforces
-        # which target MUST be met.
-        constraint_penalty = 0
-        for value_to_minimize in opt.targets:
-            if value_to_minimize != opt.hard_constraint_target:
-                weight = self.resource_weights.get(value_to_minimize, 1.0)
-                cost += weight * metrics[value_to_minimize] / opt.targets[value_to_minimize]
-            else:
-                # large FINITE penalty (not inf) so the minimizer can still
-                # climb out of an infeasible region: if even the initial guess
-                # violates the constraint (e.g. target unreachable), an inf cost
-                # would abort dual_annealing outright. The penalty grows with the
-                # violation ratio and always dominates the resource cost, so any
-                # feasible point is preferred over any infeasible one.
-                target = opt.targets[value_to_minimize]
-                violation = metrics[value_to_minimize] * self.value_to_minimize_relaxation / target
-                if violation > 1:
-                    constraint_penalty = self.infeasible_penalty * violation
-
-        # 4. Add additional heuristic costs
-
-        # 4.1 DWC heuristic to decrease the use of HLS DWCs
-        # which can have massive LUT resource consumption
-        # increases. All pairs are considered because
-        # we optimize partitions left to right and consider
-        # the DWC between a node and its left neighbor
-        if self.enable_folding_dwc_heuristic:
-            cost += self.compute_hls_dwc_cost(opt.model, opt.params.nodes, opt.targets["LUT"])
-
-        # 4.2 the FIFOs the build will insert: their width costs LUTs on every
-        # edge, their depth where a node runs ahead of its consumer
-        if self.fifo_proxy:
-            cost += self.resource_cost(self.fifo_resources(opt.model, opt.params.nodes))
-
-        # apply the hard-constraint penalty last so it dominates the cost
-        cost += constraint_penalty
-
-        return cost
+    # ------------------------------------------------------------------ search
 
     def execute_minimizer(self, discrete_args, init_guess):
-        """
-        the specific minimizer for performing the parameter optimization
-        for a single parameter set is called with this function.
-        discrete_args are the ordered possible values per parameter; they are
-        encoded to a continuous index space for scipy.dual_annealing and the
-        objective is cached over decoded solutions to avoid redundant evaluation.
-        """
+        """Minimize the cost model over one partition: ``discrete_args`` are the ordered
+        possible values per parameter, encoded to a continuous index space for
+        scipy.dual_annealing, which starts at ``init_guess`` (kept unless it finds better).
+        Evaluations are cached per decoded point."""
         encoder = GridEncoder(discrete_args)
-        bounds = encoder.bounds
-
-        if len(bounds) == 0:
+        if not encoder.bounds:
             return list(init_guess)
-
-        encoded_init_guess = encoder.encode(init_guess)
-
         cache = {}
 
-        def objective(encoded, opt):
+        def objective(encoded):
             if any(np.isnan(v) for v in encoded):
                 return float("nan")
             decoded = tuple(encoder.decode(encoded))
             if decoded not in cache:
-                cache[decoded] = self.cost_model(decoded, opt)
+                cache[decoded] = self.cost_model(decoded)
             return cache[decoded]
 
-        optimal_args = scipy.optimize.dual_annealing(
+        result = scipy.optimize.dual_annealing(
             func=objective,
-            x0=encoded_init_guess,
-            maxiter=self.maxiter,
-            accept=self.accept,
-            visit=self.visit,
-            maxfun=self.maxfun_per_parameter * len(init_guess),
+            x0=encoder.encode(init_guess),
+            maxiter=self.MAXITER,
+            accept=self.ACCEPT,
+            visit=self.VISIT,
+            maxfun=self.effort * len(init_guess),
             seed=self.seed,
-            args=(self,),
-            bounds=bounds,
+            bounds=encoder.bounds,
         )
+        return encoder.decode(result.x)
 
-        return encoder.decode(optimal_args.x)
+    def _partitions(self, target_parameters, max_nodes):
+        """Indices of the ``target_parameters``, split into runs of parameters belonging to
+        at most ``max_nodes`` consecutive nodes. (Parameters are only collected once the
+        first partition has started, which with ``max_nodes=1`` needs one on node 0.)"""
+        partitions, current, nodes, last_node = [], [], 1, 0
+        for i, p in enumerate(self.params.parameters):
+            if p.name not in target_parameters:
+                continue
+            if p.node_index != last_node:
+                nodes += 1
+            if nodes > max_nodes and current:
+                partitions.append(current)
+                current, nodes = [], 1
+            if nodes <= max_nodes:
+                current.append(i)
+            last_node = p.node_index
+        if current:
+            partitions.append(current)
+        return partitions
 
     def optimize(
-        self,
-        initial_guess="max",
-        max_nodes_in_partition=2,
-        target_parameters=["SIMD", "PE"],
+        self, initial_guess="max", max_nodes_in_partition=2, target_parameters=("SIMD", "PE")
     ):
-        """
-        A single optimization pass across an entire model
-        initial guess can be "min", "max" or "cheapest" for what folding values
-        to use at the start of optimization, or one meta value per parameter
-        (e.g. the solution of an earlier search to start from)
-        min = least folding (makes sense when the hard constraint is resource use)
-        max = maximum folding (makes sense when the hard constraint is max_cycles)
-        cheapest = per node, the cheapest folding meeting the cycle target
-        (see cheapest_guess)
-        It is critical to select these values in a way that lets the optimizer know
-        a legal solution exists for the problem, otherwise it will give up after a set
-        number of iterations
+        """One optimization pass over the model for the ``target_parameters``.
 
-        we peform partition splitting in this function
-        """
-
-        # 1. Split parameters into partitions to optimize locally.
-        # partitioning is node-based via max_nodes_in_partition below; the
-        # partitions/param-count split here is vestigial (partitions is reset to
-        # 0 before use), so we just build the flat index list.
-        indexes = self.params.index_list = [x for x in range(len(self.params.parameters))]
+        ``initial_guess`` is "min" (least folding), "max" (most folding), "cheapest" (per
+        node the cheapest folding meeting the cycle target, see cheapest_guess) or one meta
+        value per parameter (e.g. an earlier solution). Only this pass's parameters take it;
+        the others keep what an earlier pass chose. The start should be feasible, otherwise
+        the annealer may give up believing there is no solution. Each partition of
+        ``max_nodes_in_partition`` nodes is then minimized and its values applied for good
+        (tensors included)."""
         params = self.params.parameters
-
+        self.params.add_all_params_to_index_list()
         if initial_guess == "min":
-            init_guess = self.params.get_min_vals()
+            guess = self.params.get_min_vals()
         elif initial_guess == "max":
-            init_guess = self.params.get_max_vals()
+            guess = self.params.get_max_vals()
         elif initial_guess == "cheapest":
-            init_guess = self.cheapest_guess()
+            guess = self.cheapest_guess()
         else:
-            init_guess = [
+            guess = [
                 v if v in p.possible_values else self._nearest_value(p, v)
                 for p, v in zip(params, initial_guess)
             ]
-        # only the parameters of this pass take the initial guess: the others keep
-        # the values an earlier pass chose for them
-        for i, p in enumerate(params):
+        for p, value in zip(params, guess):
             if p.name in target_parameters or p.meta_value is None:
-                p.update_value(init_guess[i])
-
-        self.params.apply_updates(filter=target_parameters)
+                p.update_value(value)
+        self.params.apply_updates(attrs=target_parameters)
         self.params.assign_involved_nodes()
 
-        # node-based partitioning
-        partitions = 0
-        old_node_index = 0
-        index_partitions = []
-        init_guess_partitions = []
-        params_partitions = []
-
-        tmp_index_partitions = []
-        tmp_init_guess_partitions = []
-        tmp_params_partitions = []
-
-        i = 0
-        nodes_in_partition = 1
-        for param in params:
-            if param.name in target_parameters:
-                new_node_index = param.node_index
-
-                if new_node_index != old_node_index:
-                    nodes_in_partition += 1
-
-                if nodes_in_partition > max_nodes_in_partition:
-                    # store set and start a new one
-                    if len(tmp_index_partitions) > 0:
-                        index_partitions.append(tmp_index_partitions)
-                        init_guess_partitions.append(tmp_init_guess_partitions)
-                        params_partitions.append(tmp_params_partitions)
-                        tmp_index_partitions = []
-                        tmp_init_guess_partitions = []
-                        tmp_params_partitions = []
-                        partitions += 1
-                        nodes_in_partition = 1
-                if nodes_in_partition <= max_nodes_in_partition:
-                    tmp_index_partitions.append(indexes[i])
-                    tmp_init_guess_partitions.append(init_guess[i])
-                    tmp_params_partitions.append(params[i])
-
-                old_node_index = new_node_index
-            i += 1
-
-        # add remaining lefover tail partition
-        if len(tmp_index_partitions) > 0:
-            if len(tmp_index_partitions) > 0:
-                index_partitions.append(tmp_index_partitions)
-                init_guess_partitions.append(tmp_init_guess_partitions)
-                params_partitions.append(tmp_params_partitions)
-                partitions += 1
-
-        # 2. Perform local optimization of partitions
-        for p in range(partitions):
-            # generate discrete argument list based on possible values
-            # this is the input for the scipy minimizer
-            discrete_args = []
-            for arg in params_partitions[p]:
-                discrete_args.append(tuple(arg.possible_values))
-
-            # filter out parameters to the ones of the requested partition
-            self.params.index_list = index_partitions[p]
+        for partition in self._partitions(target_parameters, max_nodes_in_partition):
+            self.params.index_list = partition
             self.params.assign_involved_nodes()
-
-            # fetch the respective initial list of parameters
-            # it is very important that the initial guess is feasible
-            # for the minimizer so that the cost_model call returns a non-infinity cost
-            # otherwise the optimizer might give up believing there is no solution
-            init_guess = init_guess_partitions[p]
-
-            # an initial run to get resource consumption bounds
+            start = [guess[i] for i in partition]
             if self.init_run:
-                optimized_params = init_guess
+                values = start
             else:
-                optimized_params = self.execute_minimizer(discrete_args, init_guess)
-
-            # apply final values, adjusting the model accordingly
-            self.params.set_values(optimized_params)
-            self.params.apply_updates(final=True, filter=target_parameters)
+                choices = [tuple(params[i].possible_values) for i in partition]
+                values = self.execute_minimizer(choices, start)
+            self.params.set_values(values)
+            self.params.apply_updates(final=True, attrs=target_parameters)
 
     @staticmethod
     def _nearest_value(param, value):
@@ -1056,111 +688,78 @@ class Optimizer:
             return param.possible_values[0]
         if isinstance(value, tuple):
             return min(
-                param.possible_values,
-                key=lambda x: sum(abs(a - b) for a, b in zip(x, value)),
+                param.possible_values, key=lambda x: sum(abs(a - b) for a, b in zip(x, value))
             )
         return min(param.possible_values, key=lambda x: abs(x - value))
 
     def cheapest_guess(self):
-        """Per node, the cheapest folding of its PE/SIMD parameters that meets the
-        cycle target (the fastest one if none does), by enumerating the node's
-        own combinations -- a few hundred at most. The annealer starts from it
-        and keeps it unless it finds better, so a search never returns worse
-        than this node-by-node optimum; the other parameters start at "max"."""
+        """Per node, the cheapest combination of its PE/SIMD values that meets the cycle
+        target (among the fastest if none does), by enumerating them -- a few hundred at
+        most. The annealer keeps its start unless it finds better, so a search never ends
+        worse than this node-by-node optimum. The other parameters start at "max"."""
         params = self.params.parameters
         guess = self.params.get_max_vals()
-        target = self.targets[self.hard_constraint_target]
+        target = self.targets["max_cycles"]
         groups = {}
         for i, p in enumerate(params):
             if p.name in ("SIMD", "PE"):
                 groups.setdefault(p.node_index, []).append(i)
         for indices in groups.values():
-            nodes = []
-            for i in indices:
-                nodes += [n for n in params[i].unique_nodes if n not in nodes]
+            nodes = list(dict.fromkeys(n for i in indices for n in params[i].unique_nodes))
+
+            def set_combo(combo):
+                for i, value in zip(indices, combo):
+                    params[i].update_value(value)
+                    params[i].apply_value(attrs=self.PARAMETERS_TO_APPLY)
+
             combos = []
             for combo in itertools.product(*(params[i].possible_values for i in indices)):
-                for i, v in zip(indices, combo):
-                    params[i].update_value(v)
-                    params[i].apply_value(filter=self.parameters_to_apply)
+                set_combo(combo)
                 combos.append((max(n.get_exp_cycles() for n in nodes), combo))
-            feasible = [c for c in combos if c[0] <= target]
-            if not feasible:
-                fastest = min(c[0] for c in combos)
-                feasible = [c for c in combos if c[0] == fastest]
-            best = None
+            fastest = min(cycles for cycles, _ in combos)
+            feasible = [c for c in combos if c[0] <= target] or [
+                c for c in combos if c[0] == fastest
+            ]
+            # a node's estimate depends on its own attributes only
             estimates = {}
-            for cycles, combo in feasible:
-                for i, v in zip(indices, combo):
-                    params[i].update_value(v)
-                    params[i].apply_value(filter=self.parameters_to_apply)
+            best = None
+            for _, combo in feasible:
+                set_combo(combo)
                 cost = 0.0
                 for n in nodes:
-                    # a node's estimate depends on its own attributes only
                     key = (id(n), str(n.onnx_node.attribute))
                     if key not in estimates:
                         estimates[key] = self.resource_cost(n.node_res_estimation(self.fpgapart))
                     cost += estimates[key]
                 if best is None or cost < best[0]:
                     best = (cost, combo)
-            for i, v in zip(indices, best[1]):
-                guess[i] = v
+            for i, value in zip(indices, best[1]):
+                guess[i] = value
         return guess
 
-    def graph_nodes(self):
-        """Every hardware node of the model as a custom op instance."""
-        return [getCustomOp(n) for n in self.model.graph.node if is_fpgadataflow_node(n)]
-
-    def get_resources(self, nodes):
-        resources = {}
-        for n in nodes:
-            resources[n] = n.node_res_estimation(self.fpgapart)
-        return aggregate_dict_keys(resources)
-
-    def resource_cost(self, resources):
-        """Resources normalized by their budgets and weighted, as in cost_model."""
-        return sum(
-            self.resource_weights.get(r, 1.0) * resources.get(r, 0.0) / self.targets[r]
-            for r in self.targets
-            if r != self.hard_constraint_target
-        )
+    # ------------------------------------------------------------------ parameters
 
     def generate_parameter_set(self):
-        """Extract every optimizable folding parameter from the model.
-
-        Each hardware node contributes one MetaParameter per foldable attribute
-        it declares -- PE / SIMD generically, plus the resource-type attributes
-        (ram_style / resType) when resource-type tuning is enabled. The one
-        exception is the ConvolutionInputGenerator (SWG): it is fused to the
-        layer it feeds, so it is handled by the pairing rules in
-        ``_extract_swg_pair`` which also fold that consumer and ask us to skip
-        it. See the rule tables near the top of this module.
-        """
-        graph = self.model.graph
+        """Extract every optimizable folding parameter of the model: per hardware node one
+        meta parameter per declared PE / SIMD, plus the resource-type attributes in
+        ``resource_type_params``; an SWG and the node it feeds come from a pairing rule."""
         parameters = []
-        skip_next = 0
-
-        for node_index in range(len(graph.node)):
-            if skip_next > 0:
-                skip_next -= 1
+        skip_consumer = False
+        for node_index, node in enumerate(self.model.graph.node):
+            if skip_consumer:
+                skip_consumer = False
                 continue
-            node = graph.node[node_index]
-            if node is None or node.op_type == "StreamingDataWidthConverter":
+            if node.op_type == "StreamingDataWidthConverter":
                 continue
             if not (is_hls_node(node) or is_rtl_node(node)):
                 continue
-
             max_padding = self._max_padding_for_node(node_index)
-
             if node.op_type in self.SWG_OPS:
-                metas, consumed = self._extract_swg_pair(node, node_index, max_padding)
-                skip_next = consumed
+                parameters += self._extract_swg_pair(node, node_index, max_padding)
+                skip_consumer = True
             else:
-                metas = self._extract_node(node, node_index, max_padding)
-            parameters.extend(metas)
-
-        self.params = ParameterSet()
-        self.params.parameters = parameters
+                parameters += self._extract_node(node, node_index, max_padding)
+        self.params = ParameterSet(parameters)
 
     @staticmethod
     def _xnor_mode(inst):
@@ -1170,167 +769,84 @@ class Optimizer:
         return "binaryXnorMode" in attrs and inst.get_nodeattr("binaryXnorMode") == 1
 
     def _max_padding_for_node(self, node_index):
-        """Padding budget for a node, forced to 0 for the model's IO nodes
-        unless the user explicitly allows padding them."""
-        last_index = len(self.model.graph.node) - 1
-        if not self.pad_io_nodes and node_index in (0, last_index):
+        """Padding budget of a node: none for the model's IO nodes unless allowed."""
+        if not self.pad_io_nodes and node_index in (0, len(self.model.graph.node) - 1):
             return 0
         return self.padding
 
-    # ------------------------------------------------------------------
-    # Generic node: fold whichever of PE / SIMD the node declares
-    # ------------------------------------------------------------------
-    # ------------------------------------------------------------------
-    # Parameter construction. Every rule below builds the same two objects, and
-    # spelling out a ten-keyword constructor each time buried what actually
-    # differs between the rules in boilerplate. These two helpers hold the
-    # invariants -- the model, and the fact that a folding change on a
-    # weight-bearing layer must reshape its weight/threshold tensors -- so each
-    # rule reads as the rule and nothing else.
-    # ------------------------------------------------------------------
-
-    def _param(
-        self,
-        name,
-        attr,
-        value,
-        node,
-        node_index,
-        op_type,
-        bound_name=None,
-        bound_value=None,
-        update_weights=False,
-        update_thresholds=False,
-        reshapes_io=True,
-    ):
+    def _param(self, attr, value, inst, node_index, **kwargs):
         return Parameter(
-            name=name,
-            target_value_name=attr,
-            target_value=value,
-            bound_name=bound_name,
-            bound_value=bound_value,
-            update_threshold_input=update_thresholds,
-            update_weights_input=update_weights,
-            update_input_tensor_shape=reshapes_io,
-            update_output_tensor_shape=reshapes_io,
-            node=node,
-            node_index=node_index,
-            op_type=op_type,
-            model=self.model,
-        )
-
-    def _meta(self, name, values, real_values, node_index):
-        return MetaParameter(
-            name=name,
-            meta_value=values[0],
-            possible_values=list(values),
-            real_values=real_values,
-            model=self.model,
-            node_index=node_index,
+            attr, value, inst, node_index, inst.onnx_node.op_type, self.model, **kwargs
         )
 
     def _extract_node(self, node, node_index, max_padding):
         inst = getCustomOp(node)
-        op_type = node.op_type
         declared = inst.get_nodeattr_types()
         metas = []
-
         for param in ("SIMD", "PE"):
-            if param not in declared or (op_type, param) in self.DO_NOT_FOLD:
+            if param not in declared or (node.op_type, param) in self.DO_NOT_FOLD:
                 continue
             try:
-                metas.append(self._make_folding_meta(inst, node_index, op_type, param, max_padding))
+                metas.append(self._make_folding_meta(inst, node_index, param, max_padding))
             except Exception as e:
-                # be robust to op types the generic extraction cannot size: leave
-                # them at their current folding rather than aborting the pass
+                # leave op types the generic extraction cannot size at their folding
                 warnings.warn(
-                    f"SetFolding: could not extract {param} for {op_type} "
+                    f"SetFolding: could not extract {param} for {node.op_type} "
                     f"(node {node_index}), leaving it unfolded: {e}"
                 )
-
-        # resource-type selection the optimizer tunes to trade BRAM<->URAM and
-        # LUT<->DSP while fitting the folding within the device budget
         for param in self.resource_type_params:
             if param in declared:
-                meta = self._make_resource_type_meta(inst, node_index, op_type, param)
+                meta = self._make_resource_type_meta(inst, node_index, param)
                 if meta is not None:
                     metas.append(meta)
         return metas
 
-    def _make_folding_meta(self, inst, node_index, op_type, param, max_padding):
-        """Build the MetaParameter that sweeps ``param`` (PE or SIMD) of a node
-        over its legal folding factors, padding the channel count when allowed."""
+    def _make_folding_meta(self, inst, node_index, param, max_padding):
+        """The meta parameter sweeping ``param`` (PE or SIMD) of a node over its folding
+        factors, each offered once, padding the channel count where that is allowed."""
+        op_type = inst.onnx_node.op_type
         max_value = self.max_folding_factor(inst, op_type, param)
         bound_attr = self.PADDING_BOUND_ATTR.get((op_type, param))
         padding = max_padding if bound_attr is not None else 0
         if bound_attr == "MW" and self._xnor_mode(inst):
             padding = 0
-
-        possible_values, bounding_values = allowed_divisors(max_value, 1, padding)
-        update_weights = op_type in self.OPS_WITH_WEIGHTS
-        update_thresholds = op_type in self.OPS_WITH_THRESHOLDS
-
-        seen_factors = []
-        kept_values = []
-        real_values = []
-        for value, bounding_value in zip(possible_values, bounding_values):
-            # a VVAU folds SIMD over its (unpaddable) kernel window
+        values, real_values, seen_factors = [], [], set()
+        for value, bound in zip(*allowed_divisors(max_value, padding)):
             if param == "SIMD" and op_type in self.SIMD_MAX_OVERRIDE:
-                bounding_value = inst.get_nodeattr("Kernel")
-            factor = int(np.prod(bounding_value)) // value
+                bound = inst.get_nodeattr("Kernel")  # the (unpaddable) kernel window
+            factor = int(np.prod(bound)) // value
             if factor in seen_factors:
                 continue
-            seen_factors.append(factor)
-            kept_values.append(value)
-            real_values.append(
-                [
-                    self._param(
-                        f"{op_type}_{param}",
-                        param,
-                        value,
-                        inst,
-                        node_index,
-                        op_type,
-                        bound_name=bound_attr,
-                        bound_value=bounding_value,
-                        update_weights=update_weights,
-                        update_thresholds=update_thresholds,
-                    )
-                ]
+            seen_factors.add(factor)
+            values.append(value)
+            param_kwargs = dict(
+                bound_name=bound_attr,
+                bound_value=bound,
+                update_weights=op_type in self.OPS_WITH_WEIGHTS,
+                update_thresholds=op_type in self.OPS_WITH_THRESHOLDS,
             )
+            real_values.append([self._param(param, value, inst, node_index, **param_kwargs)])
+        return MetaParameter(param, values, real_values, node_index)
 
-        return self._meta(param, kept_values, real_values, node_index)
-
-    def _make_resource_type_meta(self, inst, node_index, op_type, param):
-        """Build the MetaParameter that lets the optimizer pick a node's
-        ram_style / resType (used to trade BRAM<->URAM and LUT<->DSP). Values the
-        estimator cannot cost (see self.RESOURCE_TYPE_EXCLUDED_VALUES) are dropped, and
-        the attribute is skipped entirely if the resource estimator is blind to it
-        (all choices give the same estimate) -- optimizing such a lever would only
-        waste search time and pick an estimator-unjustified value."""
-        excluded = set(self.RESOURCE_TYPE_EXCLUDED_VALUES.get(param, set()))
-        # URAM weight memories require runtime_writeable_weights=1 on Ultrascale
-        # (asserted in MVAU/VVAU generate_infra_hdl); don't let the optimizer
-        # pick "ultra" for a weight ram_style unless the user opted in. Nodes
-        # without the attr (e.g. SWG line buffers) are unaffected.
+    def _make_resource_type_meta(self, inst, node_index, param):
+        """The meta parameter choosing a node's ram_style / resType, or None when fewer
+        than two values remain or the estimator does not tell them apart."""
+        excluded = self.RESOURCE_TYPE_EXCLUDED_VALUES.get(param, set())
+        # URAM weight memories need runtime_writeable_weights=1 on Ultrascale (asserted in
+        # MVAU/VVAU generate_infra_hdl): only with that set or allowed explicitly
         if param == "ram_style" and "runtime_writeable_weights" in inst.get_nodeattr_types():
             if inst.get_nodeattr("runtime_writeable_weights") != 1 and not self.allow_uram_weights:
                 excluded = excluded | {"ultra"}
         allowed = sorted(set(inst.get_nodeattr_types()[param][3]) - excluded)
-        if len(allowed) < 2:
-            return None
-        if not self._estimator_distinguishes(inst, param, allowed):
+        if len(allowed) < 2 or not self._estimator_distinguishes(inst, param, allowed):
             return None
         real_values = [
-            [self._param(param, param, choice, inst, node_index, op_type, reshapes_io=False)]
-            for choice in allowed
+            [self._param(param, choice, inst, node_index, reshapes_io=False)] for choice in allowed
         ]
-        return self._meta(param, allowed, real_values, node_index)
+        return MetaParameter(param, allowed, real_values, node_index)
 
     def _estimator_distinguishes(self, inst, param, allowed):
-        """Whether node_res_estimation reacts to ``param`` for this node, i.e. at
-        least two allowed values give different resource estimates. Used to skip
-        resource-type levers the estimator is blind to."""
+        """Whether two allowed values of ``param`` give different resource estimates."""
         original = inst.get_nodeattr(param)
         estimates = set()
         try:
@@ -1343,272 +859,174 @@ class Optimizer:
             inst.set_nodeattr(param, original)
         return len(estimates) > 1
 
-    # ------------------------------------------------------------------
-    # Special pairing rules: a ConvolutionInputGenerator (SWG) must be folded
-    # in lockstep with the layer it feeds. Each rule below is self-contained so
-    # rules can be added or removed without touching the others.
-    # ------------------------------------------------------------------
-    def _extract_swg_pair(self, swg_node, node_index, max_padding):
-        """Route an SWG to the pairing rule for its (fused) consumer and return
-        ``(meta_parameters, nodes_to_skip)`` -- the consumer is folded jointly,
-        so the caller skips it."""
-        consumer = self.model.graph.node[node_index + 1]
-        swg = getCustomOp(swg_node)
-        consumer_inst = getCustomOp(consumer)
-        if self._xnor_mode(consumer_inst):
-            # the SWG's channel count is the XNOR MVAU's input width, see _xnor_mode
-            max_padding = 0
+    # ------------------------------------------------------------------ SWG pairing rules
+    # A ConvolutionInputGenerator (SWG) is folded together with the layer it feeds, which
+    # always follows it in the graph. Each rule returns the pair's meta parameters, the
+    # SWG's parameters first.
 
-        if consumer.op_type in ("Pool_rtl", "Pool_hls"):
-            metas = self._pair_swg_with_pool(
-                swg, swg_node, consumer_inst, consumer, node_index, max_padding
+    def _extract_swg_pair(self, swg_node, node_index, max_padding):
+        consumer = self.model.graph.node[node_index + 1]
+        swg, consumer_inst = getCustomOp(swg_node), getCustomOp(consumer)
+        if self._xnor_mode(consumer_inst):
+            max_padding = 0  # the SWG's channel count is the XNOR MVAU's input width
+        rules = {
+            f"{op}_{backend}": rule
+            for op, rule in (
+                ("Pool", self._pair_swg_with_pool),
+                ("MVAU", self._pair_swg_with_mvau),
+                ("VVAU", self._pair_swg_with_vvau),
             )
-        elif consumer.op_type in ("MVAU_hls", "MVAU_rtl"):
-            metas = self._pair_swg_with_mvau(
-                swg, swg_node, consumer_inst, consumer, node_index, max_padding
-            )
-        elif consumer.op_type in ("VVAU_hls", "VVAU_rtl"):
-            metas = self._pair_swg_with_vvau(
-                swg, swg_node, consumer_inst, consumer, node_index, max_padding
-            )
-        else:
+            for backend in ("hls", "rtl")
+        }
+        rule = rules.get(consumer.op_type)
+        if rule is None:
             raise AssertionError(
                 "ConvolutionInputGenerator feeds unsupported op "
                 f"{consumer.op_type}; expected Pool/MVAU/VVAU"
             )
-        return metas, 1
+        return rule(swg, consumer_inst, node_index, max_padding)
 
-    def _swg_simd_choices(self, swg, max_padding):
-        """Legal SWG SIMD values and the (possibly padded) IFMChannels each
-        implies, shared by all three pairing rules."""
-        ifm_channels = swg.get_nodeattr("IFMChannels")
-        kernel_size = int(np.prod(swg.get_nodeattr("ConvKernelDim")))
-        simd_values, ifm_values = allowed_divisors(ifm_channels, 1, max_padding)
-        return list(simd_values), list(ifm_values), kernel_size
-
-    def _swg_params(self, swg, swg_node, node_index, simd, ifm_channels, parallel_window=None):
-        """The SWG side of every pairing rule: its SIMD, bounded by the (possibly
-        padded) channel count, and -- for the MVAU/VVAU rules -- whether it emits
-        the whole kernel window at once. Order matters: the consumer's parameters
-        are appended after these."""
+    def _swg_params(self, swg, node_index, simd, ifm_channels, parallel_window=None):
+        """The SWG side of a pair: its SIMD over the (padded) channel count and, for the
+        MVAU/VVAU rules, whether it emits the whole kernel window at once."""
         params = [
             self._param(
-                "SWU_SIMD",
-                "SIMD",
-                simd,
-                swg,
-                node_index,
-                swg_node.op_type,
-                bound_name="IFMChannels",
-                bound_value=ifm_channels,
+                "SIMD", simd, swg, node_index, bound_name="IFMChannels", bound_value=ifm_channels
             )
         ]
         if parallel_window is not None:
-            params.append(
-                self._param(
-                    "SWU_parallel_window",
-                    "parallel_window",
-                    parallel_window,
-                    swg,
-                    node_index,
-                    swg_node.op_type,
-                )
-            )
+            params.append(self._param("parallel_window", parallel_window, swg, node_index))
         return params
 
-    def _pair_swg_with_pool(self, swg, swg_node, pool, pool_node, node_index, max_padding):
-        """SWG -> Pool (max pooling): SWG SIMD and Pool PE move together and share
-        the same (padded) channel count."""
+    def _pair_swg_with_pool(self, swg, pool, node_index, max_padding):
+        """SWG -> Pool (max pooling): SWG SIMD = Pool PE over the same channel count."""
         assert swg.get_nodeattr("depthwise") == 1
-        simd_values, ifm_values, _ = self._swg_simd_choices(swg, max_padding)
-
+        simd_values, ifm_values = allowed_divisors(swg.get_nodeattr("IFMChannels"), max_padding)
         real_values = [
-            self._swg_params(swg, swg_node, node_index, simd, ifm)
+            self._swg_params(swg, node_index, simd, ifm)
             + [
                 self._param(
-                    "Pool_PE",
-                    "PE",
-                    simd,
-                    pool,
-                    node_index + 1,
-                    pool_node.op_type,
-                    bound_name="Channels",
-                    bound_value=ifm,
+                    "PE", simd, pool, node_index + 1, bound_name="Channels", bound_value=ifm
                 )
             ]
             for simd, ifm in zip(simd_values, ifm_values)
         ]
-        return [self._meta("SIMD", simd_values, real_values, node_index)]
+        return [MetaParameter("SIMD", list(simd_values), real_values, node_index)]
 
-    def _pair_swg_with_mvau(self, swg, swg_node, mvau, mvau_node, node_index, max_padding):
-        """SWG -> MVAU (dense convolution): one meta parameter chooses the MVAU
-        SIMD (folding MW = kernel * IFMChannels) together with the SWG's SIMD
-        and parallel_window, plus the MVAU PE (folding MH) as an independent
-        parameter. The SWG is not tied to the MVAU's SIMD: with a (cheap) DWC
-        between them it can run at its own, slower pace, which is what keeps the
-        FIFO in front of the MVAU shallow -- an SWG matched to the MVAU's SIMD
-        is MH/PE times faster than the MVAU and runs that far ahead of it. The
-        SWG emits the whole kernel window at once (parallel_window) only when
-        the MVAU SIMD exceeds the input channel count."""
-        _, ifm_values, kernel_size = self._swg_simd_choices(swg, max_padding)
+    def _pair_swg_with_mvau(self, swg, mvau, node_index, max_padding):
+        """SWG -> MVAU (dense convolution): one meta parameter (MVAU SIMD, SWG SIMD,
+        parallel_window) over MW = kernel * IFMChannels, and the MVAU PE over MH.
+
+        The SWG is not tied to the MVAU's SIMD: with a (cheap) DWC in between it runs at its
+        own, slower pace, which keeps the FIFO in front of the MVAU shallow (an SWG matched
+        to the MVAU's SIMD is MH/PE times faster and runs that far ahead). It emits the
+        whole window (parallel_window) only when the MVAU SIMD exceeds the channel count.
+        Channel counts go in ascending order and values are de-duplicated by their folding
+        factors, so the padded space is a superset of the unpadded one."""
         ifm_real = swg.get_nodeattr("IFMChannels")
+        _, ifm_values = allowed_divisors(ifm_real, max_padding)
+        kernel_size = int(np.prod(swg.get_nodeattr("ConvKernelDim")))
         weight_bits = mvau.get_input_datatype(1).bitwidth()
-
-        # --- joint (MVAU SIMD, SWG SIMD, parallel_window) over MW ---
-        # value = (mvau_simd, swg_simd, parallel_window); de-duplicated by the
-        # folding factors, so a padded channel count only adds factors the
-        # unpadded one does not have (ascending: the unpadded count claims its
-        # values first and the padded search space is a superset)
-        simd_real_values = []
-        simd_meta_values = []
-        seen_factors = []
-        for ifm_channels in sorted(set(ifm_values)):
-            mw = kernel_size * ifm_channels
-            mvau_simd_values, mw_values = allowed_divisors(mw, 1, 0)
-            for mvau_simd, mw_value in zip(mvau_simd_values, mw_values):
-                if not (
-                    (weight_bits * mvau_simd) < self.mvau_wwidth_max
-                    and mvau_simd > (mw_value / 1024)
-                ):
+        mvau_kwargs = dict(update_weights=True, update_thresholds=True)
+        values, real_values, seen_factors = [], [], []
+        for ifm in sorted(set(ifm_values)):
+            mw = kernel_size * ifm
+            for mvau_simd in divisors(mw):
+                if not (weight_bits * mvau_simd < self.mvau_wwidth_max and mvau_simd > mw / 1024):
                     continue
-                # a padding DWC pads only within a word, so a padded channel count
-                # must be the smallest multiple of the SWG's SIMD above the real one
+                # a padding DWC pads only within a word: a padded channel count must be the
+                # smallest multiple of the SWG's SIMD above the real one
                 swg_choices = [
-                    (d, 0)
-                    for d in divisors(ifm_channels)
-                    if d <= mvau_simd and -(-ifm_real // d) * d == ifm_channels
+                    (d, 0) for d in divisors(ifm) if d <= mvau_simd and -(-ifm_real // d) * d == ifm
                 ]
-                if mvau_simd > ifm_channels:
-                    swg_choices.append((ifm_channels, 1))
+                if mvau_simd > ifm:
+                    swg_choices.append((ifm, 1))
                 for swg_simd, parallel_window in swg_choices:
                     value = (mvau_simd, swg_simd, parallel_window)
-                    factors = (mw_value // mvau_simd, ifm_channels // swg_simd, parallel_window)
-                    if value in simd_meta_values or factors in seen_factors:
+                    factors = (mw // mvau_simd, ifm // swg_simd, parallel_window)
+                    if value in values or factors in seen_factors:
                         continue
-                    simd_meta_values.append(value)
+                    values.append(value)
                     seen_factors.append(factors)
-                    simd_real_values.append(
-                        self._swg_params(
-                            swg, swg_node, node_index, swg_simd, ifm_channels, parallel_window
-                        )
+                    real_values.append(
+                        self._swg_params(swg, node_index, swg_simd, ifm, parallel_window)
                         + [
                             self._param(
-                                "MVAU_SIMD",
                                 "SIMD",
                                 mvau_simd,
                                 mvau,
                                 node_index + 1,
-                                mvau_node.op_type,
                                 bound_name="MW",
-                                bound_value=mw_value,
-                                update_weights=True,
-                                update_thresholds=True,
+                                bound_value=mw,
+                                **mvau_kwargs,
                             )
                         ]
                     )
-
-        simd_meta = self._meta("SIMD", simd_meta_values, simd_real_values, node_index)
-
-        # --- independent MVAU PE (over MH); a conv MVAU's MH is never padded ---
-        # allowed_divisors already returns one value per distinct folding
-        # factor, so no extra de-duplication is needed here.
+        # a conv MVAU's MH is never padded
         mh = mvau.get_nodeattr("MH")
-        pe_values, mh_values = allowed_divisors(mh, 1, 0)
+        pe_values = list(divisors(mh))
         pe_real_values = [
             [
                 self._param(
-                    "MVAU_PE",
-                    "PE",
-                    pe,
-                    mvau,
-                    node_index + 1,
-                    mvau_node.op_type,
-                    bound_name="MH",
-                    bound_value=mh_value,
-                    update_weights=True,
-                    update_thresholds=True,
+                    "PE", pe, mvau, node_index + 1, bound_name="MH", bound_value=mh, **mvau_kwargs
                 )
             ]
-            for pe, mh_value in zip(pe_values, mh_values)
+            for pe in pe_values
         ]
-        return [simd_meta, self._meta("PE", pe_values, pe_real_values, node_index)]
+        return [
+            MetaParameter("SIMD", values, real_values, node_index),
+            MetaParameter("PE", pe_values, pe_real_values, node_index),
+        ]
 
-    def _pair_swg_with_vvau(self, swg, swg_node, vvau, vvau_node, node_index, max_padding):
-        """SWG -> VVAU (depthwise convolution): a single meta parameter drives
-        VVAU PE (= SWG SIMD, over the channels) and VVAU SIMD (over the kernel
-        window), enabling SWG parallel_window once PE saturates the channels."""
+    def _pair_swg_with_vvau(self, swg, vvau, node_index, max_padding):
+        """SWG -> VVAU (depthwise convolution): one meta parameter, PE * SIMD, sets the
+        VVAU PE (= SWG SIMD) over the channels and, once PE covers all channels, the VVAU
+        SIMD over the kernel window with the SWG emitting whole windows."""
         assert swg.get_nodeattr("depthwise") == 1
-        _, ifm_values, _ = self._swg_simd_choices(swg, max_padding)
+        _, ifm_values = allowed_divisors(swg.get_nodeattr("IFMChannels"), max_padding)
         kernel_dim = swg.get_nodeattr("ConvKernelDim")
-
-        real_values = []
-        meta_values = []
-        seen_pe_factors = []
-        for ifm_channels in sorted(set(ifm_values)):
-            # PE folds the channels; its SIMD cannot be padded (it is a kernel size)
-            pe_values, pe_bounds = allowed_divisors(ifm_channels, 1, 0)
-            for pe, pe_bound in zip(pe_values, pe_bounds):
-                pe_factor = pe_bound // pe
-                if pe_factor in seen_pe_factors:
+        kernel_size = int(np.prod(kernel_dim))
+        vvau_kwargs = dict(update_weights=True, update_thresholds=True)
+        values, real_values, seen_pe_factors = [], [], []
+        for ifm in sorted(set(ifm_values)):
+            for pe in divisors(ifm):
+                if ifm // pe in seen_pe_factors:
                     continue
-                seen_pe_factors.append(pe_factor)
-
-                if pe < ifm_channels:
-                    simd_limit = 1
-                    parallel_window = 0
-                else:
-                    simd_limit = int(np.prod(kernel_dim))
-                    parallel_window = 1
-
-                vvau_simd_values, _ = allowed_divisors(simd_limit, 1, 0)
-                seen_simd_factors = []
-                for vvau_simd in vvau_simd_values:
-                    if (
-                        vvau_simd * pe in meta_values
-                        or int(np.prod(kernel_dim)) // vvau_simd in seen_simd_factors
-                    ):
+                seen_pe_factors.append(ifm // pe)
+                parallel_window = int(pe == ifm)
+                for simd in divisors(kernel_size if parallel_window else 1):
+                    if simd * pe in values:
                         continue
-                    meta_values.append(vvau_simd * pe)
-                    seen_simd_factors.append(int(np.prod(kernel_dim)) // vvau_simd)
-
+                    values.append(simd * pe)
                     real_values.append(
-                        self._swg_params(
-                            swg, swg_node, node_index, pe, ifm_channels, parallel_window
-                        )
+                        self._swg_params(swg, node_index, pe, ifm, parallel_window)
                         + [
                             self._param(
-                                "VVAU_SIMD",
                                 "SIMD",
-                                vvau_simd,
+                                simd,
                                 vvau,
                                 node_index + 1,
-                                vvau_node.op_type,
                                 bound_name="Kernel",
                                 bound_value=[kernel_dim[0], kernel_dim[1]],
-                                update_weights=True,
-                                update_thresholds=True,
+                                **vvau_kwargs,
                             ),
                             self._param(
-                                "VVAU_PE",
                                 "PE",
                                 pe,
                                 vvau,
                                 node_index + 1,
-                                vvau_node.op_type,
                                 bound_name="Channels",
-                                bound_value=pe_bound,
-                                update_weights=True,
-                                update_thresholds=True,
+                                bound_value=ifm,
+                                **vvau_kwargs,
                             ),
                         ]
                     )
-
-        return [self._meta("SIMD", meta_values, real_values, node_index)]
+        return [MetaParameter("SIMD", values, real_values, node_index)]
 
 
 def analytic_fifo_sizer():
-    """The analytic FIFO sizer -- token access vectors from the operators' tree
-    models, no IP generation -- or None on a tree without it."""
+    """The analytic FIFO sizer (token access vectors from the operators' tree models, no
+    IP generation), or None on a tree without it."""
     try:
         from finn.transformation.fpgadataflow.derive_characteristic import (  # noqa: PLC0415
             _UNCHARACTERIZED_OPS,
@@ -1627,13 +1045,11 @@ def analytic_fifo_sizer():
 
 
 def insert_and_size_fifos(model, fpga_part, work_dir):
-    """Insert the FIFOs of a folded graph (DWCs already in), sized by the analytic
-    sizer, so that their resources count in the folding's score. Synthesis-free:
-    every node's schedule comes from its tree model, never from HLS or rtlsim.
-    Returns None, after a warning, on a tree without the sizer or for a graph
-    with a node that has no tree model (e.g. a DWC with a non-integer width
-    ratio); the caller then estimates the FIFOs instead. The sizer's sidecar
-    files go to ``work_dir``."""
+    """Insert the FIFOs of a folded graph (DWCs already in), sized by the analytic sizer,
+    so that their resources count in the folding's score. Synthesis-free: every schedule
+    comes from a tree model. Returns None, after a warning, on a tree without the sizer or
+    for a graph with a node without a tree model (e.g. a DWC with a non-integer width
+    ratio); the caller then estimates the FIFOs. Sidecar files go to ``work_dir``."""
     sizer = analytic_fifo_sizer()
     if sizer is None:
         warnings.warn(
@@ -1654,13 +1070,10 @@ def insert_and_size_fifos(model, fpga_part, work_dir):
             % ", ".join(without_tree)
         )
         return None
-
-    # the RTL thresholding tree model expects integer thresholds, as the build
-    # will have after step_minimize_bit_width
+    # the RTL thresholding tree model expects the integer thresholds of the build
     model = model.transform(RoundAndClipThresholds())
     model = model.transform(AnnotateCycles())
-    # the sizer keeps each node's schedule in a file next to its generated code;
-    # none has been generated here, so point them all at the work directory
+    # the sizer keeps each schedule next to the node's generated code: none exists here
     for node in model.graph.node:
         if is_hls_node(node) or is_rtl_node(node):
             getCustomOp(node).set_nodeattr("code_gen_dir_ipgen", work_dir)
@@ -1668,12 +1081,8 @@ def insert_and_size_fifos(model, fpga_part, work_dir):
     model = model.transform(
         DeriveTokenAccessVectors(model, period, "tree_model", fpga_part, 0.0, num_workers=1)
     )
-    period = int(
-        model.analysis(functools.partial(dataflow_performance, use_characterized=True))[
-            "max_cycles"
-        ]
-    )
-    model = model.transform(DeriveFIFOSizes(period=period))
+    perf = functools.partial(dataflow_performance, use_characterized=True)
+    model = model.transform(DeriveFIFOSizes(period=int(model.analysis(perf)["max_cycles"])))
     model = model.transform(InsertFIFO(create_shallow_fifos=True))
     cleanup_characterization(model)
     model = model.transform(SpecializeLayers(fpga_part))
@@ -1689,10 +1098,9 @@ def common_divisors(numbers):
     return functools.reduce(np.intersect1d, separate_divisors)
 
 
-# a folding the search produced: the folded model, whether it fits the budget,
-# its resources and cycles per frame (both with the DWCs the build inserts),
-# the meta values of every parameter, to start another search from, and its
-# cost (the search's objective: weighted resources incl. the estimated FIFOs)
+# a folding the search produced: the folded model, whether it fits the budget, its
+# resources and cycles per frame (with the DWCs the build inserts), the meta values of
+# every parameter (to start another search from) and its cost (the search's objective)
 FoldResult = namedtuple("FoldResult", "model fits metrics achieved values cost")
 
 # Find the op-type names for all HLS specializations of elementwise binary
@@ -1705,70 +1113,42 @@ ELEMENTWISE_BINARY_OPS = [
 
 
 class SetFolding(Transformation):
+    """Set the parallelism (folding) attributes -- PE, SIMD and related -- of every hardware
+    node of a dataflow graph, respecting each op's divisibility constraints.
 
-    """
-    Set the parallelism (folding) attributes of every hardware node in a FINN
-    dataflow graph. Each node's parallelism is one of {PE, SIMD}; SetFolding
-    reads whichever the node declares and respects its divisibility constraints.
+    Styles (``style``):
 
-    Two styles are available (``style``):
+    * ``"optimizer"`` (default): a resource-aware search. With ``target_cycles_per_frame``
+      it meets that throughput at minimum (budget-weighted) resource cost; with ``None`` it
+      maximizes throughput within the resource budget of ``platform``. Besides PE/SIMD it
+      tunes ram_style/resType to trade BRAM<->URAM and LUT<->DSP. Every folding is scored
+      on the graph with the DWCs the build will insert, and with an estimate of its FIFOs
+      (or, with ``enable_folding_fifo_heuristic``, with FIFOs sized by the analytic sizer).
+      ``folding_maximum_padding`` > 0 lets it pad channel counts for finer folding factors;
+      the padded search starts from the unpadded result and is kept only if no worse, and
+      the build inserts padding/cropping DWCs. The verdict is in ``last_search_report``.
+    * ``"naive"``: the original greedy per-node folder (``apply_naive_folding``).
 
-    * ``"optimizer"`` (default) -- a resource-aware search (simulated annealing)
-      that, depending on ``target_cycles_per_frame``, either minimizes resources
-      while meeting a throughput target, or maximizes throughput within the
-      device resource budget (``target_cycles_per_frame=None``). It can also bias
-      BRAM<->URAM / LUT<->DSP usage via ``prefer_memory`` / ``prefer_compute``.
-    * ``"naive"`` -- the legacy greedy per-node folder.
-
-    The optimizer folds every node generically; genuinely op-specific behavior is
-    kept as a few small, explicit rules near the top of this module (SWG pairing,
-    SIMD_MAX_OVERRIDE, DO_NOT_FOLD, PADDING_BOUND_ATTR) that are easy to extend.
-
-    If ``folding_maximum_padding`` is greater than 0, folding-factor restrictions
-    are relaxed by padding channel counts where that helps; padding & cropping
-    DWCs are inserted downstream as needed.
-
-    In the returned model, each node's cycles_estimate attribute is set to its
-    estimated number of cycles.
+    In the returned model each node's cycles_estimate attribute holds its estimated cycles.
     """
 
-    # Invariants, not knobs. They were instance attributes assigned in __init__,
-    # which read as configuration and invited callers to flip them; nothing in
-    # the flow ever did, and two of them cannot be flipped safely.
-
-    # the folders apply() can dispatch to; also the accepted values of the build
-    # config's `folding_style`, so keep the two in step
+    # the folders apply() dispatches to; also the build config's `folding_style` values
     STYLES = ("optimizer", "naive")
-
-    # the throughput target is always the cost model's hard constraint
-    hard_constraint_target = "max_cycles"
     target_resources = ["LUT", "BRAM_18K", "DSP", "URAM"]
-
-    # binary-search steps when maximizing throughput within a resource budget
-    # (target_cycles_per_frame=None)
-    MAXIMIZE_SEARCH_STEPS = 15
-    # cost-model weight applied to the resource the caller asked to spare via
-    # prefer_memory / prefer_compute (higher = avoided more strongly)
+    # the resource prefer_memory / prefer_compute penalize, by preference
+    PREFERENCES = {
+        "prefer_memory": {"bram": "URAM", "uram": "BRAM_18K"},
+        "prefer_compute": {"lut": "DSP", "dsp": "LUT"},
+    }
+    # cost-model weight of the resource a preference avoids (higher = avoided more strongly)
     PREFERENCE_PENALTY = 8.0
-    # nodes grouped per local optimization partition in the folding pass
+    # throughput probes when maximizing throughput (target_cycles_per_frame=None)
+    MAXIMIZE_SEARCH_STEPS = 15
+    # nodes per partition in the folding pass and in the resource-type pass
     NODES_PER_PARTITION = 3
-    # nodes grouped per partition in the (larger) resource-type tuning pass
     RESOURCE_PARTITION_SIZE = 8
-    # whole-graph evaluations the polish pass may spend per folding parameter
+    # whole-graph evaluations the polish may spend per folding parameter
     POLISH_EVALS_PER_PARAMETER = 6
-    # Always tune each node's ram_style/resType so the search can trade
-    # BRAM<->URAM and LUT<->DSP to fit a higher-throughput folding in budget.
-    # These attributes do not enter any cycle formula, so this can only change
-    # how resources are realized, never the achieved throughput.
-    optimize_resource_types = True
-    resource_type_params = list(Optimizer.RESOURCE_TYPE_ATTRS)
-    optimize_folding = True
-    # DWCs are inserted by a later build step; folding only accounts for them
-    insert_dwcs = False
-    consider_dwc_costs = True
-    # FIFOs too: estimated in the cost model (Optimizer.fifo_resources); with
-    # enable_folding_fifo_heuristic they are sized for real when a folding is scored
-    fifo_proxy = True
 
     def __init__(
         self,
@@ -1776,11 +1156,9 @@ class SetFolding(Transformation):
         platform="Pynq-Z1",
         devices=1,
         style="optimizer",
-        # --- resource preferences -------------------------------------------
         prefer_memory=None,
         prefer_compute=None,
         resource_weights=None,
-        # --- folding search knobs -------------------------------------------
         folding_effort=250,
         folding_maximum_padding=0,
         folding_pad_io_nodes=False,
@@ -1791,64 +1169,40 @@ class SetFolding(Transformation):
         mvau_wwidth_max=1024,
         enable_folding_dwc_heuristic=True,
         enable_folding_fifo_heuristic=False,
-        # the build's FIFO sizing strategy; the in-loop sizing is always the
-        # analytic one (see insert_and_size_fifos)
         auto_fifo_strategy=None,
-        # --- naive-style knobs (style="naive" only) -------------------------
         two_pass_relaxation=True,
-        # --- simulated-annealing internals (optimizer style only) -----------
-        # None means "use Optimizer's own default"; the values live there, in the
-        # class that consumes them, rather than being restated here
-        maxiter=None,
-        accept=None,
-        visit=None,
         seed=None,
-        verbose=False,
     ):
         """
-        target_cycles_per_frame
-            A throughput ceiling to meet at minimum resource cost. ``None``
-            switches the objective: maximize throughput within the budget.
-        platform / devices
-            Board (and device count) whose resource budget bounds the search.
-        style
-            ``"optimizer"`` (resource-aware search) or ``"naive"`` (the legacy
-            greedy per-node folder in ``set_folding_naive``).
-        prefer_memory / prefer_compute / resource_weights
-            Bias, not permission: ram_style and resType are always tuned so the
-            search can trade BRAM<->URAM and LUT<->DSP. ``"bram"``/``"uram"``
-            and ``"lut"``/``"dsp"`` penalize the resource NOT named;
-            ``resource_weights`` overrides both with explicit multipliers.
-        folding_effort
-            Annealing evaluations per parameter; 50-100 is the useful range.
-        folding_maximum_padding / folding_pad_io_nodes
-            Opt-in channel padding for finer folding factors, and whether the
-            IO layers may be padded too (if so, the host must pad its input and
-            crop its output to match). Both off by default.
-
-        Three that are easy to get wrong:
-
-        allow_uram_weights
-            Lets *weight* memories go to URAM, which requires
-            ``runtime_writeable_weights=1``. Off by default because that changes
-            the deployment contract -- the driver must load those weights rather
-            than the bitstream carrying them. The cost of leaving it off is real:
-            on a part where BRAM is the binding constraint there may be no
-            feasible folding without it (MobileNet on ZCU104 fits only by moving
-            three MVAUs to URAM this way).
-        strict_budget
-            Raise rather than warn when the returned folding exceeds the budget.
-            Either way the verdict is recorded in ``last_search_report``; an
-            over-budget folding is never returned silently.
-        folding_search_timeout_s
-            Wall-clock budget for the maximize-mode search. Fast targets cost far
-            more to probe than slow ones (every evaluation reshapes the weight
-            tensors), so the search goes cheapest-first and keeps the best
-            feasible point found when the budget runs out. Truncation is reported
-            as ``search_truncated``, never hidden. ``None`` means no limit.
-
-        In the returned model each node's cycles_estimate attribute is set to
-        its estimated number of cycles.
+        Args:
+            target_cycles_per_frame: throughput to meet at minimum resource cost; ``None``
+                maximizes throughput within the budget (optimizer only).
+            platform, devices: board (and device count) whose resource budget bounds the
+                search.
+            style: ``"optimizer"`` or ``"naive"``.
+            prefer_memory, prefer_compute, resource_weights: bias, not permission:
+                ``"bram"``/``"uram"`` and ``"lut"``/``"dsp"`` penalize the resource not
+                named; ``resource_weights`` sets per-resource cost multipliers explicitly.
+            folding_effort: annealing evaluations per parameter (50-100 is useful).
+            folding_maximum_padding, folding_pad_io_nodes: channels a layer may be padded
+                by, and whether the IO layers may be padded too (the host must then pad the
+                input and crop the output).
+            folding_max_attempts: throughput probes in target mode (1: fold once).
+            strict_budget: raise instead of warn when the folding exceeds the budget.
+            allow_uram_weights: let weight memories go to URAM, which makes them
+                runtime-writeable (the driver must load those weights). Without it a
+                BRAM-bound part may have no feasible folding.
+            folding_search_timeout_s: wall-clock budget of the throughput search, which keeps
+                the best feasible point found (reported as ``search_truncated``).
+            mvau_wwidth_max: maximum weight stream width per PE of an MVAU.
+            enable_folding_dwc_heuristic: penalize foldings that need costly DWCs.
+            enable_folding_fifo_heuristic: score foldings with FIFOs sized by the analytic
+                sizer instead of the estimate (2.5-3.5x slower).
+            auto_fifo_strategy: the build's FIFO sizing strategy (only checked for a
+                warning; the in-loop sizing is always the analytic one).
+            two_pass_relaxation: naive style: fold again at the achieved cycles if the
+                target was missed, to balance the pipeline.
+            seed: seed of the annealer, for reproducible foldings.
         """
         super().__init__()
         self.target_cycles_per_frame = target_cycles_per_frame
@@ -1856,7 +1210,6 @@ class SetFolding(Transformation):
         self.devices = devices
         self.fpgapart = part_map[self.platform]
         self.style = style
-
         self.mvau_wwidth_max = mvau_wwidth_max
         self.padding = folding_maximum_padding
         self.pad_io_nodes = folding_pad_io_nodes
@@ -1865,8 +1218,6 @@ class SetFolding(Transformation):
         self.allow_uram_weights = allow_uram_weights
         self.search_timeout_s = folding_search_timeout_s
         self.effort = folding_effort
-        # populated by the throughput search; see _record_search_result
-        self.last_search_report = None
         self.enable_folding_dwc_heuristic = enable_folding_dwc_heuristic
         self.enable_folding_fifo_heuristic = enable_folding_fifo_heuristic
         if enable_folding_fifo_heuristic and auto_fifo_strategy not in (
@@ -1877,188 +1228,65 @@ class SetFolding(Transformation):
                 "SetFolding: the FIFO-aware folding sizes FIFOs with the analytic sizer, "
                 f"not {auto_fifo_strategy}; the build's own FIFO sizing is unaffected"
             )
+        self.two_pass_relaxation = two_pass_relaxation
+        self.seed = seed
+        self.resource_weights = self._build_resource_weights(
+            prefer_memory=prefer_memory, prefer_compute=prefer_compute, overrides=resource_weights
+        )
+        # the budget verdict of the last search (see _record_search_result)
+        self.last_search_report = None
+        self._search_truncated = False
         # sidecar files of the in-loop FIFO sizer, removed after the search
         self._fifo_work_dir = None
 
-        # simulated-annealing internals
-        self.maxiter = maxiter
-        self.accept = accept
-        self.visit = visit
-        self.seed = seed
-        self.verbose = verbose
-
-        # naive-style only
-        self.two_pass_relaxation = two_pass_relaxation
-
-        # prefer_memory / prefer_compute only bias the resource-type choice via
-        # cost-model weights; they are neutral when left as None.
-        self.resource_weights = self._build_resource_weights(
-            prefer_memory, prefer_compute, resource_weights
-        )
-
-    @staticmethod
-    def _build_resource_weights(prefer_memory, prefer_compute, overrides):
-        """Turn the prefer_memory / prefer_compute shorthands (and any explicit
-        overrides) into per-resource cost multipliers. A higher weight steers
-        the optimizer away from that resource, so we penalize the resource the
-        user did NOT prefer."""
+    @classmethod
+    def _build_resource_weights(cls, overrides=None, **preferences):
+        """Per-resource cost multipliers: the resource a preference does NOT name is
+        penalized; explicit ``overrides`` win."""
         weights = {"LUT": 1.0, "BRAM_18K": 1.0, "DSP": 1.0, "URAM": 1.0}
-        if prefer_memory == "bram":
-            weights["URAM"] = SetFolding.PREFERENCE_PENALTY
-        elif prefer_memory == "uram":
-            weights["BRAM_18K"] = SetFolding.PREFERENCE_PENALTY
-        elif prefer_memory is not None:
-            raise ValueError("prefer_memory must be 'bram', 'uram' or None")
-        if prefer_compute == "lut":
-            weights["DSP"] = SetFolding.PREFERENCE_PENALTY
-        elif prefer_compute == "dsp":
-            weights["LUT"] = SetFolding.PREFERENCE_PENALTY
-        elif prefer_compute is not None:
-            raise ValueError("prefer_compute must be 'lut', 'dsp' or None")
-        if overrides:
-            weights.update(overrides)
+        for kind, choice in preferences.items():
+            if choice is None:
+                continue
+            table = cls.PREFERENCES[kind]
+            if choice not in table:
+                raise ValueError(f"{kind} must be " + ", ".join(map(repr, table)) + " or None")
+            weights[table[choice]] = cls.PREFERENCE_PENALTY
+        weights.update(overrides or {})
         return weights
 
-    def _make_optimizer(self, model, name, targets, init_run):
-        """Construct an Optimizer sharing this transformation's configuration."""
-        return Optimizer(
-            model,
-            name,
-            targets,
-            self.hard_constraint_target,
-            padding=0 if init_run else self.padding,
-            fpgapart=self.fpgapart,
-            maxfun_per_parameter=self.effort,
-            enable_folding_dwc_heuristic=self.enable_folding_dwc_heuristic,
-            verbose=self.verbose,
-            mvau_wwidth_max=self.mvau_wwidth_max,
-            init_run=init_run,
-            pad_io_nodes=self.pad_io_nodes,
-            resource_type_params=self.resource_type_params,
-            resource_weights=self.resource_weights,
-            allow_uram_weights=self.allow_uram_weights,
-            fifo_proxy=self.fifo_proxy,
-            seed=self.seed,
-            # only override what the caller actually set
-            **{
-                k: v
-                for k, v in (
-                    ("maxiter", self.maxiter),
-                    ("accept", self.accept),
-                    ("visit", self.visit),
-                )
-                if v is not None
-            },
-        )
-
-    def _probe_fastest_throughput(self, model):
-        """Fold every node maximally to measure the fastest (fewest cycles per
-        frame) the graph can run -- the floor the throughput search cannot beat."""
-        probe = self._make_optimizer(
-            copy.deepcopy(model), "throughput_probe", {"max_cycles": 1}, True
-        )
-        probe.generate_parameter_set()
-        probe.optimize(
-            max_nodes_in_partition=1, target_parameters=["SIMD", "PE", "parallel_window"]
-        )
-        probed = probe.model.transform(AnnotateCycles())
-        return probed.analysis(dataflow_performance)["max_cycles"]
-
-    def _resource_budgets(self):
-        """Per-resource budget for the target platform (raw counts scaled by the
-        default utilization limits)."""
-        limits = DEFAULT_RES_LIMITS
-        totals = {"LUT": 0, "BRAM_18K": 0, "URAM": 0, "DSP": 0}
-        for r in platforms[self.platform](self.devices).resource_count_dict.values():
-            for key in totals:
-                totals[key] += r[key]
-        return {
-            "LUT": max(limits[0] * totals["LUT"], 0.001),
-            "BRAM_18K": max(limits[2] * totals["BRAM_18K"], 0.001),
-            "URAM": max(limits[3] * totals["URAM"], 0.001),
-            "DSP": max(limits[4] * totals["DSP"], 0.001),
-        }
-
-    def _aggregate_resources(self, model):
-        estimates = {}
-        for node in model.graph.node:
-            inst = getCustomOp(node)
-            estimates[inst] = inst.node_res_estimation(self.fpgapart)
-        return aggregate_dict_keys(estimates)
-
-    def _as_built_if_useful(self, model, metrics, targets):
-        """Re-score on the as-built graph only when it can change the verdict.
-
-        If the search's own scoring already exceeds the budget, the as-built
-        graph cannot rescue it -- the verdict is "does not fit" either way -- so
-        the extra minimisation pass is pure cost. It is precisely the infeasible
-        fallback (minimal folding, deepest/narrowest weight memories) on which
-        MinimizeAccumulatorWidth is slowest, so skipping it there matters.
-        """
-        if any(metrics.get(r, 0.0) > targets[r] for r in self.target_resources):
-            return None
-        try:
-            return self._resources_as_built(model)
-        except Exception as e:  # noqa: BLE001 - never lose the result over a verdict
-            warnings.warn(
-                f"SetFolding: could not re-score the folding on the as-built graph "
-                f"({type(e).__name__}: {e}); the budget verdict is the search's own "
-                f"scoring, which does not include step_minimize_bit_width.",
-                stacklevel=2,
+    def apply(self, model):
+        """Fold ``model`` with the configured style; returns ``(model, False)``."""
+        if self.style not in self.STYLES:
+            raise ValueError(
+                f"unknown SetFolding style {self.style!r}; expected one of "
+                + ", ".join(repr(s) for s in self.STYLES)
             )
-            return None
+        if self.style == "naive":
+            if self.target_cycles_per_frame is None:
+                raise ValueError(
+                    "style='naive' requires a target_cycles_per_frame; "
+                    "leaving it None (maximize throughput) is only supported by "
+                    "style='optimizer'"
+                )
+            return self.apply_naive_folding(model)
+        return self.apply_optimized_folding(model)
 
-    def _resources_as_built(self, model):
-        """Resources of the graph the *build* will actually carry.
-
-        The search scores candidates on the freshly folded graph, but every real
-        flow runs step_minimize_bit_width immediately after folding, and that
-        step does not only shrink things: MinimizeAccumulatorWidth and
-        RoundAndClipThresholds can widen accumulators and thresholds. Measured on
-        cnv-w1a2 (Pynq-Z1), a folding SetFolding scored at 33428 LUT / 142 BRAM
-        -- comfortably inside a 37240 / 224 budget -- becomes 40025 LUT / 278
-        BRAM once those run, i.e. over budget on both. Reporting the pre-step
-        numbers would therefore certify designs that do not fit.
-
-        Used for the *verdict* only, not inside the search loop, so it costs one
-        extra pass per SetFolding call rather than one per candidate.
-        """
-        m = copy.deepcopy(model).transform(GiveUniqueNodeNames())
-        m = m.transform(InsertDWC())
-        m = m.transform(SpecializeLayers(self.fpgapart))
-        m = m.transform(MinimizeWeightBitWidth())
-        m = m.transform(MinimizeAccumulatorWidth())
-        m = m.transform(InferDataTypes())
-        return self._aggregate_resources(m)
+    # ------------------------------------------------------------------ optimizer style
 
     def apply_optimized_folding(self, model):
-        """
-        Resource-aware folding using simulated annealing.
-
-        Depending on ``target_cycles_per_frame`` this either minimizes resources
-        while meeting a throughput target, or maximizes throughput within the
-        platform resource budget. Either way the search runs the cost model over
-        candidate PE/SIMD (and, when preferences are set, ram_style/resType)
-        settings, optionally accounting for DWC and FIFO costs.
-        """
+        """Resource-aware folding: probe the fastest folding the graph allows and the
+        budget, run the search (``_search_folding``) and finalize the chosen model."""
         model = model.transform(GiveUniqueNodeNames())
         model = model.transform(AnnotateCycles())
-
         maximize = self.target_cycles_per_frame is None
-
-        # fastest folding the graph allows + the platform resource budget
         fastest_cycles = self._probe_fastest_throughput(model)
-        budgets = self._budgets = self._resource_budgets()
-
-        attempts = (
-            max(self.max_attempts, self.MAXIMIZE_SEARCH_STEPS) if maximize else self.max_attempts
-        )
-
-        # max_cycles is a placeholder here; _fold_at sets it per candidate target
-        targets = {"max_cycles": fastest_cycles, **budgets}
-        opt_template = self._make_optimizer(model, "folding", targets, False)
-        opt_template.generate_parameter_set()
-
+        self._budgets = self._resource_budgets()
+        attempts = self.max_attempts
+        if maximize:
+            attempts = max(attempts, self.MAXIMIZE_SEARCH_STEPS)
+        # max_cycles is set per probe by _fold_at
+        targets = {"max_cycles": fastest_cycles, **self._budgets}
+        opt_template = self._make_optimizer(model, "folding", targets)
         if self.enable_folding_fifo_heuristic:
             self._fifo_work_dir = make_build_dir(prefix="folding_fifo_")
         try:
@@ -2067,208 +1295,71 @@ class SetFolding(Transformation):
             if self._fifo_work_dir is not None:
                 shutil.rmtree(self._fifo_work_dir, ignore_errors=True)
                 self._fifo_work_dir = None
-
-        if self.insert_dwcs:
-            # only needed if downstream steps will not insert DWCs themselves
-            model = model.transform(InsertDWC())
-            model = model.transform(SpecializeLayers(self.fpgapart))
-
         model = model.transform(GiveUniqueNodeNames())
         model = model.transform(AnnotateCycles())
-
         if self.allow_uram_weights:
-            self._enable_runtime_writeable_for_uram(model)
-
+            # MVAU/VVAU assert that URAM weight memories are runtime-writeable
+            for node in model.graph.node:
+                inst = getCustomOp(node)
+                types = inst.get_nodeattr_types()
+                if "runtime_writeable_weights" in types and "ram_style" in types:
+                    if inst.get_nodeattr("ram_style") == "ultra":
+                        inst.set_nodeattr("runtime_writeable_weights", 1)
         if self.pad_io_nodes:
             model = self._retype_padded_io(model)
-
         return (model, False)
 
-    @staticmethod
-    def _sweep_targets(lo, hi, n):
-        """``n`` cycles-per-frame probes spread geometrically over [lo, hi].
-
-        Geometric, not linear: the two ends routinely differ by four or five
-        orders of magnitude (a maximally folded MobileNet is ~1e5 cycles/frame,
-        the minimally folded one ~5e7), so linear spacing would put every probe
-        at the slow end and never look at the interesting region.
-        """
-        lo, hi = max(int(lo), 1), max(int(hi), 1)
-        if hi <= lo or n <= 1:
-            return [hi]
-        ratio = (hi / lo) ** (1.0 / (n - 1))
-        out = []
-        for i in range(n):
-            t = int(round(lo * (ratio**i)))
-            t = min(max(t, lo), hi)
-            if t not in out:
-                out.append(t)
-        if hi not in out:
-            out.append(hi)
-        return sorted(out)
-
-    def _search_folding(self, opt_template, targets, fastest_cycles, attempts, maximize):
-        """Fold the model, choosing the throughput target.
-
-        * meet-target mode (a target was given, single attempt): fold once to meet
-          the target with minimal resources.
-        * otherwise: find the fastest throughput (fewest cycles per frame) whose
-          folding still fits the device resource budget.
-
-        The search does NOT assume that resource use is monotonic in the
-        throughput target, because it is not. BRAM in particular is
-        non-monotonic: at minimal folding each weight memory is deep and narrow
-        and therefore packs into BRAM badly, so *more* parallelism can cost
-        *less* BRAM. MobileNet on a ZCU104 is the worked example -- it needs
-        990-1040 BRAM_18K at minimum folding against a 488 budget, but only ~530
-        at the far more parallel hand-tuned folding.
-
-        A plain bisection on "fits -> go faster, else go slower" silently breaks
-        on that shape: the slow end is infeasible, so the invariant it relies on
-        never holds, no feasible point is ever recorded, and it falls through to
-        the slowest folding -- an answer that is both slow *and* over budget.
-
-        So instead: sample feasibility across the whole range first (phase A),
-        then refine around the best feasible point found (phase B). Only a
-        candidate that was *verified* feasible can ever be returned as the
-        answer, so a wrong monotonicity guess can cost search efficiency but
-        cannot produce a wrong result.
-
-        With channel padding enabled the unpadded search runs first and the
-        padded one replays its probes, each starting from the unpadded solution
-        there and keeping the better of the two (see ``_fold_at_best``); it
-        finally tries to improve on the best unpadded folding directly. Padding
-        widens the search space, so this guarantees it never narrows the result.
-        """
-        if not maximize and attempts <= 1:
-            result = self._fold_at_best(opt_template, targets, self.target_cycles_per_frame, False)
-            self._record_search_result(
-                result.fits,
-                result.metrics,
-                targets,
-                result.achieved,
-                feasible_found=result.fits,
-                searched=False,
-                as_built=self._as_built_if_useful(result.model, result.metrics, targets),
-            )
-            return result.model
-
-        slowest = (
-            self.target_cycles_per_frame if not maximize else self._slowest_cycles(opt_template)
-        )
-        lo, hi = max(int(fastest_cycles), 1), max(int(slowest), int(fastest_cycles), 1)
-
-        # split the budget between sampling and refinement
-        n_sweep = max(4, (attempts + 1) // 2)
-        n_refine = max(0, attempts - n_sweep)
-
-        deadline = None if self.search_timeout_s is None else time.time() + self.search_timeout_s
-        self._search_truncated = False
-
-        def out_of_time():
-            if deadline is not None and time.time() > deadline:
-                self._search_truncated = True
-                return True
-            return False
-
-        # unpadded probes by target: the padded probe at the same target starts
-        # from them, and the sampling phase of both searches shares its targets
-        probes = {}
-
-        def fold_unpadded(t):
-            if t not in probes:
-                probes[t] = self._fold_at(opt_template, targets, t, 0)
-            return probes[t]
-
-        def fold_padded(t):
-            return self._fold_at_best(opt_template, targets, t, maximize, fold_unpadded(t))
-
-        best, fallback = self._sweep_and_refine(
-            fold_unpadded, lo, hi, n_sweep, n_refine, out_of_time
-        )
-        if self.padding > 0:
-            best_padded, fallback_padded = self._sweep_and_refine(
-                fold_padded, lo, hi, n_sweep, n_refine, out_of_time
-            )
-            if best is not None and not out_of_time():
-                best_padded = self._better(
-                    best_padded,
-                    self._fold_at_best(opt_template, targets, best.achieved, maximize, best),
-                    None,
-                    maximize,
-                )
-            best = self._better(best, best_padded, None, maximize)
-            fallback = self._better(fallback, fallback_padded, None, maximize)
-
-        if best is not None:
-            self._record_search_result(
-                True,
-                best.metrics,
-                targets,
-                best.achieved,
-                feasible_found=True,
-                as_built=self._as_built_if_useful(best.model, best.metrics, targets),
-            )
-            return best.model
-
-        # Nothing in the sampled range fits. Return the least-resource folding
-        # we saw, but say so loudly -- this is not a solution to the problem
-        # that was asked.
-        self._record_search_result(
-            False,
-            fallback.metrics,
+    def _make_optimizer(self, model, name, targets, init_run=False):
+        return Optimizer(
+            model,
+            name,
             targets,
-            fallback.achieved,
-            feasible_found=False,
-            as_built=self._as_built_if_useful(fallback.model, fallback.metrics, targets),
+            fpgapart=self.fpgapart,
+            padding=0 if init_run else self.padding,
+            effort=self.effort,
+            seed=self.seed,
+            mvau_wwidth_max=self.mvau_wwidth_max,
+            pad_io_nodes=self.pad_io_nodes,
+            enable_folding_dwc_heuristic=self.enable_folding_dwc_heuristic,
+            resource_weights=self.resource_weights,
+            allow_uram_weights=self.allow_uram_weights,
+            init_run=init_run,
+            resource_type_params=Optimizer.RESOURCE_TYPE_ATTRS,
         )
-        return fallback.model
 
-    def _sweep_and_refine(self, fold, lo, hi, n_sweep, n_refine, out_of_time):
-        """Phase A and B of the throughput search over ``fold(target)``; returns
-        the fastest folding verified to fit and the slowest one seen."""
-        best = None  # verified feasible
-        fallback = None  # at the slow end
-        infeasible_below = None  # fastest probed target known NOT to fit
+    def _probe_fastest_throughput(self, model):
+        """Cycles per frame with every node folded maximally: the search's fast bound."""
+        probe = self._make_optimizer(copy.deepcopy(model), "probe", {"max_cycles": 1}, True)
+        probe.generate_parameter_set()
+        probe.optimize(
+            max_nodes_in_partition=1, target_parameters=["SIMD", "PE", "parallel_window"]
+        )
+        return probe.model.transform(AnnotateCycles()).analysis(dataflow_performance)["max_cycles"]
 
-        # ---- phase A: sample feasibility across the range ------------------
-        # Slowest (cheapest to evaluate) first: a fast target drives every node
-        # to maximum parallelism, and each cost-model evaluation then reshapes
-        # the full weight tensors. Cheapest-first means that if the budget runs
-        # out we still hold the feasible points, rather than having spent it all
-        # on the expensive end.
-        for t in reversed(self._sweep_targets(lo, hi, n_sweep)):
-            if out_of_time():
-                break
-            result = fold(t)
-            if result.fits:
-                if best is None or result.achieved < best.achieved:
-                    best = result
-            else:
-                if infeasible_below is None or t > infeasible_below:
-                    # the slowest target that still failed: nothing at or below
-                    # it is worth refining into
-                    infeasible_below = t
-            if fallback is None or result.achieved > fallback.achieved:
-                fallback = result
+    def _slowest_cycles(self, opt_template):
+        """Cycles per frame at minimal folding: the search's slow bound."""
+        opt = copy.deepcopy(opt_template)
+        opt.generate_parameter_set()
+        opt.params.add_all_params_to_index_list()
+        opt.params.set_values(opt.params.get_min_vals())
+        opt.params.apply_updates(final=True, attrs=["SIMD", "PE", "parallel_window"])
+        return opt.model.transform(AnnotateCycles()).analysis(dataflow_performance)["max_cycles"]
 
-        # ---- phase B: refine between the best feasible point and the ------
-        # fastest infeasible one below it
-        if best is not None and n_refine:
-            fast_bound = 1 if infeasible_below is None else infeasible_below + 1
-            slow_bound = best.achieved
-            for _ in range(n_refine):
-                if slow_bound - fast_bound <= 1 or out_of_time():
-                    break
-                mid = (fast_bound + slow_bound) // 2
-                result = fold(mid)
-                if result.fits:
-                    if result.achieved < best.achieved:
-                        best = result
-                    slow_bound = min(mid, result.achieved)
-                else:
-                    fast_bound = mid + 1
-        return best, fallback
+    def _resource_budgets(self):
+        """Per-resource budget of the platform: its resources times the default limits."""
+        limit_index = {"LUT": 0, "BRAM_18K": 2, "URAM": 3, "DSP": 4}
+        counts = platforms[self.platform](self.devices).resource_count_dict.values()
+        return {
+            r: max(DEFAULT_RES_LIMITS[i] * sum(c[r] for c in counts), 0.001)
+            for r, i in limit_index.items()
+        }
+
+    def _aggregate_resources(self, model):
+        estimates = {}
+        for node in model.graph.node:
+            inst = getCustomOp(node)
+            estimates[inst] = inst.node_res_estimation(self.fpgapart)
+        return aggregate_dict_keys(estimates)
 
     def _cost(self, metrics, targets):
         """The search's objective: resources normalized by budget and weighted."""
@@ -2287,42 +1378,156 @@ class SetFolding(Transformation):
     def _fits(self, metrics, targets):
         return all(metrics.get(r, 0.0) <= targets[r] for r in self.target_resources)
 
+    # ------------------------------------------------------------------ search
+
+    def _search_folding(self, opt_template, targets, fastest_cycles, attempts, maximize):
+        """Fold the model, choosing the throughput target.
+
+        With a target and a single attempt: fold once for it (``_fold_at_best``).
+        Otherwise find the fastest throughput whose folding fits the budget, between the
+        fastest folding and the target (or the slowest folding when maximizing).
+        Resource use is not monotonic in the throughput (at minimal folding weight memories
+        are deep and narrow and pack badly into BRAM: MobileNet on ZCU104 needs ~1000
+        BRAM_18K at minimal folding, ~530 at the hand-tuned one), so a bisection could
+        miss every feasible point. Instead the range is sampled first and then refined
+        around the fastest feasible point (``_sweep_and_refine``); only a folding verified
+        to fit is returned as a solution, else the slowest one seen, flagged as not fitting.
+
+        With padding the unpadded search runs first and the padded one replays its probes,
+        each starting from the unpadded solution there (``_fold_at_best``), and finally
+        tries to improve on the best unpadded folding: padding never narrows the result.
+        """
+        if not maximize and attempts <= 1:
+            result = self._fold_at_best(opt_template, targets, self.target_cycles_per_frame, False)
+            self._record_search_result(result, targets, result.fits, result.fits, searched=False)
+            return result.model
+
+        slowest = self.target_cycles_per_frame
+        if maximize:
+            slowest = self._slowest_cycles(opt_template)
+        lo, hi = max(int(fastest_cycles), 1), max(int(slowest), int(fastest_cycles), 1)
+        n_sweep = max(4, (attempts + 1) // 2)
+        n_refine = max(0, attempts - n_sweep)
+        deadline = None if self.search_timeout_s is None else time.time() + self.search_timeout_s
+        self._search_truncated = False
+
+        def out_of_time():
+            if deadline is not None and time.time() > deadline:
+                self._search_truncated = True
+                return True
+            return False
+
+        # the unpadded probes by target: the padded probe at a target starts from them
+        probes = {}
+
+        def fold_unpadded(t):
+            if t not in probes:
+                probes[t] = self._fold_at(opt_template, targets, t, 0)
+            return probes[t]
+
+        def fold_padded(t):
+            return self._fold_at_best(opt_template, targets, t, maximize, fold_unpadded(t))
+
+        best, fallback = self._sweep_and_refine(
+            fold_unpadded, lo, hi, n_sweep, n_refine, out_of_time
+        )
+        if self.padding > 0:
+            best_padded, fallback_padded = self._sweep_and_refine(
+                fold_padded, lo, hi, n_sweep, n_refine, out_of_time
+            )
+            if best is not None and not out_of_time():
+                direct = self._fold_at_best(opt_template, targets, best.achieved, maximize, best)
+                best_padded = self._better(best_padded, direct, None, maximize)
+            best = self._better(best, best_padded, None, maximize)
+            fallback = self._better(fallback, fallback_padded, None, maximize)
+
+        if best is not None:
+            self._record_search_result(best, targets, True, True)
+            return best.model
+        # nothing in the range fits: return the least-resource folding, flagged
+        self._record_search_result(fallback, targets, False, False)
+        return fallback.model
+
+    @staticmethod
+    def _sweep_targets(lo, hi, n):
+        """``n`` cycles-per-frame probes spread geometrically over [lo, hi] (the ends can
+        differ by orders of magnitude: MobileNet ~1e5 to ~5e7)."""
+        lo, hi = max(int(lo), 1), max(int(hi), 1)
+        if hi <= lo or n <= 1:
+            return [hi]
+        ratio = (hi / lo) ** (1.0 / (n - 1))
+        out = []
+        for i in range(n):
+            t = min(max(int(round(lo * (ratio**i))), lo), hi)
+            if t not in out:
+                out.append(t)
+        if hi not in out:
+            out.append(hi)
+        return sorted(out)
+
+    def _sweep_and_refine(self, fold, lo, hi, n_sweep, n_refine, out_of_time):
+        """Sample ``fold(target)`` over [lo, hi], slowest (cheapest to evaluate) first, then
+        bisect between the fastest folding that fits and the slowest target that did not.
+        Returns the fastest folding verified to fit (or None) and the slowest one seen."""
+        best = fallback = infeasible_below = None
+        for t in reversed(self._sweep_targets(lo, hi, n_sweep)):
+            if out_of_time():
+                break
+            result = fold(t)
+            if result.fits:
+                if best is None or result.achieved < best.achieved:
+                    best = result
+            elif infeasible_below is None or t > infeasible_below:
+                infeasible_below = t
+            if fallback is None or result.achieved > fallback.achieved:
+                fallback = result
+
+        if best is not None and n_refine:
+            fast_bound = 1 if infeasible_below is None else infeasible_below + 1
+            slow_bound = best.achieved
+            for _ in range(n_refine):
+                if slow_bound - fast_bound <= 1 or out_of_time():
+                    break
+                mid = (fast_bound + slow_bound) // 2
+                result = fold(mid)
+                if result.fits:
+                    if result.achieved < best.achieved:
+                        best = result
+                    slow_bound = min(mid, result.achieved)
+                else:
+                    fast_bound = mid + 1
+        return best, fallback
+
     def _better(self, a, b, target, maximize):
         """The better of two foldings for ``target`` (``None``: no cycle limit).
 
-        ``b`` is the wider (padded) search's result and replaces ``a`` only when
-        it is no worse on every count: a solution beats a non-solution; among
-        solutions the faster one wins in maximize mode, otherwise ``b`` must be
-        no costlier in both peak utilization and weighted cost. So padding can
-        widen the search but never worsen its result.
-        """
+        ``b`` is the wider (padded) search's result and replaces ``a`` only when it is no
+        worse on every count: a solution beats a non-solution; among solutions the faster
+        one wins in maximize mode, otherwise ``b`` must be no costlier in both peak
+        utilization and weighted cost (and cheaper in one). Among non-solutions the faster
+        one within budget wins, else the cheaper one."""
         if a is None or b is None:
             return a if b is None else b
-        targets = self._budgets
         a_ok = a.fits and (target is None or a.achieved <= target)
         b_ok = b.fits and (target is None or b.achieved <= target)
         if a_ok != b_ok:
             return b if b_ok else a
-        a_cost, b_cost = a.cost, b.cost
-        a_util, b_util = self._utilization(a.metrics, targets), self._utilization(
-            b.metrics, targets
-        )
         if not a_ok:
-            # neither is a solution: within budget the faster one, else the cheaper
             if a.fits and b.fits:
-                a_key, b_key = (a.achieved, a_cost), (b.achieved, b_cost)
+                a_key, b_key = (a.achieved, a.cost), (b.achieved, b.cost)
             else:
-                a_key, b_key = (not a.fits, a_cost, a.achieved), (not b.fits, b_cost, b.achieved)
+                a_key, b_key = (not a.fits, a.cost, a.achieved), (not b.fits, b.cost, b.achieved)
             return b if b_key < a_key else a
         if maximize and a.achieved != b.achieved:
             return b if b.achieved < a.achieved else a
-        no_worse = b_util <= a_util and b_cost <= a_cost
-        return b if no_worse and (b_util < a_util or b_cost < a_cost) else a
+        a_util = self._utilization(a.metrics, self._budgets)
+        b_util = self._utilization(b.metrics, self._budgets)
+        no_worse = b_util <= a_util and b.cost <= a.cost
+        return b if no_worse and (b_util < a_util or b.cost < a.cost) else a
 
     def _fold_at_best(self, opt_template, targets, target_cycles, maximize, unpadded=None):
-        """Fold for ``target_cycles``; with padding enabled, the padded search
-        starts from the unpadded folding (folded here unless given) and the
-        better of the two is returned, so padding never makes a result worse."""
+        """Fold for ``target_cycles``; with padding the padded search starts from the
+        unpadded folding (folded here unless given) and the better one is returned."""
         if self.padding <= 0:
             return self._fold_at(opt_template, targets, target_cycles, 0)
         if unpadded is None:
@@ -2330,160 +1535,61 @@ class SetFolding(Transformation):
         padded = self._fold_at(opt_template, targets, target_cycles, self.padding, unpadded.values)
         return self._better(unpadded, padded, target_cycles, maximize)
 
-    def _record_search_result(
-        self,
-        fits,
-        metrics,
-        targets,
-        achieved_cycles,
-        feasible_found,
-        searched=True,
-        as_built=None,
-    ):
-        """Publish the budget verdict instead of leaving the caller to guess.
-
-        Before this, maximize mode could return a folding that exceeded the
-        device budget with no signal whatsoever: the transformation looked like
-        it had succeeded. Anyone using SetFolding outside a harness that
-        re-derives the resource estimate itself had no way to tell.
-        """
-        as_built = metrics if as_built is None else as_built
-        # judge on the as-built graph: what the search scored is not what the
-        # build ships (see _resources_as_built)
-        over = {
-            r: (as_built.get(r, 0.0), targets[r])
-            for r in self.target_resources
-            if as_built.get(r, 0.0) > targets[r]
-        }
-        scored_over = {
-            r: metrics.get(r, 0.0)
-            for r in self.target_resources
-            if metrics.get(r, 0.0) > targets[r]
-        }
-        fits = fits and not over
-        self.last_search_report = {
-            "fits_budget": bool(fits and not over),
-            "resources_as_built": {r: as_built.get(r, 0.0) for r in self.target_resources},
-            "feasible_solution_found": bool(feasible_found),
-            "achieved_cycles_per_frame": achieved_cycles,
-            "resources": {r: metrics.get(r, 0.0) for r in self.target_resources},
-            "budget": {r: targets[r] for r in self.target_resources},
-            "over_budget": {r: {"used": u, "budget": b} for r, (u, b) in over.items()},
-            # True when the search's own scoring thought it fitted but the
-            # as-built graph does not -- the blind spot, made visible
-            "missed_by_search_scoring": bool(over and not scored_over),
-            "search_truncated": bool(getattr(self, "_search_truncated", False)),
-        }
-        if over:
-            detail = ", ".join(
-                f"{r}: {u:.0f} > {b:.0f} ({100 * u / b:.0f}% of budget)"
-                for r, (u, b) in sorted(over.items())
-            )
-            msg = (
-                f"SetFolding: the returned folding does NOT fit the {self.platform} "
-                f"resource budget ({detail}). "
-                + (
-                    "This solution was expected to fit and does not."
-                    if feasible_found
-                    else (
-                        "No folding in the searched throughput range fitted the budget, so the "
-                        "least-resource folding was returned; it is not a solution."
-                        if searched
-                        else "Meeting the requested target_cycles_per_frame costs more than "
-                        "the device has; relax the target or the folding will not fit."
-                    )
-                )
-            )
-            if over and not scored_over:
-                msg += (
-                    " NOTE: the folding search scored this as fitting; it only exceeds the "
-                    "budget once step_minimize_bit_width (MinimizeAccumulatorWidth / "
-                    "RoundAndClipThresholds) has run, which the search does not model."
-                )
-            if self.strict_budget:
-                raise RuntimeError(msg + " (strict_budget=True)")
-            warnings.warn(msg, stacklevel=2)
-
     def _fold_at(self, opt_template, targets, target_cycles, padding, seed=None):
-        """Fold a fresh copy of the model to meet ``target_cycles`` (minimizing
-        resources and honoring resource-type preferences), with up to
-        ``padding`` channels of padding per layer and starting the search from
-        the meta values ``seed`` when given. Returns a ``FoldResult``.
+        """Fold a fresh copy of the model for ``target_cycles`` with up to ``padding``
+        channels of padding per layer, starting from the meta values ``seed`` if given.
 
-        ``achieved`` is what the folded graph actually reaches, which is
-        not the same as ``target_cycles``: discrete folding factors mean the
-        solver usually lands somewhere near the target rather than on it. The
-        search compares candidates on what they achieved, never on what they
-        were asked for. Both it and the resources are scored on the graph with
-        the DWCs the build inserts (``_score``) and, with
-        ``enable_folding_fifo_heuristic``, its sized FIFOs."""
+        Three passes: PE/SIMD by the annealer (from ``seed``, else from the cheapest
+        node-by-node folding), ram_style/resType by the annealer, then repair and polish on
+        the whole graph (``_refine``). ``achieved`` is what the folded graph reaches with
+        its DWCs, which can differ from the target, and is what the search compares."""
         targets["max_cycles"] = target_cycles
         opt = copy.deepcopy(opt_template)
         opt.targets = targets
         opt.padding = padding
         opt.generate_parameter_set()
-        opt.target_cycles_per_frame = target_cycles
-
-        # first pass: fold parallelism (PE/SIMD) to meet the target, from the
-        # seed or else from the cheapest node-by-node folding
-        if self.optimize_folding:
-            opt.optimize(
-                initial_guess="cheapest" if seed is None else seed,
-                max_nodes_in_partition=self.NODES_PER_PARTITION,
-                target_parameters=["SIMD", "PE"],
-            )
-        # second pass: trade BRAM<->URAM / LUT<->DSP via ram_style/resType
-        if self.optimize_resource_types:
-            opt.optimize(
-                initial_guess="max" if seed is None else seed,
-                max_nodes_in_partition=min(len(opt.model.graph.node), self.RESOURCE_PARTITION_SIZE),
-                target_parameters=list(Optimizer.RESOURCE_TYPE_ATTRS),
-            )
-        # third pass: repair and polish on the whole graph, DWCs included
-        _, achieved, metrics, cost = self._refine(opt, targets, target_cycles)
-
-        # in place, no deepcopy and no cleanup pass: this runs once per search
-        # probe (~15 per call) and opt.model is already a private copy, so the
-        # default make_deepcopy=True/cleanup=True would copy and re-clean a
-        # whole graph per probe -- on MobileNet that dominated the search.
-        opt.model = opt.model.transform(AnnotateCycles(), make_deepcopy=False, cleanup=False)
-        return FoldResult(
-            opt.model,
-            self._fits(metrics, targets),
-            metrics,
-            achieved,
-            opt.params.get_meta_values(),
-            cost,
+        opt.optimize(
+            initial_guess="cheapest" if seed is None else seed,
+            max_nodes_in_partition=self.NODES_PER_PARTITION,
+            target_parameters=["SIMD", "PE"],
         )
+        opt.optimize(
+            initial_guess="max" if seed is None else seed,
+            max_nodes_in_partition=min(len(opt.model.graph.node), self.RESOURCE_PARTITION_SIZE),
+            target_parameters=list(Optimizer.RESOURCE_TYPE_ATTRS),
+        )
+        _, achieved, metrics, cost = self._refine(opt, targets, target_cycles)
+        # in place: opt.model is a private copy, and copying it per probe is expensive
+        opt.model = opt.model.transform(AnnotateCycles(), make_deepcopy=False, cleanup=False)
+        values = opt.params.get_meta_values()
+        return FoldResult(opt.model, self._fits(metrics, targets), metrics, achieved, values, cost)
 
     def _score(self, model, opt):
-        """Cycles and resources of the graph the build will carry: with the DWCs
-        InsertDWC adds, since a non-integer-ratio or padding DWC can be slower
-        than both its neighbours and costs resources of its own. Optionally
-        also with sized FIFOs (experimental; off by default). Returns the scored
-        graph, its cycles per frame and its resources."""
+        """Cycles and resources of the graph the build will carry: with the DWCs InsertDWC
+        adds (a non-integer-ratio or padding DWC can be slower than both neighbours and
+        has resources of its own) and, in the FIFO-aware mode, with sized FIFOs. Returns
+        the scored graph, its cycles per frame and its resources."""
         scored = model.transform(InsertDWC())
         scored = scored.transform(SpecializeLayers(self.fpgapart))
+        fifo_estimate = None
         if self.enable_folding_fifo_heuristic:
             sized = insert_and_size_fifos(scored, self.fpgapart, self._fifo_work_dir)
             if sized is None:
-                # not sizeable: estimate the FIFOs so that this folding is scored
-                # on the same footing as the sized ones
-                scored = scored.transform(AnnotateCycles(), make_deepcopy=False, cleanup=False)
-                achieved = scored.analysis(dataflow_performance)["max_cycles"]
-                metrics = self._aggregate_resources(scored)
-                for r, v in opt.fifo_resources(model, opt.graph_nodes()).items():
-                    metrics[r] = metrics.get(r, 0.0) + v
-                return scored, achieved, metrics
-            scored = sized
+                # not sizeable: estimate the FIFOs, to be scored like the sized ones
+                fifo_estimate = opt.fifo_resources(model, opt.graph_nodes())
+            else:
+                scored = sized
         scored = scored.transform(AnnotateCycles(), make_deepcopy=False, cleanup=False)
         achieved = scored.analysis(dataflow_performance)["max_cycles"]
-        return scored, achieved, self._aggregate_resources(scored)
+        metrics = self._aggregate_resources(scored)
+        for r, v in (fifo_estimate or {}).items():
+            metrics[r] = metrics.get(r, 0.0) + v
+        return scored, achieved, metrics
 
     @staticmethod
     def _bottleneck_nodes(scored):
-        """Names of the folded nodes that bound a scored graph's cycles: the
-        slowest nodes, or both neighbours of a slowest DWC."""
+        """Names of the folded nodes that bound a scored graph's cycles: the slowest
+        nodes, or both neighbours of a slowest DWC."""
         cycles = {n.name: getCustomOp(n).get_nodeattr("cycles_estimate") for n in scored.graph.node}
         worst = max(cycles.values())
         names = set()
@@ -2498,19 +1604,17 @@ class SetFolding(Transformation):
         return names
 
     def _refine(self, opt, targets, target_cycles):
-        """Repair and polish the search's folding on the whole graph, DWCs included.
+        """Repair and polish the annealer's folding on the whole graph, DWCs included.
 
-        The annealer works on partitions of a few nodes and scores them without
-        the DWCs between partitions, so its result can still miss the target
-        through a slow DWC, and it can leave single-step savings on the table.
-        Repair raises the folding of whatever bounds the cycles (a node, or both
-        neighbours of a DWC) one step at a time -- the cheapest step that meets
-        the target, else the fastest -- until the target is met; it terminates
-        because every step raises a folding factor, and at full folding no DWC
-        is slower than its neighbours. Polish then lowers folding factors one
-        step at a time wherever that keeps the target (and the budget, if met)
-        and reduces the cost. Every step is scored like the verdict, so the
-        search and the verdict agree. Leaves the model at the chosen values and
+        The annealer scores partitions of a few nodes without the DWCs between them, so it
+        can miss the target through a slow DWC and leave single-step savings. *Repair*
+        raises the folding of what bounds the cycles (a node, or both neighbours of a DWC)
+        one step at a time -- the cheapest step meeting the target, else the fastest --
+        until the target is met; it terminates since factors only grow and at full folding
+        no DWC is slower than its neighbours. *Polish* then lowers folding factors one step
+        at a time where that keeps the target (and the budget, if met) and does not raise
+        the cost, within POLISH_EVALS_PER_PARAMETER evaluations per parameter. Every step
+        is scored like the verdict (``_score``). Leaves the model at the chosen values and
         returns ``(scored graph, cycles, resources, cost)``."""
         params = opt.params.parameters
         opt.params.add_all_params_to_index_list()
@@ -2518,28 +1622,26 @@ class SetFolding(Transformation):
 
         def evaluate(values):
             opt.params.set_values(values)
-            opt.params.apply_updates(final=False, filter=opt.parameters_to_apply)
+            opt.params.apply_updates(final=False, attrs=opt.PARAMETERS_TO_APPLY)
             scored, achieved, metrics = self._score(opt.model, opt)
             cost = self._cost(metrics, targets)
-            if opt.fifo_proxy and not self.enable_folding_fifo_heuristic:
+            if not self.enable_folding_fifo_heuristic:
                 # the FIFOs are not in the scored graph: estimate them
                 cost += opt.resource_cost(opt.fifo_resources(opt.model, opt.graph_nodes()))
             return scored, achieved, metrics, cost
 
         def step(values, i, direction):
-            p = params[i]
-            idx = p.possible_values.index(values[i]) + direction
-            if not 0 <= idx < len(p.possible_values):
+            idx = params[i].possible_values.index(values[i]) + direction
+            if not 0 <= idx < len(params[i].possible_values):
                 return None
             moved = list(values)
-            moved[i] = p.possible_values[idx]
+            moved[i] = params[i].possible_values[idx]
             return moved
 
         values = opt.params.get_meta_values()
         scored, achieved, metrics, cost = evaluate(values)
 
-        # repair
-        while achieved > target_cycles:
+        while achieved > target_cycles:  # repair
             names = self._bottleneck_nodes(scored)
             moves = [
                 moved
@@ -2557,8 +1659,7 @@ class SetFolding(Transformation):
             else:
                 values, scored, achieved, metrics, cost = min(results, key=lambda r: (r[2], r[4]))
 
-        # polish
-        fits = self._fits(metrics, targets)
+        fits = self._fits(metrics, targets)  # polish
         limit = max(target_cycles, achieved)
         budget = self.POLISH_EVALS_PER_PARAMETER * len(folding)
         improved = True
@@ -2578,40 +1679,103 @@ class SetFolding(Transformation):
                     break
 
         opt.params.set_values(values)
-        opt.params.apply_updates(final=True, filter=opt.parameters_to_apply)
+        opt.params.apply_updates(final=True, attrs=opt.PARAMETERS_TO_APPLY)
         return scored, achieved, metrics, cost
 
-    def _slowest_cycles(self, opt_template):
-        """Cycles per frame at minimal folding -- the least-resource
-        configuration, used as the slow bound of the throughput search."""
-        opt = copy.deepcopy(opt_template)
-        opt.generate_parameter_set()
-        opt.params.add_all_params_to_index_list()
-        opt.params.set_values(opt.params.get_min_vals())
-        opt.params.apply_updates(final=True, filter=["SIMD", "PE", "parallel_window"])
-        model = opt.model.transform(AnnotateCycles())
-        return model.analysis(dataflow_performance)["max_cycles"]
+    # ------------------------------------------------------------------ verdict
 
-    def _enable_runtime_writeable_for_uram(self, model):
-        """MVAU/VVAU assert that URAM weight memories are runtime-writeable, so a
-        node the optimizer put in URAM must carry the flag or HDL generation
-        fails later. Only touches nodes the optimizer actually moved to URAM."""
-        for node in model.graph.node:
-            inst = getCustomOp(node)
-            types = inst.get_nodeattr_types()
-            if "ram_style" not in types or "runtime_writeable_weights" not in types:
-                continue
-            if inst.get_nodeattr("ram_style") == "ultra":
-                inst.set_nodeattr("runtime_writeable_weights", 1)
+    def _record_search_result(self, result, targets, fits, feasible_found, searched=True):
+        """Publish the budget verdict of the returned folding in ``last_search_report``
+        and warn (or raise, with ``strict_budget``) if it does not fit. The verdict is
+        judged on the as-built graph (``_resources_as_built``) when that can change it."""
+        metrics = result.metrics
+        as_built = self._as_built_if_useful(result.model, metrics, targets)
+        as_built = metrics if as_built is None else as_built
+        over = {
+            r: as_built.get(r, 0.0)
+            for r in self.target_resources
+            if as_built.get(r, 0.0) > targets[r]
+        }
+        scored_over = [r for r in self.target_resources if metrics.get(r, 0.0) > targets[r]]
+        self.last_search_report = {
+            "fits_budget": bool(fits and not over),
+            "resources_as_built": {r: as_built.get(r, 0.0) for r in self.target_resources},
+            "feasible_solution_found": bool(feasible_found),
+            "achieved_cycles_per_frame": result.achieved,
+            "resources": {r: metrics.get(r, 0.0) for r in self.target_resources},
+            "budget": {r: targets[r] for r in self.target_resources},
+            "over_budget": {r: {"used": u, "budget": targets[r]} for r, u in over.items()},
+            # the search's scoring fitted, the as-built graph does not
+            "missed_by_search_scoring": bool(over and not scored_over),
+            "search_truncated": self._search_truncated,
+        }
+        if not over:
+            return
+        detail = ", ".join(
+            f"{r}: {u:.0f} > {targets[r]:.0f} ({100 * u / targets[r]:.0f}% of budget)"
+            for r, u in sorted(over.items())
+        )
+        if feasible_found:
+            why = "This solution was expected to fit and does not."
+        elif searched:
+            why = (
+                "No folding in the searched throughput range fitted the budget, so the "
+                "least-resource folding was returned; it is not a solution."
+            )
+        else:
+            why = (
+                "Meeting the requested target_cycles_per_frame costs more than "
+                "the device has; relax the target or the folding will not fit."
+            )
+        msg = (
+            f"SetFolding: the returned folding does NOT fit the {self.platform} "
+            f"resource budget ({detail}). {why}"
+        )
+        if not scored_over:
+            msg += (
+                " NOTE: the folding search scored this as fitting; it only exceeds the "
+                "budget once step_minimize_bit_width (MinimizeAccumulatorWidth / "
+                "RoundAndClipThresholds) has run, which the search does not model."
+            )
+        if self.strict_budget:
+            raise RuntimeError(msg + " (strict_budget=True)")
+        warnings.warn(msg, stacklevel=2)
+
+    def _as_built_if_useful(self, model, metrics, targets):
+        """``_resources_as_built``, unless the search's own scoring is already over budget
+        (the verdict cannot change, and MinimizeAccumulatorWidth is slowest exactly on
+        such minimal foldings) or it fails (then None, with a warning)."""
+        if any(metrics.get(r, 0.0) > targets[r] for r in self.target_resources):
+            return None
+        try:
+            return self._resources_as_built(model)
+        except Exception as e:  # noqa: BLE001 - never lose the result over a verdict
+            warnings.warn(
+                f"SetFolding: could not re-score the folding on the as-built graph "
+                f"({type(e).__name__}: {e}); the budget verdict is the search's own "
+                f"scoring, which does not include step_minimize_bit_width.",
+                stacklevel=2,
+            )
+            return None
+
+    def _resources_as_built(self, model):
+        """Resources of the graph the build carries: with DWCs and after
+        step_minimize_bit_width, which can also widen accumulators and thresholds (cnv-w1a2
+        on Pynq-Z1: 33428 LUT / 142 BRAM scored, 40025 / 278 as built)."""
+        m = copy.deepcopy(model).transform(GiveUniqueNodeNames())
+        m = m.transform(InsertDWC())
+        m = m.transform(SpecializeLayers(self.fpgapart))
+        m = m.transform(MinimizeWeightBitWidth())
+        m = m.transform(MinimizeAccumulatorWidth())
+        m = m.transform(InferDataTypes())
+        return self._aggregate_resources(m)
 
     def _retype_padded_io(self, model):
-        """Rewrite the graph input/output tensor shapes to the padded shapes.
-        Only has an effect when padding changed the IO layer channel counts; the
-        host must then pad its input / crop its output to match."""
+        """Give the graph input/output the padded shapes of the IO layers (the host must
+        then pad its input and crop its output)."""
         input_shape = getCustomOp(model.graph.node[0]).get_normal_input_shape()
         output_shape = getCustomOp(model.graph.node[-1]).get_normal_output_shape()
         output_name = model.graph.output[0].name
-
         if len(model.graph.input) != 0:
             model.graph.input.remove(model.graph.input[0])
         model.graph.input.append(
@@ -2625,6 +1789,8 @@ class SetFolding(Transformation):
             helper.make_tensor_value_info(output_name, TensorProto.FLOAT, [*output_shape])
         )
         return model
+
+    # ------------------------------------------------------------------ naive style
 
     def optimize_attribute_val(self, node_inst, max_val, attr_name):
         node_inst.set_nodeattr(attr_name, 1)
@@ -2867,33 +2033,7 @@ class SetFolding(Transformation):
                     )
                 )
 
-        # necessary final transforms
-        if self.insert_dwcs:
-            model.transform(InsertDWC())
-
         model = model.transform(GiveUniqueNodeNames())
         model = model.transform(AnnotateCycles())
 
         return (model, False)
-
-    def apply(self, model):
-        # Checked rather than treated as "anything that is not naive": this used
-        # to fall through to the optimizer for any unrecognized string, so a
-        # misspelled style silently selected a folder the caller did not ask for
-        # and the build looked fine.
-        if self.style not in self.STYLES:
-            raise ValueError(
-                f"unknown SetFolding style {self.style!r}; expected one of "
-                + ", ".join(repr(s) for s in self.STYLES)
-            )
-        if self.style == "naive":
-            # the naive folder has no maximize-throughput mode: it needs a
-            # concrete cycles-per-frame target to fold against
-            if self.target_cycles_per_frame is None:
-                raise ValueError(
-                    "style='naive' requires a target_cycles_per_frame; "
-                    "leaving it None (maximize throughput) is only supported by "
-                    "style='optimizer'"
-                )
-            return self.apply_naive_folding(model)
-        return self.apply_optimized_folding(model)
