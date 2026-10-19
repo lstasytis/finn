@@ -1,6 +1,5 @@
 {
   "issues": {
-    "fifo__bert__VCK190": "#001",
     "fifo__bnn-pynq__AUP-ZU3_8GB-tfc-w1a1": "#002",
     "fifo__bnn-pynq__AUP-ZU3_8GB-tfc-w1a2": "#002",
     "fifo__bnn-pynq__AUP-ZU3_8GB-tfc-w2a2": "#002",
@@ -39,16 +38,18 @@
     "fold-target__bert__VCK190": "#003",
     "fold-max__bert__VCK190": "#003",
     "dwc__bert__VCK190": "#003",
-    "dwc__vgg10-radioml__ZCU104": "#004 (padded InsertDWC assert, predicted)"
+    "dwc__vgg10-radioml__ZCU104": "#004 (padded InsertDWC assert, predicted)",
+    "fold-target__vgg10-radioml__ZCU104": "#004 (DWC at 1280 cycles > target 1028; rtlsim 1.18x est)"
   },
   "tfc-w1a1 (AUP-ZU3_8GB)": "folding target: committed JSON folds LabelSelect (PE=5, 3 cycles); the optimizer keeps LabelSelect at PE=1 by design (fmax), 11 cycles: target infeasible",
   "resnet18_8w8a (U55C)": "FIFO: n/a, committed folding has runtime-writeable URAM weights, not initialized in stitched-IP rtlsim",
   "footer": [
     "Issues: `claude-tools/finn-examples-features/issues/<NNN-...>/ISSUE.md` (+ `REPORT.md` of the fix agent).",
-    "* #001 bert heuristic_analytical: per-node rtlsim characterization of a node without tree model times out (dynamic MVAU suspected).",
+    "* #001 fixed: bert dynamic MVAUs now characterized (tree model + in1 TAV); landed on feature/dev/analytical-fifo-sizing.",
     "* #002 tfc, cybersecurity-mlp: correct output, but rtlsim interval a few cycles longer than the estimate (8 vs 15, 1 vs 6 cycles/frame); per-frame overhead at near-full unrolling suspected.",
     "* #003 folding optimizer raises on branching graphs (SWG consumer = next node) for resnet18/50 and yolov8, and on bert (dynamic MVAU without weight initializer).",
-    "* #004 vgg10 padded folding: InsertDWC asserts 'DWC can only pad/crop within a row's last word' (Pool -> MVAU); not yet assigned."
+    "* #004 vgg10: optimizer's DWC model disagrees with the DWC estimate (target missed by a DWC at 1280 cycles), and padded folding breaks InsertDWC."
   ],
-  "tfc-w1a2 (AUP-ZU3_8GB)": "LabelSelect kept at PE=1 caps the optimizer at 11 cycles (committed: 8)"
+  "tfc-w1a2 (AUP-ZU3_8GB)": "LabelSelect kept at PE=1 caps the optimizer at 11 cycles (committed: 8)",
+  "bert (VCK190)": "FIFO: #001 fixed (dynamic MVAU characterization), rerun; estimate 4x pessimistic for tiled MVAUs (TH), rtlsim 4.0x est"
 }
