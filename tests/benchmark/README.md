@@ -148,6 +148,7 @@ Each model's test file also carries feature tests, selected by marker:
 |--------|------|--------|
 | `folding` | `test_<model>_folding[target]` | optimizer folding at the committed folding's estimated throughput; the estimate meets it |
 | `folding` | `test_<model>_folding[maximize]` | optimizer folding without a target (maximum throughput within the board's budget) |
+| `dwc` | `test_<model>_dwc` | optimizer at the committed throughput with `folding_maximum_padding`; skipped if no padding DWC is inserted |
 
 All of them resume the `phase_convert_to_hardware` checkpoint of a cached estimate-only build
 with the committed folding (`$FINN_BUILD_DIR/est_<model>_<board>_*`), whose estimated
