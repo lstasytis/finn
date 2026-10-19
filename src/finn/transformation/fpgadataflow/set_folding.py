@@ -1686,7 +1686,9 @@ def common_divisors(numbers):
         individual_divisors = list(divisors(num))
         separate_divisors.append(individual_divisors)
 
-    return functools.reduce(np.intersect1d, separate_divisors)
+    # cast back to Python ints: np.intersect1d yields numpy ints, which
+    # set_nodeattr rejects for int attributes
+    return [int(x) for x in functools.reduce(np.intersect1d, separate_divisors)]
 
 
 # a folding the search produced: the folded model, whether it fits the budget,
