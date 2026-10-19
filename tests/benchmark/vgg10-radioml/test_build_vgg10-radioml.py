@@ -109,6 +109,7 @@ def test_vgg10radioml(board, bench_recorder):
 # 2 % of the build's own analytic estimate.
 
 FEATURE_BUILDS = ["ZCU104"]
+FOLDING_MAX_PADDING = 4
 # optimizer folding (fixed seed) instead of the committed JSON, FIFOs sized by characterization
 OPTIMIZER_FOLDING = dict(
     folding_config_file=None,
@@ -190,3 +191,21 @@ def test_vgg10radioml_folding(board, mode):
         metrics = run_feature_build(board, "fold-max", **OPTIMIZER_FOLDING)
         if metrics["est_vs_ref"] < 1:
             warnings.warn("maximized folding is %.2fx the committed one" % metrics["est_vs_ref"])
+
+
+@pytest.mark.slow
+@pytest.mark.vivado
+@pytest.mark.finn_examples
+@pytest.mark.dwc
+@pytest.mark.xdist_group("vgg10-radioml")
+@pytest.mark.parametrize("board", FEATURE_BUILDS)
+def test_vgg10radioml_dwc(board):
+    target_fps = int(estimated_throughput(reference_estimate(board)))
+    padded = dict(
+        OPTIMIZER_FOLDING, target_fps=target_fps, folding_maximum_padding=FOLDING_MAX_PADDING
+    )
+    # the folding search is cheap: skip the hardware build if nothing gets padded
+    if not run_feature_build(board, "dwc-est", estimate_only=True, **padded)["pad_dwcs"]:
+        pytest.skip("no padding needed: the padded folding inserts no padding DWC")
+    metrics = run_feature_build(board, "dwc", **padded)
+    assert metrics["est_fps"] >= target_fps
