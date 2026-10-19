@@ -13,6 +13,7 @@ FIFO=feature/dev/analytical-fifo-sizing
 FOLD=feature/dev/set-folding-optimizer
 DWC=feature/dev/generalized-datawidthconverter
 PR=upstream/update/finn-examples
+HLS=feature/dev/hls-exp-cycles-overhead   # standalone fix of dev's HLS cycle estimates (issue 002)
 # known-good merge of DWC + FIFO for the file git merges silently wrong (HANDOFF section 2)
 GOOD_DWC_FILE=${GOOD_DWC_FILE:-origin/dev-finnexamples-features}
 
@@ -43,10 +44,10 @@ check_dwc() {
 
 for t in "$@"; do
   case $t in
-    integ) wt=$M/build/wt/integ; br=dev-finnexamples-features; base=$DWC; extra="$FIFO $PR";;
-    fifo) wt=$M/build/wt/fifo; br=test/fifo; base=$FIFO; extra="$PR";;
-    folding) wt=$M/build/wt/folding; br=test/folding; base=$FOLD; extra="$PR $FIFO";;
-    dwc) wt=$M/build/wt/dwc; br=test/dwc; base=$DWC; extra="$PR $FIFO";;
+    integ) wt=$M/build/wt/integ; br=dev-finnexamples-features; base=$DWC; extra="$FIFO $PR $HLS";;
+    fifo) wt=$M/build/wt/fifo; br=test/fifo; base=$FIFO; extra="$PR $HLS";;
+    folding) wt=$M/build/wt/folding; br=test/folding; base=$FOLD; extra="$PR $FIFO $HLS";;
+    dwc) wt=$M/build/wt/dwc; br=test/dwc; base=$DWC; extra="$PR $FIFO $HLS";;
     *) echo "unknown $t"; exit 1;;
   esac
   cd $wt

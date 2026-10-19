@@ -1,25 +1,8 @@
 {
   "issues": {
-    "fifo__bnn-pynq__AUP-ZU3_8GB-tfc-w1a1": "#002",
-    "fifo__bnn-pynq__AUP-ZU3_8GB-tfc-w1a2": "#002",
-    "fifo__bnn-pynq__AUP-ZU3_8GB-tfc-w2a2": "#002",
-    "fold-target__bnn-pynq__AUP-ZU3_8GB-tfc-w1a1": "#002 + target infeasible (LabelSelect)",
-    "fold-target__bnn-pynq__AUP-ZU3_8GB-tfc-w1a2": "#002 + target infeasible (LabelSelect)",
-    "fold-target__bnn-pynq__AUP-ZU3_8GB-tfc-w2a2": "#002 + target infeasible (LabelSelect)",
-    "fold-max__bnn-pynq__AUP-ZU3_8GB-tfc-w1a1": "#002",
-    "dwc__bnn-pynq__AUP-ZU3_8GB-tfc-w1a1": "#002",
-    "fifo-rtlsim__bnn-pynq__AUP-ZU3_8GB-tfc-w1a1": "#002",
-    "fold-max__bnn-pynq__AUP-ZU3_8GB-tfc-w1a2": "#002",
-    "dwc__bnn-pynq__AUP-ZU3_8GB-tfc-w1a2": "#002",
-    "fifo-rtlsim__bnn-pynq__AUP-ZU3_8GB-tfc-w1a2": "#002",
-    "fold-max__bnn-pynq__AUP-ZU3_8GB-tfc-w2a2": "#002",
-    "dwc__bnn-pynq__AUP-ZU3_8GB-tfc-w2a2": "#002",
-    "fifo-rtlsim__bnn-pynq__AUP-ZU3_8GB-tfc-w2a2": "#002",
-    "fifo__cybersecurity-mlp__AUP-ZU3_8GB": "#002",
-    "fold-target__cybersecurity-mlp__AUP-ZU3_8GB": "#002",
-    "fold-max__cybersecurity-mlp__AUP-ZU3_8GB": "#002",
-    "dwc__cybersecurity-mlp__AUP-ZU3_8GB": "#002",
-    "fifo-rtlsim__cybersecurity-mlp__AUP-ZU3_8GB": "#002",
+    "fold-target__bnn-pynq__AUP-ZU3_8GB-tfc-w1a1": "target infeasible (LabelSelect kept at PE=1)",
+    "fold-target__bnn-pynq__AUP-ZU3_8GB-tfc-w1a2": "target infeasible (LabelSelect kept at PE=1)",
+    "fold-target__bnn-pynq__AUP-ZU3_8GB-tfc-w2a2": "target infeasible (LabelSelect kept at PE=1)",
     "fold-target__resnet18__U55C-resnet18_4w4a": "#003",
     "fold-max__resnet18__U55C-resnet18_4w4a": "#003",
     "dwc__resnet18__U55C-resnet18_4w4a": "#003",
@@ -46,10 +29,15 @@
   "footer": [
     "Issues: `claude-tools/finn-examples-features/issues/<NNN-...>/ISSUE.md` (+ `REPORT.md` of the fix agent).",
     "* #001 fixed: bert dynamic MVAUs now characterized (tree model + in1 TAV); landed on feature/dev/analytical-fifo-sizing.",
-    "* #002 tfc, cybersecurity-mlp: correct output, but rtlsim interval a few cycles longer than the estimate (8 vs 15, 1 vs 6 cycles/frame); per-frame overhead at near-full unrolling suspected.",
+    "* #002 fixed: MVAU_hls/LabelSelect_hls per-frame HLS overhead (+7/+4 cycles) added to get_exp_cycles on the new standalone branch feature/dev/hls-exp-cycles-overhead; tfc/cybersecurity jobs rerun with it.",
     "* #003 folding optimizer raises on branching graphs (SWG consumer = next node) for resnet18/50 and yolov8, and on bert (dynamic MVAU without weight initializer).",
-    "* #004 vgg10: optimizer's DWC model disagrees with the DWC estimate (target missed by a DWC at 1280 cycles), and padded folding breaks InsertDWC."
+    "* #004 vgg10: optimizer's DWC model disagrees with the DWC estimate (target missed by a DWC at 1280 cycles), and padded folding breaks InsertDWC.",
+    "* #005 maximize folding on AUP-ZU3_8GB: correct but 0.04-0.65x the committed throughput (cnv, lfc, cybersecurity) and over the LUT budget by FINN's estimates (queued for a fix agent).",
+    "* DWC tests: at the reference target the seeded optimizer inserts no padding DWC on most models (skip = no padding needed)."
   ],
   "tfc-w1a2 (AUP-ZU3_8GB)": "LabelSelect kept at PE=1 caps the optimizer at 11 cycles (committed: 8)",
-  "bert (VCK190)": "FIFO: #001 fixed (dynamic MVAU characterization), rerun; estimate 4x pessimistic for tiled MVAUs (TH), rtlsim 4.0x est"
+  "bert (VCK190)": "FIFO: #001 fixed (dynamic MVAU characterization), rerun; estimate 4x pessimistic for tiled MVAUs (TH), rtlsim 4.0x est",
+  "cnv-w1a1 (AUP-ZU3_8GB)": "maximize: #005 (0.04-0.07x committed)",
+  "cnv-w1a2 (AUP-ZU3_8GB)": "maximize: #005 (0.04-0.07x committed)",
+  "cnv-w2a2 (AUP-ZU3_8GB)": "maximize: #005 (0.04-0.07x committed)"
 }
