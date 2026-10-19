@@ -57,6 +57,16 @@ class MVAU_hls(MVAU, HLSBackend):
         my_attrs["resType"] = ("s", False, "lut", {"auto", "lut", "dsp"})
         return my_attrs
 
+    def get_exp_cycles(self):
+        """Returns expected number of cycles for execution.
+
+        Adds a constant offset per frame: the HLS top function does not overlap
+        consecutive invocations, so each frame also pays the pipeline fill and
+        drain (5-7 cycles in stitched-IP rtlsim, independent of the folding).
+        """
+        hls_overhead = 7
+        return MVAU.get_exp_cycles(self) + hls_overhead
+
     def lut_estimation(self, fpgapart):
         """Calculates resource estimations for LUTs based on:
         - FINN-R: An End-to-End Deep-Learning Framework for Fast

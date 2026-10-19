@@ -131,7 +131,8 @@ def test_set_folding(target_fps, platform):
     min_cycles = dict()
     min_cycles["AUP-ZU3_8GB"] = 64
     min_cycles["Ultra96"] = 64
-    min_cycles["U200"] = 1
+    # SIMD <= 8 (mvau_wwidth_max): 128 / 8 cycles plus the MVAU_hls per-frame overhead
+    min_cycles["U200"] = 16 + 7
 
     assert achieved_cycles_per_frame <= max(
         min_cycles[platform], target_cycles_per_frame
