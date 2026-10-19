@@ -1346,3 +1346,45 @@ overlay.
 - Runs: campaign10 (lane B): VGG10 0.25x with 4 runtime-writeable MVAUs (test of the chain; new
   shell + overlay wb=128), then ResNet50 r50_h2u_t overlay; campaign11 (lane A): ResNet50 r50_h2u_t
   Vivado 300 MHz, 48 threads.
+- Placement directive test (VGG10 8x 300 MHz, tile 0 of the dp run re-implemented alone, 2
+  threads): default place 340 s / route 134 s / total 638 s, WNS +0.500; `place_design -directive
+  Quick` place 222 s but phys_opt + route 262 s, total 634 s, **WNS -0.027 (fails)**. No gain:
+  the placer's effort is not the lever at 300 MHz.
+
+## 2026-10-12 (night) / 2026-10-19: results of the evening runs, open failures
+
+Status: work paused by the user on 2026-10-12 ~21:30; the two bisection verifications (below) are
+stopped with SIGSTOP (PIDs in the session scratchpad paused_pids.txt), not killed.
+
+Finished runs:
+- **ResNet50 (fixed model r50_h2u_t), Vivado flow, 300 MHz, 48 threads: 8803 s, WNS -2.220 (fails),
+  0 routing errors.** ~4945 s before the Vivado project (FINN Python incl. CreateDataflowPartition
+  340 s, HLS, CreateStitchedIP), place 18.5 min, route 14.4 min. (Original model on 8 cores:
+  10595 s, WNS -1.729.)
+- VGG10 0.25x with 4 runtime-writeable MVAUs (configuration chain test), overlay wb=128, pipe=2,
+  dp: new shell (6 ports) + overlay built in the first attempt (3835 s incl. builds); both attempts
+  **tile_failed**: tiles 1, 2 (chain nodes + 2 / 2 AXI-Lite MVAUs) met 300 MHz (WNS +0.764 /
+  +0.699), **tile 0 WNS -1.911** (1 failing endpoint). Path: shell bridge register slice of n161
+  (s_axilite_AW_slice/v0_reg) -> funnel (any / first / take: combinational from the slave valids)
+  -> aw_ready -> back to the slice's d0_reg CE: 4.93 ns, 93 % route across the shell-tile boundary.
+  Fix (to do): the funnel's slave-side ready only from registers (pick a port in IDLE, assert its
+  ready from the next, registered state; AXI valid stays high until the handshake). The chain
+  between tiles closed timing; functional verification of the chain still to do.
+- ResNet50 r50_h2u_t overlay (wb=128, dp, URAM output-block split): new shell (54 ports) + overlay
+  built; synthesis 635 components ok (394-447 s with batch synthesis vs 1006 s before); **plan
+  failed** both attempts: "nodes placed up to 634 of 643 (MVAU_rtl_3), 0 of 644 cut positions over
+  the limits, URAM 53 % of the tiles". The final layer's 4 parts (32 URAM each, one per 56-URAM
+  tile) come last in the chain and the end of the snake has no URAM-rich tile left. Fix (to do):
+  smaller parts (k=8, 16 URAM: fit the 28-URAM tiles) or URAM-aware snake / plan order.
+- Not yet trustworthy: **verify_accel of VGG10 0.25x built with batch synthesis + dp planner
+  (300 MHz) FAILED**: the overlay netlist stalls (not done after 200000 polls; frames 0, 1 correct,
+  frame 2 wrong, frame 3 missing) while the reference finishes. Differences to the last verified
+  build (greedy, per-node synthesis): batch synthesis, dp cuts (two 56-bit lanes 0->1 and four
+  branches 1->2 of split layers crossing tiles instead of one 8-bit stream), compute nodes in tile 0
+  (tile0=1, never verified). Batch-synthesized utilisation equals single synthesis within 1-16 LUTs,
+  except one IODMA (+129 LUT, +40 LUTRAM, +143 FF); no module defined twice in that batch.
+  Bisection running when paused: A = dp + per-node synthesis, B = greedy + batch synthesis (both
+  tile0=1), each VGG10 0.25x 300 MHz + verify_accel (functest/diag_A, diag_B). Until resolved,
+  FINN_RWI_SYNTH_BATCH and plan=dp must not be used for reported results.
+- The incremental-build demo (campaign12) was stopped at its start for the bisection; the VGG10 8x
+  dp run (1186 s) is a timing result only (not functionally verified).

@@ -88,6 +88,14 @@ Fixed today: Thresholding_rtl thresholds were synthesized as zero since the upst
 depth; reset chain; grey boxes pre-placed (the "placer hang"). Run verify_accel on every new
 model / flow variant before reporting timings.
 
+Status 2026-10-19 (NOTES_ISLANDS.md, sections of 2026-10-12 evening/night): added dp planner
+(overlay.plan_overlay_dp), configuration chain for AXI-Lite compute nodes (cfgnet.py), URAM
+output-block split (split_large_mvau.split_mh), batch synthesis, incremental cache (FINN_RWI_CACHE),
+ResNet50 folding fix (fix_pool_swg_simd.py). Open: a VGG10 0.25x build with batch synthesis + dp
+FAILED verify_accel (stall) - bisection paused (SIGSTOP); do not report batch/dp results until
+resolved. Funnel misses 300 MHz (combinational ready); ResNet50 plan runs out of URAM tiles at the
+end. Baselines: ResNet50 fixed model Vivado 300 MHz 8803 s (WNS -2.220), VGG10 8x 48 threads 7831 s.
+
 Read this first; it is meant to replace re-reading the code. Deeper history and all
 measurements: `experiments/dynarapid/NOTES.md` (long; read only the section you need).
 Main branch for PRs: `expanded-finnexamples`.
