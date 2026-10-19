@@ -378,9 +378,10 @@ class MVAU(HWCustomOp):
         mem_width = Q * W * P
         mmode = self.get_nodeattr("mem_mode")
         mstyle = self.get_nodeattr("ram_style")
+        # embedded weights are an HLS ROM, which goes to BRAM or LUTRAM, never URAM
         if (
             (mmode == "internal_decoupled" and mstyle != "ultra")
-            or (mmode == "internal_embedded" and self.calc_wmem() <= 128)
+            or (mmode == "internal_embedded")
             or (mmode == "external")
             or (mmode == "external_mem")
         ):
