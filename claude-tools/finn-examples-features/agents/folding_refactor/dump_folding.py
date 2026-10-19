@@ -27,6 +27,8 @@ CKPT_ROOT = "/home/lstasytis/finn/build/finn_build/fx/folding"
 CKPT = "intermediate_models/phase_convert_to_hardware.onnx"
 REPORT = "report/estimate_network_performance.json"
 MODES = ["naive", "target", "maximize", "padded", "fifo"]
+# extra modes for the knobs the five above leave at their defaults
+EXTRA_MODES = ["attempts", "prefer", "uram", "padio", "strict"]
 # per-model cfg fields that differ from the DataflowBuildConfig defaults (tests/benchmark/*)
 MODEL_CFG = {"cybersecurity-mlp": {"mvau_wwidth_max": 80}}
 
@@ -61,6 +63,16 @@ def builder_kwargs(model_name, board, target, mode):
         kw["folding_maximum_padding"] = 4
     elif mode == "fifo":
         kw["enable_folding_fifo_heuristic"] = True
+    elif mode == "attempts":  # the throughput sweep in target mode
+        kw["folding_max_attempts"] = 6
+    elif mode == "prefer":
+        kw.update(prefer_memory="uram", prefer_compute="dsp")
+    elif mode == "uram":
+        kw["allow_uram_weights"] = True
+    elif mode == "padio":
+        kw.update(folding_maximum_padding=4, folding_pad_io_nodes=True)
+    elif mode == "strict":
+        kw["strict_budget"] = True
     return target, kw
 
 
@@ -236,8 +248,8 @@ def driver(args):
     if args.exclude:
         runs = [r for r in runs if not re.search(args.exclude, "%s:%s" % (r[0], r[3]))]
     # longest first: maximize/padded/fifo of the big models
-    weight = {"maximize": 4, "padded": 3, "fifo": 3, "target": 1, "naive": 0}
-    runs.sort(key=lambda r: -weight[r[3]])
+    weight = {"maximize": 4, "padded": 3, "padio": 3, "fifo": 3, "attempts": 2, "naive": 0}
+    runs.sort(key=lambda r: -weight.get(r[3], 1))
     env = dict(os.environ)
     for v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
         env[v] = "1"
@@ -305,7 +317,9 @@ def main():
     ap.add_argument("--board")
     ap.add_argument("--ckpt-root", default=CKPT_ROOT)
     ap.add_argument("--models", default=None, help="regex on the model name")
-    ap.add_argument("--modes", default=None, help="comma-separated subset of " + ",".join(MODES))
+    ap.add_argument(
+        "--modes", default=None, help="comma-separated, of " + ",".join(MODES + EXTRA_MODES)
+    )
     ap.add_argument("--runs-from", default=None, help="dump dir whose _runs.json to repeat")
     ap.add_argument("--exclude", default=None, help="regex on '<model>:<mode>' to skip")
     ap.add_argument("--jobs", type=int, default=14)

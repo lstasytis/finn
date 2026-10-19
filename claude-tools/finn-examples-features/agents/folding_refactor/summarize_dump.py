@@ -11,10 +11,12 @@ timing = {}
 if os.path.isfile(os.path.join(d, "_timing.json")):
     timing = json.load(open(os.path.join(d, "_timing.json")))
 rows = collections.defaultdict(dict)
-modes = ["naive", "target", "maximize", "padded", "fifo"]
+modes = []
 for f in sorted(glob.glob(os.path.join(d, "*__*__*.json"))):
     key = os.path.basename(f)[:-5]
     model, board, mode = key.split("__")
+    if mode not in modes:
+        modes.append(mode)
     dump = json.load(open(f))
     r = dump["result"]
     if r == "ok":

@@ -165,6 +165,15 @@ def main():
     ap.add_argument("--rerun-failed", action="store_true")
     args = ap.parse_args()
     os.makedirs(LOGDIR, exist_ok=True)
+    pid_file = os.path.join(LOGDIR, "runner.pid")
+    if os.path.isfile(pid_file) and not args.plan:
+        with open(pid_file) as f:
+            other = int(f.read().strip() or 0)
+        if other and other != os.getpid() and pid_alive(other):
+            sys.exit(f"another runner is alive (pid {other}); stop it first")
+    if not args.plan:
+        with open(pid_file, "w") as f:
+            f.write(str(os.getpid()))
     jobs = build_queue()
     if args.only:
         jobs = [j for j in jobs if re.search(args.only, j["id"])]
