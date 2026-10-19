@@ -205,7 +205,9 @@ class DataflowBuildConfig:
     #: very high performance.
     mvau_wwidth_max: Optional[int] = 1024
 
-    # (Optional) which SetFolding optimizer to use (naive, optimizer)
+    # (Optional) which SetFolding optimizer to use (naive, optimizer). With
+    # "optimizer" and neither target_fps nor folding_config_file set, the folding
+    # maximizes the throughput within the board's resource budget.
     folding_style: Optional[str] = "naive"
 
     # (Optional) How much padding to allow for enabling more fine-grain folding

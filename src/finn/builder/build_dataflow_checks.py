@@ -272,7 +272,9 @@ def run_all_config_checks(cfg: DataflowBuildConfig) -> Report:
     needs_folding = cfg.generate_outputs and any(
         o != DataflowOutputType.ESTIMATE_REPORTS for o in cfg.generate_outputs
     )
-    if needs_folding and cfg.target_fps is None and cfg.folding_config_file is None:
+    # the folding optimizer without a target maximizes the throughput instead
+    no_folding = cfg.target_fps is None and cfg.folding_config_file is None
+    if needs_folding and no_folding and cfg.folding_style != "optimizer":
         checks.append(
             _check(
                 "folding_missing",

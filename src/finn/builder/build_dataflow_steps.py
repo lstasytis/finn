@@ -712,7 +712,9 @@ def step_target_fps_parallelization(model: ModelWrapper, cfg: DataflowBuildConfi
     customizing the folding factors further."""
 
     target_cycles_per_frame = cfg._resolve_cycles_per_frame()
-    if target_cycles_per_frame is not None:
+    # without target_fps and folding JSON, the optimizer maximizes the throughput
+    maximize = cfg.folding_style == "optimizer" and cfg.folding_config_file is None
+    if target_cycles_per_frame is not None or maximize:
         folder = SetFolding(
             target_cycles_per_frame,
             mvau_wwidth_max=cfg.mvau_wwidth_max,
