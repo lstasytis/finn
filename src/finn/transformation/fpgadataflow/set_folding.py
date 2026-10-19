@@ -52,6 +52,8 @@ from qonnx.util.basic import gen_finn_dt_tensor
 import finn.custom_op.fpgadataflow.hls.elementwise_binary_hls as elementwise_binary_hls
 from finn.analysis.fpgadataflow.dataflow_performance import dataflow_performance
 from finn.analysis.fpgadataflow.op_and_param_counts import aggregate_dict_keys
+from finn.custom_op.fpgadataflow.matrixvectoractivation import MVAU
+from finn.custom_op.fpgadataflow.vectorvectoractivation import VVAU
 from finn.transformation.fpgadataflow.annotate_cycles import AnnotateCycles
 from finn.transformation.fpgadataflow.insert_dwc import InsertDWC
 from finn.transformation.fpgadataflow.insert_fifo import InsertFIFO
@@ -1198,6 +1200,7 @@ class SetFolding(Transformation):
         4. ``_record_search_result`` publishes the budget verdict of the chosen folding."""
         model = model.transform(GiveUniqueNodeNames())
         model = model.transform(AnnotateCycles())
+        weight_types = self._weight_types_as_built(model)
         maximize = self.target_cycles_per_frame is None
         fastest_cycles = self._probe_fastest_throughput(model)
         self._budgets = self._resource_budgets()
@@ -1217,6 +1220,9 @@ class SetFolding(Transformation):
                 self._fifo_work_dir = None
         model = model.transform(GiveUniqueNodeNames())
         model = model.transform(AnnotateCycles())
+        for node in model.graph.node:
+            if node.name in weight_types:
+                getCustomOp(node).set_nodeattr("weightDataType", weight_types[node.name])
         if self.allow_uram_weights:
             # MVAU/VVAU assert that URAM weight memories are runtime-writeable
             for node in model.graph.node:
@@ -1228,6 +1234,23 @@ class SetFolding(Transformation):
         if self.folding_pad_io_nodes:
             model = self._retype_padded_io(model)
         return (model, False)
+
+    @staticmethod
+    def _weight_types_as_built(model):
+        """Give the MVAUs/VVAUs the weight datatypes step_minimize_bit_width will build
+        (value-based: bipolar weights become INT2, twice the weight memory), so that the
+        search scores what is built. Returns the original ones by node name, which the
+        folded model gets back (the build minimizes them after folding)."""
+        original = {}
+        for node in model.graph.node:
+            inst = getCustomOp(node) if is_fpgadataflow_node(node) else None
+            for op in (MVAU, VVAU):
+                # (dynamic MVAUs have no weight initializer)
+                if isinstance(inst, op) and model.get_initializer(node.input[1]) is not None:
+                    original[node.name] = inst.get_nodeattr("weightDataType")
+                    # the op's own rule, without the HLS threshold retyping of subclasses
+                    op.minimize_weight_bit_width(inst, model)
+        return original
 
     def _make_optimizer(self, model, name, targets, init_run=False):
         return Optimizer(
@@ -1310,7 +1333,7 @@ class SetFolding(Transformation):
         BRAM_18K at minimal folding, ~530 at the hand-tuned one), so a bisection could
         miss every feasible point. Instead the range is sampled first and then refined
         around the fastest feasible point (``_sweep_and_refine``); only a folding verified
-        to fit is returned as a solution, else the slowest one seen, flagged as not fitting.
+        to fit is returned as a solution, else the cheapest one seen, flagged as not fitting.
 
         With padding the unpadded search runs first and the padded one replays its probes,
         each starting from the unpadded solution there (``_fold_at_best``), and finally
@@ -1342,11 +1365,12 @@ class SetFolding(Transformation):
 
         def fold_unpadded(t):
             if t not in probes:
-                probes[t] = self._fold_at(opt_template, targets, t, 0)
+                probes[t] = self._verify_as_built(self._fold_at(opt_template, targets, t, 0))
             return probes[t]
 
         def fold_padded(t):
-            return self._fold_at_best(opt_template, targets, t, maximize, fold_unpadded(t))
+            result = self._fold_at_best(opt_template, targets, t, maximize, fold_unpadded(t))
+            return self._verify_as_built(result)
 
         search = (lo, hi, n_sweep, n_refine, out_of_time)
         best, fallback = self._sweep_and_refine(fold_unpadded, *search)
@@ -1354,6 +1378,7 @@ class SetFolding(Transformation):
             best_padded, fallback_padded = self._sweep_and_refine(fold_padded, *search)
             if best is not None and not out_of_time():
                 direct = self._fold_at_best(opt_template, targets, best.achieved, maximize, best)
+                direct = self._verify_as_built(direct)
                 best_padded = self._better(best_padded, direct, None, maximize)
             best = self._better(best, best_padded, None, maximize)
             fallback = self._better(fallback, fallback_padded, None, maximize)
@@ -1364,6 +1389,18 @@ class SetFolding(Transformation):
         # nothing in the range fits: return the least-resource folding, flagged
         self._record_search_result(fallback, targets, False, False)
         return fallback.model
+
+    def _verify_as_built(self, result):
+        """``result``, counted as fitting only if it still fits once step_minimize_bit_width
+        has run (``_resources_as_built``), so that the search does not settle on a folding
+        the verdict then rejects (MinimizeAccumulatorWidth can widen accumulators)."""
+        if not result.fits:
+            return result
+        try:
+            as_built = self._resources_as_built(result.model)
+        except Exception:  # noqa: BLE001 - the verdict warns about it
+            return result
+        return result._replace(fits=self._fits(as_built, self._budgets))
 
     @staticmethod
     def _sweep_targets(lo, hi, n):
@@ -1384,9 +1421,10 @@ class SetFolding(Transformation):
 
     def _sweep_and_refine(self, fold, lo, hi, n_sweep, n_refine, out_of_time):
         """Sample ``fold(target)`` over [lo, hi], slowest (cheapest to evaluate) first, then
-        bisect between the fastest folding that fits and the slowest target that did not.
-        Returns the fastest folding verified to fit (or None) and the slowest one seen."""
-        best = fallback = infeasible_below = None
+        bisect between the fastest folding that fits and the slowest faster target that did
+        not. Returns the fastest folding verified to fit (or None) and the cheapest one seen."""
+        best = fallback = None
+        infeasible = []
         for t in reversed(self._sweep_targets(lo, hi, n_sweep)):
             if out_of_time():
                 break
@@ -1394,13 +1432,19 @@ class SetFolding(Transformation):
             if result.fits:
                 if best is None or result.achieved < best.achieved:
                     best = result
-            elif infeasible_below is None or t > infeasible_below:
-                infeasible_below = t
-            if fallback is None or result.achieved > fallback.achieved:
+            else:
+                infeasible.append(t)
+            # the least-resource folding (by the search's cost), the faster one on a tie
+            if fallback is None or (result.cost, result.achieved) < (
+                fallback.cost,
+                fallback.achieved,
+            ):
                 fallback = result
 
         if best is not None and n_refine:
-            fast_bound = 1 if infeasible_below is None else infeasible_below + 1
+            # slow foldings can miss the budget too (deep weight memories pack badly)
+            faster = [t for t in infeasible if t < best.achieved]
+            fast_bound = max(faster) + 1 if faster else 1
             slow_bound = best.achieved
             for _ in range(n_refine):
                 if slow_bound - fast_bound <= 1 or out_of_time():
