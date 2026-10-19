@@ -1,0 +1,1327 @@
+{
+ "cnv-w1a1": {
+  "full": {
+   "depth": 271,
+   "kbit": 11.916015625,
+   "fps": 12254.901960784313,
+   "fps_sim_kbit": 11.916015625
+  },
+  "rules": {
+   "no_burst_floor": {
+    "depth": 176,
+    "kbit": 9.705078125,
+    "depth_pct": -35.055350553505534,
+    "kbit_pct": -18.55433535485986,
+    "fps": 12077.294685990339,
+    "fps_pct": -1.4492753623188304
+   },
+   "no_cap": {
+    "depth": 271,
+    "kbit": 11.916015625,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_cap_margin": {
+    "depth": 271,
+    "kbit": 11.916015625,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_causal_pass": {
+    "depth": 270,
+    "kbit": 11.912109375,
+    "depth_pct": -0.36900369003690037,
+    "kbit_pct": -0.03278151122766759,
+    "fps": 12254.901960784313,
+    "fps_pct": 0.0
+   },
+   "no_fill_only": {
+    "depth": 271,
+    "kbit": 11.916015625,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_frame_split": {
+    "depth": 416,
+    "kbit": 18.376953125,
+    "depth_pct": 53.505535055350556,
+    "kbit_pct": 54.2206195705622,
+    "fps": 12254.901960784313,
+    "fps_pct": 0.0
+   },
+   "no_idle_floor": {
+    "depth": 271,
+    "kbit": 11.916015625,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_input_pacing": {
+    "depth": 849,
+    "kbit": 25.462890625,
+    "depth_pct": 213.28413284132841,
+    "kbit_pct": 113.68628093755122,
+    "fps": 12254.901960784313,
+    "fps_pct": 0.0
+   },
+   "no_join_rule": {
+    "depth": 271,
+    "kbit": 11.916015625,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_measured_period": {
+    "depth": 271,
+    "kbit": 11.916015625,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_pacer_reset": {
+    "depth": 271,
+    "kbit": 11.916015625,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_pacer_tol": {
+    "depth": 271,
+    "kbit": 11.916015625,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_slack": {
+    "depth": 271,
+    "kbit": 11.916015625,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_throttleable": {
+    "depth": 271,
+    "kbit": 11.916015625,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "only_causal_pass": {
+    "depth": 271,
+    "kbit": 11.916015625,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   }
+  },
+  "reference": {
+   "fps": 12254.901960784313,
+   "kbit": 22.314453125
+  }
+ },
+ "cnv-w2a2": {
+  "full": {
+   "depth": 1405,
+   "kbit": 25.544921875,
+   "fps": 3051.199121254653,
+   "fps_sim_kbit": 25.544921875
+  },
+  "rules": {
+   "no_burst_floor": {
+    "depth": 882,
+    "kbit": 22.203125,
+    "depth_pct": -37.22419928825623,
+    "kbit_pct": -13.082039911308204,
+    "fps": 1644.2230224107598,
+    "fps_pct": -46.11223466350976
+   },
+   "no_cap": {
+    "depth": 1405,
+    "kbit": 25.544921875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_cap_margin": {
+    "depth": 1405,
+    "kbit": 25.544921875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_causal_pass": {
+    "depth": 1405,
+    "kbit": 25.544921875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": 3051.199121254653,
+    "fps_pct": 0.0
+   },
+   "no_fill_only": {
+    "depth": 1405,
+    "kbit": 25.544921875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_frame_split": {
+    "depth": 3001,
+    "kbit": 45.078125,
+    "depth_pct": 113.59430604982207,
+    "kbit_pct": 76.46609067971558,
+    "fps": 3051.199121254653,
+    "fps_pct": 0.0
+   },
+   "no_idle_floor": {
+    "depth": 1405,
+    "kbit": 25.544921875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_input_pacing": {
+    "depth": 4060,
+    "kbit": 91.52734375,
+    "depth_pct": 188.96797153024912,
+    "kbit_pct": 258.2995641868644,
+    "fps": 3051.199121254653,
+    "fps_pct": 0.0
+   },
+   "no_join_rule": {
+    "depth": 1405,
+    "kbit": 25.544921875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_measured_period": {
+    "depth": 1405,
+    "kbit": 25.544921875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_pacer_reset": {
+    "depth": 1405,
+    "kbit": 25.544921875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_pacer_tol": {
+    "depth": 1405,
+    "kbit": 25.544921875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_slack": {
+    "depth": 1974,
+    "kbit": 31.966796875,
+    "depth_pct": 40.49822064056939,
+    "kbit_pct": 25.139536661824298,
+    "fps": 3051.199121254653,
+    "fps_pct": 0.0
+   },
+   "no_throttleable": {
+    "depth": 1405,
+    "kbit": 25.544921875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "only_causal_pass": {
+    "depth": 1405,
+    "kbit": 25.544921875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   }
+  },
+  "reference": {
+   "fps": 3045.0669914738123,
+   "kbit": 83.505859375
+  }
+ },
+ "cybersecurity-mlp": {
+  "full": {
+   "depth": 16,
+   "kbit": 3.6845703125,
+   "fps": null,
+   "fps_sim_kbit": null
+  },
+  "rules": {
+   "no_burst_floor": {
+    "depth": 16,
+    "kbit": 3.6845703125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_cap": {
+    "depth": 16,
+    "kbit": 3.6845703125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_cap_margin": {
+    "depth": 16,
+    "kbit": 3.6845703125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_causal_pass": {
+    "depth": 16,
+    "kbit": 3.6845703125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_fill_only": {
+    "depth": 16,
+    "kbit": 3.6845703125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_frame_split": {
+    "depth": 16,
+    "kbit": 3.6845703125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_idle_floor": {
+    "depth": 16,
+    "kbit": 3.6845703125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_input_pacing": {
+    "depth": 16,
+    "kbit": 3.6845703125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_join_rule": {
+    "depth": 16,
+    "kbit": 3.6845703125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_measured_period": {
+    "depth": 16,
+    "kbit": 3.6845703125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_pacer_reset": {
+    "depth": 16,
+    "kbit": 3.6845703125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_pacer_tol": {
+    "depth": 16,
+    "kbit": 3.6845703125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_slack": {
+    "depth": 16,
+    "kbit": 3.6845703125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_throttleable": {
+    "depth": 16,
+    "kbit": 3.6845703125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "only_causal_pass": {
+    "depth": 16,
+    "kbit": 3.6845703125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   }
+  },
+  "reference": null
+ },
+ "gtsrb": {
+  "full": {
+   "depth": 1298,
+   "kbit": 9.8564453125,
+   "fps": 8134.049129656743,
+   "fps_sim_kbit": 9.8564453125
+  },
+  "rules": {
+   "no_burst_floor": {
+    "depth": 521,
+    "kbit": 7.533203125,
+    "depth_pct": -59.8613251155624,
+    "kbit_pct": -23.57079163776875,
+    "fps": 6750.826976304597,
+    "fps_pct": -17.00533315331128
+   },
+   "no_cap": {
+    "depth": 1298,
+    "kbit": 9.8564453125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_cap_margin": {
+    "depth": 1298,
+    "kbit": 9.8564453125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_causal_pass": {
+    "depth": 1297,
+    "kbit": 9.8486328125,
+    "depth_pct": -0.07704160246533127,
+    "kbit_pct": -0.07926285544436738,
+    "fps": 8134.049129656743,
+    "fps_pct": 0.0
+   },
+   "no_fill_only": {
+    "depth": 1298,
+    "kbit": 9.8564453125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_frame_split": {
+    "depth": 1838,
+    "kbit": 11.537109375,
+    "depth_pct": 41.60246533127889,
+    "kbit_pct": 17.051421777469532,
+    "fps": 8134.049129656743,
+    "fps_pct": 0.0
+   },
+   "no_idle_floor": {
+    "depth": 1298,
+    "kbit": 9.8564453125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_input_pacing": {
+    "depth": 2823,
+    "kbit": 28.5732421875,
+    "depth_pct": 117.4884437596302,
+    "kbit_pct": 189.89398593084317,
+    "fps": 8134.049129656743,
+    "fps_pct": 0.0
+   },
+   "no_join_rule": {
+    "depth": 1298,
+    "kbit": 9.8564453125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_measured_period": {
+    "depth": 1298,
+    "kbit": 9.8564453125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_pacer_reset": {
+    "depth": 1298,
+    "kbit": 9.8564453125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_pacer_tol": {
+    "depth": 1298,
+    "kbit": 9.8564453125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_slack": {
+    "depth": 1415,
+    "kbit": 10.7705078125,
+    "depth_pct": 9.01386748844376,
+    "kbit_pct": 9.273754086990984,
+    "fps": 8134.049129656743,
+    "fps_pct": 0.0
+   },
+   "no_throttleable": {
+    "depth": 1298,
+    "kbit": 9.8564453125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "only_causal_pass": {
+    "depth": 1298,
+    "kbit": 9.8564453125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   }
+  },
+  "reference": {
+   "fps": 8134.049129656743,
+   "kbit": 26.658203125
+  }
+ },
+ "kws": {
+  "full": {
+   "depth": 452,
+   "kbit": 4.26953125,
+   "fps": 25471.21752419766,
+   "fps_sim_kbit": 4.26953125
+  },
+  "rules": {
+   "no_burst_floor": {
+    "depth": 26,
+    "kbit": 0.94140625,
+    "depth_pct": -94.24778761061947,
+    "kbit_pct": -77.95059469350412,
+    "fps": 25471.21752419766,
+    "fps_pct": 0.0
+   },
+   "no_cap": {
+    "depth": 452,
+    "kbit": 4.26953125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_cap_margin": {
+    "depth": 452,
+    "kbit": 4.26953125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_causal_pass": {
+    "depth": 452,
+    "kbit": 4.26953125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_fill_only": {
+    "depth": 452,
+    "kbit": 4.26953125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_frame_split": {
+    "depth": 452,
+    "kbit": 4.26953125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_idle_floor": {
+    "depth": 452,
+    "kbit": 4.26953125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_input_pacing": {
+    "depth": 452,
+    "kbit": 4.26953125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_join_rule": {
+    "depth": 452,
+    "kbit": 4.26953125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_measured_period": {
+    "depth": 452,
+    "kbit": 4.26953125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_pacer_reset": {
+    "depth": 452,
+    "kbit": 4.26953125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_pacer_tol": {
+    "depth": 452,
+    "kbit": 4.26953125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_slack": {
+    "depth": 452,
+    "kbit": 4.26953125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_throttleable": {
+    "depth": 452,
+    "kbit": 4.26953125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "only_causal_pass": {
+    "depth": 452,
+    "kbit": 4.26953125,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   }
+  },
+  "reference": {
+   "fps": 25471.21752419766,
+   "kbit": 0.85546875
+  }
+ },
+ "mobilenet_v1": {
+  "full": {
+   "depth": 9432,
+   "kbit": 124.0654296875,
+   "fps": null,
+   "fps_sim_kbit": null
+  },
+  "rules": {
+   "no_burst_floor": {
+    "depth": 3003,
+    "kbit": 43.4482421875,
+    "depth_pct": -68.1615776081425,
+    "kbit_pct": -64.97957384507608,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_cap": {
+    "depth": 64369,
+    "kbit": 585.1435546875,
+    "depth_pct": 582.4533502968618,
+    "kbit_pct": 371.64109789598797,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_cap_margin": {
+    "depth": 9432,
+    "kbit": 124.0654296875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_causal_pass": {
+    "depth": 9431,
+    "kbit": 124.0576171875,
+    "depth_pct": -0.010602205258693808,
+    "kbit_pct": -0.006297080516045749,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_fill_only": {
+    "depth": 9432,
+    "kbit": 124.0654296875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_frame_split": {
+    "depth": 9863,
+    "kbit": 138.1357421875,
+    "depth_pct": 4.569550466497032,
+    "kbit_pct": 11.341042009398393,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_idle_floor": {
+    "depth": 9432,
+    "kbit": 124.0654296875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_input_pacing": {
+    "depth": 13281,
+    "kbit": 1326.8779296875,
+    "depth_pct": 40.80788804071247,
+    "kbit_pct": 969.4985162504034,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_join_rule": {
+    "depth": 9432,
+    "kbit": 124.0654296875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_measured_period": {
+    "depth": 9432,
+    "kbit": 124.0654296875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_pacer_reset": {
+    "depth": 64587,
+    "kbit": 618.3154296875,
+    "depth_pct": 584.7646310432569,
+    "kbit_pct": 398.3785017671182,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_pacer_tol": {
+    "depth": 64586,
+    "kbit": 618.3076171875,
+    "depth_pct": 584.7540288379982,
+    "kbit_pct": 398.3722046866022,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_slack": {
+    "depth": 64832,
+    "kbit": 694.8779296875,
+    "depth_pct": 587.362171331637,
+    "kbit_pct": 460.08989082436653,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_throttleable": {
+    "depth": 64369,
+    "kbit": 585.1435546875,
+    "depth_pct": 582.4533502968618,
+    "kbit_pct": 371.64109789598797,
+    "fps": null,
+    "fps_pct": null
+   },
+   "only_causal_pass": {
+    "depth": 9432,
+    "kbit": 124.0654296875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   }
+  },
+  "reference": null
+ },
+ "resnet50": {
+  "full": {
+   "depth": 362655,
+   "kbit": 2653.1201171875,
+   "fps": null,
+   "fps_sim_kbit": null
+  },
+  "rules": {
+   "no_burst_floor": {
+    "depth": 358497,
+    "kbit": 2597.3779296875,
+    "depth_pct": -1.1465442362576002,
+    "kbit_pct": -2.1010050445469752,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_cap": {
+    "depth": 362655,
+    "kbit": 2653.1201171875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_cap_margin": {
+    "depth": 362639,
+    "kbit": 2652.8701171875,
+    "depth_pct": -0.004411906633025878,
+    "kbit_pct": -0.00942286775409996,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_causal_pass": {
+    "depth": 362654,
+    "kbit": 2653.0888671875,
+    "depth_pct": -0.0002757441645641174,
+    "kbit_pct": -0.001177858469262495,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_fill_only": {
+    "depth": 378030,
+    "kbit": 2794.3232421875,
+    "depth_pct": 4.239566530173305,
+    "kbit_pct": 5.322153493362584,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_frame_split": {
+    "depth": 686753,
+    "kbit": 4983.7568359375,
+    "depth_pct": 89.36813224690133,
+    "kbit_pct": 87.84512633452285,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_idle_floor": {
+    "depth": 330410,
+    "kbit": 2394.6904296875,
+    "depth_pct": -8.891370586369966,
+    "kbit_pct": -9.740595076183517,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_input_pacing": {
+    "depth": 486488,
+    "kbit": 4293.6357421875,
+    "depth_pct": 34.146227130468354,
+    "kbit_pct": 61.833447131638565,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_join_rule": {
+    "depth": 54433,
+    "kbit": 540.5732421875,
+    "depth_pct": -84.99041789028139,
+    "kbit_pct": -79.62499930984855,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_measured_period": {
+    "depth": 362655,
+    "kbit": 2653.1201171875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_pacer_reset": {
+    "depth": 362655,
+    "kbit": 2653.1201171875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_pacer_tol": {
+    "depth": 362655,
+    "kbit": 2653.1201171875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_slack": {
+    "depth": 362666,
+    "kbit": 2653.3779296875,
+    "depth_pct": 0.0030331858102052916,
+    "kbit_pct": 0.009717332371415583,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_throttleable": {
+    "depth": 362655,
+    "kbit": 2653.1201171875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "only_causal_pass": {
+    "depth": 355475,
+    "kbit": 2610.8974609375,
+    "depth_pct": -1.979843101570363,
+    "kbit_pct": -1.5914340242822884,
+    "fps": null,
+    "fps_pct": null
+   }
+  },
+  "reference": null
+ },
+ "tfc-w1a1": {
+  "full": {
+   "depth": 28,
+   "kbit": 18.279296875,
+   "fps": null,
+   "fps_sim_kbit": null
+  },
+  "rules": {
+   "no_burst_floor": {
+    "depth": 28,
+    "kbit": 18.279296875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_cap": {
+    "depth": 28,
+    "kbit": 18.279296875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_cap_margin": {
+    "depth": 28,
+    "kbit": 18.279296875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_causal_pass": {
+    "depth": 28,
+    "kbit": 18.279296875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_fill_only": {
+    "depth": 28,
+    "kbit": 18.279296875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_frame_split": {
+    "depth": 28,
+    "kbit": 18.279296875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_idle_floor": {
+    "depth": 28,
+    "kbit": 18.279296875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_input_pacing": {
+    "depth": 28,
+    "kbit": 18.279296875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_join_rule": {
+    "depth": 28,
+    "kbit": 18.279296875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_measured_period": {
+    "depth": 28,
+    "kbit": 18.279296875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_pacer_reset": {
+    "depth": 28,
+    "kbit": 18.279296875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_pacer_tol": {
+    "depth": 28,
+    "kbit": 18.279296875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_slack": {
+    "depth": 28,
+    "kbit": 18.279296875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_throttleable": {
+    "depth": 28,
+    "kbit": 18.279296875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "only_causal_pass": {
+    "depth": 28,
+    "kbit": 18.279296875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   }
+  },
+  "reference": null
+ },
+ "tfc-w2a2": {
+  "full": {
+   "depth": 28,
+   "kbit": 6.6875,
+   "fps": null,
+   "fps_sim_kbit": null
+  },
+  "rules": {
+   "no_burst_floor": {
+    "depth": 28,
+    "kbit": 6.6875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_cap": {
+    "depth": 28,
+    "kbit": 6.6875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_cap_margin": {
+    "depth": 28,
+    "kbit": 6.6875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_causal_pass": {
+    "depth": 28,
+    "kbit": 6.6875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_fill_only": {
+    "depth": 28,
+    "kbit": 6.6875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_frame_split": {
+    "depth": 28,
+    "kbit": 6.6875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_idle_floor": {
+    "depth": 28,
+    "kbit": 6.6875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_input_pacing": {
+    "depth": 28,
+    "kbit": 6.6875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_join_rule": {
+    "depth": 28,
+    "kbit": 6.6875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_measured_period": {
+    "depth": 28,
+    "kbit": 6.6875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_pacer_reset": {
+    "depth": 28,
+    "kbit": 6.6875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_pacer_tol": {
+    "depth": 28,
+    "kbit": 6.6875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_slack": {
+    "depth": 28,
+    "kbit": 6.6875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_throttleable": {
+    "depth": 28,
+    "kbit": 6.6875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "only_causal_pass": {
+    "depth": 28,
+    "kbit": 6.6875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   }
+  },
+  "reference": null
+ },
+ "vgg10-radioml": {
+  "full": {
+   "depth": 131,
+   "kbit": 14.1796875,
+   "fps": 243427.45861733204,
+   "fps_sim_kbit": 14.1796875
+  },
+  "rules": {
+   "no_burst_floor": {
+    "depth": 123,
+    "kbit": 13.9296875,
+    "depth_pct": -6.106870229007634,
+    "kbit_pct": -1.7630853994490359,
+    "fps": 243427.45861733204,
+    "fps_pct": 0.0
+   },
+   "no_cap": {
+    "depth": 131,
+    "kbit": 14.1796875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_cap_margin": {
+    "depth": 131,
+    "kbit": 14.1796875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_causal_pass": {
+    "depth": 131,
+    "kbit": 14.1796875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_fill_only": {
+    "depth": 131,
+    "kbit": 14.1796875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_frame_split": {
+    "depth": 135,
+    "kbit": 14.4140625,
+    "depth_pct": 3.053435114503817,
+    "kbit_pct": 1.6528925619834711,
+    "fps": 243427.45861733204,
+    "fps_pct": 0.0
+   },
+   "no_idle_floor": {
+    "depth": 131,
+    "kbit": 14.1796875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_input_pacing": {
+    "depth": 131,
+    "kbit": 14.1796875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_join_rule": {
+    "depth": 131,
+    "kbit": 14.1796875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_measured_period": {
+    "depth": 131,
+    "kbit": 14.1796875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "no_pacer_reset": {
+    "depth": 136,
+    "kbit": 15.8046875,
+    "depth_pct": 3.816793893129771,
+    "kbit_pct": 11.460055096418733,
+    "fps": 243427.45861733204,
+    "fps_pct": 0.0
+   },
+   "no_pacer_tol": {
+    "depth": 136,
+    "kbit": 15.8046875,
+    "depth_pct": 3.816793893129771,
+    "kbit_pct": 11.460055096418733,
+    "fps": 243427.45861733204,
+    "fps_pct": 0.0
+   },
+   "no_slack": {
+    "depth": 136,
+    "kbit": 15.8046875,
+    "depth_pct": 3.816793893129771,
+    "kbit_pct": 11.460055096418733,
+    "fps": 243427.45861733204,
+    "fps_pct": 0.0
+   },
+   "no_throttleable": {
+    "depth": 131,
+    "kbit": 14.1796875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   },
+   "only_causal_pass": {
+    "depth": 131,
+    "kbit": 14.1796875,
+    "depth_pct": 0.0,
+    "kbit_pct": 0.0,
+    "fps": null,
+    "fps_pct": null
+   }
+  },
+  "reference": {
+   "fps": 243427.45861733204,
+   "kbit": 13.953125
+  }
+ }
+}

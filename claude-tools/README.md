@@ -5,6 +5,13 @@ This branch is **never part of any PR** — it is merged into a working branch o
 give the agent (and you) the analysis scripts and the topic context, then the feature
 PR is cut from source files only.
 
+## LATEST (2026-10-19): finn-examples feature flows
+
+Current work: the `feature/dev/*` branches (FIFO sizing, folding, DWC padding on top of
+upstream/dev) and their benchmark feature-flow tests. Start with
+[`finn-examples-features/HANDOFF.md`](finn-examples-features/HANDOFF.md); the section below is
+the older July status.
+
 ## START HERE (status + how to continue) — 2026-07-22
 
 Everything must be **up to date with upstream/dev**. The integration model is:
