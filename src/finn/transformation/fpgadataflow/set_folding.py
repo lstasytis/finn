@@ -188,6 +188,8 @@ class Parameter:
         its Channels x Kernel."""
         name = onnx_node.input[1]
         W = self.model.get_initializer(name)
+        if W is None:
+            return  # streamed weights (mem_mode="dynamic"), never padded
         if self.op_type.startswith("MVAU"):
             mw, mh = self.node.get_nodeattr("MW"), self.node.get_nodeattr("MH")
             if (mw, mh) == W.shape:
@@ -725,10 +727,9 @@ class Optimizer:
         meta parameter per declared PE / SIMD, plus the resource-type attributes in
         ``resource_type_params``; an SWG and the node it feeds come from a pairing rule."""
         parameters = []
-        skip_consumer = False
+        paired = set()  # names of the nodes folded together with their SWG
         for node_index, node in enumerate(self.model.graph.node):
-            if skip_consumer:
-                skip_consumer = False
+            if node.name in paired:
                 continue
             if node.op_type == "StreamingDataWidthConverter":
                 continue
@@ -737,7 +738,7 @@ class Optimizer:
             max_padding = self._max_padding_for_node(node_index)
             if node.op_type in self.SWG_OPS:
                 parameters += self._extract_swg_pair(node, node_index, max_padding)
-                skip_consumer = True
+                paired.add(self.model.find_consumer(node.output[0]).name)
             else:
                 parameters += self._extract_node(node, node_index, max_padding)
         self.params = ParameterSet(parameters)
@@ -748,6 +749,10 @@ class Optimizer:
         popcount: such an MVAU's input width (MW) must not be padded."""
         attrs = inst.get_nodeattr_types()
         return "binaryXnorMode" in attrs and inst.get_nodeattr("binaryXnorMode") == 1
+
+    def _streamed_weights(self, inst):
+        """Whether a node's weight operand is a stream instead of an initializer."""
+        return self.model.get_initializer(inst.onnx_node.input[1]) is None
 
     def _max_padding_for_node(self, node_index):
         """Padding budget of a node: none for the model's IO nodes unless allowed."""
@@ -814,6 +819,9 @@ class Optimizer:
         padding = max_padding if bound_attr is not None else 0
         if bound_attr == "MW" and self._xnor_mode(inst):
             padding = 0
+        # streamed weights (an MVAU's mem_mode="dynamic") come from another node: no padding
+        if op_type in self.OPS_WITH_WEIGHTS and self._streamed_weights(inst):
+            padding = 0
         values, real_values, seen_factors = [], [], set()
         for value, bound in zip(*allowed_divisors(max_value, padding)):
             if param == "SIMD" and op_type in self.SIMD_MAX_OVERRIDE:
@@ -861,12 +869,13 @@ class Optimizer:
         return len(estimates) > 1
 
     # ------------------------------------------------------------------ SWG pairing rules
-    # A ConvolutionInputGenerator (SWG) is folded together with the layer it feeds, which
-    # always follows it in the graph. Each rule returns the pair's meta parameters, the
-    # SWG's parameters first.
+    # A ConvolutionInputGenerator (SWG) is folded together with the layer it feeds (in a
+    # branching graph not necessarily the next node). Each rule gets the consumer's node
+    # index and returns the pair's meta parameters, the SWG's parameters first.
 
     def _extract_swg_pair(self, swg_node, node_index, max_padding):
-        consumer = self.model.graph.node[node_index + 1]
+        consumer = self.model.find_consumer(swg_node.output[0])
+        consumer_index = list(self.model.graph.node).index(consumer)
         swg, consumer_inst = getCustomOp(swg_node), getCustomOp(consumer)
         if self._xnor_mode(consumer_inst):
             max_padding = 0  # the SWG's channel count is the XNOR MVAU's input width
@@ -885,7 +894,7 @@ class Optimizer:
                 "ConvolutionInputGenerator feeds unsupported op "
                 f"{consumer.op_type}; expected Pool/MVAU/VVAU"
             )
-        return rule(swg, consumer_inst, node_index, max_padding)
+        return rule(swg, consumer_inst, node_index, consumer_index, max_padding)
 
     def _swg_params(self, swg, node_index, simd, ifm_channels, parallel_window=None):
         """The SWG side of a pair: its SIMD over the (padded) channel count and, for the
@@ -895,18 +904,18 @@ class Optimizer:
             params.append(self._param(swg, node_index, "parallel_window", parallel_window))
         return params
 
-    def _pair_swg_with_pool(self, swg, pool, node_index, max_padding):
+    def _pair_swg_with_pool(self, swg, pool, node_index, consumer_index, max_padding):
         """SWG -> Pool (max pooling): SWG SIMD = Pool PE over the same channel count."""
         assert swg.get_nodeattr("depthwise") == 1
         simd_values, ifm_values = allowed_divisors(swg.get_nodeattr("IFMChannels"), max_padding)
         real_values = [
             self._swg_params(swg, node_index, simd, ifm)
-            + [self._param(pool, node_index + 1, "PE", simd, ("Channels", ifm))]
+            + [self._param(pool, consumer_index, "PE", simd, ("Channels", ifm))]
             for simd, ifm in zip(simd_values, ifm_values)
         ]
         return [MetaParameter("SIMD", list(simd_values), real_values, node_index)]
 
-    def _pair_swg_with_mvau(self, swg, mvau, node_index, max_padding):
+    def _pair_swg_with_mvau(self, swg, mvau, node_index, consumer_index, max_padding):
         """SWG -> MVAU (dense convolution): one meta parameter (MVAU SIMD, SWG SIMD,
         parallel_window) over MW = kernel * IFMChannels, and the MVAU PE over MH.
 
@@ -940,21 +949,21 @@ class Optimizer:
                         continue
                     values.append(value)
                     seen_factors.append(factors)
-                    simd = self._param(mvau, node_index + 1, "SIMD", mvau_simd, ("MW", mw), True)
+                    simd = self._param(mvau, consumer_index, "SIMD", mvau_simd, ("MW", mw), True)
                     swg_params = self._swg_params(swg, node_index, swg_simd, ifm, parallel_window)
                     real_values.append(swg_params + [simd])
         # a conv MVAU's MH is never padded
         mh = mvau.get_nodeattr("MH")
         pe_values = list(divisors(mh))
         pe_real_values = [
-            [self._param(mvau, node_index + 1, "PE", pe, ("MH", mh), True)] for pe in pe_values
+            [self._param(mvau, consumer_index, "PE", pe, ("MH", mh), True)] for pe in pe_values
         ]
         return [
             MetaParameter("SIMD", values, real_values, node_index),
             MetaParameter("PE", pe_values, pe_real_values, node_index),
         ]
 
-    def _pair_swg_with_vvau(self, swg, vvau, node_index, max_padding):
+    def _pair_swg_with_vvau(self, swg, vvau, node_index, consumer_index, max_padding):
         """SWG -> VVAU (depthwise convolution): one meta parameter, PE * SIMD, sets the
         VVAU PE (= SWG SIMD) over the channels and, once PE covers all channels, the VVAU
         SIMD over the kernel window with the SWG emitting whole windows."""
@@ -976,8 +985,8 @@ class Optimizer:
                     real_values.append(
                         self._swg_params(swg, node_index, pe, ifm, parallel_window)
                         + [
-                            self._param(vvau, node_index + 1, "SIMD", simd, kernel, True),
-                            self._param(vvau, node_index + 1, "PE", pe, ("Channels", ifm), True),
+                            self._param(vvau, consumer_index, "SIMD", simd, kernel, True),
+                            self._param(vvau, consumer_index, "PE", pe, ("Channels", ifm), True),
                         ]
                     )
         return [MetaParameter("SIMD", values, real_values, node_index)]
