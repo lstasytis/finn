@@ -267,6 +267,11 @@ class DataflowBuildConfig:
     #: relevant for folding_style="optimizer".
     folding_strict_budget: Optional[bool] = False
 
+    #: (Optional) Seed of the folding optimizer's annealing search. None draws a
+    #: random seed, so repeated builds may fold differently; set it for
+    #: reproducible foldings. Only relevant for folding_style="optimizer".
+    folding_seed: Optional[int] = None
+
     #: (Optional) At which steps the generated intermediate output model
     #: will be verified. See documentation of VerificationStepType for
     #: available options.

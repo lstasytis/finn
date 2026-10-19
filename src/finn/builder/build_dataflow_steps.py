@@ -731,6 +731,7 @@ def step_target_fps_parallelization(model: ModelWrapper, cfg: DataflowBuildConfi
             platform=cfg.board,
             auto_fifo_strategy=cfg.auto_fifo_strategy,
             strict_budget=cfg.folding_strict_budget,
+            seed=cfg.folding_seed,
             allow_uram_weights=cfg.folding_allow_uram_weights,
         )
         model = model.transform(folder, apply_to_subgraphs=True)
