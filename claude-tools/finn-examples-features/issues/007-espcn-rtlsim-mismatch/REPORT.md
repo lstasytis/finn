@@ -1,4 +1,4 @@
-# Report 007: espcn (KV260_SOM) stitched-IP rtlsim output differs from the golden — root cause NOT found
+# Report 007: espcn (KV260_SOM) stitched-IP rtlsim output differs from the golden — root cause (session 3): MVU output queue overflow in dev RTL
 (Written by the orchestrator from the fix agent's hand-back, state 18:40; scripts in `scripts/`.)
 
 ## Q1: golden pair vs FINN Python execution: consistent
@@ -140,3 +140,80 @@ packed to the stream width and prints the first mismatching word and its cycle; 
    `build/wt/fix007`, `fx/fix007` and the scratchpad was deleted or written. Session 1's projects in
    `fx/fix007` (2026-10-19) and the three running sims' dirs are still there: delete when done.
 4. OuterShuffle II=3 (981k cycles/frame, estimate 327k) is still the real throughput bug of #1725.
+
+## Session 3 (2026-10-20, ~12:35-13:00): root cause found — MVU output queue overflow (dev RTL)
+
+### Localization
+`H2_foldtarget_head_taps` (fold-target design, taps FIFO_0..FIFO_17, run to 95k cycles, then stopped)
+with `tapcheck.py` (now X-tolerant; skips a FIFO without a compute node in front):
+* FIFO_1, FIFO_2, FIFO_3 (FMPadding_0, SWG_0, DWC_0): 0 mismatches, no X. FIFO_3 = MVAU_rtl_0's input.
+* **FIFO_4 = MVAU_rtl_0's output: first X at word 28707, cycle 29791** (pixel 897 = row 7 col 1,
+  neuron folds 3 and 4); 80 X words of 81206, all other words equal the Python reference (no word
+  lost/added). X words come in pairs of consecutive folds (3/4 at column 1 of rows 7, 8, 9, ...;
+  later 10/11 elsewhere).
+* FIFO_5..FIFO_17: X inherited (FIFO_5 cycle 34428, FIFO_7 36025, ..., FIFO_17 36281 = the first X
+  found in `H_foldtarget_full_taps`).
+* `F2_full_taps` (committed folding): X from FIFO_20 at cycle 187672; `G_full_behavhead_taps`
+  (behavioural MVAU_0/1): X from FIFO_23 at 188492. Same origin; behavioural cores do not help.
+* MVAU_rtl_0: MW 75, MH 64, SIMD 75, PE 2 -> **SF = MW/SIMD = 1**, NF 32; INT8 x UINT8, DSP48E2,
+  `mvu.sv` core. Committed folding and fold-target: SIMD 75; fold-max (passes): SIMD 25 (SF 3).
+* Recorded handshakes before the first X: Thr0 pops FIFO_4 (depth 2) 1/cycle up to 29706, stalls
+  29707-29717, pops 6, stalls 29724-29784 (FIFO_5 full), pops 29785-29791 (X at 29791), stall
+  4 cycles, X at 29796. MVAU_0 takes one input per 32 cycles (never input-starved here).
+
+### Mechanism
+`finn-rtllib/mvu/mvu_vvu_axi.sv`, `blkOutput`: SRL output queue `OBuf[0:MAX_IN_FLIGHT]` with
+`MAX_IN_FLIGHT = CORE_PIPELINE_DEPTH = 3 + $clog2(SIMD+1) + (SIMD == 1)` (DSP48). On backpressure
+the registered `OLock` stops feeding the core one cycle after the first stalled cycle, so up to
+L + 1 results (L = actual core latency) are pushed without a pop; the queue needs L + 2 entries.
+* `mvu.sv` latency is `3 + $clog2(SIMD) + (SIMD == 1) + 1` since `e1561a40f` (2025-07-29,
+  T. Preußer, "Pipeline all levels with additive reductions"); the wrapper's copy of the formula was
+  not updated (still so on `upstream/dev` 11ebf1abb). SIMD 75: L = 11, wrapper assumes 10.
+* Independently, the queue is one entry short even when the formula matches (power-of-two SIMD).
+* SIMD 75: 11 entries, needs 13, `OPtr` reaches 12. Overflow shifts the oldest results out and
+  `OBuf[OPtr]` is read out of range -> X (sim); the assertion `Overflowing output queue` fires but
+  FINN's XSI rtlsim does not show `$error`. Only SF = 1 can produce a result every cycle; SF >= 2 is
+  safe. Hardware effect of the out-of-range SRL read: undefined (may be right by accident).
+
+### Reproducer (standalone xsim, no FINN): `scripts/mvu_queue_tb.sv`, `scripts/mvu_queue_run.sh`
+`mvu_vvu_axi` with MVAU_0's parameters (overridable `TB_MW`, `TB_SIMD`, `TB_VER`, `TB_STRUCT`),
+inputs and weights always valid, reference dot product per output; tready random (`+READY_PCT`),
+bursty (`+BURST`: stalls of 1..12 cycles) or replayed (`+REPLAY=<file>`: sink behind a 2-deep FIFO
+popping at the recorded FIFO_4 cycles, `scripts/fifo4_pops_foldtarget.txt.gz`). 45-50k cycles each,
+`xelab --mt 4`. Columns: outputs / X words / wrong non-X words / `OPtr` max / queue entries /
+assertion count.
+
+| run | RTL | config | tready | out | X | wrong | OPtr max / entries |
+|---|---|---|---|---|---|---|---|
+| orig50 | dev | SIMD 75 behav | 50 % | 17868 | 8 | 0 | 12 / 11 |
+| origstruct | dev | SIMD 75 DSP48E2 primitives | 50 % | 17927 | 7 | 0 | 12 / 11 |
+| replay_orig | dev | SIMD 75 | recorded | 37044 | 6 (first at output 27928; full design 28708) | 0 | 12 / 11 |
+| origburst | dev | SIMD 75 | bursty | 10682 | 508 | 0 | 12 / 11 |
+| simd96/64/32/3 burst | dev | SF 1 | bursty | ~10.6k | 479 / 207 / 244 / 1328 | 0 | 12/11, 11/11, 10/10, 7/6 |
+| orig_simd64 | dev | SIMD 64 | 50 % | 17853 | 0 | 0 | 10 / 11 |
+| v1 / v3 burst | dev | SIMD 75 DSP48E1 / DSP58 | bursty | 9575 / 9625 | 455 / 472 | 0 | 12/11, 7/7 |
+| v3_simd24 | dev | DSP58 SIMD 24 | bursty | 7721 | 0 | 7712 | 3 / 4 (2017 assertions; TB reference vs DSP58 core unresolved) |
+| orig_sf2 / sf2 burst | dev | MW 150 SIMD 75 | 50 % / bursty | | 0 / 0 | 0 | 5 / 11, 6 / 11 |
+| orig_sf5 | dev | MW 75 SIMD 15 | 50 % | 9784 | 0 | 0 | 1 / 8 |
+| patched50 / burst / replay | latency formula fixed | SIMD 75 | | | 1 / 165 / 2 | 0 | 12 / 12 |
+| fixed_* (9 runs) | formula fixed + `MAX_IN_FLIGHT = CORE_PIPELINE_DEPTH + 1` | SIMD 3/64/75/96, behav + struct | 50 % / bursty / recorded | | **0** | 0 | L+1 / L+2 |
+
+Patched files were scratch copies (`scratchpad/repro_mvu/mvu_vvu_axi_{patched,fixed}.sv`, the
+diff is the two lines above); dev's RTL is unchanged. dev's `mvu/tb/mvu_axi_tb.sv` has no SF = 1
+configuration.
+
+### Where the fix belongs
+dev (Xilinx/finn `finn-rtllib/mvu/mvu_vvu_axi.sv`), not our branches and not #1725: our branches
+only choose foldings/FIFO depths that expose it (SF = 1 + burst/stall backpressure). Options and
+recommendation: `ANALYSIS.md` section 7 (A: two-line dev fix + test, B: upstream issue, C: avoid
+SF = 1 in the flow, D: OuterShuffle II = 3 separately).
+
+### Housekeeping
+* Stopped (own recorded PIDs, localization complete): H2 3232776, H 1769207, F2 1656574,
+  G 1769285. Tap logs stay in the scratchpad `s/`.
+* Deletion of the issue's scratch projects `build/finn_build/fx/fix007/*` (102 dirs, 699 MB: all
+  stitch/rtlsim/FIFO-regen dirs of sessions 1-3) was **refused by the permission classifier**; nothing
+  was deleted this session. To free the space: `rm -rf /home/lstasytis/finn/build/finn_build/fx/fix007/*`.
+* The diagnostic tap edit of `finn-rtllib/fifo/hdl/fifo_template.v` in `build/wt/fix007` stays
+  uncommitted (revert with `git -C build/wt/fix007 checkout finn-rtllib/fifo/hdl/fifo_template.v`
+  when the worktree is no longer needed).

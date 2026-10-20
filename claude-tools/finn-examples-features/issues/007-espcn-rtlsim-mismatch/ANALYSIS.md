@@ -1,10 +1,11 @@
 # Issue 007 — espcn (KV260_SOM) stitched-IP rtlsim produces wrong outputs: analysis for a decision
 
-Status 2026-10-20 ~12:30. Sources: `ISSUE.md` (task), `REPORT.md` (fix agent, sessions 1-2, full
-evidence), the tapped full-design simulations in the session scratchpad
-(`/tmp/claude-1205/-home-lstasytis-finn/3a5e3dcc-3aca-42a9-8340-515e8131d721/scratchpad/s/`), and
-the orchestrator's analysis of their tap logs (section 4, new). The root-cause node is not pinned
-down yet; section 6 says what is running to pin it down and section 7 lists the options.
+Status 2026-10-20 ~13:00. Sources: `ISSUE.md` (task), `REPORT.md` (sessions 1-3, full evidence),
+the tapped full-design simulations in the session scratchpad
+(`/tmp/claude-1205/-home-lstasytis-finn/3a5e3dcc-3aca-42a9-8340-515e8131d721/scratchpad/s/`).
+**Root cause found (session 3):** an output-queue overflow in dev's MVU AXI wrapper
+(`finn-rtllib/mvu/mvu_vvu_axi.sv`) when an `MVAU_rtl` runs at SF = 1 (SIMD = MW) under output
+backpressure; in espcn that is MVAU_rtl_0. Sections 4-7 describe culprit, mechanism and options.
 
 ## 1. What fails
 
@@ -37,6 +38,9 @@ down yet; section 6 says what is running to pin it down and section 7 lists the 
   depths of the design), `inner_shuffle`, and dev's DWC core `vpc.sv` (all 15 width pairs). Code
   review found no defect in the MVU wrapper/core, replay buffer, memstream, thresholding, parallel
   SWG, `input_gen.hpp`, FMPadding_Pixel or the XSI streamer (details: `REPORT.md` session 2).
+  *Session 3 correction:* the MVU wrapper review missed the queue sizing (section 5), and no
+  sub-graph containing MVAU_rtl_0 saw a burst-then-stall output pattern (the FIFO_0..FIFO_5 sub-sim
+  used a regular 1-in-2 output throttle).
 * **The FIFO depths should not matter for correctness.** FIFOs only change timing; a correct design
   produces the same values for any depth >= 2. The failure appears only in the full design, i.e. only
   with the timing that the full chain (head + tail) produces.
@@ -50,93 +54,109 @@ and the whole pipeline runs backpressured from the tail. This is a real upstream
 throughput bug independent of the wrong values, and it alone fails the tests' 0.98x throughput
 check. It is also what puts the design into the backpressured regime in which the value bug shows.
 
-## 4. New today: the "zeros" are undefined (X) data from the head of the design
+## 4. Culprit: MVAU_rtl_0 (first conv layer), output queue overflow in dev's `mvu_vvu_axi.sv`
 
-The fix agent's tapped full-design simulations log every word that passes selected FIFOs
-(`<FIFO>.tap`: `cycle hexword`). In the fold-target run (`H_foldtarget_full_taps`) the taps contain
-**X (undefined) values**; the agent's checker crashed on them (it parses hex), which is why session
-2 concluded "the zeros are real RTL zeros" (true at the output, see below). Tap analysis (stream order
-of the fold-target build):
+Tapped fold-target run with taps on every head FIFO (`H2_foldtarget_head_taps`, FIFO_0..FIFO_17,
+95k cycles), compared word by word with the Python HW-model streams (`scripts/tapcheck.py`):
 
-| FIFO (after node) | words so far | X words | X pattern |
+| FIFO (after node) | result |
+|---|---|
+| FIFO_1..FIFO_3 (FMPadding_0, SWG_0, DWC_0 = **MVAU_rtl_0's input**) | 0 mismatches, no X |
+| **FIFO_4 (MVAU_rtl_0 output**, INT20 x PE 2) | **first X at word 28707, cycle 29791**; 80 X words of 81206, every other word exactly right |
+| FIFO_5..FIFO_17 | X inherited (FIFO_5 34428, ..., FIFO_17 36281 = the X seen in section 4 of the previous version) |
+
+* MVAU_rtl_0: MW 75, MH 64, **SIMD 75 (= MW, i.e. SF = 1: one complete dot product per cycle)**,
+  PE 2, INT8 weights x UINT8, DSP48E2 core (`mvu.sv`). The committed folding and the fold-target
+  folding both have SIMD 75; **fold-max has SIMD 25 (SF 3) and passes**.
+* X words replace values one for one (no lost or extra words) and come in pairs of consecutive
+  neuron folds (e.g. pixel 897 = row 7 col 1, folds 3+4); downstream nodes turn them into the
+  "whole-pixel" X runs and finally the output zeros (resolved at the HLS ElementwiseMul).
+* Same origin in the other builds: F2 (committed folding, FIFO test build) carries X from FIFO_20 at
+  cycle 187672 (the tail's backpressure reaches MVAU_0 much later, hence errors from output row 76);
+  G (behavioural MVAU_0/1 cores) also carries X -> not DSP-primitive related.
+* Recorded backpressure just before the first X (Thr0 popping FIFO_4, depth 2): 1 word/cycle until
+  29706, stall 11 cycles, 6 words, stall 61 cycles, 7 words (X at 29791), stall 4, X at 29796.
+  MVAU_0's input is never the limit (it takes 1 input per 32 cycles, NF = 32).
+
+## 5. Mechanism (confirmed with a standalone reproducer)
+
+`finn-rtllib/mvu/mvu_vvu_axi.sv`, `blkOutput`: core outputs go into an SRL queue
+`OBuf[0:MAX_IN_FLIGHT]` (pointer `OPtr`); on backpressure `OLock` stops feeding the core, and the
+queue must absorb everything still in the core pipeline. `MAX_IN_FLIGHT = CORE_PIPELINE_DEPTH =
+3 + $clog2(SIMD+1) + (SIMD == 1)` (DSP48). Two errors:
+
+1. **Stale latency formula.** Commit `e1561a40f` (2025-07-29, "Pipeline all levels with additive
+   reductions") changed `mvu.sv` to `PIPELINE_DEPTH = 3 + $clog2(SIMD) + (SIMD == 1) + 1` but not
+   the copy in `mvu_vvu_axi.sv`: for non-power-of-two SIMD the core is one cycle deeper than the
+   wrapper assumes (SIMD 75: 11 vs 10). Still so on `upstream/dev`.
+2. **Off by one in the queue size.** `OLock` is registered, so the item issued in the cycle in
+   which the stall is detected also enters the pipeline: worst case L + 1 pushes without a pop
+   (L = core latency), i.e. the queue needs L + 2 entries but has MAX_IN_FLIGHT + 1.
+
+With SF = 1 a burst of full-rate outputs followed by a stall overflows the queue (SIMD 75 needs 13
+entries, has 11; `OPtr` reaches 12): the oldest results are shifted out of `OBuf`, and the read
+`OBuf[OPtr]` is out of range -> **X in simulation** (word count stays right, value lost). The
+RTL's own assertion `Overflowing output queue` fires; FINN's XSI rtlsim does not surface `$error`,
+so it went unnoticed. With SF >= 2 at most every second pipeline slot carries an output and the
+queue never fills. On hardware the out-of-range read of the SRL is undefined (an SRL16/SRLC32 may
+physically still hold the shifted-out value, so a board might be right by accident; not verified).
+dev's own `mvu/tb/mvu_axi_tb.sv` has no SF = 1 configuration.
+
+Reproducer `scripts/mvu_queue_tb.sv` (+ `mvu_queue_run.sh`): `mvu_vvu_axi` alone with MVAU_0's
+parameters, inputs/weights always valid, every output checked against a dot-product reference.
+50 k cycles each (full table in `REPORT.md` session 3):
+
+| configuration | output tready | X words | OPtr max / queue entries |
 |---|---|---|---|
-| FIFO_17 (MVAU_rtl_2 out; PE 4, SIMD 144, 32 ch) | 18354 | 1352 | first at word 5120 (cycle 36281); runs of exactly 32 words every 1024 words |
-| FIFO_18..FIFO_24 (DWC, Thr2, DWC, FMPadding_Pixel, FMPadding_3, SWG_3) | | yes | propagated |
-| FIFO_26 (MVAU_rtl_3 out), FIFO_27/28 (Thr3 in/out) | 23446 | 2178 | runs of 30 words every 768 words (from word 6144) |
-| FIFO_29 (ElementwiseMul_hls_0 out) | 23442 | **0** | X resolved to concrete values |
+| dev RTL, SIMD 75 (MVAU_0), behavioural / structural DSP | 50 % random | 8 / 7 | 12 / 11 |
+| dev RTL, SIMD 75 | recorded fold-target pattern (replay) | 6 | 12 / 11 |
+| dev RTL, SIMD 75 / 96 / 64 / 32 / 3 | bursty (stalls 1..12) | 508 / 479 / 207 / 244 / 1328 | over by 1-2 |
+| dev RTL, SIMD 75, DSP48E1 / DSP58 | bursty | 455 / 472 | over |
+| dev RTL, SF 2 or SF 5 | 50 % / bursty | 0 | 6 of 11, 1 of 8 |
+| latency formula fixed only | random / bursty / replay | 1 / 165 / 2 | 12 / 12 |
+| **latency formula fixed + `MAX_IN_FLIGHT = CORE_PIPELINE_DEPTH + 1`** | all of the above, SIMD 3/64/75/96, structural | **0** | L + 1 / L + 2 (tight) |
 
-Reading:
-* MVAU_rtl_2's output stream is 8 words per pixel (32 channels / PE 4) and 1024 words per row of the
-  128 x 128 feature map. **The X runs are the first 4 pixels (all channels) of every row from row 5**
-  (later also other positions, e.g. a 64-word run at word 9640). Whole pixels across all output
-  channels point at the *activations* entering MVAU_rtl_2, not at its weights (bad weights would hit
-  specific channels of every pixel). Upstream of MVAU_rtl_2 are DWC_5 (64 -> 576),
-  **ConvolutionInputGenerator_rtl_2** (SIMD 16, distributed-RAM line buffer, parallel_window 0),
-  DWC_4, FMPadding_rtl_2, and FIFO_12 (depth 1255) after Thresholding_rtl_1.
-* Row-start positions are where a sliding-window generator reads its line buffer across the row
-  boundary. An X read from a distributed RAM means **an entry that was never written is read**: in
-  simulation it is X; on the FPGA it would be the RAM's initial value (0) or stale data, i.e. wrong
-  values in hardware too (not verified on a board).
-* Downstream the X is only *resolved* at the HLS `ElementwiseMul_hls_0` (Thr3 passes X through as X;
-  the HLS multiplier's RTL turns X operands into concrete values), which is why the output shows
-  zeros at fixed columns and the 4-state readout never sees X.
-* This explains why every sub-graph passed: the sub-sims start at FMPadding_rtl_2 or later with a
-  free-running or regularly paced input, while in the full design the input of FMPadding_rtl_2 /
-  SWG_2 comes from the head (MVAU_1, Thr1, DWC, a 1255-deep FIFO) with an irregular pattern, plus the
-  tail's backpressure.
-* Why only some foldings: the timing (FIFO depths, folding of SWG_2/MVAU_2) decides whether the
-  generator's read overtakes its write. fold-max (more parallel, different buffers) does not trigger
-  it; the committed and fold-target foldings do, at different rows/columns.
+(The patched files are scratch copies; dev's RTL is unchanged.)
 
-## 5. Where the fault most likely is (to be confirmed)
+Not our branches: the FIFO, folding and DWC PRs only change timing and folding. The folding
+optimizer can pick SF = 1 (it did for fold-target), as can hand-written foldings (the committed
+espcn JSON). Any FIFO depth only moves the trigger point.
 
-Ranked by the evidence:
-1. **ConvolutionInputGenerator_rtl (dev's RTL SWG, default/non-parallel implementation,
-   `finn-rtllib/swg/`)**: reads a line-buffer entry before it is written when its input stalls in a
-   particular pattern while its output is backpressured. Row-boundary positions fit exactly. This would
-   be a dev (upstream FINN) RTL bug. (Session 2 reviewed only the *parallel* SWG template, used by
-   SWG_3; SWG_2 uses the default one.)
-2. DWC_5 (`vpc.sv`, 64 -> 576) or DWC_4: stress-tested standalone without X; less likely.
-3. FMPadding_rtl_2: emits the padding at row starts too; X there would also give row-start runs.
-4. MVAU_rtl_2 itself (input buffering/replay): unlikely, whole-pixel pattern fits the input side.
+## 6. Status / next steps
 
-Not our branches: none of these components is changed by the FIFO, folding or DWC PR branches. Our
-branches only change the FIFO depths and foldings, i.e. which timing occurs. A correct design
-tolerates any FIFO depth >= 2, so the analytic FIFO sizing is not at fault, but it (like any other
-sizing) can expose the bug.
-
-## 6. Running now / next steps
-
-* The fix agent is rerunning the fold-target design with taps on FIFO_0..FIFO_17 (the head) to find
-  the first FIFO that carries X and the cycle (~20-30 min of simulation: the first X appears at cycle
-  ~36k). The node in front of that FIFO is the producer of the X.
-* Then: a minimal reproducer (that node alone, driven with the recorded input/backpressure pattern
-  around the first X), and the RTL mechanism (which memory or register is read before it is written,
-  under which handshake). Result goes into `REPORT.md` "Session 3"; this file will be updated.
-* The committed-folding run (F2) and the run with behavioural head MVAUs (G) are still running (taps
-  FIFO_20+ / 23+ are clean so far; their errors start later, ~175k cycles).
+* Localization done; all diagnostic simulations are finished or stopped (nothing running).
+* If option A is chosen: apply the two-line fix on a dev-based branch, add an SF = 1 +
+  backpressure case to `mvu_axi_tb.sv` (or ship `mvu_queue_tb.sv`), rerun the espcn fold-target and
+  FIFO tests (full stitched rtlsim, 1-3 h each). Check the DSP58 depth formula the same way (the
+  reproducer shows overflow there too; its value check for DSP58 SIMD 24 disagrees with my reference
+  and is unresolved).
+* Other campaign models with an `MVAU_rtl` at SF = 1 (MW = SIMD) under backpressure can show the
+  same silent corruption; worth a grep of the final foldings when a model has unexplained rtlsim
+  mismatches.
 
 ## 7. Options for you to decide
 
 | option | what | effort / risk |
 |---|---|---|
-| A. Fix the RTL bug at its source | after localization, a minimal fix in the faulty dev RTL module (e.g. SWG read/write pointer guard), with the reproducer as a test, as a separate dev PR | needs your OK (our rule: never modify dev's RTL without it); correct fix; upstream review needed |
-| B. Report upstream only | open an issue on Xilinx/finn with the reproducer and the tap evidence; keep espcn FIFO/fold-target feature tests xfail (or skipped) referencing it | no RTL change by us; espcn stays red until upstream fixes it |
-| C. Work around in the flow | e.g. avoid the triggering configuration for that op (another SWG implementation style / parallel_window, or FIFO depth around it) | hides a hardware bug that other designs can still hit; not recommended except as a stopgap |
-| D. Fix the OuterShuffle II=3 (independent) | hlslib `input_gen` carried dependence (or its estimate in FINN) | removes the dominant backpressure; may make the value bug disappear in espcn without fixing it (another reason not to rely on it); a real throughput fix for #1725 |
+| A. Fix dev's RTL (recommended) | `mvu_vvu_axi.sv`: DSP48 `CORE_PIPELINE_DEPTH` = `mvu.sv`'s formula (or exported by the core), `MAX_IN_FLIGHT = CORE_PIPELINE_DEPTH + 1`; one SRL entry more; reproducer as test; separate PR to Xilinx/finn dev | needs your OK (dev RTL); two lines, verified standalone; full espcn rerun to close the issue |
+| B. Report upstream only | issue on Xilinx/finn with the reproducer and this analysis; espcn FIFO/fold-target tests xfail referencing it | no RTL change by us; espcn stays red until upstream fixes it |
+| C. Work around in the flow | forbid SF = 1 for `MVAU_rtl` in the folding optimizer, or change espcn's committed folding (MVAU_0 SIMD 25 as in fold-max) | hides a dev bug that hand foldings still hit; costs throughput/resources for layer 0; stopgap only |
+| D. Fix the OuterShuffle II = 3 (independent) | hlslib `input_gen` carried dependence (or its estimate) | real throughput fix for #1725; would move, not remove, the value bug |
 
-Recommendation: finish localization (running), then A (or B if you prefer not to touch dev RTL),
-plus D as a separate throughput fix. Until then, keep espcn's FIFO/fold-target tests out of the
-campaign (done: they are excluded) and do not count them against the FIFO/folding/DWC branches.
+Recommendation: A (plus B as the upstream issue/PR description), D separately. Until A lands,
+keep espcn's FIFO/fold-target tests out of the campaign and do not count them against the
+FIFO/folding/DWC branches.
 
 ## 8. Evidence index
 
 * Failing builds: `/home/lstasytis/finn/build/finn_build/fx/fifo/fifo-heuristic_analytical_espcn_KV260_SOM_aiguk3l6/`
   (committed folding), `fx/folding/fold-target_espcn_KV260_SOM_uvy3zp6x/` (optimizer folding),
   passing: `fx/folding/fold-max_espcn_KV260_SOM_nns10ty8/`.
-* Tapped full-design simulations (scratchpad `s/`): `H_foldtarget_full_taps/*.tap` (X evidence),
-  `F2_full_taps/`, `G_full_behavhead_taps/`; driver `scripts/subsim.py` (`SUBSIM_TAPS`,
+* Tapped full-design simulations (scratchpad `s/`): `H2_foldtarget_head_taps/*.tap` (first X at
+  FIFO_4), `H_foldtarget_full_taps/*.tap`, `F2_full_taps/`, `G_full_behavhead_taps/`; driver `scripts/subsim.py` (`SUBSIM_TAPS`,
   `SUBSIM_MODEL`, `SUBSIM_BEHAV_MVU`), checker `scripts/tapcheck.py`.
 * The diagnostic FIFO tap is an uncommitted edit of `finn-rtllib/fifo/hdl/fifo_template.v` in
   worktree `build/wt/fix007` (to be reverted; never committed).
+* Reproducer: `scripts/mvu_queue_tb.sv`, `scripts/mvu_queue_run.sh`, recorded sink pattern
+  `scripts/fifo4_pops_foldtarget.txt.gz` (gunzip, pass as `+REPLAY=`).
 * Stress testbenches: `scripts/fifo_stress_tb*.sv`, `inner_shuffle_stress_tb.sv`, `vpc_stress_tb.sv`.

@@ -37,8 +37,11 @@ def ref_out(spec_name):
 for fname in fifos:
     i = names.index(fname)
     j = i - 1
-    while m.graph.node[j].op_type.startswith(skip):
+    while j >= 0 and m.graph.node[j].op_type.startswith(skip):
         j -= 1
+    if j < 0:
+        print("%s: no compute node in front (graph input), skipped" % fname)
+        continue
     src = m.graph.node[j].name
     fifo = getCustomOp(m.graph.node[i])
     width = fifo.get_instream_width_padded()
@@ -51,23 +54,28 @@ for fname in fifos:
     assert flat.size % nel == 0, (fname, flat.size, nel)
     packed = npy_to_rtlsim_input(flat.reshape(1, -1, nel), dt, width)
     tap = odir + "/" + fname + ".tap"
-    cyc, got = [], []
+    cyc, got, isx = [], [], []
     with open(tap) as f:
         for line in f:
             p = line.split()
             if len(p) == 2:
                 cyc.append(int(p[0]))
-                got.append(int(p[1], 16))
+                x = "x" in p[1].lower()
+                isx.append(x)
+                got.append(None if x else int(p[1], 16))
     n = min(len(got), len(packed))
-    got_a = np.array(got[:n], dtype=object)
-    exp_a = np.array(packed[:n], dtype=object)
-    bad = np.array([a != b for a, b in zip(got_a, exp_a)])
+    bad = np.array([isx[q] or got[q] != packed[q] for q in range(n)], dtype=bool)
     nbad = int(bad.sum())
-    msg = "%s <- %s: width %d (%s x%d) tap %d/%d words, mismatches %d" % (
-        fname, src, width, dt.name, nel, len(got), len(packed), nbad)
+    nx = sum(isx[:n])
+    msg = "%s <- %s: width %d (%s x%d) tap %d/%d words, mismatches %d (X words %d)" % (
+        fname, src, width, dt.name, nel, len(got), len(packed), nbad, nx)
     if nbad:
         k = int(np.argmax(bad))
-        msg += "; first bad word %d (cycle %d): got %x exp %x" % (k, cyc[k], got[k], packed[k])
+        msg += "; first bad word %d (cycle %d): got %s exp %x" % (
+            k, cyc[k], "X" if isx[k] else "%x" % got[k], packed[k])
+        if nx:
+            kx = isx.index(True)
+            msg += "; first X word %d (cycle %d)" % (kx, cyc[kx])
         zeros = sum(1 for q in np.where(bad)[0] if got[q] == 0)
         msg += "; bad words that are 0: %d" % zeros
     print(msg)
