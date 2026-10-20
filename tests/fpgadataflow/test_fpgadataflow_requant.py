@@ -285,6 +285,31 @@ def test_requant_rtl(abits, ishape, per_channel, part, pe, sim_style, mem_mode, 
         assert exp_cycles != 0
 
 
+@pytest.mark.parametrize("input_dtype", ["INT8", "UINT8"])
+@pytest.mark.fpgadataflow
+def test_requant_rtl_signed_input_only(input_dtype):
+    """requant.sv reads its input as signed: an unsigned input must get the HLS
+    variant (UINT8 values >= 128 would otherwise come out negative)."""
+    node = helper.make_node(
+        "Requant",
+        ["inp", "scale", "bias"],
+        ["outp"],
+        domain="finn.custom_op.fpgadataflow",
+        backend="fpgadataflow",
+        NumChannels=8,
+        inputDataType=input_dtype,
+        outputDataType="INT8",
+    )
+    inp = helper.make_tensor_value_info("inp", TensorProto.FLOAT, [1, 8])
+    outp = helper.make_tensor_value_info("outp", TensorProto.FLOAT, [1, 8])
+    model = ModelWrapper(qonnx_make_model(helper.make_graph([node], "g", [inp], [outp])))
+    model.set_initializer("scale", np.array([0.5], dtype=np.float32))
+    model.set_initializer("bias", np.array([0.0], dtype=np.float32))
+    model = model.transform(SpecializeLayers("xczu7ev-ffvc1156-2-e"))
+    expected = "Requant_rtl" if DataType[input_dtype].signed() else "Requant_hls"
+    assert model.graph.node[0].op_type == expected
+
+
 # =============================================================================
 # RTL Backend Test - FLOAT32 input (requantf DSPFP32 core, Versal only)
 # =============================================================================
