@@ -65,6 +65,8 @@ FEATURES = [
     ("fold-target", "folding", "folding[{p}-target]"),
     ("fold-max", "folding", "folding[{p}-maximize]"),
     ("dwc", "dwc", "dwc[{p}]"),
+    # optional FIFO-aware folding (slower): once per model, full size only
+    ("fold-fifo", "folding", "folding[{p}-fifo-aware]"),
 ]
 LAST = [("fifo-rtlsim", "fifo", "fifo_sizing[{p}-heuristic_rtlsim]")]
 
@@ -80,11 +82,12 @@ def build_queue(variant="", sizes=None):
         small = [
             dict(j, id=j["id"] + "__small", node=j["node"][:-1] + "-small]", size="small")
             for j in base
-            if "small" in sizes and j["feature"] != "fold-max"
+            if "small" in sizes and j["feature"] not in ("fold-max", "fold-fifo")
         ]
         full = [
             dict(j, node=j["node"][:-1] + "-full]", size="full",
-                 after=j["id"] + "__small" if j["feature"] != "fold-max" and "small" in sizes else None)
+                 after=j["id"] + "__small"
+                 if j["feature"] not in ("fold-max", "fold-fifo") and "small" in sizes else None)
             for j in base
             if "full" in sizes
         ]
@@ -269,7 +272,9 @@ def main():
             ), f, indent=1)
 
     def regen_status():
-        subprocess.run([sys.executable, os.path.join(TOOLS, "status_table.py")],
+        extra = (["--variant", args.variant] if args.variant else []) + (
+            ["--sizes", args.sizes] if args.sizes else [])
+        subprocess.run([sys.executable, os.path.join(TOOLS, "status_table.py")] + extra,
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     while pending or running:

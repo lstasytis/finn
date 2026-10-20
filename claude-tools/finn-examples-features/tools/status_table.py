@@ -4,6 +4,7 @@ Sources: the campaign's junit XML + state ($LOGDIR), each feature build's
 report/feature_metrics.json, the reference estimate builds, and the hand-written
 tools/status_notes.json ({"<row>": "note", "cells": {"<job id>": "override text"}}).
 """
+import argparse
 import datetime
 import glob
 import json
@@ -11,18 +12,27 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from run_campaign import LOGDIR, M, TIER1, TIER2, build_queue, junit_result  # noqa: E402
+from run_campaign import (  # noqa: E402
+    LOGDIR,
+    M,
+    TIER1,
+    TIER2,
+    TIER_TRANSFORMER,
+    build_queue,
+    junit_result,
+)
 
 OUT = os.path.join(M, "claude-tools/finn-examples-features/STATUS.md")
 NOTES = os.path.join(M, "claude-tools/finn-examples-features/tools/status_notes.json")
 BOARDS = ["AUP-ZU3_8GB", "KV260_SOM", "ZCU104", "U55C", "VCK190", "V80"]
-MULTI = {"bnn-pynq", "resnet18", "yolov8"}
+MULTI = {"bnn-pynq", "resnet18", "yolov8", "transformer"}
 TAGS = {
     "fifo": "fifo-heuristic_analytical",
     "fold-target": "fold-target",
     "fold-max": "fold-max",
     "dwc": "dwc",
     "fifo-rtlsim": "fifo-heuristic_rtlsim",
+    "fold-fifo": "fold-fifoaware",
 }
 COLS = ["fifo", "fold-target", "fold-max", "dwc", "fifo-rtlsim"]
 
@@ -51,6 +61,34 @@ def load(path):
         return None
 
 
+def job_metrics(job):
+    tag = TAGS[job["feature"]] + ("-small" if job.get("size") == "small" else "")
+    prefix = build_prefix(tag, job["model"], job["param"])
+    return load(latest(job["wt"], prefix, "report/feature_metrics.json"))
+
+
+def fifo_aware_cells(job, plain, state, notes):
+    """The FIFO-aware folding columns: folding time, throughput, final FIFO size (vs the plain
+    optimizer folding at the same target)."""
+    head = cell(job, state, notes)
+    if not head.startswith(("✅", "❌")):
+        return [head, "", ""]
+    m, p = job_metrics(job) or {}, (job_metrics(plain) if plain else None) or {}
+    t = (m.get("step_times_s") or {}).get("step_target_fps_parallelization")
+    tp = (p.get("step_times_s") or {}).get("step_target_fps_parallelization")
+    time_s = "%.0f s" % t if t is not None else "-"
+    if t is not None and tp:
+        time_s += " (plain %.0f s)" % tp
+    fps = m.get("rtlsim_fps")
+    thr = head[:1] + (" %.1f fps" % fps if fps else "")
+    if m.get("rtlsim_vs_est") is not None:
+        thr += " (%.3fx est)" % m["rtlsim_vs_est"]
+    size = "%.1f kbit" % m["fifo_kbit"] if m.get("fifo_kbit") is not None else "-"
+    if p.get("fifo_kbit"):
+        size += " (plain %.1f)" % p["fifo_kbit"]
+    return [time_s, thr, size]
+
+
 def cell(job, state, notes):
     if job["id"] in notes.get("cells", {}):
         return notes["cells"][job["id"]]
@@ -62,8 +100,7 @@ def cell(job, state, notes):
         return "aborted" if fin.get("result") == "aborted" else "⏸"
     if res == "skipped":
         return "skip (no padding)" if job["feature"] == "dwc" else "skip"
-    metrics = load(latest(job["wt"], build_prefix(TAGS[job["feature"]], job["model"],
-                                                  job["param"]), "report/feature_metrics.json"))
+    metrics = job_metrics(job)
     parts = ["✅" if res == "passed" else "❌"]
     if metrics:
         if metrics.get("rtlsim_vs_est") is not None:
@@ -86,37 +123,57 @@ def cell(job, state, notes):
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--variant", default="")
+    ap.add_argument("--sizes", default=None)
+    args = ap.parse_args()
+    sizes = args.sizes.split(",") if args.sizes else None
     state = load(os.path.join(LOGDIR, "campaign_state.json")) or {}
     notes = load(NOTES) or {}
-    jobs = build_queue()
+    jobs = build_queue(args.variant, sizes)
+    tiers = TIER1 + TIER2 + (TIER_TRANSFORMER if args.variant else [])
     lines = [
         "# Feature-test status (models x features)",
         "",
         f"Generated {datetime.datetime.now():%Y-%m-%d %H:%M} by `tools/status_table.py` from the "
-        "campaign results. Cells: result, rtlsim/estimate throughput ratio, (folding/DWC) own "
-        "estimate vs the committed folding's estimate, FIFO storage, padding DWCs, time of the "
-        "feature's step (FIFO sizing or folding; measured under load, not comparable to isolated "
-        "timings). ⏳ running, ⏸ not run yet, aborted = killed at the reboot deadline.",
+        "campaign results" + (f" (variant {args.variant})" if args.variant else "") + ". Cells: "
+        "result, rtlsim/estimate throughput ratio, (folding/DWC) own estimate vs the committed "
+        "folding's estimate, FIFO storage, padding DWCs, time of the feature's step (measured under "
+        "load). With sizes, a cell lists the small folding first, then the full one. ⏳ running, "
+        "⏸ not run yet, blocked = its small run failed. FIFO-aware folding (optional, "
+        "`enable_folding_fifo_heuristic`) at the reference target: folding time, throughput, final "
+        "FIFO size, each vs the plain optimizer folding.",
         "",
         "| model (board) | est. fps (committed) | FIFO analytical | Folding target | "
-        "Folding maximize | DWC | FIFO rtlsim | Notes |",
-        "|---|---|---|---|---|---|---|---|",
+        "Folding maximize | DWC | FIFO-aware: time | FIFO-aware: throughput | "
+        "FIFO-aware: FIFO size | FIFO rtlsim | Notes |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
-    for mdir, stem, params in TIER1 + TIER2:
+    for mdir, stem, params in tiers:
         for p, *_ in params:
             board, model = split_param(p)
             row = f"{model or mdir} ({board})"
             mtag = f"{mdir}_{model}" if mdir in MULTI else mdir
             est = None
             for wt in ("fifo", "folding", "dwc"):
-                est = est or load(latest(wt, f"est_{mtag}_{board}_",
+                est = est or load(latest(wt + args.variant, f"est_{mtag}_{board}_",
                                          "report/estimate_network_performance.json"))
             est_s = "%.1f" % est["estimated_throughput_fps"] if est else "-"
+
+            def of(feature, size=None):
+                return [j for j in jobs if j["feature"] == feature and j["model"] == mdir
+                        and j["param"] == p and (size is None or j.get("size") == size)]
+
             cells = []
-            for col in COLS:
-                job = next(j for j in jobs if j["feature"] == col and j["model"] == mdir
-                           and j["param"] == p)
-                cells.append(cell(job, state, notes))
+            for col in ["fifo", "fold-target", "fold-max", "dwc"]:
+                cells.append(" / ".join(cell(j, state, notes) for j in of(col)) or "-")
+            fifo_aware = of("fold-fifo")
+            plain = of("fold-target", "full") or of("fold-target")
+            if fifo_aware:
+                cells += fifo_aware_cells(fifo_aware[0], plain[0] if plain else None, state, notes)
+            else:
+                cells += ["-", "-", "-"]
+            cells.append(" / ".join(cell(j, state, notes) for j in of("fifo-rtlsim")) or "-")
             lines.append(f"| {row} | {est_s} | " + " | ".join(cells) +
                          f" | {notes.get(row, '')} |")
     lines.append("")
