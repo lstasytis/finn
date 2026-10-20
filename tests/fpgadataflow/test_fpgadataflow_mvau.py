@@ -52,6 +52,7 @@ from finn.core.rtlsim_exec import rtlsim_exec
 from finn.transformation.fpgadataflow.compile_cppsim import CompileCppSim
 from finn.transformation.fpgadataflow.create_stitched_ip import CreateStitchedIP
 from finn.transformation.fpgadataflow.hlssynth_ip import HLSSynthIP
+from finn.transformation.fpgadataflow.insert_fifo import InsertFIFO
 from finn.transformation.fpgadataflow.minimize_accumulator_width import (
     MinimizeAccumulatorWidth,
 )
@@ -981,6 +982,87 @@ def test_fpgadataflow_mvau_tiled_exp_cycles_rtlsim(mw, mh, simd, pe, th, n_vec):
     cycles_per_frame = (stitched_rtlsim_cycles(5) - stitched_rtlsim_cycles(1)) / 4
     exp_cycles = getCustomOp(model.graph.node[0]).get_exp_cycles()
     assert np.isclose(exp_cycles, cycles_per_frame, rtol=0.02, atol=2)
+
+
+@pytest.mark.parametrize(
+    "idt_wdt", [[DataType["UINT4"], DataType["INT4"]], [DataType["UINT8"], DataType["INT8"]]]
+)
+@pytest.mark.parametrize("part", ["xczu7ev-ffvc1156-2-e", "xcvc1902-vsva2197-2MP-e-S"])
+@pytest.mark.fpgadataflow
+@pytest.mark.slow
+@pytest.mark.vivado
+def test_fpgadataflow_rtl_mvau_output_backpressure(idt_wdt, part):
+    """MVAU_rtl at SF=1 (SIMD=MW, one result per cycle) feeding an MVAU_hls that reads
+    its input in bursts of SF cycles followed by long stalls (it replays its input
+    buffer for the other NF-1 neuron folds). On every stall the MVU's output queue must
+    absorb all results still in the compute pipeline; an undersized queue silently loses
+    or corrupts outputs. Non-power-of-two SIMD; DSP48E2, DSP58 INT8 and DSP58 generic
+    (4-bit) cores."""
+    idt, wdt = idt_wdt
+    clk_ns = 4
+    mw0, mh0, mh1 = 24, 32, 16
+    ofm_h, ofm_w = 8, 8
+    # second layer: small weights, keeps all values exact in float32 (< 2**24)
+    wdt1 = DataType["INT2"]
+    W0 = gen_finn_dt_tensor(wdt, (mw0, mh0))
+    W1 = gen_finn_dt_tensor(wdt1, (mh0, mh1))
+    ifm = helper.make_tensor_value_info("ifm", TensorProto.FLOAT, [1, ofm_h, ofm_w, mw0])
+    mid = helper.make_tensor_value_info("mid", TensorProto.FLOAT, [1, ofm_h, ofm_w, mh0])
+    ofm = helper.make_tensor_value_info("ofm", TensorProto.FLOAT, [1, ofm_h, ofm_w, mh1])
+    graph = helper.make_graph(
+        nodes=[
+            helper.make_node("MatMul", ["ifm", "W0"], ["mid"]),
+            helper.make_node("MatMul", ["mid", "W1"], ["ofm"]),
+        ],
+        name="matmul_graph",
+        inputs=[ifm],
+        outputs=[ofm],
+        value_info=[mid],
+    )
+    model = ModelWrapper(qonnx_make_model(graph, producer_name="mvau-backpressure"))
+    model.set_tensor_datatype("ifm", idt)
+    model.set_tensor_datatype("W0", wdt)
+    model.set_tensor_datatype("W1", wdt1)
+    model.set_tensor_datatype("mid", DataType["INT32"])
+    model.set_tensor_datatype("ofm", DataType["INT32"])
+    model.set_initializer("W0", W0)
+    model.set_initializer("W1", W1)
+    model = model.transform(GiveUniqueNodeNames())
+    model = model.transform(GiveReadableTensorNames())
+    # activations in [0, 15] for both input datatypes, for the same reason
+    x = np.random.randint(0, 16, (1, ofm_h, ofm_w, mw0)).astype(np.float32)
+    y_expected = np.matmul(np.matmul(x, W0), W1)
+
+    model = model.transform(to_hw.InferQuantizedMatrixVectorActivation())
+    model = model.transform(GiveUniqueNodeNames())
+    getCustomOp(model.graph.node[0]).set_nodeattr("preferred_impl_style", "rtl")
+    getCustomOp(model.graph.node[1]).set_nodeattr("preferred_impl_style", "hls")
+    model = model.transform(SpecializeLayers(part))
+    model = model.transform(GiveUniqueNodeNames())
+    assert [n.op_type for n in model.graph.node] == ["MVAU_rtl", "MVAU_hls"]
+    folding_config = {
+        "Defaults": {},
+        # SF = 1, NF = 32: one output word per cycle
+        "MVAU_rtl_0": {"PE": 1, "SIMD": mw0, "resType": "dsp", "mem_mode": "internal_decoupled"},
+        # SF = 32, NF = 16: reads 32 words in 32 cycles, then stalls for 15 * 32 cycles
+        "MVAU_hls_1": {"PE": 1, "SIMD": 1, "mem_mode": "internal_decoupled"},
+    }
+    model = model.transform(ApplyConfig(folding_config))
+    model = model.transform(MinimizeWeightBitWidth())
+    model = model.transform(MinimizeAccumulatorWidth())
+    model = model.transform(InferDataTypes())
+
+    model = model.transform(InsertFIFO(create_shallow_fifos=True))
+    model = model.transform(SpecializeLayers(part))
+    model = model.transform(GiveUniqueNodeNames())
+    model = model.transform(PrepareIP(part, clk_ns))
+    model = model.transform(HLSSynthIP())
+    model = model.transform(CreateStitchedIP(part, clk_ns))
+    model.set_metadata_prop("exec_mode", "rtlsim")
+    y_produced = oxe.execute_onnx(model, {model.graph.input[0].name: x})[model.graph.output[0].name]
+    assert (
+        y_produced.reshape(y_expected.shape) == y_expected
+    ).all(), "stitched-IP rtlsim of MVAU_rtl under output backpressure failed"
 
 
 @pytest.mark.parametrize("mh", [32])
