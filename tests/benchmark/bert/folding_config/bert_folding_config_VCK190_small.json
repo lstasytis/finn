@@ -76,7 +76,7 @@
     "SIMD": 1
   },
   "Shuffle_2": {
-    "SIMD": 64
+    "SIMD": 1
   },
   "Shuffle_3": {
     "SIMD": 1

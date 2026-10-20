@@ -122,13 +122,13 @@
     "depth_trigger_bram": 0
   },
   "StreamingSplit_hls_0": {
-    "SIMD": 2
+    "SIMD": 1
   },
   "StreamingSplit_hls_1": {
-    "SIMD": 2
+    "SIMD": 1
   },
   "StreamingSplit_hls_2": {
-    "SIMD": 2
+    "SIMD": 1
   },
   "Shuffle_4": {
     "SIMD": 1
@@ -248,7 +248,7 @@
     "runtime_writeable_weights": 0
   },
   "StreamingConcat_hls_0": {
-    "SIMD": 2
+    "SIMD": 1
   },
   "Thresholding_rtl_11": {
     "PE": 1,
