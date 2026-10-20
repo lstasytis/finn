@@ -704,3 +704,38 @@ def test_set_folding_no_embedded_uram_off_versal(part):
     offered = meta.possible_values if meta is not None else []
     if part.startswith("xczu"):
         assert "ultra" not in offered
+
+
+@pytest.mark.parametrize("style", ["naive", "optimizer"])
+@pytest.mark.fpgadataflow
+def test_set_folding_split_concat_simd(style):
+    # Split into four streams of 8 channels and Concat them again: both fold SIMD,
+    # to a value dividing every stream's channel count
+    ishape, chans = [1, 64, 32], [8, 8, 8, 8]
+    inp = helper.make_tensor_value_info("inp", TensorProto.FLOAT, ishape)
+    outp = helper.make_tensor_value_info("outp", TensorProto.FLOAT, ishape)
+    parts = ["s%d" % i for i in range(len(chans))]
+    nodes = [
+        helper.make_node("Split", ["inp", "split"], parts, axis=-1),
+        helper.make_node("Concat", parts, ["outp"], axis=-1),
+    ]
+    vi = [helper.make_tensor_value_info(p, TensorProto.FLOAT, [1, 64, 8]) for p in parts]
+    graph = helper.make_graph(nodes, "split_concat", [inp], [outp], value_info=vi)
+    model = ModelWrapper(qonnx_make_model(graph))
+    model.set_initializer("split", np.array(chans, dtype=np.int64))
+    for t in ["inp", "outp"] + parts:
+        model.set_tensor_datatype(t, DataType["INT8"])
+    model = model.transform(to_hw.InferSplitLayer())
+    model = model.transform(to_hw.InferConcatLayer())
+    model = model.transform(SpecializeLayers("xczu7ev-ffvc1156-2-e"))
+    model = model.transform(GiveUniqueNodeNames())
+    assert [n.op_type for n in model.graph.node] == ["StreamingSplit_hls", "StreamingConcat_hls"]
+    target = min(getCustomOp(n).get_exp_cycles() for n in model.graph.node) // 4
+    model = model.transform(
+        SetFolding(target_cycles_per_frame=target, two_pass_relaxation=False, style=style)
+    )
+    for node in model.graph.node:
+        inst = getCustomOp(node)
+        simd = inst.get_nodeattr("SIMD")
+        assert simd > 1 and 8 % simd == 0, f"{node.name}: SIMD={simd}"
+        assert inst.get_exp_cycles() <= target
