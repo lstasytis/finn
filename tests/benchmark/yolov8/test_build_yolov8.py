@@ -377,7 +377,7 @@ def test_yolov8_fifo_sizing(board, model, strategy, size):
 @pytest.mark.finn_examples
 @pytest.mark.folding
 @pytest.mark.parametrize("size", ["small", "full"])
-@pytest.mark.parametrize("mode", ["target", "maximize"])
+@pytest.mark.parametrize("mode", ["target", "maximize", "fifo-aware"])
 @pytest.mark.parametrize("board,model", FEATURE_BUILDS)
 def test_yolov8_folding(board, model, mode, size):
     small = size == "small"
@@ -387,6 +387,18 @@ def test_yolov8_folding(board, model, mode, size):
     if mode == "target":
         metrics = run_feature_build(
             small, board, model, "fold-target", target_fps=target_fps, **OPTIMIZER_FOLDING
+        )
+        assert metrics["est_fps"] >= target_fps
+    elif mode == "fifo-aware":
+        # optional, slower: the search scores foldings with FIFOs sized by the analytic sizer
+        metrics = run_feature_build(
+            small,
+            board,
+            model,
+            "fold-fifoaware",
+            target_fps=target_fps,
+            enable_folding_fifo_heuristic=True,
+            **OPTIMIZER_FOLDING,
         )
         assert metrics["est_fps"] >= target_fps
     else:

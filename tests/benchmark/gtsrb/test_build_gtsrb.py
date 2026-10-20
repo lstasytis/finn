@@ -370,7 +370,7 @@ def test_gtsrb_fifo_sizing(board, strategy, size):
 @pytest.mark.folding
 @pytest.mark.xdist_group("gtsrb")
 @pytest.mark.parametrize("size", ["small", "full"])
-@pytest.mark.parametrize("mode", ["target", "maximize"])
+@pytest.mark.parametrize("mode", ["target", "maximize", "fifo-aware"])
 @pytest.mark.parametrize("board", FEATURE_BUILDS)
 def test_gtsrb_folding(board, mode, size):
     small = size == "small"
@@ -380,6 +380,17 @@ def test_gtsrb_folding(board, mode, size):
     if mode == "target":
         metrics = run_feature_build(
             small, board, "fold-target", target_fps=target_fps, **OPTIMIZER_FOLDING
+        )
+        assert metrics["est_fps"] >= target_fps
+    elif mode == "fifo-aware":
+        # optional, slower: the search scores foldings with FIFOs sized by the analytic sizer
+        metrics = run_feature_build(
+            small,
+            board,
+            "fold-fifoaware",
+            target_fps=target_fps,
+            enable_folding_fifo_heuristic=True,
+            **OPTIMIZER_FOLDING,
         )
         assert metrics["est_fps"] >= target_fps
     else:
