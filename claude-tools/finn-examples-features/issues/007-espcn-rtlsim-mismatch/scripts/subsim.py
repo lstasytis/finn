@@ -140,11 +140,16 @@ for p in list(sub.model.metadata_props):
     sub.model.metadata_props.remove(p)
 
 # FIFO depth overrides: regenerate those FIFOs
+# SUBSIM_TAPS="FIFO,..." regenerates those FIFOs with the diagnostic tap (logs to <odir>/<name>.tap)
+taps = [t for t in os.environ.get("SUBSIM_TAPS", "").split(",") if t]
 regen = []
 for n in sub.graph.node:
-    if n.name in overrides:
+    if n.name in overrides or n.name in taps:
         inst = getCustomOp(n)
-        inst.set_nodeattr("depth", overrides[n.name])
+        if n.name in overrides:
+            inst.set_nodeattr("depth", overrides[n.name])
+        if n.name in taps:
+            inst.set_nodeattr("debug_log_path", os.path.abspath(os.path.join(odir, n.name + ".tap")))
         inst.set_nodeattr("code_gen_dir_ipgen", "")
         inst.set_nodeattr("ipgen_path", "")
         inst.set_nodeattr("ip_path", "")
@@ -153,7 +158,10 @@ for n in sub.graph.node:
 if os.environ.get("SUBSIM_BEHAV_MVU"):
     import shutil
 
+    _bl = os.environ["SUBSIM_BEHAV_MVU"].split(",")  # "1" = all, else node names
     for n in sub.get_nodes_by_op_type("MVAU_rtl"):
+        if _bl != ["1"] and n.name not in _bl:
+            continue
         inst = getCustomOp(n)
         src = inst.get_nodeattr("code_gen_dir_ipgen")
         dst = os.path.join(odir, "behav_" + n.name)

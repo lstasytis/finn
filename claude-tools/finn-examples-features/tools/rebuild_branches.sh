@@ -16,6 +16,7 @@ FOLD=feature/dev/set-folding-optimizer
 DWC=feature/dev/generalized-datawidthconverter
 PR=upstream/update/finn-examples
 HLS=feature/dev/hls-exp-cycles-overhead   # standalone fix of dev's HLS cycle estimates (issue 002)
+MVC=feature/dev/mvau-exp-cycles   # tiled MVAU exp cycles: upstream c15fb8a9a + group stalls (issue 009)
 # known-good merge of DWC + FIFO for the file git merges silently wrong (HANDOFF section 2)
 GOOD_DWC_FILE=${GOOD_DWC_FILE:-origin/dev-finnexamples-features}
 
@@ -46,10 +47,10 @@ check_dwc() {
 
 for t in "$@"; do
   case $t in
-    integ) wt=$M/build/wt/integ; br=dev-finnexamples-features; base=$DWC; extra="$FIFO $PR $HLS";;
-    fifo) wt=$M/build/wt/fifo$S; br=test$S/fifo; base=$FIFO; extra="$PR $HLS";;
-    folding) wt=$M/build/wt/folding$S; br=test$S/folding; base=$FOLD; extra="$PR $FIFO $HLS";;
-    dwc) wt=$M/build/wt/dwc$S; br=test$S/dwc; base=$DWC; extra="$PR $FIFO $HLS";;
+    integ) wt=$M/build/wt/integ; br=dev-finnexamples-features; base=$DWC; extra="$FIFO $PR $HLS $MVC";;
+    fifo) wt=$M/build/wt/fifo$S; br=test$S/fifo; base=$FIFO; extra="$PR $HLS $MVC";;
+    folding) wt=$M/build/wt/folding$S; br=test$S/folding; base=$FOLD; extra="$PR $FIFO $HLS $MVC";;
+    dwc) wt=$M/build/wt/dwc$S; br=test$S/dwc; base=$DWC; extra="$PR $FIFO $HLS $MVC";;
     *) echo "unknown $t"; exit 1;;
   esac
   [ -d $wt ] || git -C $M worktree add -q $wt -b $br $base

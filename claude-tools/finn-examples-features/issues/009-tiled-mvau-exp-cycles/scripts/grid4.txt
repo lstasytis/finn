@@ -1,0 +1,13 @@
+28 128 4 8 4 1,16 internal_decoupled INT8 INT8
+12 128 4 8 4 1,16 internal_decoupled INT8 INT8
+12 64 4 8 4 1,16 internal_decoupled INT8 INT8
+48 6 12 1 12 1,24 internal_decoupled INT8 INT8
+14 8 7 1 7 1,14 internal_decoupled INT8 INT8
+36 4 9 1 9 1,18 internal_decoupled INT8 INT8
+12 16 6 1 6 1,12 internal_decoupled INT8 INT8
+10 6 5 1 5 1,10 internal_decoupled INT8 INT8
+13 2 13 1 13 1,26 internal_decoupled INT8 INT8
+32 18 1 9 3 1,18 internal_decoupled INT4 INT4
+64 18 1 9 9 1,18 internal_decoupled INT4 INT4
+16 16 2 4 4 1,16 internal_decoupled INT8 INT8
+4 128 4 8 4 1,16 internal_decoupled INT8 INT8

@@ -1,0 +1,14 @@
+384 384 24 16 8 1,128 internal_decoupled INT8 INT8 3
+384 384 24 16 4 1,128 internal_decoupled INT8 INT8 3
+384 1536 48 32 8 1,128 internal_decoupled INT8 INT8 2
+1536 384 48 32 8 1,128 internal_decoupled UINT8 INT8 2
+14 8 2 8 2 1,8 internal_decoupled INT8 INT8
+6 8 2 8 2 1,8 internal_decoupled INT8 INT8
+6 16 2 8 2 1,8 internal_decoupled INT8 INT8
+14 16 2 8 2 1,8 internal_decoupled INT8 INT8
+28 16 4 8 4 1,16 internal_decoupled INT8 INT8
+24 32 3 8 8 1,16 internal_decoupled INT8 INT8
+60 32 4 8 4 1,8 internal_decoupled INT8 INT8
+30 16 2 8 2 1,8 external_mem INT8 INT8
+30 16 2 8 2 1,8 dynamic INT8 INT8
+32 32 8 8 1 1,8 dynamic INT8 INT8

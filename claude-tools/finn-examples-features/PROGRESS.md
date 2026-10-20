@@ -121,3 +121,11 @@ the force push. `test/*` and `fix/*` branches are local working branches, no nee
   big-model folding/DWC jobs, then the rest; bert held for issue 009 (tiled MVAU exp cycles, fix
   agent running), espcn FIFO/fold-target held for issue 007 (fix agent running). Old-base jobs that
   were running were adopted and finish on the old base.
+* Fix 009 (tiled MVAU exp cycles) landed: new `feature/dev/mvau-exp-cycles` (upstream c15fb8a9a + group
+  stalls, for dev); FIFO branch fast-forwarded to `fix/009-fifo` (tree model uses the shared stall);
+  merged into integration + test2/*; bert estimate = rtlsim (98304, was 4x). bert v2 jobs released.
+* Fix: optimizer offered URAM for internal_embedded constants off Versal (transformer_vision ZCU104),
+  `57594bf0c` on the folding branch, propagated.
+* Open: transformer_benchmark rtlsim 0.965x estimate (identical interval for two foldings: MVAU_rtl
+  SIMD=PE=1 per-vector overhead?), sent to the 009 agent; old-base bert fold-target deadlocked in
+  stitched-IP rtlsim (rerun on v2 with the new estimates); issue 007 tapped sims running.

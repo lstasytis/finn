@@ -21,5 +21,8 @@ PY
 if [ -f $L/runner.pid ] && kill -0 $(cat $L/runner.pid) 2>/dev/null; then
   kill $(cat $L/runner.pid); sleep 3
 fi
-cd $L && (setsid nohup python3 $T/run_campaign.py --max-threads $BUDGET --deadline $DEADLINE >> runner.log 2>&1 < /dev/null &)
+# the current runner's arguments (one per line in runner.args: no shell quoting needed)
+if [ -f $L/runner.args ]; then mapfile -t ARGS < <(tr ' ' '\n' < $L/runner.args | grep -v '^$')
+else ARGS=(--max-threads $BUDGET --deadline $DEADLINE); fi
+cd $L && (setsid nohup python3 $T/run_campaign.py "${ARGS[@]}" >> runner.log 2>&1 < /dev/null &)
 sleep 5; echo "runner pid $(cat $L/runner.pid)"
