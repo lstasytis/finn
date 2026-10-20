@@ -421,8 +421,9 @@ class Optimizer:
     def compute_hls_dwc_cost(self, model, nodes, lut_capacity):
         """DWC-avoidance heuristic: for each node whose input stream shape differs from its
         producer's, the stream widths around the DWC InsertDWC will place there, relative to
-        the LUT budget, and HLS_DWC_COST_PENALTY times that for a DWC the RTL one cannot do
-        (non-integer width ratio or padding/cropping)."""
+        the LUT budget, and HLS_DWC_COST_PENALTY times that for a non-integer width ratio.
+        Padding/cropping is not penalized beyond its widths: the RTL DWC does it, and its
+        slower pace is in dwc_cycles."""
         cost = 0
         for node in nodes:
             prod = model.find_producer(node.onnx_node.input[0])
@@ -445,9 +446,7 @@ class Optimizer:
                 n1_in = node.get_folded_input_shape()
             if np.prod(n0_out) == np.prod(n1_in) and n0_out[-1] == n1_in[-1]:
                 continue
-            hls = (max(in_width, out_width) % min(in_width, out_width) != 0) or (
-                np.prod(n0_out) != np.prod(n1_in)
-            )
+            hls = max(in_width, out_width) % min(in_width, out_width) != 0
             penalty = self.HLS_DWC_COST_PENALTY if hls else 1
             cost += ((in_width + out_width) * penalty) / lut_capacity
         return cost
@@ -991,8 +990,6 @@ class Optimizer:
         consumer = self.model.find_consumer(swg_node.output[0])
         consumer_index = list(self.model.graph.node).index(consumer)
         swg, consumer_inst = getCustomOp(swg_node), getCustomOp(consumer)
-        if self._xnor_mode(consumer_inst):
-            max_padding = 0  # the SWG's channel count is the XNOR MVAU's input width
         rules = {
             f"{op}_{backend}": rule
             for op, rule in (
@@ -1040,7 +1037,8 @@ class Optimizer:
         Channel counts go in ascending order and values are de-duplicated by their folding
         factors, so the padded space is a superset of the unpadded one."""
         ifm_real = swg.get_nodeattr("IFMChannels")
-        _, ifm_values = allowed_divisors(ifm_real, max_padding)
+        # the SWG's channel count is the MVAU's input width, which XNOR mode must not pad
+        _, ifm_values = allowed_divisors(ifm_real, 0 if self._xnor_mode(mvau) else max_padding)
         kernel_size = int(np.prod(swg.get_nodeattr("ConvKernelDim")))
         weight_bits = mvau.get_input_datatype(1).bitwidth()
         values, real_values, seen_factors = [], [], []
@@ -1066,11 +1064,11 @@ class Optimizer:
                     simd = self._param(mvau, consumer_index, "SIMD", mvau_simd, ("MW", mw), True)
                     swg_params = self._swg_params(swg, node_index, swg_simd, ifm, parallel_window)
                     real_values.append(swg_params + [simd])
-        # a conv MVAU's MH is never padded
-        mh = mvau.get_nodeattr("MH")
-        pe_values = list(divisors(mh))
+        # the PE over the (padded) output channels, as for a dense MVAU
+        pe_values, mh_values = allowed_divisors(mvau.get_nodeattr("MH"), max_padding)
         pe_real_values = [
-            [self._param(mvau, consumer_index, "PE", pe, ("MH", mh), True)] for pe in pe_values
+            [self._param(mvau, consumer_index, "PE", pe, ("MH", mh), True)]
+            for pe, mh in zip(pe_values, mh_values)
         ]
         return [
             MetaParameter("SIMD", values, real_values, node_index),
@@ -1279,6 +1277,8 @@ class SetFolding(Transformation):
     RESOURCE_PARTITION_SIZE = 8
     # whole-graph evaluations the polish may spend per folding parameter
     POLISH_EVALS_PER_PARAMETER = 6
+    # slower values per folding parameter the tighten pass scores on the whole graph
+    TIGHTEN_CANDIDATES = 3
 
     def __post_init__(self):
         super().__init__()
@@ -1612,10 +1612,11 @@ class SetFolding(Transformation):
         """The better of two foldings for ``target`` (``None``: no cycle limit).
 
         ``b`` is the wider (padded) search's result and replaces ``a`` only when it is no
-        worse on every count: a solution beats a non-solution; among solutions the faster
-        one wins in maximize mode, otherwise ``b`` must be no costlier in both peak
-        utilization and weighted cost (and cheaper in one). Among non-solutions the faster
-        one within budget wins, else the cheaper one."""
+        worse: a solution beats a non-solution; among solutions the faster one wins in
+        maximize mode, otherwise the one of lower weighted cost (the search's objective; a
+        padded folding typically trades a few BRAMs of zero-padded weights for many LUTs),
+        on a tie the one of lower peak utilization. Among non-solutions the faster one
+        within budget wins, else the cheaper one."""
         if a is None or b is None:
             return a if b is None else b
         a_ok = a.fits and (target is None or a.achieved <= target)
@@ -1630,10 +1631,11 @@ class SetFolding(Transformation):
             return b if b_key < a_key else a
         if maximize and a.achieved != b.achieved:
             return b if b.achieved < a.achieved else a
+        if a.cost != b.cost:
+            return b if b.cost < a.cost else a
         a_util = self._utilization(a.metrics, self._budgets)
         b_util = self._utilization(b.metrics, self._budgets)
-        no_worse = b_util <= a_util and b.cost <= a.cost
-        return b if no_worse and (b_util < a_util or b.cost < a.cost) else a
+        return b if b_util < a_util else a
 
     def _fold_at_best(self, opt_template, targets, target_cycles, maximize, unpadded=None):
         """Fold for ``target_cycles``; with padding the padded search starts from the
@@ -1797,12 +1799,16 @@ class SetFolding(Transformation):
         raises the folding of what bounds the cycles (a node, or both neighbours of a DWC)
         one step at a time -- the cheapest step meeting the target, else the fastest --
         until the target is met; it terminates since factors only grow and at full folding
-        no DWC is slower than its neighbours. *Polish* then lowers folding factors one step
-        at a time where that keeps the target (and the budget, if met) and does not raise
-        the cost, within POLISH_EVALS_PER_PARAMETER evaluations per parameter. Every step
-        is scored like the verdict, but per node and edge (``_local_scorer``), and the
-        result once on the whole graph (``_score``). Leaves the model at the chosen values
-        and returns ``(cycles, resources, cost)``."""
+        no DWC is slower than its neighbours. *Tighten* moves each parameter straight to the
+        best of its slower values that keep its nodes within the target and cost less on
+        their own (``_slower_values``): with padding these lie between the divisors, often
+        many steps away in the value order, which the annealer seldom samples. *Polish*
+        lowers folding factors one step at a time, before and (if tighten moved) after
+        tighten. Tighten and polish keep the target (and the budget, if met) and never raise
+        the cost; a polish spends at most POLISH_EVALS_PER_PARAMETER evaluations per
+        parameter. Every step is scored like the verdict, but per node and edge
+        (``_local_scorer``), and the result once on the whole graph (``_score``). Leaves
+        the model at the chosen values and returns ``(cycles, resources, cost)``."""
         params = opt.params.parameters
         opt.params.add_all_params_to_index_list()
         folding = [i for i, p in enumerate(params) if p.name in ("SIMD", "PE")]
@@ -1854,30 +1860,74 @@ class SetFolding(Transformation):
                     results, key=lambda r: (r[2], r[4])
                 )
 
-        fits = self._fits(metrics, targets)  # polish
         limit = max(target_cycles, achieved)
-        budget = self.POLISH_EVALS_PER_PARAMETER * len(folding)
-        improved = True
-        while improved and budget > 0:
-            improved = False
-            for i in folding:
-                moved = step(values, i, -1)
-                if moved is None:
-                    continue
-                budget -= 1
-                r = evaluate(moved)
-                if r[1] <= limit and (self._fits(r[2], targets) or not fits) and r[3] <= cost:
-                    values, bottleneck, achieved, metrics, cost = (moved, *r)
-                    fits = self._fits(metrics, targets)
-                    improved = True
-                if budget <= 0:
+        state = [values, bottleneck, achieved, metrics, cost]
+
+        def accept(moved, r):
+            """Move to ``moved`` (scored ``r``) if it keeps the target (and the budget, if
+            met) and does not raise the cost."""
+            fits = self._fits(state[3], targets)
+            if r[1] <= limit and (self._fits(r[2], targets) or not fits) and r[3] <= state[4]:
+                state[:] = [moved, *r]
+                return True
+            return False
+
+        def polish(budget):
+            improved = True
+            while improved and budget > 0:
+                improved = False
+                for i in folding:
+                    moved = step(state[0], i, -1)
+                    if moved is None:
+                        continue
+                    budget -= 1
+                    improved = accept(moved, evaluate(moved)) or improved
+                    if budget <= 0:
+                        break
+
+        polish(self.POLISH_EVALS_PER_PARAMETER * len(folding))
+        tightened = False
+        for i in folding:  # tighten
+            scored = [(m, evaluate(m)) for m in self._slower_values(opt, state[0], i, limit)]
+            for moved, r in sorted(scored, key=lambda mr: mr[1][3]):
+                if r[3] < state[4] and accept(moved, r):
+                    tightened = True
                     break
+        if tightened:
+            polish(self.POLISH_EVALS_PER_PARAMETER * len(folding))
+        values, bottleneck, achieved, metrics, cost = state
 
         if local is not None:
             _, achieved, metrics, cost = evaluate(values, whole=True)
         opt.params.set_values(values)
         opt.params.apply_updates(final=True, attrs=opt.PARAMETERS_TO_APPLY)
         return achieved, metrics, cost
+
+    def _slower_values(self, opt, values, i, limit):
+        """Meta values for parameter ``i`` (the others at ``values``) under which its nodes
+        are slower than now but within ``limit`` cycles and cost less on their own, the
+        TIGHTEN_CANDIDATES cheapest of them. Leaves the parameter at ``values[i]``."""
+        p = opt.params.parameters[i]
+
+        def at(value):
+            p.update_value(value)
+            p.apply_value(attrs=opt.PARAMETERS_TO_APPLY)
+            cycles = max(opt.exp_cycles(n) for n in p.unique_nodes)
+            return cycles, opt.resource_cost(opt.get_resources(p.unique_nodes))
+
+        now_cycles, now_cost = at(values[i])
+        found = []
+        for value in p.possible_values:
+            if value != values[i]:
+                cycles, node_cost = at(value)
+                if now_cycles < cycles <= limit and node_cost < now_cost:
+                    found.append((node_cost, -cycles, value))
+        at(values[i])
+        found.sort(key=lambda c: c[:2])
+        return [
+            [value if j == i else v for j, v in enumerate(values)]
+            for _, _, value in found[: self.TIGHTEN_CANDIDATES]
+        ]
 
     # ------------------------------------------------------------------ verdict
 
