@@ -3,9 +3,17 @@
 You are a fresh agent with no prior context. Work autonomously; write `REPORT.md` next to this
 file when done (if writing the file is refused, put its full text into your final answer).
 
-**Hard deadline:** the machine reboots at ~20:00 on 2026-10-19 (container clock, `date`). Stop
-all your processes by 18:45, commit work in progress (`WIP:` message) and write `REPORT.md` by
-19:00 (state, findings, what is left, how to resume).
+**Session 2 (2026-10-20): resume.** A first agent worked on this on 2026-10-19 and stopped at the
+reboot; its findings and "How to resume" are in `REPORT.md` next to this file (read it right after
+the reading list; don't redo what it ruled out). Its worktree `build/wt/fix007` and stitched projects
+`/home/lstasytis/finn/build/finn_build/fx/fix007/` survived. Its session scratchpad (incl.
+`ctx_hw.npz`) is under `/home/lstasytis/finn/build/home_backup/scratchpad/` (or regenerate with
+`pyexec.py`). No deadline, but budget ~8 h of wall clock; long rtlsims run in the background
+(`setsid nohup`, record PIDs, the process writes its own PID file). Append a "Session 2" section to
+`REPORT.md` (keep session 1's text) and update the Q3 conclusion.
+The feature-test campaign runs alongside (large models, up to ~160 threads, ~600 GB reserved):
+**at most 16 threads, and start no job while MemAvailable < 200 GB**; disk is 96 % full, keep
+your build output small and delete your own scratch projects when done.
 
 ## Reading list
 1. `/home/lstasytis/finn/claude-tools/finn-examples-features/GENERAL.md` (read first)

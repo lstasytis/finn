@@ -1,6 +1,6 @@
 """Feature-test campaign scheduler (tooling, not part of any PR).
 
-    python run_campaign.py [--plan] [--only REGEX] [--deadline HH:MM] [--max-threads N]
+    python run_campaign.py [--plan] [--only REGEX] [--deadline HH:MM|YYYY-MM-DDTHH:MM|none] [--max-threads N]
 
 Runs every (test branch worktree, pytest node id) job of the queue below as its own pytest
 process, in queue order, while
@@ -19,6 +19,7 @@ import datetime
 import json
 import os
 import re
+import shutil
 import signal
 import subprocess
 import sys
@@ -96,12 +97,20 @@ def junit_result(xml):
     return "passed"
 
 
-def mem_available():
+def meminfo(key):
     with open("/proc/meminfo") as f:
         for line in f:
-            if line.startswith("MemAvailable"):
+            if line.startswith(key + ":"):
                 return int(line.split()[1]) * 1024
     return 0
+
+
+def mem_available():
+    return meminfo("MemAvailable")
+
+
+def mem_total():
+    return meminfo("MemTotal")
 
 
 def kill_tree(pid, sig=signal.SIGKILL):
@@ -181,8 +190,13 @@ def main():
         for j in jobs:
             print(j["id"], j["node"], junit_result(os.path.join(LOGDIR, j["id"] + ".xml")))
         return
-    hh, mm = map(int, args.deadline.split(":"))
-    deadline = datetime.datetime.now().replace(hour=hh, minute=mm, second=0)
+    if args.deadline == "none":
+        deadline = datetime.datetime.max
+    elif "T" in args.deadline:
+        deadline = datetime.datetime.fromisoformat(args.deadline)
+    else:
+        hh, mm = map(int, args.deadline.split(":"))
+        deadline = datetime.datetime.now().replace(hour=hh, minute=mm, second=0)
     others = os.getloadavg()[0]
     budget = args.max_threads or int(102 - others)
     print(f"budget {budget} threads (others' load {others:.0f}), deadline {deadline}", flush=True)
@@ -257,6 +271,12 @@ def main():
             if used + need > budget or os.getloadavg()[0] > 102:
                 break
             if mem_available() - job["mem"] * GIB < 151 * GIB:
+                break
+            # reservations too: young jobs have not reached their peak yet
+            reserved = sum(j["mem"] for j, _, _ in running.values()) + job["mem"]
+            if reserved * GIB > mem_total() - 151 * GIB:
+                break
+            if shutil.disk_usage(M).free < 60 * GIB:
                 break
             proc = launch(job)
             running[job["id"]] = (job, proc, time.time())

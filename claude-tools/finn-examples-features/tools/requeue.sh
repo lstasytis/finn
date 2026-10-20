@@ -5,7 +5,7 @@ set -e
 L=/home/lstasytis/finn/build/finn_build/fx/logs/campaign
 T=/home/lstasytis/finn/claude-tools/finn-examples-features/tools
 BUDGET=${BUDGET:-160}
-DEADLINE=${DEADLINE:-19:10}
+DEADLINE=${DEADLINE:-none}
 mkdir -p $L/superseded
 for j in "$@"; do
   for ext in xml log; do [ -f $L/$j.$ext ] && mv $L/$j.$ext $L/superseded/$j.$(date +%H%M).$ext; done
