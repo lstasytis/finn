@@ -34,7 +34,7 @@
     "SIMD": 4
   },
   "ConvolutionInputGenerator_rtl_2": {
-    "SIMD": 4,
+    "SIMD": 16,
     "parallel_window": 0,
     "ram_style": "distributed"
   },
@@ -64,7 +64,7 @@
     "SIMD": 4
   },
   "ConvolutionInputGenerator_rtl_4": {
-    "SIMD": 4,
+    "SIMD": 16,
     "parallel_window": 0,
     "ram_style": "distributed"
   },
@@ -94,7 +94,7 @@
     "SIMD": 4
   },
   "ConvolutionInputGenerator_rtl_6": {
-    "SIMD": 4,
+    "SIMD": 16,
     "parallel_window": 0,
     "ram_style": "distributed"
   },
@@ -124,7 +124,7 @@
     "SIMD": 4
   },
   "ConvolutionInputGenerator_rtl_8": {
-    "SIMD": 4,
+    "SIMD": 16,
     "parallel_window": 0,
     "ram_style": "distributed"
   },
@@ -154,7 +154,7 @@
     "SIMD": 4
   },
   "ConvolutionInputGenerator_rtl_10": {
-    "SIMD": 4,
+    "SIMD": 8,
     "parallel_window": 0,
     "ram_style": "distributed"
   },
@@ -184,7 +184,7 @@
     "SIMD": 4
   },
   "ConvolutionInputGenerator_rtl_12": {
-    "SIMD": 4,
+    "SIMD": 8,
     "parallel_window": 0,
     "ram_style": "distributed"
   },

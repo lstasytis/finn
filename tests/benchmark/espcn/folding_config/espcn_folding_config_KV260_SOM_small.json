@@ -73,7 +73,7 @@
     "SIMD": 1
   },
   "ConvolutionInputGenerator_rtl_3": {
-    "SIMD": 4,
+    "SIMD": 16,
     "parallel_window": 0,
     "ram_style": "distributed"
   },
