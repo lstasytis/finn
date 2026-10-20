@@ -22,15 +22,15 @@ from finn.transformation.fpgadataflow.prepare_ip import PrepareIP
 from finn.transformation.fpgadataflow.set_fifo_depths import xsi_fifosim
 from finn.transformation.fpgadataflow.specialize_layers import SpecializeLayers
 
-PART = "xcvc1902-vsva2197-2MP-e-S"
-CLK = 5.0
+PART = os.environ.get("SWEEP_PART", "xcvc1902-vsva2197-2MP-e-S")
+CLK = float(os.environ.get("SWEEP_CLK", "5.0"))
 a = sys.argv[1:]
 mw, mh, simd, pe, th = map(int, a[:5])
 niv = [int(x) for x in a[5].split(",")]
 mem = a[6]
 idt, wdt = DataType[a[7]], DataType[a[8]]
 nfr = int(a[9]) if len(a) > 9 else 4
-tag = "_".join(a[:9]).replace(",", "x")
+tag = "_".join(a[:9]).replace(",", "x") + os.environ.get("SWEEP_TAG", "")
 
 W = gen_finn_dt_tensor(wdt, (mw, mh))
 inp = helper.make_tensor_value_info("inp", TensorProto.FLOAT, niv + [mw])

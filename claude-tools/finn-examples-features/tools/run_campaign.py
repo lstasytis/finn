@@ -69,9 +69,26 @@ FEATURES = [
 LAST = [("fifo-rtlsim", "fifo", "fifo_sizing[{p}-heuristic_rtlsim]")]
 
 
-def build_queue(variant=""):
+def build_queue(variant="", sizes=None):
     """The jobs of one variant: "" (the 2026-10-19 base, worktrees fifo/folding/dwc) or e.g.
-    "2" (worktrees fifo2/..., job ids prefixed "v2__", plus the transformers)."""
+    "2" (worktrees fifo2/..., job ids prefixed "v2__", plus the transformers). With ``sizes``
+    (e.g. ["small", "full"]) every job exists per folding size (test id suffix "-<size>", job id
+    suffix "__small" for the small one); a full job runs only after its small sibling passed or
+    skipped ("after"), and all small jobs come first. Maximize has no small variant."""
+    if sizes:
+        base = build_queue(variant)
+        small = [
+            dict(j, id=j["id"] + "__small", node=j["node"][:-1] + "-small]", size="small")
+            for j in base
+            if "small" in sizes and j["feature"] != "fold-max"
+        ]
+        full = [
+            dict(j, node=j["node"][:-1] + "-full]", size="full",
+                 after=j["id"] + "__small" if j["feature"] != "fold-max" and "small" in sizes else None)
+            for j in base
+            if "full" in sizes
+        ]
+        return small + full
     jobs = []
     tier2 = TIER2 + (TIER_TRANSFORMER if variant else [])
     # small models first, but the large models' FIFO tests early: they need the most time;
@@ -185,6 +202,7 @@ def main():
     ap.add_argument("--rerun-failed", action="store_true")
     ap.add_argument("--variant", default="", help="queue this variant's jobs (e.g. 2)")
     ap.add_argument("--first", action="append", default=[], help="regex: run these first")
+    ap.add_argument("--sizes", default=None, help="e.g. small,full: per-size jobs (see build_queue)")
     args = ap.parse_args()
     os.makedirs(LOGDIR, exist_ok=True)
     pid_file = os.path.join(LOGDIR, "runner.pid")
@@ -196,9 +214,11 @@ def main():
     if not args.plan:
         with open(pid_file, "w") as f:
             f.write(str(os.getpid()))
-    jobs = build_queue(args.variant)
+    sizes = args.sizes.split(",") if args.sizes else None
+    jobs = build_queue(args.variant, sizes)
     # running jobs of any variant are adopted, so that their threads and memory count
     known = {j["id"]: j for v in dict.fromkeys(["", args.variant]) for j in build_queue(v)}
+    known.update({j["id"]: j for j in jobs})
     if args.only:
         jobs = [j for j in jobs if re.search(args.only, j["id"])]
     # priority groups in the order given, the rest after them (stable within a group)
@@ -286,6 +306,17 @@ def main():
         # launch
         used = sum(j["workers"] + 1 for j, _, _ in running.values())
         for job in list(pending):
+            dep = job.get("after")
+            if dep:
+                res = junit_result(os.path.join(LOGDIR, dep + ".xml"))
+                queued = dep in running or any(j["id"] == dep for j in pending)
+                if res is None and queued:
+                    continue  # the small sibling has not finished yet
+                if res not in (None, "passed", "skipped"):
+                    pending.remove(job)
+                    status[job["id"]] = dict(result="blocked", duration_s=0, by=dep)
+                    print(f"{now:%H:%M} blocked {job['id']} ({dep}: {res})", flush=True)
+                    continue
             need = job["workers"] + 1
             if used + need > budget or os.getloadavg()[0] > 102:
                 break

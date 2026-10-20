@@ -78,3 +78,21 @@ and document the value as a single-input latency, not a throughput interval.
 `test_set_folding.py` passed. `fix009-fifo`: the same plus
 `test_fpgadataflow_analytical_characterization_mvau_tiled` 10/10, tree-model decline/token tests. Lint
 clean. Scratch builds deleted (`fx/fix009` keeps the 8 MB MLO build).
+
+## Addendum (agent's final report)
+* Grid extended to 123 foldings (incl. transformer_benchmark's MVAUs on xczu7ev @ 10 ns): power-of-two TH
+  within 1 % (nearly all exact), others within 7 %.
+* **transformer_benchmark 0.965x is not an MVAU estimate problem.** MVAU_rtl MW32/MH32/SIMD1/PE1/[1,64]
+  internal_decoupled = 65536.0 cycles/frame exactly (also SIMD2, PE2, 4x4, [1,16], MW16; dynamic 8x64 and
+  64x8 = 32768 exact). Stitched graph of `fx/folding2/fold-target_transformer_..._e4ijhrzw` (3 frames):
+  original FIFOs 67895; all FIFOs 4096: 65536; only the residual `StreamingFIFO_rtl_9`
+  (Thresholding_rtl_1 -> ElementwiseAdd_hls_0, sized 1985 for a 2048-word frame) at 4096: **65536**;
+  enlarging any other group (Q/V 13-16/21-24, InnerShuffle in1 25-28, Split 17-20, FIFO_54): still
+  ~67900. The analytical sizer leaves the residual edge 63 words short of a frame, DuplicateStreams_hls_0
+  stalls, MVAU_rtl_0/1/2 starve each frame (+2359 cycles). FIFO-branch rule issue (residual/reconvergent
+  edge); handed to the issue-010 agent.
+* FINNLoop: bert's feature build has no FINNLoop (single unrolled encoder). For loops, the new upstream
+  formula is a serial-iteration latency; proposal: body latency = `max_cycles + fill` (sum of per-node
+  first-output latencies) instead of `critical_path_cycles`.
+* Scripts added: `node_sim.py` (graph with selected FIFOs enlarged: `SWEEP_FIFOS`, `SWEEP_MAXITERS`),
+  `grid5.txt`; `tiled_sweep.py` takes `SWEEP_PART`/`SWEEP_CLK`.
