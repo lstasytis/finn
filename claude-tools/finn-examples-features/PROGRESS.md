@@ -16,7 +16,7 @@ reboots at ~20:00, the campaign was stopped at 19:10. **Results table:
    rules) and `STATUS.md`.
 3. Worktrees survive in `build/wt/*` (repo volume). Re-run `tools/wtsetup.sh <wt>` if a symlink is
    missing. The session scratchpad (diagnostic data of the fix agents, e.g. issue 007's `ctx_hw.npz`)
-   was copied to `build/home_backup/scratchpad/`.
+   was copied to `build/home_backup/scratchpad/`; all of `/tmp/claude-1205` (incl. older sessions' scratch dirs) to `build/home_backup/tmp_claude-1205/` (removed from the container to make `restart.sh save` fit).
 4. Restart the campaign for what is left (aborted jobs are rerun; failed ones only with
    `--rerun-failed`; requeue single jobs with `tools/requeue.sh <job ids>`):
    ```
@@ -97,3 +97,27 @@ git push origin claude-tools
 ```
 (The DWC branch was rebased onto the new folding tip and the integration branch was rebuilt, hence
 the force push. `test/*` and `fix/*` branches are local working branches, no need to push.)
+
+## Session 2 (2026-10-20, after the reboot)
+
+* 10:48 campaign restarted (`--deadline none --max-threads 160 --only '^(?!(fifo|fold-target)__espcn)'`;
+  espcn FIFO/fold-target excluded while #007 is open). Requeued the 18 folding/DWC jobs of resnet18 x2,
+  yolov8 x2, bert, resnet50 that failed before fix #003 (old logs in `logs/campaign/superseded/*.1020.*`);
+  aborted jobs rerun automatically. Runner now also gates on summed memory reservations and on
+  >= 60 GB free disk (volume at 96 %).
+* Issue 007 (espcn) handed to a fix agent again (session 2 section in `ISSUE.md`).
+* Not requeued (no fix yet): mobilenet fold-max (0.85x) and DWC (0.976x), see #006 notes.
+* 11:20 user pulled upstream: `upstream/dev` +48 commits (#1729: SetFolding folds RTL elementwise,
+  Requant, HWSoftmax, generic Shuffle), `upstream/update/finn-examples` (#1725) + finn+ transformers
+  (`tests/benchmark/transformer/`, models + verification npys copied from the repo root into
+  `tests/benchmark/{models,verification_io}`), `upstream/fix/exp_cycles` (tiled MVAU + FINNLoop).
+* Fix 008 (folding speed, user: transformers must fold as fast as regular models, branches split
+  like chains): `issues/008-folding-speed/REPORT.md`; on `feature/dev/set-folding-optimizer`
+  (`4b09bdfd3`, Shuffle in the optimizer `81b625ae3`).
+* All PR branches merged with the new `upstream/dev`; integration branch = DWC + FIFO + HLS + new
+  #1725 + transformer feature tests (`4ed8cb505`); new test branches `test2/{fifo,folding,dwc}` in
+  worktrees `build/wt/{fifo2,folding2,dwc2}` (`SUFFIX=2 rebuild_branches.sh`).
+* Campaign variant 2 (`run_campaign.py --variant 2`, job ids `v2__*`): transformers first, then the
+  big-model folding/DWC jobs, then the rest; bert held for issue 009 (tiled MVAU exp cycles, fix
+  agent running), espcn FIFO/fold-target held for issue 007 (fix agent running). Old-base jobs that
+  were running were adopted and finish on the old base.

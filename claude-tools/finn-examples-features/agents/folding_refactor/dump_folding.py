@@ -247,6 +247,12 @@ def driver(args):
         json.dump(runs, f, indent=1)
     if args.exclude:
         runs = [r for r in runs if not re.search(args.exclude, "%s:%s" % (r[0], r[3]))]
+    if args.skip_done:
+        runs = [
+            r
+            for r in runs
+            if not os.path.isfile(os.path.join(args.out, "%s__%s__%s.json" % (r[0], r[1], r[3])))
+        ]
     # longest first: maximize/padded/fifo of the big models
     weight = {"maximize": 4, "padded": 3, "padio": 3, "fifo": 3, "attempts": 2, "naive": 0}
     runs.sort(key=lambda r: -weight.get(r[3], 1))
@@ -322,6 +328,7 @@ def main():
     )
     ap.add_argument("--runs-from", default=None, help="dump dir whose _runs.json to repeat")
     ap.add_argument("--exclude", default=None, help="regex on '<model>:<mode>' to skip")
+    ap.add_argument("--skip-done", action="store_true", help="skip runs with an output file")
     ap.add_argument("--jobs", type=int, default=14)
     ap.add_argument("--timeout", type=float, default=900)
     ap.add_argument("--cpus", default=None, help="taskset CPU list for the workers")

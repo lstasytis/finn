@@ -6,9 +6,11 @@
 # test/folding = folding branch + #1725 + FIFO branch + tests
 # test/dwc     = DWC branch (stacked on folding) + #1725 + FIFO branch + tests
 # Tests (tests/benchmark, setup.cfg) are copied from $TESTS_COMMIT, default: the integration
-# branch's tip before the rebuild.
+# branch's tip before the rebuild. SUFFIX=2 builds test2/<f> in build/wt/<f>2 (created if
+# missing), leaving test/<f> and its worktree to running jobs.
 set -e
 M=/home/lstasytis/finn
+S=${SUFFIX:-}
 FIFO=feature/dev/analytical-fifo-sizing
 FOLD=feature/dev/set-folding-optimizer
 DWC=feature/dev/generalized-datawidthconverter
@@ -45,11 +47,12 @@ check_dwc() {
 for t in "$@"; do
   case $t in
     integ) wt=$M/build/wt/integ; br=dev-finnexamples-features; base=$DWC; extra="$FIFO $PR $HLS";;
-    fifo) wt=$M/build/wt/fifo; br=test/fifo; base=$FIFO; extra="$PR $HLS";;
-    folding) wt=$M/build/wt/folding; br=test/folding; base=$FOLD; extra="$PR $FIFO $HLS";;
-    dwc) wt=$M/build/wt/dwc; br=test/dwc; base=$DWC; extra="$PR $FIFO $HLS";;
+    fifo) wt=$M/build/wt/fifo$S; br=test$S/fifo; base=$FIFO; extra="$PR $HLS";;
+    folding) wt=$M/build/wt/folding$S; br=test$S/folding; base=$FOLD; extra="$PR $FIFO $HLS";;
+    dwc) wt=$M/build/wt/dwc$S; br=test$S/dwc; base=$DWC; extra="$PR $FIFO $HLS";;
     *) echo "unknown $t"; exit 1;;
   esac
+  [ -d $wt ] || git -C $M worktree add -q $wt -b $br $base
   cd $wt
   # the tests are taken from the integration branch as it is before this rebuild
   tests=${TESTS_COMMIT:-$(git rev-parse dev-finnexamples-features)}

@@ -51,6 +51,13 @@ TIER2 = [
     ("bert", "bert", [("VCK190", 2, 8, 64)]),
     ("resnet50", "resnet50", [("V80", 2, 8, 64)]),
 ]
+# variant 2 (new upstream base) only: the finn+ transformers of upstream #1725
+TIER_TRANSFORMER = [
+    ("transformer", "transformer", [
+        ("ZCU104-transformer_benchmark", 1, 4, 8), ("ZCU104-transformer_radioml", 1, 4, 8),
+        ("ZCU104-transformer_vision", 2, 6, 24), ("VCK190-transformer_language", 2, 8, 48),
+    ]),
+]
 
 # (feature, worktree, test suffix template)
 FEATURES = [
@@ -62,12 +69,16 @@ FEATURES = [
 LAST = [("fifo-rtlsim", "fifo", "fifo_sizing[{p}-heuristic_rtlsim]")]
 
 
-def build_queue():
+def build_queue(variant=""):
+    """The jobs of one variant: "" (the 2026-10-19 base, worktrees fifo/folding/dwc) or e.g.
+    "2" (worktrees fifo2/..., job ids prefixed "v2__", plus the transformers)."""
     jobs = []
-    # small models first, but the large models' FIFO tests early: they need the most time
-    # before the reboot deadline; heuristic_rtlsim FIFO sizing last
-    order = [(FEATURES[:1], TIER1), (FEATURES[:1], TIER2), (FEATURES[1:], TIER1),
-             (FEATURES[1:], TIER2), (LAST, TIER1), (LAST, TIER2)]
+    tier2 = TIER2 + (TIER_TRANSFORMER if variant else [])
+    # small models first, but the large models' FIFO tests early: they need the most time;
+    # heuristic_rtlsim FIFO sizing last
+    order = [(FEATURES[:1], TIER1), (FEATURES[:1], tier2), (FEATURES[1:], TIER1),
+             (FEATURES[1:], tier2), (LAST, TIER1), (LAST, tier2)]
+    prefix = f"v{variant}__" if variant else ""
     for features, tier in order:
         for feat, wt, tmpl in features:
             for mdir, stem, params in tier:
@@ -76,8 +87,8 @@ def build_queue():
                     node = f"tests/benchmark/{mdir}/test_build_{mdir}.py::test_{stem}_{name}[{func}"
                     node = node.format(p=p)
                     jobs.append(dict(
-                        id=f"{feat}__{mdir}__{p}", feature=feat, wt=wt, node=node,
-                        model=mdir, param=p, tier=t, workers=workers, mem=mem,
+                        id=f"{prefix}{feat}__{mdir}__{p}", feature=feat, wt=wt + variant,
+                        node=node, model=mdir, param=p, tier=t, workers=workers, mem=mem,
                     ))
     return jobs
 
@@ -172,6 +183,8 @@ def main():
     ap.add_argument("--deadline", default="19:15")
     ap.add_argument("--max-threads", type=int, default=None)
     ap.add_argument("--rerun-failed", action="store_true")
+    ap.add_argument("--variant", default="", help="queue this variant's jobs (e.g. 2)")
+    ap.add_argument("--first", action="append", default=[], help="regex: run these first")
     args = ap.parse_args()
     os.makedirs(LOGDIR, exist_ok=True)
     pid_file = os.path.join(LOGDIR, "runner.pid")
@@ -183,9 +196,14 @@ def main():
     if not args.plan:
         with open(pid_file, "w") as f:
             f.write(str(os.getpid()))
-    jobs = build_queue()
+    jobs = build_queue(args.variant)
+    # running jobs of any variant are adopted, so that their threads and memory count
+    known = {j["id"]: j for v in dict.fromkeys(["", args.variant]) for j in build_queue(v)}
     if args.only:
         jobs = [j for j in jobs if re.search(args.only, j["id"])]
+    # priority groups in the order given, the rest after them (stable within a group)
+    jobs.sort(key=lambda j: next(
+        (i for i, rx in enumerate(args.first) if re.search(rx, j["id"])), len(args.first)))
     if args.plan:
         for j in jobs:
             print(j["id"], j["node"], junit_result(os.path.join(LOGDIR, j["id"] + ".xml")))
@@ -215,10 +233,11 @@ def main():
             old = json.load(f)
     status = old.get("finished", {})
     for jid, info in old.get("running", {}).items():
-        job = next((j for j in pending if j["id"] == jid), None)
+        job = next((j for j in pending if j["id"] == jid), None) or known.get(jid)
         if job is not None and pid_alive(info["pid"]):
             running[jid] = (job, Adopted(info["pid"]), info["start"])
-            pending.remove(job)
+            if job in pending:
+                pending.remove(job)
             print(f"adopted {jid} (pid {info['pid']})", flush=True)
 
     def save():
@@ -272,9 +291,10 @@ def main():
                 break
             if mem_available() - job["mem"] * GIB < 151 * GIB:
                 break
-            # reservations too: young jobs have not reached their peak yet
-            reserved = sum(j["mem"] for j, _, _ in running.values()) + job["mem"]
-            if reserved * GIB > mem_total() - 151 * GIB:
+            # reservations of the jobs of the last hour too: they have not grown yet (older
+            # ones show in MemAvailable)
+            young = sum(j["mem"] for j, _, t0 in running.values() if time.time() - t0 < 3600)
+            if mem_available() - (young + job["mem"]) * GIB < 151 * GIB:
                 break
             if shutil.disk_usage(M).free < 60 * GIB:
                 break
