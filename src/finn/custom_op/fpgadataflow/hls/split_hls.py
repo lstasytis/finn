@@ -43,17 +43,6 @@ class StreamingSplit_hls(StreamingSplit, HLSBackend):
     def execute_node(self, context, graph):
         HLSBackend.execute_node(self, context, graph)
 
-    def get_exp_cycles(self):
-        """Returns expected number of cycles for execution.
-
-        The HLS top function is not pipelined and calls the single-word
-        StreamingSplit once per invocation, so it admits one folded word every
-        five cycles (csynth: Latency 4, Interval 5; stitched-IP rtlsim agrees,
-        independent of SIMD, the stream count and the data width).
-        """
-        hls_ii = 5
-        return StreamingSplit.get_exp_cycles(self) * hls_ii
-
     def global_includes(self):
         self.code_gen_dict["$GLOBALS$"] = ['#include "split.hpp"']
 
