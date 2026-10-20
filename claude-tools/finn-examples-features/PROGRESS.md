@@ -129,3 +129,16 @@ the force push. `test/*` and `fix/*` branches are local working branches, no nee
 * Open: transformer_benchmark rtlsim 0.965x estimate (identical interval for two foldings: MVAU_rtl
   SIMD=PE=1 per-vector overhead?), sent to the 009 agent; old-base bert fold-target deadlocked in
   stitched-IP rtlsim (rerun on v2 with the new estimates); issue 007 tapped sims running.
+* User (afternoon): do the 3 updates (issue 012: MVU queue + Split/Concat pragma as separate dev PR branches with
+  PR_*.md; 013: latency in the FIFO sizer, over-estimates ok within 1.5x of optimum; 014: DWC padding should
+  tighten over-throughput nodes, new acceptance rule <=10 % below target if resource saving % > throughput loss %).
+  Agents on Opus (user: no Fable), <=10-line hand-backs.
+* Feature tests made self-contained per model file (helpers replicated, benchmark_helpers.py = upstream) on the
+  integration, PR and test2 branches (`tools/inline_feature_helpers.py`). Small-folding tier (`_small.json`,
+  validated against docs/finn/reference/folding-constraints.rst by `tools/check_small_foldings.py`) runs first,
+  full jobs only after their small sibling passed (`run_campaign.py --sizes small,full`).
+* Issue 010 fixed (Split/Concat 5 cycles/word estimate + optimizer folding, FIFO phase lead), transformer_benchmark
+  FIFO/fold-target pass at 1.00x; maximize still 0.73x (needs issue 013).
+* FIFO-aware folding flag (`enable_folding_fifo_heuristic`), one check on gtsrb small: correct, 0.991x, FIFOs -25 %,
+  folding 125 s vs 6 s (~20x) -> stays off in the main flow (user: optional).
+* Open: issue 011 (radioml/vision hangs + wrong outputs), 012-014 agents running.
