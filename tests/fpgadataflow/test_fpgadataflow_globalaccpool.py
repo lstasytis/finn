@@ -56,7 +56,9 @@ tree_model_clk_ns = 5.0
 
 
 def make_accpool_modelwrapper(ch, pe, idim, idt, impl_style):
-    inp = helper.make_tensor_value_info("inp", TensorProto.FLOAT, [1, idim, idim, ch])
+    # idim: square image size or (height, width)
+    ih, iw = (idim, idim) if isinstance(idim, int) else idim
+    inp = helper.make_tensor_value_info("inp", TensorProto.FLOAT, [1, ih, iw, ch])
     outp = helper.make_tensor_value_info("outp", TensorProto.FLOAT, [1, 1, 1, ch])
 
     accpool_node = helper.make_node(
@@ -68,7 +70,7 @@ def make_accpool_modelwrapper(ch, pe, idim, idt, impl_style):
         NumChannels=ch,
         PE=pe,
         inputDataType=idt.name,
-        numInputVectors=[1, idim, idim],
+        numInputVectors=[1, ih, iw],
         preferred_impl_style=impl_style,
     )
     graph = helper.make_graph(nodes=[accpool_node], name="graph", inputs=[inp], outputs=[outp])
@@ -92,7 +94,8 @@ def prepare_inputs(input_tensor, idt):
 # folding
 @pytest.mark.parametrize("fold", [-1, 2, 1])
 # image dimension
-@pytest.mark.parametrize("imdim", [7])
+# image height x width: square and non-square (1 x tokens, as in the transformers)
+@pytest.mark.parametrize("imdim", [(7, 7), (1, 8)])
 # execution mode
 @pytest.mark.parametrize("exec_mode", ["cppsim", "rtlsim"])
 # impl_style
@@ -107,7 +110,7 @@ def test_fpgadataflow_globalaccpool(idt, ch, fold, imdim, exec_mode, impl_style)
     assert ch % pe == 0
 
     # generate input data
-    x = gen_finn_dt_tensor(idt, (1, imdim, imdim, ch))
+    x = gen_finn_dt_tensor(idt, (1, *imdim, ch))
 
     # prepare input data and execute
     input_dict = prepare_inputs(x, idt)
@@ -122,7 +125,7 @@ def test_fpgadataflow_globalaccpool(idt, ch, fold, imdim, exec_mode, impl_style)
     # MinimizeAccumulatorWidth - should set output datatype based on accumulation range
     model = model.transform(MinimizeAccumulatorWidth())
     odt = model.get_tensor_datatype("outp")
-    npixels = imdim * imdim
+    npixels = np.prod(imdim)
     if idt.signed():
         assert odt.min() <= npixels * idt.min()
     else:

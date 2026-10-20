@@ -26,6 +26,8 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import numpy as np
+
 from finn.custom_op.fpgadataflow.globalaccpool import GlobalAccPool
 from finn.custom_op.fpgadataflow.hlsbackend import HLSBackend
 
@@ -76,17 +78,52 @@ class GlobalAccPool_hls(GlobalAccPool, HLSBackend):
         self.code_gen_dict["$GLOBALS$"] = ['#include "maxpool.h"']
 
     def defines(self, var):
-        self.code_gen_dict["$DEFINES$"] = []
+        pe = self.get_nodeattr("PE")
+        vecs = list(self.get_nodeattr("numInputVectors"))
+        self.code_gen_dict["$DEFINES$"] = [
+            "#define PE %d" % pe,
+            "#define NumFolds %d" % (self.get_nodeattr("NumChannels") // pe),
+            "#define NumPixels %d" % int(np.prod(vecs[1:])),
+            "typedef %s TI;" % self.get_input_datatype().get_hls_datatype_str(),
+            "typedef %s TO;" % self.get_output_datatype().get_hls_datatype_str(),
+        ]
 
     def docompute(self):
+        ishape = self.get_normal_input_shape()
+        if ishape[1] == ishape[2]:
+            self.code_gen_dict["$DOCOMPUTE$"] = [
+                """AccPool_Batch<{}, {}, {}, {}, {}> (in0_V, out0_V, 1);""".format(
+                    ishape[1],
+                    self.get_nodeattr("NumChannels"),
+                    self.get_input_datatype().get_hls_datatype_str(),
+                    self.get_nodeattr("PE"),
+                    self.get_output_datatype().get_hls_datatype_str(),
+                )
+            ]
+            return
+        # hlslib's AccPool_Batch<ImgDim, ...> sums over ImgDim * ImgDim pixels (a
+        # square image); the same loop over the actual pixel count covers H != W
+        # inputs, e.g. the 1 x tokens frames of the transformers
         self.code_gen_dict["$DOCOMPUTE$"] = [
-            """AccPool_Batch<{}, {}, {}, {}, {}> (in0_V, out0_V, 1);""".format(
-                self.get_normal_input_shape()[1],
-                self.get_nodeattr("NumChannels"),
-                self.get_input_datatype().get_hls_datatype_str(),
-                self.get_nodeattr("PE"),
-                self.get_output_datatype().get_hls_datatype_str(),
-            )
+            """ap_uint<PE * TO::width> accumulators[NumFolds];
+#pragma HLS bind_storage variable=accumulators type=RAM_2P impl=LUTRAM
+for (unsigned pixel = 0; pixel < NumPixels; pixel++) {
+  for (unsigned fold = 0; fold < NumFolds; fold++) {
+#pragma HLS pipeline style=flp II=1
+    ap_uint<PE * TI::width> const thin = in0_V.read();
+    ap_uint<PE * TO::width> accbank = accumulators[fold];
+    for (unsigned pe = 0; pe < PE; pe++) {
+#pragma HLS UNROLL
+      TI const val = thin((pe + 1) * TI::width - 1, pe * TI::width);
+      TO const acc = accbank((pe + 1) * TO::width - 1, pe * TO::width);
+      accbank((pe + 1) * TO::width - 1, pe * TO::width) = val + (pixel == 0 ? TO(0) : acc);
+    }
+    accumulators[fold] = accbank;
+  }
+}
+for (unsigned fold = 0; fold < NumFolds; fold++) {
+  out0_V.write(accumulators[fold]);
+}"""
         ]
 
     def blackboxfunction(self):
