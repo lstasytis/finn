@@ -67,7 +67,7 @@ from finn.transformation.fpgadataflow.minimize_weight_bit_width import (
 )
 from finn.transformation.fpgadataflow.specialize_layers import SpecializeLayers
 from finn.transformation.streamline.round_thresholds import RoundAndClipThresholds
-from finn.util.basic import make_build_dir, part_map
+from finn.util.basic import is_versal, make_build_dir, part_map
 from finn.util.fpgadataflow import is_fpgadataflow_node, is_hls_node, is_rtl_node
 from finn.util.platforms import DEFAULT_RES_LIMITS, platforms
 
@@ -946,7 +946,17 @@ class Optimizer:
         if param == "ram_style" and "runtime_writeable_weights" in inst.get_nodeattr_types():
             if inst.get_nodeattr("runtime_writeable_weights") != 1 and not self.allow_uram_weights:
                 excluded = excluded | {"ultra"}
-        allowed = sorted(set(inst.get_nodeattr_types()[param][3]) - excluded)
+        # embedded URAM constants need a Versal part (asserted by ElementwiseBinary_hls and
+        # Lookup_hls codegen)
+        attrs = inst.get_nodeattr_types()
+        if (
+            param == "ram_style"
+            and "mem_mode" in attrs
+            and inst.get_nodeattr("mem_mode") == "internal_embedded"
+            and not is_versal(self.fpgapart)
+        ):
+            excluded = excluded | {"ultra"}
+        allowed = sorted(set(attrs[param][3]) - excluded)
         if len(allowed) < 2 or not self._estimator_distinguishes(inst, param, allowed):
             return None
         real_values = [
