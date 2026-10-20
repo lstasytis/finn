@@ -17,6 +17,10 @@ DWC=feature/dev/generalized-datawidthconverter
 PR=upstream/update/finn-examples
 HLS=feature/dev/hls-exp-cycles-overhead   # standalone fix of dev's HLS cycle estimates (issue 002)
 MVC=feature/dev/mvau-exp-cycles   # tiled MVAU exp cycles: upstream c15fb8a9a + group stalls (issue 009)
+# separate dev PRs (issue 012): MVU output-queue overflow fix, Split/Concat dataflow pragma
+DEVPRS="feature/dev/mvu-output-queue feature/dev/split-concat-dataflow"
+# issue 011's upstream fixes (GAP non-square, Requant_rtl signed only) are cherry-picked from fix/011:
+GAPREQ="d98fb4183 ffa6c0a5a"
 # known-good merge of DWC + FIFO for the file git merges silently wrong (HANDOFF section 2)
 GOOD_DWC_FILE=${GOOD_DWC_FILE:-origin/dev-finnexamples-features}
 
@@ -47,10 +51,10 @@ check_dwc() {
 
 for t in "$@"; do
   case $t in
-    integ) wt=$M/build/wt/integ; br=dev-finnexamples-features; base=$DWC; extra="$FIFO $PR $HLS $MVC";;
-    fifo) wt=$M/build/wt/fifo$S; br=test$S/fifo; base=$FIFO; extra="$PR $HLS $MVC";;
-    folding) wt=$M/build/wt/folding$S; br=test$S/folding; base=$FOLD; extra="$PR $FIFO $HLS $MVC";;
-    dwc) wt=$M/build/wt/dwc$S; br=test$S/dwc; base=$DWC; extra="$PR $FIFO $HLS $MVC";;
+    integ) wt=$M/build/wt/integ; br=dev-finnexamples-features; base=$DWC; extra="$FIFO $PR $HLS $MVC $DEVPRS";;
+    fifo) wt=$M/build/wt/fifo$S; br=test$S/fifo; base=$FIFO; extra="$PR $HLS $MVC $DEVPRS";;
+    folding) wt=$M/build/wt/folding$S; br=test$S/folding; base=$FOLD; extra="$PR $FIFO $HLS $MVC $DEVPRS";;
+    dwc) wt=$M/build/wt/dwc$S; br=test$S/dwc; base=$DWC; extra="$PR $FIFO $HLS $MVC $DEVPRS";;
     *) echo "unknown $t"; exit 1;;
   esac
   [ -d $wt ] || git -C $M worktree add -q $wt -b $br $base
@@ -60,6 +64,7 @@ for t in "$@"; do
   git checkout -q -B $br $base
   for b in $extra; do merge $b; done
   check_dwc
+  for c in $GAPREQ; do git merge-base --is-ancestor $c HEAD || git cherry-pick -x $c >/dev/null; done
   git checkout -q $tests -- tests/benchmark setup.cfg
   git rm -q --ignore-unmatch tests/benchmark/feature_flow_helpers.py \
     tests/benchmark/feature_flow_report.py tests/benchmark/test_fifo_sizing_flow.py \
