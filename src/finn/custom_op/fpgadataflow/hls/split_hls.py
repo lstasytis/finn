@@ -76,6 +76,10 @@ class StreamingSplit_hls(StreamingSplit, HLSBackend):
 
     def pragmas(self):
         pragmas = []
+        # free-running dataflow process around the single-word hlslib function:
+        # one word per cycle instead of one top-level invocation (Interval 5) per
+        # word, as in DuplicateStreams_hls
+        pragmas.append("#pragma HLS dataflow disable_start_propagation")
         pragmas.append("#pragma HLS INTERFACE axis port=in0_V")
         for i in range(self.get_n_outputs()):
             pragmas.append("#pragma HLS INTERFACE axis port=out%d_V" % i)
