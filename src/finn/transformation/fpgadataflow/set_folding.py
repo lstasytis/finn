@@ -66,6 +66,9 @@ from finn.transformation.fpgadataflow.minimize_weight_bit_width import (
     MinimizeWeightBitWidth,
 )
 from finn.transformation.fpgadataflow.specialize_layers import SpecializeLayers
+from finn.transformation.fpgadataflow.transpose_decomposition import (
+    decompose_transpose_with_constraints,
+)
 from finn.transformation.streamline.round_thresholds import RoundAndClipThresholds
 from finn.util.basic import is_versal, make_build_dir, part_map
 from finn.util.fpgadataflow import is_fpgadataflow_node, is_hls_node, is_rtl_node
@@ -928,15 +931,27 @@ class Optimizer:
         dimension with a valid decomposition (the others estimate 0 cycles)."""
         original = inst.get_nodeattr("SIMD")
         dims = [inst.get_normal_input_shape()[-1], inst.get_normal_output_shape()[-1]]
+        perm = list(inst.get_nodeattr("perm"))
+        shape = list(inst.get_nodeattr("transpose_in_shape"))
         valid = set()
         try:
             for simd in common_divisors(dims):
                 inst.set_nodeattr("SIMD", simd)
                 try:
-                    if simd == 1 or inst.get_exp_cycles() > 0:
-                        valid.add(simd)
+                    if simd > 1 and inst.get_exp_cycles() <= 0:
+                        continue
+                    # every Inner/OuterShuffle stage inherits the SIMD: it must divide the
+                    # stage's innermost dimension (their constructors reject it otherwise)
+                    steps, _ = decompose_transpose_with_constraints(perm, shape, simd)
                 except RuntimeError:  # the decomposition finds no solution for this SIMD
-                    pass
+                    continue
+                stage = shape
+                for step in steps:
+                    if stage[-1] % simd != 0:
+                        break
+                    stage = [stage[i] for i in step]
+                else:
+                    valid.add(simd)
         finally:
             inst.set_nodeattr("SIMD", original)
         return valid
