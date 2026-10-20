@@ -84,9 +84,18 @@ def scaled_group(metas, curs, k):
         if not isinstance(cur, tuple):
             out.append(v)
             continue
+        # the SWG side: the setting whose cycles come closest to K times the committed ones
+        # (dropping parallel_window alone already makes it kernel-size times slower)
+        swg = m.unique_nodes[0]
+        target_cycles = k * swg.get_exp_cycles()
+
+        def swg_cycles(x):
+            m.update_value(x)
+            m.apply_value(final=False, attrs=FOLD_ATTRS)
+            return swg.get_exp_cycles()
+
         same = [x for x in m.possible_values if x[0] == v]
-        swg = [x for x in same if x[1] <= max(1, cur[1] / k)] or same
-        out.append(max(swg, key=lambda x: (-x[2], x[1])))
+        out.append(min(same, key=lambda x: (abs(np.log(swg_cycles(x) / target_cycles)), -x[1])))
     return out
 
 

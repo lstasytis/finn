@@ -1,0 +1,25 @@
+diff --git a/src/finn/transformation/fpgadataflow/derive_characteristic.py b/src/finn/transformation/fpgadataflow/derive_characteristic.py
+index 72693bffc..1fb609602 100644
+--- a/src/finn/transformation/fpgadataflow/derive_characteristic.py
++++ b/src/finn/transformation/fpgadataflow/derive_characteristic.py
+@@ -704,10 +704,19 @@ def derive_chained_tav_depths(model, global_period, causal=True):
+                 continue
+             n = min(len(s) for s in srcs)
+             out_sched = np.max(np.stack([s[:n] for s in srcs]), axis=0)
++            # a join's inputs take the steady frame too: the long branch's fill
++            # frame can start early by the TAV phase of its nodes (an MVAU_rtl
++            # writes a feature map before its first read), the steady frame
++            # carries its full latency
++            join = len(dyn_inputs) > 1
+             for t in dyn_inputs:
+                 if t in edges:
+                     peak = peak_occupancy(
+-                        edges[t].writes, out_sched, global_period, edges[t].per_frame, fill_only
++                        edges[t].writes,
++                        out_sched,
++                        global_period,
++                        edges[t].per_frame,
++                        fill_only and not join,
+                     )
+                     size_edge(t, peak, out_sched, node, fill_only)
+             for t in node.output:

@@ -1,0 +1,121 @@
+diff --git a/src/finn/custom_op/fpgadataflow/hwcustomop.py b/src/finn/custom_op/fpgadataflow/hwcustomop.py
+index 721260688..8f1e440d7 100644
+--- a/src/finn/custom_op/fpgadataflow/hwcustomop.py
++++ b/src/finn/custom_op/fpgadataflow/hwcustomop.py
+@@ -319,6 +319,14 @@ class HWCustomOp(CustomOp):
+         Implemented in each node, potentially overriding between rtl and hls"""
+         return None
+ 
++    def get_tav_input_blocks(self):
++        """For the FIFO sizer: ``{input index: (in_words, out_words)}`` for inputs
++        that a node consumes in whole blocks, block *b* of ``out_words`` output
++        words needing block *b* of ``in_words`` words of that input complete. A
++        TAV records the steady state at an arbitrary phase and cannot show this
++        latency. Default: none."""
++        return {}
++
+     def derive_token_access_vectors(
+         self,
+         model,
+diff --git a/src/finn/custom_op/fpgadataflow/inner_shuffle.py b/src/finn/custom_op/fpgadataflow/inner_shuffle.py
+index 441fff789..f64dd8767 100644
+--- a/src/finn/custom_op/fpgadataflow/inner_shuffle.py
++++ b/src/finn/custom_op/fpgadataflow/inner_shuffle.py
+@@ -116,6 +116,13 @@ class InnerShuffle(HWCustomOp):
+         total_elems = int(np.prod(in_shape)) // simd
+         return 2 * total_elems + page_size
+ 
++    def get_tav_input_blocks(self):
++        """A page is transposed in a bank: none of its words leaves before all of
++        them are in."""
++        in_shape = self.get_nodeattr("in_shape")
++        page = (int(in_shape[-2]) * int(in_shape[-1])) // self.get_nodeattr("SIMD")
++        return {0: (page, page)}
++
+     def get_tree_model(self):
+         """A page in at one word per cycle, a word out every two.
+ 
+diff --git a/src/finn/custom_op/fpgadataflow/matrixvectoractivation.py b/src/finn/custom_op/fpgadataflow/matrixvectoractivation.py
+index 937d52d88..dbd9b7ed5 100644
+--- a/src/finn/custom_op/fpgadataflow/matrixvectoractivation.py
++++ b/src/finn/custom_op/fpgadataflow/matrixvectoractivation.py
+@@ -1743,6 +1743,20 @@ class MVAU(HWCustomOp):
+ 
+         return flat_characteristic_leaf(rd, wr, "MVAU burst schedule")
+ 
++    def get_tav_input_blocks(self):
++        """A feature map's ``NF`` outputs need its ``SF`` input words (a group of
++        ``TH`` vectors when tiled); a dynamic node's outputs need the whole matrix
++        its ``dynamic_load`` buffered from in1."""
++        sf = self.get_nodeattr("MW") // self.get_nodeattr("SIMD")
++        nf = self.get_nodeattr("MH") // self.get_nodeattr("PE")
++        th = self.get_nodeattr("TH")
++        blocks = {0: (sf * th, nf * th)}
++        if self.get_nodeattr("mem_mode") == "dynamic":
++            n_reps = self.get_nodeattr("numInputVectors")[-1]
++            burst = self.get_nodeattr("MW") * self.get_nodeattr("MH") // self.get_nodeattr("PE")
++            blocks[1] = (burst, n_reps * nf)
++        return blocks
++
+     def derive_token_access_vectors(
+         self, model, period, strategy, fpga_part, clk_period, op_type, override_dict=None
+     ):
+diff --git a/src/finn/custom_op/fpgadataflow/streamingdatawidthconverter.py b/src/finn/custom_op/fpgadataflow/streamingdatawidthconverter.py
+index 64b438cbb..5a3868ed0 100644
+--- a/src/finn/custom_op/fpgadataflow/streamingdatawidthconverter.py
++++ b/src/finn/custom_op/fpgadataflow/streamingdatawidthconverter.py
+@@ -169,6 +169,13 @@ class StreamingDataWidthConverter(HWCustomOp):
+         # general conversion: conservatively both sides in turn
+         return num_in_words + num_out_words
+ 
++    def get_tav_input_blocks(self):
++        """An output word cannot leave before the input words it is cut from."""
++        n_in = int(np.prod(self.get_folded_input_shape()[:-1]))
++        n_out = int(np.prod(self.get_folded_output_shape()[:-1]))
++        g = math.gcd(n_in, n_out)
++        return {0: (n_in // g, n_out // g)} if g > 0 else {}
++
+     def lut_estimation(self, fpgapart):
+         """Calculates resource estimations for LUTs"""
+         inw = self.get_instream_width()
+diff --git a/src/finn/transformation/fpgadataflow/derive_characteristic.py b/src/finn/transformation/fpgadataflow/derive_characteristic.py
+index f2892fb74..829929146 100644
+--- a/src/finn/transformation/fpgadataflow/derive_characteristic.py
++++ b/src/finn/transformation/fpgadataflow/derive_characteristic.py
+@@ -394,6 +394,28 @@ def causal_writes(write_times, in_scheds, lead=0):
+     return np.maximum.accumulate(out)
+ 
+ 
++def block_causal_writes(write_times, node, in_scheds):
++    """Hold output word *j* until the input block it belongs to is complete, for
++    the inputs a node consumes in whole blocks (``get_tav_input_blocks``): block
++    ``j // out_words`` needs input words up to ``(j // out_words + 1) * in_words``.
++    Applied over both frames."""
++    try:
++        blocks = registry.getCustomOp(node).get_tav_input_blocks()
++    except Exception:
++        return write_times
++    out = np.array(write_times, dtype=np.int64, copy=True)
++    j = np.arange(len(out), dtype=np.int64)
++    for idx, (in_words, out_words) in blocks.items():
++        if idx >= len(node.input) or node.input[idx] not in in_scheds:
++            continue
++        sched = in_scheds[node.input[idx]][0]
++        if len(sched) == 0 or in_words < 1 or out_words < 1:
++            continue
++        need = np.minimum((j // out_words + 1) * in_words, len(sched))
++        out = np.maximum(out, sched[need - 1])
++    return np.maximum.accumulate(out)
++
++
+ def burst_above_rate(read_times, rate):
+     """Largest excursion of demand above a constant supply ``rate``:
+     ``max over t1 < t2 of C(t2) - C(t1) - rate * (t2 - t1)``."""
+@@ -772,6 +794,7 @@ def derive_chained_tav_depths(model, global_period, causal=True):
+             if causal:
+                 lead = phase_lead(curve, [c for _, c in in_scheds.values()])
+                 writes = causal_writes(writes, in_scheds, lead)
++                writes = block_causal_writes(writes, node, in_scheds)
+             edges[t] = Edge(writes, max(1, frame_tokens(curve)), t_up, t_prop, t_full)
+ 
+     return depths
