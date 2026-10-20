@@ -35,6 +35,7 @@ import torch
 from io import BytesIO
 from qonnx.core.datatype import DataType
 from qonnx.core.modelwrapper import ModelWrapper
+from qonnx.custom_op.registry import getCustomOp
 from qonnx.transformation.general import GiveUniqueNodeNames
 from qonnx.util.basic import gen_finn_dt_tensor
 from torch import nn
@@ -49,6 +50,7 @@ from finn.transformation.fpgadataflow.prepare_cppsim import PrepareCppSim
 from finn.transformation.fpgadataflow.prepare_ip import PrepareIP
 from finn.transformation.fpgadataflow.prepare_rtlsim import PrepareRTLSim
 from finn.transformation.fpgadataflow.set_exec_mode import SetExecMode
+from finn.transformation.fpgadataflow.set_fifo_depths import xsi_fifosim
 from finn.transformation.fpgadataflow.specialize_layers import SpecializeLayers
 
 
@@ -167,3 +169,28 @@ def test_fpgadataflow_concat_stitchedip():
     model.set_metadata_prop("exec_mode", "rtlsim")
     ret_sim = execute_onnx(model, inp_dict)
     assert (exp_out == ret_sim[oname]).all()
+
+
+@pytest.mark.parametrize("simd", [1, 2, 4])
+@pytest.mark.fpgadataflow
+@pytest.mark.vivado
+@pytest.mark.slow
+def test_fpgadataflow_concat_exp_cycles_rtlsim(simd):
+    """Steady-state stitched-IP rtlsim cycles per frame of a StreamingConcat_hls against
+    get_exp_cycles(): the unpipelined HLS top emits one folded word every five cycles."""
+    fpga_part = "xc7z020clg400-1"
+    i_shapes = [(1, 4, 8), (1, 4, 8), (1, 4, 8), (1, 4, 8)]
+    model = make_concat_model(i_shapes, [DataType["INT8"]] * 4)
+    model = model.transform(InferConcatLayer())
+    model = model.transform(SpecializeLayers(fpga_part))
+    model = model.transform(GiveUniqueNodeNames())
+    inst = getCustomOp(model.graph.node[0])
+    inst.set_nodeattr("SIMD", simd)
+    model = model.transform(PrepareIP(fpga_part, 10))
+    model = model.transform(HLSSynthIP())
+    model = model.transform(CreateStitchedIP(fpga_part, 10))
+    n_frames = 4
+    ret = xsi_fifosim(model, n_frames, max_iters=20000, behav=False)
+    cycles_per_frame = ret["steady_state_cycles"] / ret["steady_state_frames"]
+    assert inst.get_exp_cycles() == 5 * 4 * 32 // simd
+    assert np.isclose(inst.get_exp_cycles(), cycles_per_frame, rtol=0.02, atol=2)
