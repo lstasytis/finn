@@ -681,3 +681,27 @@ def test_set_folding_requant_elementwise_softmax(part, style):
         attr = "SIMD" if node.op_type.startswith("HWSoftmax") else "PE"
         fold = inst.get_nodeattr(attr)
         assert fold > 1 and ishape[-1] % fold == 0, f"{node.name}: {attr}={fold}"
+
+
+@pytest.mark.parametrize("part", ["xczu7ev-ffvc1156-2-e", "xcvc1902-vsva2197-2MP-e-S"])
+@pytest.mark.fpgadataflow
+def test_set_folding_no_embedded_uram_off_versal(part):
+    # an elementwise op's embedded constants may only go to URAM on Versal
+    ishape = [1, 8, 64]
+    inp = helper.make_tensor_value_info("inp", TensorProto.FLOAT, ishape)
+    outp = helper.make_tensor_value_info("outp", TensorProto.FLOAT, ishape)
+    node = helper.make_node("Mul", ["inp", "mul_param"], ["outp"])
+    model = ModelWrapper(qonnx_make_model(helper.make_graph([node], "mul", [inp], [outp])))
+    model.set_tensor_datatype("inp", DataType["INT8"])
+    model.set_initializer("mul_param", gen_finn_dt_tensor(DataType["INT8"], [ishape[-1]]))
+    model.set_tensor_datatype("mul_param", DataType["INT8"])
+    model = model.transform(InferShapes()).transform(InferDataTypes())
+    model = model.transform(to_hw.InferElementwiseBinaryOperation())
+    model = model.transform(SpecializeLayers(part)).transform(GiveUniqueNodeNames())
+    inst = getCustomOp(model.graph.node[0])
+    assert inst.get_nodeattr("mem_mode") == "internal_embedded"
+    opt = Optimizer(model, "t", {"max_cycles": 1}, fpgapart=part)
+    meta = opt._make_resource_type_meta(inst, 0, "ram_style")
+    offered = meta.possible_values if meta is not None else []
+    if part.startswith("xczu"):
+        assert "ultra" not in offered
