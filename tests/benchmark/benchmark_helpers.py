@@ -506,3 +506,12 @@ if __name__ == "__main__":
     out_json, out_csv = aggregate_benchmark_results(cli_entries)
     print(out_json)
     print(out_csv)
+
+
+def small_folding(path):
+    """The reduced variant (``<name>_small.json``) of a committed folding config: every
+    node's parallelism cut 4-8x (claude-tools make_small_foldings.py), so that the
+    feature tests' stitched-IP rtlsim runs on a much smaller design first."""
+    small = path[: -len(".json")] + "_small.json"
+    assert os.path.isfile(small), f"no small folding config {small}"
+    return small

@@ -21,6 +21,7 @@ from benchmark_helpers import (
     get_verify_steps,
     make_benchmark_cfg,
     resume_checkpoint,
+    small_folding,
     timed_steps,
     verification_io_dir,
 )
@@ -117,7 +118,7 @@ BOARD_OVERRIDES = {
 }
 
 
-def configure_build(board, model, output_dir, **overrides):
+def configure_build(board, model, output_dir, small=False, **overrides):
     # Folding was derived from auto-folding to the finn-plus throughput targets
     # (benchmark: 1500 fps, vision: 1525 fps, language: 1000 fps). RadioML is folded
     # to 20000 fps instead of 95000 fps, which was set for the larger RFSoC2x2 and
@@ -128,7 +129,7 @@ def configure_build(board, model, output_dir, **overrides):
     verify_input_npy, verify_expected_output_npy = get_verify_io(model)
     cfg = dict(
         steps=transformer_build_steps,
-        folding_config_file=folding,
+        folding_config_file=small_folding(folding) if small else folding,
         synth_clk_period_ns=10.0,
         auto_fifo_depths=True,
         standalone_thresholds=True,
@@ -200,7 +201,7 @@ OPTIMIZER_FOLDING = dict(
 )
 
 
-def reference_estimate(board, model):
+def reference_estimate(board, model, small=False):
     """Estimate-only build with the committed folding: its convert-phase
     checkpoint and estimated throughput are the feature tests' reference."""
 
@@ -209,6 +210,7 @@ def reference_estimate(board, model):
             board,
             model,
             output_dir,
+            small=small,
             generate_outputs=ESTIMATE_OUTPUTS,
             stop_step=ESTIMATE_PHASE,
             verify_steps=[],
@@ -216,21 +218,22 @@ def reference_estimate(board, model):
         assert build.build_dataflow_cfg(get_model_file(model), cfg) == 0
 
     return cached_build(
-        f"est_transformer_{model}_{board}_",
+        f"est_transformer_{'small_' if small else ''}{model}_{board}_",
         build_estimate,
         "report/estimate_network_performance.json",
     )
 
 
-def run_feature_build(board, model, name, estimate_only=False, **overrides):
+def run_feature_build(small, board, model, name, estimate_only=False, **overrides):
     """Resume the reference checkpoint with ``overrides`` and, unless
     ``estimate_only``, check the stitched IP in rtlsim. Returns the metrics."""
-    ref_dir = reference_estimate(board, model)
-    output_dir = make_build_dir(f"{name}_transformer_{model}_{board}_")
+    ref_dir = reference_estimate(board, model, small=small)
+    output_dir = make_build_dir(f"{name}{'-small' if small else ''}_transformer_{model}_{board}_")
     cfg = configure_build(
         board,
         model,
         output_dir,
+        small=small,
         steps=feature_steps(transformer_build_steps),
         generate_outputs=ESTIMATE_OUTPUTS if estimate_only else FEATURE_OUTPUTS,
         stop_step=ESTIMATE_PHASE if estimate_only else None,
@@ -260,11 +263,13 @@ def run_feature_build(board, model, name, estimate_only=False, **overrides):
 @pytest.mark.vivado
 @pytest.mark.finn_examples
 @pytest.mark.fifo_sizing
+@pytest.mark.parametrize("size", ["small", "full"])
 @pytest.mark.parametrize("strategy", ["heuristic_analytical", "heuristic_rtlsim"])
 @pytest.mark.parametrize("board,model", FEATURE_BUILDS)
-def test_transformer_fifo_sizing(board, model, strategy):
+def test_transformer_fifo_sizing(board, model, strategy, size):
+    small = size == "small"
     run_feature_build(
-        board, model, f"fifo-{strategy}", auto_fifo_depths=True, auto_fifo_strategy=strategy
+        small, board, model, f"fifo-{strategy}", auto_fifo_depths=True, auto_fifo_strategy=strategy
     )
 
 
@@ -272,18 +277,22 @@ def test_transformer_fifo_sizing(board, model, strategy):
 @pytest.mark.vivado
 @pytest.mark.finn_examples
 @pytest.mark.folding
+@pytest.mark.parametrize("size", ["small", "full"])
 @pytest.mark.parametrize("mode", ["target", "maximize"])
 @pytest.mark.parametrize("board,model", FEATURE_BUILDS)
-def test_transformer_folding(board, model, mode):
-    target_fps = int(estimated_throughput(reference_estimate(board, model)))
+def test_transformer_folding(board, model, mode, size):
+    small = size == "small"
+    if small and mode == "maximize":
+        pytest.skip("maximize does not use the committed folding")
+    target_fps = int(estimated_throughput(reference_estimate(board, model, small=small)))
     if mode == "target":
         metrics = run_feature_build(
-            board, model, "fold-target", target_fps=target_fps, **OPTIMIZER_FOLDING
+            small, board, model, "fold-target", target_fps=target_fps, **OPTIMIZER_FOLDING
         )
         assert metrics["est_fps"] >= target_fps
     else:
         # no target: the optimizer maximizes the throughput within the budget
-        metrics = run_feature_build(board, model, "fold-max", **OPTIMIZER_FOLDING)
+        metrics = run_feature_build(small, board, model, "fold-max", **OPTIMIZER_FOLDING)
         if metrics["est_vs_ref"] < 1:
             warnings.warn("maximized folding is %.2fx the committed one" % metrics["est_vs_ref"])
 
@@ -292,9 +301,11 @@ def test_transformer_folding(board, model, mode):
 @pytest.mark.vivado
 @pytest.mark.finn_examples
 @pytest.mark.dwc
+@pytest.mark.parametrize("size", ["small", "full"])
 @pytest.mark.parametrize("board,model", FEATURE_BUILDS)
-def test_transformer_dwc(board, model):
-    target_fps = int(estimated_throughput(reference_estimate(board, model)))
+def test_transformer_dwc(board, model, size):
+    small = size == "small"
+    target_fps = int(estimated_throughput(reference_estimate(board, model, small=small)))
     # the folding search is cheap: find a seed whose padded folding pads (padding wins
     # only on some search paths), skip the hardware build if none does
     for seed in DWC_SEEDS:
@@ -304,9 +315,11 @@ def test_transformer_dwc(board, model):
             folding_maximum_padding=FOLDING_MAX_PADDING,
             folding_seed=seed,
         )
-        if run_feature_build(board, model, "dwc-est", estimate_only=True, **padded)["pad_dwcs"]:
+        if run_feature_build(small, board, model, "dwc-est", estimate_only=True, **padded)[
+            "pad_dwcs"
+        ]:
             break
     else:
         pytest.skip("no padding needed: no padded folding inserts a padding DWC")
-    metrics = run_feature_build(board, model, "dwc", **padded)
+    metrics = run_feature_build(small, board, model, "dwc", **padded)
     assert metrics["est_fps"] >= target_fps

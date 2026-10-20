@@ -1,0 +1,102 @@
+{
+  "Defaults": {},
+  "FMPadding_rtl_0": {
+    "SIMD": 1
+  },
+  "ConvolutionInputGenerator_rtl_0": {
+    "SIMD": 1,
+    "parallel_window": 0,
+    "ram_style": "distributed"
+  },
+  "MVAU_rtl_0": {
+    "PE": 16,
+    "SIMD": 1,
+    "ram_style": "distributed",
+    "resType": "auto",
+    "mem_mode": "internal_decoupled",
+    "runtime_writeable_weights": 0
+  },
+  "Thresholding_rtl_0": {
+    "PE": 1,
+    "runtime_writeable_weights": 0,
+    "depth_trigger_uram": 0,
+    "depth_trigger_bram": 0
+  },
+  "FMPadding_rtl_1": {
+    "SIMD": 1
+  },
+  "ConvolutionInputGenerator_rtl_1": {
+    "SIMD": 4,
+    "parallel_window": 0,
+    "ram_style": "distributed"
+  },
+  "MVAU_rtl_1": {
+    "PE": 4,
+    "SIMD": 36,
+    "ram_style": "distributed",
+    "resType": "auto",
+    "mem_mode": "internal_decoupled",
+    "runtime_writeable_weights": 0
+  },
+  "Thresholding_rtl_1": {
+    "PE": 1,
+    "runtime_writeable_weights": 0,
+    "depth_trigger_uram": 0,
+    "depth_trigger_bram": 0
+  },
+  "FMPadding_rtl_2": {
+    "SIMD": 1
+  },
+  "ConvolutionInputGenerator_rtl_2": {
+    "SIMD": 4,
+    "parallel_window": 0,
+    "ram_style": "distributed"
+  },
+  "MVAU_rtl_2": {
+    "PE": 2,
+    "SIMD": 36,
+    "ram_style": "distributed",
+    "resType": "auto",
+    "mem_mode": "internal_decoupled",
+    "runtime_writeable_weights": 0
+  },
+  "Thresholding_rtl_2": {
+    "PE": 1,
+    "runtime_writeable_weights": 0,
+    "depth_trigger_uram": 0,
+    "depth_trigger_bram": 0
+  },
+  "FMPadding_Pixel_hls_0": {
+    "SIMD": 1
+  },
+  "FMPadding_rtl_3": {
+    "SIMD": 1
+  },
+  "ConvolutionInputGenerator_rtl_3": {
+    "SIMD": 4,
+    "parallel_window": 0,
+    "ram_style": "distributed"
+  },
+  "MVAU_rtl_3": {
+    "PE": 3,
+    "SIMD": 18,
+    "ram_style": "distributed",
+    "resType": "auto",
+    "mem_mode": "internal_decoupled",
+    "runtime_writeable_weights": 0
+  },
+  "Thresholding_rtl_3": {
+    "PE": 1,
+    "runtime_writeable_weights": 0,
+    "depth_trigger_uram": 0,
+    "depth_trigger_bram": 0
+  },
+  "ElementwiseMul_hls_0": {
+    "PE": 1,
+    "ram_style": "auto",
+    "mem_mode": "internal_embedded"
+  },
+  "Shuffle_0": {
+    "SIMD": 1
+  }
+}
