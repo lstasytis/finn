@@ -51,6 +51,7 @@ from finn.transformation.fpgadataflow.create_dataflow_partition import (
 )
 from finn.transformation.fpgadataflow.insert_dwc import InsertDWC
 from finn.transformation.fpgadataflow.set_folding import (
+    FoldResult,
     Optimizer,
     SetFolding,
     analytic_fifo_sizer,
@@ -358,6 +359,54 @@ def test_set_folding_padding_never_worse(target):
 
 
 @pytest.mark.fpgadataflow
+def test_set_folding_padding_dwc_not_penalized_as_hls():
+    # the RTL DWC pads and crops: the annealer's DWC heuristic charges a padding DWC its
+    # stream widths only, not HLS_DWC_COST_PENALTY times them
+    model = make_multi_fclayer_model(64, DataType["INT4"], DataType["INT2"], DataType["INT16"], 2)
+    producer, consumer = (getCustomOp(n) for n in model.graph.node)
+    consumer.set_nodeattr("MW", 66)
+    consumer.set_nodeattr("SIMD", 11)
+    opt = Optimizer(model, "test", {"max_cycles": 1})
+    widths = producer.get_outstream_width() + producer.get_instream_width()
+    assert opt.compute_hls_dwc_cost(model, [consumer], 1000) == widths / 1000
+
+
+@pytest.mark.fpgadataflow
+def test_set_folding_tighten_offers_padded_factors():
+    # an MVAU folded faster than the target needs (SIMD 16: 256 of 400 cycles): the
+    # tighten pass offers the padded SIMDs between the divisors 16 and 8 (8: 512 cycles)
+    model = make_multi_fclayer_model(64, DataType["INT4"], DataType["INT2"], DataType["INT16"], 3)
+    model = model.transform(GiveUniqueNodeNames())
+    folder = SetFolding(400, platform="Pynq-Z1", folding_maximum_padding=4)
+    opt = folder._make_optimizer(model, "test", {"max_cycles": 400, **folder._resource_budgets()})
+    opt.generate_parameter_set()
+    params = opt.params.parameters
+    values = [16 if p.name == "SIMD" else p.possible_values[0] for p in params]
+    opt.params.add_all_params_to_index_list()
+    opt.params.set_values(values)
+    opt.params.apply_updates(attrs=opt.PARAMETERS_TO_APPLY)
+    i = next(j for j, p in enumerate(params) if p.node_index == 1 and p.name == "SIMD")
+    moved = folder._slower_values(opt, values, i, 400)
+    # 65 / 13 and 66 / 11 channels: 320 and 384 cycles
+    assert {m[i] for m in moved} == {11, 13}
+    assert all(m[:i] + m[i + 1 :] == values[:i] + values[i + 1 :] for m in moved)
+    assert params[i].meta_value == 16
+
+
+@pytest.mark.fpgadataflow
+def test_set_folding_padded_kept_when_cheaper():
+    # among foldings meeting the target the padded one is kept when it costs less, even
+    # at a higher peak utilization (zero-padded weights can cost a BRAM and save LUTs)
+    folder = SetFolding(100, platform="Pynq-Z1")
+    folder._budgets = folder._resource_budgets()
+    plain = FoldResult(None, True, {"LUT": 4000.0, "BRAM_18K": 100.0}, 100, [], 1.0)
+    padded = FoldResult(None, True, {"LUT": 1000.0, "BRAM_18K": 101.0}, 100, [], 0.9)
+    assert folder._better(plain, padded, 100, False) is padded
+    assert folder._better(plain, padded._replace(cost=1.1), 100, False) is plain
+    assert folder._better(plain, padded._replace(achieved=101), 100, False) is plain
+
+
+@pytest.mark.fpgadataflow
 def test_set_folding_bottleneck_is_unnamed_dwc():
     # the DWCs InsertDWC adds are unnamed: the slowest one must still be found
     # (4 -> 6 bits, 24 + 16 words), and with it both its neighbours
@@ -581,6 +630,65 @@ def test_set_folding_swg_pair_in_branching_graph():
     target = ofm * ofm * 4
     model = model.transform(SetFolding(target, platform="U250", folding_effort=20, seed=0))
     assert max(model.analysis(exp_cycles_per_layer).values()) <= target
+
+
+@pytest.mark.parametrize("padding", [0, 4])
+@pytest.mark.fpgadataflow
+def test_set_folding_conv_mvau_pe_padded(padding):
+    # a conv MVAU's PE is folded over its (padded) output channels like a dense one's
+    ch, mh, ifm, k = 8, 14, 6, 3
+    ofm = ifm - k + 1
+    swg = _hw_node(
+        "ConvolutionInputGenerator_rtl",
+        ["inp"],
+        ["win"],
+        ConvKernelDim=[k, k],
+        IFMChannels=ch,
+        IFMDim=[ifm, ifm],
+        OFMDim=[ofm, ofm],
+        SIMD=1,
+        Stride=[1, 1],
+        Dilation=[1, 1],
+        inputDataType="INT4",
+        outputDataType="INT4",
+    )
+    mvau = _hw_node(
+        "MVAU_rtl",
+        ["win", "w"],
+        ["outp"],
+        MW=k * k * ch,
+        MH=mh,
+        SIMD=1,
+        PE=1,
+        numInputVectors=[1, ofm, ofm],
+        inputDataType="INT4",
+        weightDataType="INT4",
+        outputDataType="INT32",
+        noActivation=1,
+        mem_mode="internal_decoupled",
+    )
+    graph = helper.make_graph(
+        [swg, mvau],
+        "conv",
+        [helper.make_tensor_value_info("inp", TensorProto.FLOAT, [1, ifm, ifm, ch])],
+        [helper.make_tensor_value_info("outp", TensorProto.FLOAT, [1, ofm, ofm, mh])],
+        value_info=[
+            helper.make_tensor_value_info("win", TensorProto.FLOAT, [1, ofm, ofm, k * k * ch])
+        ],
+    )
+    model = ModelWrapper(qonnx_make_model(graph))
+    model.set_initializer("w", np.ones((k * k * ch, mh), dtype=np.float32))
+    for name, dt in (("inp", "INT4"), ("win", "INT4"), ("w", "INT4"), ("outp", "INT32")):
+        model.set_tensor_datatype(name, DataType[dt])
+    opt = Optimizer(model, "test", {"max_cycles": 1}, padding=padding, pad_io_nodes=True)
+    opt.generate_parameter_set()
+    pe = next(p for p in opt.params.parameters if p.name == "PE")
+    channels = {v: real[0].bound_value for v, real in zip(pe.possible_values, pe.real_values)}
+    if padding:
+        # 15 / 3, 15 / 5 and 16 / 4 channels between the divisors of 14
+        assert channels == {1: 14, 2: 14, 3: 15, 4: 16, 5: 15, 7: 14, 14: 14}
+    else:
+        assert channels == {1: 14, 2: 14, 7: 14, 14: 14}
 
 
 @pytest.mark.fpgadataflow
