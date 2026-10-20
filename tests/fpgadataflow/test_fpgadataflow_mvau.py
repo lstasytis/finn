@@ -473,6 +473,10 @@ def test_fpgadataflow_mvau_rtlsim(mem_mode, idt, wdt, act, nf, sf, mw, mh, pumpe
     cycles_rtlsim = inst.get_nodeattr("cycles_rtlsim")
     exp_cycles_dict = model.analysis(exp_cycles_per_layer)
     exp_cycles = exp_cycles_dict[node.name]
+    if mem_mode == "external_mem":
+        # node-by-node rtlsim feeds the weights straight into the MVU core,
+        # bypassing fetch_weights, so it only measures the compute cycles
+        exp_cycles = inst.get_exp_compute_cycles()
     assert np.isclose(exp_cycles, cycles_rtlsim, atol=15)
     assert exp_cycles != 0
 
@@ -851,6 +855,132 @@ def test_fpgadataflow_rtl_mvau(
     assert (
         output_matmul == output_mvau_rtl_stitch
     ).all(), "Output of ONNX model not matching output of stitched-IP RTL model!"
+
+    # Check the cycle estimate against stitched-IP rtlsim, which unlike node-by-node
+    # rtlsim includes the weight path (fetch_weights for external_mem).
+    # get_exp_cycles() is the steady-state cycles per frame, so measure the extra
+    # cycles of 3 frames over 1 frame to cancel out the pipeline fill.
+    def stitched_rtlsim_cycles(n_frames):
+        ctx = {"global_in": np.concatenate([input_dict["global_in"]] * n_frames)}
+        rtlsim_exec(model, ctx)
+        return int(model.get_metadata_prop("cycles_rtlsim"))
+
+    cycles_per_frame = (stitched_rtlsim_cycles(3) - stitched_rtlsim_cycles(1)) / 2
+    exp_cycles = getCustomOp(model.get_nodes_by_op_type("MVAU_rtl")[0]).get_exp_cycles()
+    assert np.isclose(exp_cycles, cycles_per_frame, rtol=0.1, atol=20), (
+        f"MVAU cycle estimate {exp_cycles} not close to stitched-IP rtlsim "
+        f"{cycles_per_frame} cycles per frame"
+    )
+
+
+def make_mvau_rtl_node(mw, mh, simd, pe, th, n_vec, mem_mode, wdt="INT8"):
+    """A bare MVAU_rtl node (no activation, INT8 inputs) for estimate checks."""
+    node = helper.make_node(
+        "MVAU_rtl",
+        ["inp", "weights"],
+        ["outp"],
+        domain="finn.custom_op.fpgadataflow.rtl",
+        backend="fpgadataflow",
+        MW=mw,
+        MH=mh,
+        SIMD=simd,
+        PE=pe,
+        TH=th,
+        numInputVectors=n_vec,
+        inputDataType="INT8",
+        weightDataType=wdt,
+        outputDataType="INT32",
+        noActivation=1,
+        mem_mode=mem_mode,
+        resType="dsp",
+    )
+    return getCustomOp(node)
+
+
+# (MW, MH, SIMD, PE, TH, numInputVectors, mem_mode, wdt, cycles per frame): steady-state
+# stitched-IP rtlsim cycles per frame on xcvc1902 (4 frames back to back), from the
+# sweep that fixed the TH>1 estimate. The tiled MVU computes NF*SF cycles per input
+# vector like the untiled one, plus a stall per group of TH vectors from its
+# activation replay buffer (SF*TH+2 just under a power of two) or its output reorder
+# buffer (NF*TH just under or at a power of two with few compute cycles per fold).
+TILED_EXP_CYCLES = [
+    (32, 32, 8, 8, 1, [1, 16], "internal_decoupled", "INT8", 256),
+    (32, 32, 8, 8, 2, [1, 16], "internal_decoupled", "INT8", 256),
+    (32, 32, 8, 8, 8, [1, 16], "internal_decoupled", "INT8", 256),
+    (32, 32, 8, 8, 2, [2, 3, 8], "internal_decoupled", "INT8", 768),
+    (36, 32, 3, 8, 3, [1, 12], "internal_decoupled", "INT8", 576),
+    (384, 384, 24, 16, 8, [1, 128], "internal_decoupled", "INT8", 49152),  # bert
+    (384, 384, 24, 16, 4, [1, 128], "internal_decoupled", "INT8", 49152),
+    (384, 1536, 48, 32, 8, [1, 128], "internal_decoupled", "INT8", 49152),
+    (30, 16, 2, 8, 2, [1, 8], "internal_decoupled", "INT8", 300),  # replay stall
+    (28, 8, 4, 8, 4, [1, 8], "internal_decoupled", "INT8", 90),
+    (62, 32, 2, 8, 2, [1, 8], "internal_decoupled", "INT8", 1116),
+    (64, 18, 1, 9, 9, [18], "internal_decoupled", "INT4", 2422),
+    (32, 128, 8, 8, 4, [1, 12, 16], "internal_decoupled", "INT8", 13872),  # reorder stall
+    (32, 32, 32, 8, 8, [1, 16], "internal_decoupled", "INT8", 98),
+    (4, 128, 4, 8, 4, [1, 16], "internal_decoupled", "INT8", 436),
+    (28, 128, 4, 8, 4, [1, 16], "internal_decoupled", "INT8", 1876),  # both, they overlap
+    (12, 128, 4, 8, 4, [1, 16], "internal_decoupled", "INT8", 916),
+    (32, 32, 8, 8, 2, [1, 16], "dynamic", "INT8", 256),
+    (32, 32, 8, 8, 1, [1, 4], "external_mem", "INT8", 128),  # weight fetch bound
+    (64, 64, 16, 8, 2, [1, 16], "external_mem", "INT8", 1032),  # AXI bus bound
+    (64, 64, 16, 8, 2, [1, 16], "external_mem", "INT4", 520),
+]
+
+
+@pytest.mark.parametrize("cfg", TILED_EXP_CYCLES)
+@pytest.mark.fpgadataflow
+def test_mvau_rtl_exp_cycles(cfg):
+    """get_exp_cycles() of MVAU_rtl against measured steady-state rtlsim cycles."""
+    mw, mh, simd, pe, th, n_vec, mem_mode, wdt, cycles = cfg
+    inst = make_mvau_rtl_node(mw, mh, simd, pe, th, n_vec, mem_mode, wdt)
+    assert np.isclose(inst.get_exp_cycles(), cycles, rtol=0.02, atol=2)
+
+
+@pytest.mark.parametrize(
+    "mw, mh, simd, pe, th, n_vec",
+    [
+        (32, 32, 8, 8, 4, 16),  # no stall
+        (30, 16, 2, 8, 2, 8),  # activation replay stall: 15 per group of 2
+        (32, 32, 32, 8, 8, 16),  # output reorder stall: 17 per group of 8
+    ],
+)
+@pytest.mark.fpgadataflow
+@pytest.mark.slow
+@pytest.mark.vivado
+def test_fpgadataflow_mvau_tiled_exp_cycles_rtlsim(mw, mh, simd, pe, th, n_vec):
+    """Steady-state stitched-IP rtlsim cycles per frame of a tiled MVAU_rtl against
+    get_exp_cycles(), for a folding without and with each of the two group stalls."""
+    part = "xcvc1902-vsva2197-2MP-e-S"
+    idt = wdt = DataType["INT8"]
+    W = gen_finn_dt_tensor(wdt, (mw, mh))
+    model = make_single_fclayer_modelwrapper(W, pe, simd, wdt, idt, DataType["INT32"])
+    inst = getCustomOp(model.graph.node[0])
+    inst.set_nodeattr("numInputVectors", [1, n_vec])
+    inst.set_nodeattr("TH", th)
+    inst.set_nodeattr("mem_mode", "internal_decoupled")
+    inst.set_nodeattr("resType", "dsp")
+    inst.set_nodeattr("preferred_impl_style", "rtl")
+    model.set_tensor_shape("inp", [1, n_vec, mw])
+    model.set_tensor_shape("outp", [1, n_vec, mh])
+    model = model.transform(SpecializeLayers(part))
+    model = model.transform(GiveUniqueNodeNames())
+    assert model.graph.node[0].op_type == "MVAU_rtl"
+    model = model.transform(MinimizeAccumulatorWidth())
+    model = model.transform(InferDataTypes())
+    model = model.transform(PrepareIP(part, 5))
+    model = model.transform(HLSSynthIP())
+    model = model.transform(CreateStitchedIP(part, 5))
+    model.set_metadata_prop("exec_mode", "rtlsim")
+    x = gen_finn_dt_tensor(idt, [1, n_vec, mw])
+
+    def stitched_rtlsim_cycles(n_frames):
+        rtlsim_exec(model, {"inp": np.concatenate([x] * n_frames)})
+        return int(model.get_metadata_prop("cycles_rtlsim"))
+
+    cycles_per_frame = (stitched_rtlsim_cycles(5) - stitched_rtlsim_cycles(1)) / 4
+    exp_cycles = getCustomOp(model.graph.node[0]).get_exp_cycles()
+    assert np.isclose(exp_cycles, cycles_per_frame, rtol=0.02, atol=2)
 
 
 @pytest.mark.parametrize("mh", [32])
@@ -1268,6 +1398,10 @@ def test_mvau_tiled_tree_model_token_counts():
     assert mvau.mvau_tiled_tree(32, 2, 18, 1, 4) is None
     # TH == 1 is the untiled module and is not this function's business
     assert mvau.mvau_tiled_tree(32, 2, 18, 1, 1) is None
+    # the output reorder buffer stalls these (SF=1, NF=18: 37 and 63 cycles per
+    # group), which the schedule does not model: left to rtlsim
+    assert mvau.mvau_tiled_tree(1, 18, 18, 9, 9) is None
+    assert mvau.mvau_tiled_tree(1, 18, 18, 6, 6) is None
 
 
 @pytest.mark.fpgadataflow

@@ -59,6 +59,44 @@ from finn.util.data_packing import numpy_to_hls_code, pack_innermost_dim_as_hex_
 # the ... here can be any shape (representing groups of vectors)
 
 
+def tiled_mvau_group_stall(sf, nf, th):
+    """Stall cycles of the tiled MVU (finn-rtllib/mvu_tiled, TH>1) per group of TH
+    input vectors. A group takes NF*SF*TH compute cycles plus this stall, which is
+    the larger of two buffer effects at the group boundary (they overlap):
+
+    * activation replay: input_gen holds the group's SF*TH input words in a
+      2^ceil(log2(SF*TH+2))-word circular buffer and replays them NF times with
+      the TH vectors interleaved innermost, so the TH-th beat already needs word
+      (TH-1)*SF. The words are only freed after the last replay, so only the
+      buffer's spare slots prefetch the next group; what its interleaved start
+      needs beyond that (plus 3 cycles) arrives one word per cycle.
+    * output reorder: the accumulator emits TH consecutive words per output fold,
+      input_gen transposes them to the stream order and holds all NF*TH words of
+      a group in a 2^ceil(log2((NF-1)*TH+3))-word buffer until the last fold
+      arrives; then the remaining R = NF*TH-(NF-1) words drain back to back while
+      the next group already produces outputs. If those do not fit the spare
+      slots (plus TH-4 words of slack), the pipeline freezes until the drain is
+      done.
+
+    Exact for power-of-two TH (and the replay part for any TH), within ~10 % of a
+    group otherwise; verified against rtlsim for SF 1..64, NF 1..48, TH 2..16 and
+    bert's foldings."""
+    fm = sf * th
+    buf_in = 1 << math.ceil(math.log2(fm + 2))
+    in_stall = max(0, (th - 1) * (sf - 1) + 3 - (buf_in - fm))
+    if nf < 2:
+        return in_stall
+    buf_out = 1 << math.ceil(math.log2((nf - 1) * th + 3))
+    spare = buf_out - nf * th
+    run = nf * th - (nf - 1)
+    # cycle (from the drain start) at which the first non-fitting word of the
+    # next group arrives: its outputs come in bursts of TH every fm cycles
+    w = max(0, spare + th - 4)
+    t_block = fm * (w // th + 1) + w % th
+    out_stall = max(0, run - t_block, -spare)
+    return max(in_stall, out_stall)
+
+
 class MVAU(HWCustomOp):
     """Abstraction layer for HW implementation of MatrixVectorActivation layers."""
 
@@ -499,18 +537,71 @@ class MVAU(HWCustomOp):
             )
 
     def get_exp_cycles(self):
+        # with external_mem, the weight fetch can be slower than the compute;
+        # fetch and compute overlap, so the slower of the two sets the rate
+        exp_cycles = max(self.get_exp_compute_cycles(), self.get_exp_weight_fetch_cycles())
+        return int(exp_cycles)
+
+    def get_exp_compute_cycles(self):
+        """Expected cycles per frame of the MVU compute core alone, assuming the
+        weight stream never stalls it."""
         pe = self.get_nodeattr("PE")
         simd = self.get_nodeattr("SIMD")
         th = self.get_nodeattr("TH")
-        num_inp_vec = self.get_nodeattr("numInputVectors")
+        n_vec = int(np.prod(self.get_nodeattr("numInputVectors")))
         mh = self.get_nodeattr("MH")
         mw = self.get_nodeattr("MW")
         # since mmv != 1 is not supported yet, we set mmv for now to 1
         mmv = 1
-        # Tiling/systolic reduces throughput
-        # TH>1 (tiling) reduces throughput by factor TH (tinner = PE*SIMD/TH)
-        exp_cycles = (mh / pe) * (mw / simd) * np.prod(num_inp_vec) * th / mmv
+        # TH>1 (tiling) does not change the compute cycles: the tiled MVU still
+        # consumes one PE x SIMD weight tile per cycle, but reuses each tile for TH
+        # input vectors, so the weight stream only needs PE*SIMD/TH weights per cycle
+        exp_cycles = (mh / pe) * (mw / simd) * n_vec / mmv
+        if th > 1:
+            # the tiled MVU can stall once per group of TH input vectors (see
+            # get_tiled_group_stall_cycles); the stall is 0 for most foldings
+            exp_cycles += (n_vec // th) * self.get_tiled_group_stall_cycles()
         return int(exp_cycles)
+
+    def get_tiled_group_stall_cycles(self):
+        """Stall cycles of the tiled MVU (TH>1) per group of TH input vectors, 0
+        for TH=1; see tiled_mvau_group_stall()."""
+        th = self.get_nodeattr("TH")
+        if th <= 1:
+            return 0
+        sf = self.get_nodeattr("MW") // self.get_nodeattr("SIMD")
+        nf = self.get_nodeattr("MH") // self.get_nodeattr("PE")
+        return tiled_mvau_group_stall(sf, nf, th)
+
+    def get_exp_weight_fetch_cycles(self):
+        """Expected cycles per frame for fetch_weights to deliver the weights in
+        mem_mode external_mem, 0 for all other mem_modes.
+
+        The weight matrix is fetched from external memory once per frame for TH=1
+        (local_weight_buffer replays it numInputVectors times) and
+        numInputVectors/TH times per frame for TH>1. Each fetch is limited by the
+        slower of two stages that each move one transfer per cycle:
+          - the AXI bus: ceil(MH*MW / (DATA_BITS // wbits)) bus words
+          - the VPC into the weight buffer: MH*MW / IWSIMD weight groups,
+            with IWSIMD = SIMD for TH=1 and PE*SIMD/TH for TH>1
+        For TH=1 this is slower than the compute whenever PE > numInputVectors,
+        for TH>1 whenever PE*SIMD*wbits/TH > DATA_BITS.
+        This is a best case: one AXI beat per cycle, no memory latency."""
+        if self.get_nodeattr("mem_mode") != "external_mem":
+            return 0
+        pe = self.get_nodeattr("PE")
+        simd = self.get_nodeattr("SIMD")
+        th = self.get_nodeattr("TH")
+        n_vec = np.prod(self.get_nodeattr("numInputVectors"))
+        mh = self.get_nodeattr("MH")
+        mw = self.get_nodeattr("MW")
+        wbits = self.get_input_datatype(1).bitwidth()
+        data_bits = 256  # DATA_BITS in fetch_weights.sv (AXI bus width)
+        iwsimd = (pe * simd) // th if th > 1 else simd
+        fetches_per_frame = n_vec // th if th > 1 else 1
+        bus_words = math.ceil(mh * mw / (data_bits // wbits))
+        weight_groups = (mh * mw) // iwsimd
+        return int(fetches_per_frame * max(bus_words, weight_groups))
 
     def minimize_accumulator_width(self, model, datatype_only=False):
         """Minimize the accumulator bit width according to the weight values,
@@ -1418,19 +1509,19 @@ class MVAU(HWCustomOp):
 
         ``TH`` therefore does not multiply the cycle count: a group costs
         ``NF*SF*TH`` cycles and covers ``TH`` vectors, i.e. ``NF*SF`` per vector,
-        the same as the untiled MVAU. (``get_exp_cycles`` still multiplies by
-        ``TH``; it is left alone because the characterization uses it only as a
-        simulation budget, where over-estimating is harmless.)
+        the same as the untiled MVAU (``get_exp_cycles`` agrees).
 
         The three terms:
 
         ``stall``
-            A group cannot start replaying until the buffer holds the word the
-            interleaved nest reaches first, ``(TH-1)*SF + 4 - TH`` words in, and it
-            could only prefetch ``BUF_SIZE - SF*TH`` of them while the previous
-            group ran. ``BUF_SIZE`` is the ``input_gen`` circular buffer, which
-            rounds up to a power of two -- which is why the overhead is not smooth
-            in ``SF``. This is what makes the span ``NF*SF*TH + stall``.
+            The cycles a group waits at its start, ``tiled_mvau_group_stall``:
+            for the activation replay buffer to hold the word the interleaved
+            nest reaches first (it could only prefetch ``BUF_SIZE - SF*TH`` of
+            the group while the previous one ran). ``BUF_SIZE`` rounds up to a
+            power of two -- which is why the overhead is not smooth in ``SF``.
+            This is what makes the span ``NF*SF*TH + stall``. The same function
+            also knows the output reorder buffer's stall; ``mvau_tiled_tree``
+            declines the foldings where that one dominates.
         ``d``
             The first output of a group, as an offset from that group's first read.
         ``tree_depth``
@@ -1443,8 +1534,7 @@ class MVAU(HWCustomOp):
         Returns ``(fm, stall, span, d)``.
         """
         fm = SF * TH
-        buf = 1 << int(math.ceil(math.log2(fm + 2)))
-        stall = max(0, ((TH - 1) * SF + 4 - TH) - (buf - fm))
+        stall = tiled_mvau_group_stall(SF, NF, TH)
         span = NF * fm + stall
         chainlen = (SIMD + 2) // 3
         tree_depth = int(math.ceil(math.log2(chainlen))) if chainlen > 1 else 0
@@ -1482,6 +1572,14 @@ class MVAU(HWCustomOp):
             # this, so a graph that reaches here with it violated is malformed
             return None
         fm, stall, span, d = self.mvau_tiled_params(SF, NF, SIMD, TH)
+        spare = (1 << math.ceil(math.log2((NF - 1) * TH + 3))) - NF * TH
+        if stall > max(tiled_mvau_group_stall(SF, 1, TH), -spare):
+            # the output reorder buffer stalls the group (NF*TH just under a
+            # power of two with few compute cycles per fold): its run then drains
+            # while the next group's first folds queue up behind it, a shape the
+            # schedule below does not have. Leave the node to rtlsim. (A buffer a
+            # few words too small for the group, spare < 0, only trickles.)
+            return None
         G = n_vec // TH
         period = G * span
         if period < 1:
