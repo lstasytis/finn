@@ -430,17 +430,18 @@ class Optimizer:
             if prod is None:
                 continue
             prod_inst = getCustomOp(prod)
+            # the stream may be any output of the producer (e.g. a StreamingSplit's second)
+            tensor = node.onnx_node.input[0]
+            out_idx = list(prod.output).index(tensor)
             # the producer's input width stands in for the DWC's output width here
-            in_width, out_width = prod_inst.get_outstream_width(), prod_inst.get_instream_width()
-            n0_out = prod_inst.get_folded_output_shape()
+            in_width = prod_inst.get_outstream_width(out_idx)
+            out_width = prod_inst.get_instream_width()
+            n0_out = prod_inst.get_folded_output_shape(out_idx)
             op_type = node.onnx_node.op_type
             if (
                 op_type.startswith("MVAU") and node.get_nodeattr("mem_mode") == "external"
             ) or op_type.startswith("StreamingConcat"):
-                in_idx = [
-                    i for i, name in enumerate(node.onnx_node.input) if name == prod.output[0]
-                ]
-                assert in_idx, "Malformed model"
+                in_idx = [i for i, name in enumerate(node.onnx_node.input) if name == tensor]
                 n1_in = node.get_folded_input_shape(in_idx[-1])
             else:
                 n1_in = node.get_folded_input_shape()
