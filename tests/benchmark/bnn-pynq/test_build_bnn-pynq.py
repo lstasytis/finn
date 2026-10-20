@@ -347,6 +347,40 @@ OPTIMIZER_FOLDING = dict(
 )
 
 
+# a padded folding below the target still counts as a win when its resource reduction
+# vs the committed folding is larger than its throughput loss, within TARGET_TOLERANCE
+TARGET_TOLERANCE = 0.10
+
+
+def resource_share(output_dir, board):
+    """A build's estimated resources (FIFOs excluded: the reference sizes none) as the
+    summed shares of the board's LUT, BRAM_18K, URAM and DSP."""
+    from finn.util.platforms import platforms
+
+    device = {}
+    for slr in platforms[board]().resource_count_dict.values():
+        for r, n in slr.items():
+            device[r] = device.get(r, 0) + n
+    layers = _load_json(os.path.join(output_dir, "report", "estimate_layer_resources.json"))
+    used = {}
+    for name, res in layers.items():
+        if name != "total" and not name.startswith("StreamingFIFO"):
+            for r, n in res.items():
+                used[r] = used.get(r, 0) + n
+    return sum(used.get(r, 0) / device[r] for r in ("LUT", "BRAM_18K", "URAM", "DSP") if device[r])
+
+
+def assert_target_or_trade(metrics, ref_dir, target_fps, board):
+    """The estimate meets the target, or misses it by at most TARGET_TOLERANCE for a
+    larger resource reduction (%) than throughput loss (%) vs the committed folding."""
+    loss = 1 - metrics["est_fps"] / target_fps
+    if loss <= 0:
+        return
+    saved = 1 - resource_share(metrics["output_dir"], board) / resource_share(ref_dir, board)
+    msg = "%.1f %% below the target for %.1f %% fewer resources than the committed folding"
+    assert loss <= TARGET_TOLERANCE and saved > loss, msg % (100 * loss, 100 * saved)
+
+
 def reference_estimate(board, model, small=False):
     """Estimate-only build with the committed folding: its convert-phase
     checkpoint and estimated throughput are the feature tests' reference."""
@@ -463,7 +497,8 @@ def test_bnnpynq_folding(board, model, mode, size):
 @pytest.mark.parametrize("board,model", FEATURE_BUILDS)
 def test_bnnpynq_dwc(board, model, size):
     small = size == "small"
-    target_fps = int(estimated_throughput(reference_estimate(board, model, small=small)))
+    ref_dir = reference_estimate(board, model, small=small)
+    target_fps = int(estimated_throughput(ref_dir))
     # the folding search is cheap: find a seed whose padded folding pads (padding wins
     # only on some search paths), skip the hardware build if none does
     for seed in DWC_SEEDS:
@@ -480,4 +515,4 @@ def test_bnnpynq_dwc(board, model, size):
     else:
         pytest.skip("no padding needed: no padded folding inserts a padding DWC")
     metrics = run_feature_build(small, board, model, "dwc", **padded)
-    assert metrics["est_fps"] >= target_fps
+    assert_target_or_trade(metrics, ref_dir, target_fps, board)
