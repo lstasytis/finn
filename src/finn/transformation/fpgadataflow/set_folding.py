@@ -930,11 +930,16 @@ class Optimizer:
         original = inst.get_nodeattr("SIMD")
         dims = [inst.get_normal_input_shape()[-1], inst.get_normal_output_shape()[-1]]
         valid = set()
-        for simd in common_divisors(dims):
-            inst.set_nodeattr("SIMD", simd)
-            if simd == 1 or inst.get_exp_cycles() > 0:
-                valid.add(simd)
-        inst.set_nodeattr("SIMD", original)
+        try:
+            for simd in common_divisors(dims):
+                inst.set_nodeattr("SIMD", simd)
+                try:
+                    if simd == 1 or inst.get_exp_cycles() > 0:
+                        valid.add(simd)
+                except RuntimeError:  # the decomposition finds no solution for this SIMD
+                    pass
+        finally:
+            inst.set_nodeattr("SIMD", original)
         return valid
 
     def _make_resource_type_meta(self, inst, node_index, param):
