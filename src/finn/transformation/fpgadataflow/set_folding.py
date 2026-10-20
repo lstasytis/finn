@@ -326,10 +326,6 @@ class Optimizer:
         ("LabelSelect_hls", "PE"),
         # a VVAU_hls only supports SIMD (kernel-window) folding in its RTL sibling
         ("VVAU_hls", "SIMD"),
-        # concat/split fold SIMD over per-stream channel counts, which only the naive
-        # folder models
-        ("StreamingConcat_hls", "SIMD"),
-        ("StreamingSplit_hls", "SIMD"),
     }
     # (op_type, param) -> the attribute holding the channel count that may be padded to
     # unlock finer folding factors; other nodes are folded but never padded (VVAU/SWG SIMD
@@ -906,6 +902,9 @@ class Optimizer:
         if op_type in self.OPS_WITH_WEIGHTS and self._streamed_weights(inst):
             padding = 0
         valid = self._shuffle_simd_values(inst) if op_type == "Shuffle" else None
+        if op_type in ("StreamingSplit_hls", "StreamingConcat_hls"):
+            # SIMD must divide every stream's channel count
+            valid = set(common_divisors(inst.get_nodeattr("ChannelsPerStream")))
         values, real_values, seen_factors = [], [], set()
         for value, bound in zip(*allowed_divisors(max_value, padding)):
             if valid is not None and value not in valid:
