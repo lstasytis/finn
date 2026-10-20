@@ -175,6 +175,16 @@ module mvu_vvu_axi #(
 	assign	s_axis_weights_tready = !idle && avld;
 
 	//- Conditionally Pumped DSP Compute ------------------------------------
+	// @todo	Push core selection decision entirely into mvu.sv.
+	// This currently duplicates the lane count computation from mvu.sv
+	// to intercept configurations that should map to the INT8 mode of DSP58.
+	localparam int unsigned  MIN_LANE_WIDTH = WEIGHT_WIDTH + ACTIVATION_WIDTH - 1;
+	// number of lanes: for only 1 lane, NARROW_WEIGHTS makes no difference
+	localparam int unsigned  A_WIDTH = 25 + 2*(VERSION > 1);     // Width of A datapath
+	localparam int unsigned  NUM_LANES = A_WIDTH == WEIGHT_WIDTH? 1 : 1 + (A_WIDTH - !NARROW_WEIGHTS - WEIGHT_WIDTH) / MIN_LANE_WIDTH;
+	// compute core: mvu_vvu_8sx9_dsp58 if set, mvu otherwise (also selects the output queue depth)
+	localparam bit  USE_8SX9_DSP58 = !IS_MVU || ((VERSION > 2) && (NUM_LANES <= 3) && (WEIGHT_WIDTH <= 8) && (ACTIVATION_WIDTH <= 9));
+
 	typedef logic [PE-1:0][ACCU_WIDTH-1:0]  dsp_p_t;
 	uwire  ovld;
 	uwire dsp_p_t  odat;
@@ -302,15 +312,7 @@ module mvu_vvu_axi #(
 
 		end : genPumpedCompute
 
-		// @todo	Push core selection decision entirely into mvu.sv.
-		// This currently duplicates the lane count computation from mvu.sv
-		// to intercept configurations that should map to the INT8 mode of DSP58.
-		localparam int unsigned  MIN_LANE_WIDTH = WEIGHT_WIDTH + ACTIVATION_WIDTH - 1;
-		// number of lanes: for only 1 lane, NARROW_WEIGHTS makes no difference
-		localparam int unsigned  A_WIDTH = 25 + 2*(VERSION > 1);     // Width of A datapath
-		localparam int unsigned  NUM_LANES = A_WIDTH == WEIGHT_WIDTH? 1 : 1 + (A_WIDTH - !NARROW_WEIGHTS - WEIGHT_WIDTH) / MIN_LANE_WIDTH;
-
-		if(!IS_MVU || ((VERSION > 2) && (NUM_LANES <= 3) && (WEIGHT_WIDTH <= 8) && (ACTIVATION_WIDTH <= 9))) begin : genINT8
+		if(USE_8SX9_DSP58) begin : genINT8
 			initial $info("Sidestepping to INT8 mode of DSP58 for %0dx%0d.", WEIGHT_WIDTH, ACTIVATION_WIDTH);
 			mvu_vvu_8sx9_dsp58 #(
 				.IS_MVU(IS_MVU),
@@ -343,11 +345,12 @@ module mvu_vvu_axi #(
 
 	if(1) begin : blkOutput
 		localparam int unsigned  CORE_PIPELINE_DEPTH =
-			VERSION == 3? 3 + (SEGMENTLEN == 0? 0 : ((SIMD+2)/3 -1)/SEGMENTLEN) :
-			/* else */    3 + $clog2(SIMD+1) + (SIMD == 1);
+			USE_8SX9_DSP58? 3 + (SEGMENTLEN == 0? 0 : ((SIMD+2)/3 -1)/SEGMENTLEN) :
+			/* else */      3 + $clog2(SIMD) + (SIMD == 1) + 1;	// = PIPELINE_DEPTH of mvu.sv
 
+		// The registered OLock stops feeding the core one cycle late: one result more than the core latency.
 		// This is conservative and could be divided by a guaranteed minimum output interval, e.g. MW/SIMD.
-		localparam int unsigned  MAX_IN_FLIGHT = CORE_PIPELINE_DEPTH;
+		localparam int unsigned  MAX_IN_FLIGHT = CORE_PIPELINE_DEPTH + 1;
 		typedef logic [PE-1:0][ACCU_WIDTH-1:0]  output_t;
 
 		logic signed [$clog2(MAX_IN_FLIGHT+1):0]  OPtr = '1;	// -1 | 0, 1, ..., MAX_IN_FLIGHT
