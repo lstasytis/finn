@@ -83,6 +83,10 @@ class StreamingConcat_hls(StreamingConcat, HLSBackend):
     def pragmas(self):
         n_inputs = self.get_n_inputs()
         pragmas = []
+        # free-running dataflow process around the single-word hlslib function:
+        # one word per cycle instead of one top-level invocation (Interval 5) per
+        # word, as in DuplicateStreams_hls
+        pragmas.append("#pragma HLS dataflow disable_start_propagation")
         for i in range(n_inputs):
             pragmas.append("#pragma HLS INTERFACE axis port=in%d_V" % i)
         self.code_gen_dict["$PRAGMAS$"] = pragmas
