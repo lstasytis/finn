@@ -778,7 +778,7 @@ class Optimizer:
             combos = []
             for combo in itertools.product(*(params[i].possible_values for i in indices)):
                 set_combo(combo)
-                combos.append((max(n.get_exp_cycles() for n in nodes), combo))
+                combos.append((max(self.exp_cycles(n) for n in nodes), combo))
             fastest = min(cycles for cycles, _ in combos)
             feasible = [c for c in combos if c[0] <= target] or [
                 c for c in combos if c[0] == fastest
@@ -814,7 +814,9 @@ class Optimizer:
                 continue
             if node.op_type == "StreamingDataWidthConverter":
                 continue
-            if not (is_hls_node(node) or is_rtl_node(node)):
+            # a generic Shuffle is folded before step_transpose_decomposition splits it
+            # into Inner/OuterShuffle stages, which inherit its SIMD
+            if not (is_hls_node(node) or is_rtl_node(node) or node.op_type == "Shuffle"):
                 continue
             max_padding = self._max_padding_for_node(node_index)
             if node.op_type in self.SWG_OPS:
@@ -903,8 +905,11 @@ class Optimizer:
         # streamed weights (an MVAU's mem_mode="dynamic") come from another node: no padding
         if op_type in self.OPS_WITH_WEIGHTS and self._streamed_weights(inst):
             padding = 0
+        valid = self._shuffle_simd_values(inst) if op_type == "Shuffle" else None
         values, real_values, seen_factors = [], [], set()
         for value, bound in zip(*allowed_divisors(max_value, padding)):
+            if valid is not None and value not in valid:
+                continue
             if param == "SIMD" and op_type in self.SIMD_MAX_OVERRIDE:
                 bound = inst.get_nodeattr("Kernel")  # the (unpaddable) kernel window
             factor = int(np.prod(bound)) // value
@@ -917,6 +922,20 @@ class Optimizer:
             p.update_thresholds = op_type in self.OPS_WITH_THRESHOLDS
             real_values.append([p])
         return MetaParameter(param, values, real_values, node_index)
+
+    @staticmethod
+    def _shuffle_simd_values(inst):
+        """SIMD values of a generic Shuffle: divisors of its innermost input and output
+        dimension with a valid decomposition (the others estimate 0 cycles)."""
+        original = inst.get_nodeattr("SIMD")
+        dims = [inst.get_normal_input_shape()[-1], inst.get_normal_output_shape()[-1]]
+        valid = set()
+        for simd in common_divisors(dims):
+            inst.set_nodeattr("SIMD", simd)
+            if simd == 1 or inst.get_exp_cycles() > 0:
+                valid.add(simd)
+        inst.set_nodeattr("SIMD", original)
+        return valid
 
     def _make_resource_type_meta(self, inst, node_index, param):
         """The meta parameter choosing a node's ram_style / resType, or None when fewer
