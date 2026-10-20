@@ -41,11 +41,12 @@ import warnings
 from collections import namedtuple
 from dataclasses import dataclass, field
 from onnx import TensorProto, helper
+from qonnx.core.modelwrapper import ModelWrapper
 from qonnx.custom_op.registry import getCustomOp
 from qonnx.transformation.base import Transformation
 from qonnx.transformation.general import GiveUniqueNodeNames
 from qonnx.transformation.infer_datatypes import InferDataTypes
-from qonnx.util.basic import gen_finn_dt_tensor
+from qonnx.util.basic import gen_finn_dt_tensor, qonnx_make_model
 
 # Import the elementwise binary operation module to extract names of all
 # specializations (which require PE parallelism to be configured)
@@ -56,7 +57,7 @@ from finn.analysis.fpgadataflow.op_and_param_counts import aggregate_dict_keys
 from finn.custom_op.fpgadataflow.matrixvectoractivation import MVAU
 from finn.custom_op.fpgadataflow.vectorvectoractivation import VVAU
 from finn.transformation.fpgadataflow.annotate_cycles import AnnotateCycles
-from finn.transformation.fpgadataflow.insert_dwc import InsertDWC
+from finn.transformation.fpgadataflow.insert_dwc import InsertDWC, _suitable_node
 from finn.transformation.fpgadataflow.insert_fifo import InsertFIFO
 from finn.transformation.fpgadataflow.minimize_accumulator_width import (
     MinimizeAccumulatorWidth,
@@ -253,9 +254,6 @@ class ParameterSet:
         self.index_list = []
         self.nodes = []
 
-    def get_max_cycles(self):
-        return max([n.get_exp_cycles() for n in self.nodes])
-
     def get_meta_values(self):
         return [p.meta_value for p in self.parameters]
 
@@ -312,6 +310,9 @@ class Optimizer:
     #: the RESOURCE_TYPE_ATTRS that may be tuned
     resource_type_params: list = field(default_factory=list)
     params: ParameterSet = None
+    # get_exp_cycles by node attributes, and fifo_resources' cache of the current partition
+    _cycles_memo: dict = field(default_factory=dict, init=False, repr=False)
+    _cache: dict = field(default=None, init=False, repr=False)
 
     # a VVAU folds SIMD over its kernel window, not its input channels
     SIMD_MAX_OVERRIDE = {
@@ -394,12 +395,13 @@ class Optimizer:
         self.params.apply_updates(final=False, attrs=self.PARAMETERS_TO_APPLY)
         nodes = self.params.nodes
         cycles = max(
-            self.params.get_max_cycles(), max(self.dwc_cycles(self.model, n) for n in nodes)
+            max(self.exp_cycles(n) for n in nodes),
+            max(self.dwc_cycles(self.model, n) for n in nodes),
         )
         cost = self.resource_cost(self.get_resources(nodes))
         if self.enable_folding_dwc_heuristic:
             cost += self.compute_hls_dwc_cost(self.model, nodes, self.targets["LUT"])
-        cost += self.resource_cost(self.fifo_resources(self.model, nodes))
+        cost += self.resource_cost(self.fifo_resources(self.model, nodes, self._cache))
         violation = cycles / self.targets["max_cycles"]
         if violation > 1:
             cost += self.INFEASIBLE_PENALTY * violation
@@ -496,9 +498,10 @@ class Optimizer:
             return None
         return _fifo_cost, _resolve
 
-    def fifo_resources(self, model, nodes):
+    def fifo_resources(self, model, nodes, cache=None):
         """Estimated resources of the FIFOs the build will put in front of ``nodes`` (one
-        per edge, two around a DWC), without sizing them.
+        per edge, two around a DWC), without sizing them. ``cache`` (see _partition_cache)
+        keeps what does not change while only ``nodes`` move.
 
         Mirrors the analytic sizer to first order: a FIFO holds what its producer writes
         before the consumer reads it. With the upstream chain finishing a frame in ``t_up``
@@ -511,17 +514,28 @@ class Optimizer:
         totals = {"LUT": 0.0, "BRAM_18K": 0.0, "URAM": 0.0}
         target = max(float(self.targets.get("max_cycles", 1)), 1.0)
 
+        cache = cache or self._partition_cache(model)
+        producer, fixed = cache["producer"], cache["upstream"]
+        moving = {n.onnx_node.name for n in nodes}
         chain = {}
 
         def upstream_cycles(onnx_node):
-            if onnx_node.name not in chain:
-                cycles = getCustomOp(onnx_node).get_exp_cycles()
-                for name in onnx_node.input:
-                    prod = model.find_producer(name)
+            """The slowest node up to ``onnx_node``, and whether one of ``nodes`` is there;
+            the others' values hold for the whole partition."""
+            name = onnx_node.name
+            if name in fixed:
+                return fixed[name], False
+            if name not in chain:
+                cycles, moved = self.exp_cycles(getCustomOp(onnx_node)), name in moving
+                for tensor in onnx_node.input:
+                    prod = producer.get(tensor)
                     if prod is not None and is_fpgadataflow_node(prod):
-                        cycles = max(cycles, upstream_cycles(prod))
-                chain[onnx_node.name] = cycles
-            return chain[onnx_node.name]
+                        prod_cycles, prod_moved = upstream_cycles(prod)
+                        cycles, moved = max(cycles, prod_cycles), moved or prod_moved
+                chain[name] = cycles, moved
+                if not moved:
+                    fixed[name] = cycles
+            return chain[name]
 
         def add(depth, width):
             depth = max(2, int(depth))
@@ -538,17 +552,17 @@ class Optimizer:
         graph_inputs = {x.name for x in model.graph.input}
         graph_outputs = {x.name for x in model.graph.output}
         for node in nodes:
-            t_c = max(node.get_exp_cycles(), 1)
+            t_c = max(self.exp_cycles(node), 1)
             for out_idx, name in enumerate(node.onnx_node.output):
                 if name in graph_outputs:
                     add(self.IO_FIFO_DEPTH, node.get_outstream_width(out_idx))
             for in_idx, name in enumerate(node.onnx_node.input):
-                prod = model.find_producer(name)
+                prod = producer.get(name)
                 if prod is None or not is_fpgadataflow_node(prod):
                     if name in graph_inputs:
                         add(self.IO_FIFO_DEPTH, node.get_instream_width(in_idx))
                     continue
-                t_up = upstream_cycles(prod)
+                t_up = upstream_cycles(prod)[0]
                 n1_in = node.get_folded_input_shape(in_idx)
                 words = int(np.prod(n1_in[:-1]))
                 ahead = words * max(0.0, 1.0 - t_up / t_c)
@@ -569,6 +583,21 @@ class Optimizer:
         if node.onnx_node.op_type.startswith(("MVAU", "VVAU")):
             return int(node.get_folded_input_shape(in_idx)[-2])
         return 1
+
+    def exp_cycles(self, inst):
+        """``get_exp_cycles`` memoized by the node's attributes: some ops simulate to
+        estimate (OuterShuffle ~0.1 s per call)."""
+        key = (inst.onnx_node.name, *(a.SerializeToString() for a in inst.onnx_node.attribute))
+        if key not in self._cycles_memo:
+            self._cycles_memo[key] = inst.get_exp_cycles()
+        return self._cycles_memo[key]
+
+    @staticmethod
+    def _partition_cache(model):
+        """What fifo_resources reuses while one partition is optimized: the producer of
+        every tensor and the upstream cycles of the nodes the partition does not reach."""
+        producer = {out: node for node in model.graph.node for out in node.output}
+        return {"producer": producer, "upstream": {}}
 
     # ------------------------------------------------------------------ search
 
@@ -604,23 +633,72 @@ class Optimizer:
 
     def _partitions(self, target_parameters, max_nodes):
         """Indices of the ``target_parameters``, split into runs of parameters belonging to
-        at most ``max_nodes`` consecutive nodes. (Parameters are only collected once the
+        at most ``max_nodes`` consecutive nodes of one branch (see _chain_order); a branch
+        never shares a partition with another one. (Parameters are only collected once the
         first partition has started, which with ``max_nodes=1`` needs one on node 0.)"""
-        partitions, current, nodes, last_node = [], [], 1, 0
+        units = {}  # node index -> its target parameters
         for i, p in enumerate(self.params.parameters):
-            if p.name not in target_parameters:
-                continue
-            if p.node_index != last_node:
+            if p.name in target_parameters:
+                units.setdefault(p.node_index, []).append(i)
+        partitions, current, nodes, last_node = [], [], 1, 0
+        for node_index, starts_chain in self._chain_order(units):
+            if starts_chain and current:
+                partitions.append(current)
+                current, nodes = [], 0
+            if node_index != last_node:
                 nodes += 1
             if nodes > max_nodes and current:
                 partitions.append(current)
                 current, nodes = [], 1
             if nodes <= max_nodes:
-                current.append(i)
-            last_node = p.node_index
+                current += units[node_index]
+            last_node = node_index
         if current:
             partitions.append(current)
         return partitions
+
+    def _chain_order(self, units):
+        """The ``units`` (node index -> parameters) as chains of producer -> consumer:
+        ``(node index, starts a new chain)`` pairs. A chain follows the first consumer
+        whose producers are all placed (so the order stays topological; nodes without
+        parameters are looked through); a linear graph is one chain in graph order."""
+        params = self.params.parameters
+        unit_of = {
+            n.onnx_node.name: u
+            for u, idx in units.items()
+            for i in idx
+            for n in params[i].unique_nodes
+        }
+        producer = self._partition_cache(self.model)["producer"]
+
+        def unit_producers(onnx_node, seen):
+            found = set()
+            for tensor in onnx_node.input:
+                prod = producer.get(tensor)
+                if prod is None or prod.name in seen:
+                    continue
+                seen.add(prod.name)
+                if prod.name in unit_of:
+                    found.add(unit_of[prod.name])
+                else:
+                    found |= unit_producers(prod, seen)
+            return found
+
+        preds = {u: set() for u in units}
+        for node in self.model.graph.node:
+            if node.name in unit_of:
+                u = unit_of[node.name]
+                preds[u] |= unit_producers(node, {node.name}) - {u}
+        succs = {u: sorted(v for v in units if u in preds[v]) for u in units}
+        order, placed = [], set()
+        for start in sorted(units):
+            unit, starts_chain = start, True
+            while unit is not None and unit not in placed:
+                placed.add(unit)
+                order.append((unit, starts_chain))
+                ready = [v for v in succs[unit] if v not in placed and preds[v] <= placed]
+                unit, starts_chain = (ready[0] if ready else None), False
+        return order
 
     def optimize(
         self, initial_guess="max", max_nodes_in_partition=2, target_parameters=("SIMD", "PE")
@@ -653,9 +731,11 @@ class Optimizer:
         self.params.apply_updates(attrs=target_parameters)
         self.params.assign_involved_nodes()
 
+        producer = self._partition_cache(self.model)["producer"]
         for partition in self._partitions(target_parameters, max_nodes_in_partition):
             self.params.index_list = partition
             self.params.assign_involved_nodes()
+            self._cache = {"producer": producer, "upstream": {}}
             start = [guess[i] for i in partition]
             if self.init_run:
                 values = start
@@ -698,7 +778,7 @@ class Optimizer:
             combos = []
             for combo in itertools.product(*(params[i].possible_values for i in indices)):
                 set_combo(combo)
-                combos.append((max(n.get_exp_cycles() for n in nodes), combo))
+                combos.append((max(self.exp_cycles(n) for n in nodes), combo))
             fastest = min(cycles for cycles, _ in combos)
             feasible = [c for c in combos if c[0] <= target] or [
                 c for c in combos if c[0] == fastest
@@ -734,7 +814,9 @@ class Optimizer:
                 continue
             if node.op_type == "StreamingDataWidthConverter":
                 continue
-            if not (is_hls_node(node) or is_rtl_node(node)):
+            # a generic Shuffle is folded before step_transpose_decomposition splits it
+            # into Inner/OuterShuffle stages, which inherit its SIMD
+            if not (is_hls_node(node) or is_rtl_node(node) or node.op_type == "Shuffle"):
                 continue
             max_padding = self._max_padding_for_node(node_index)
             if node.op_type in self.SWG_OPS:
@@ -823,8 +905,11 @@ class Optimizer:
         # streamed weights (an MVAU's mem_mode="dynamic") come from another node: no padding
         if op_type in self.OPS_WITH_WEIGHTS and self._streamed_weights(inst):
             padding = 0
+        valid = self._shuffle_simd_values(inst) if op_type == "Shuffle" else None
         values, real_values, seen_factors = [], [], set()
         for value, bound in zip(*allowed_divisors(max_value, padding)):
+            if valid is not None and value not in valid:
+                continue
             if param == "SIMD" and op_type in self.SIMD_MAX_OVERRIDE:
                 bound = inst.get_nodeattr("Kernel")  # the (unpaddable) kernel window
             factor = int(np.prod(bound)) // value
@@ -837,6 +922,20 @@ class Optimizer:
             p.update_thresholds = op_type in self.OPS_WITH_THRESHOLDS
             real_values.append([p])
         return MetaParameter(param, values, real_values, node_index)
+
+    @staticmethod
+    def _shuffle_simd_values(inst):
+        """SIMD values of a generic Shuffle: divisors of its innermost input and output
+        dimension with a valid decomposition (the others estimate 0 cycles)."""
+        original = inst.get_nodeattr("SIMD")
+        dims = [inst.get_normal_input_shape()[-1], inst.get_normal_output_shape()[-1]]
+        valid = set()
+        for simd in common_divisors(dims):
+            inst.set_nodeattr("SIMD", simd)
+            if simd == 1 or inst.get_exp_cycles() > 0:
+                valid.add(simd)
+        inst.set_nodeattr("SIMD", original)
+        return valid
 
     def _make_resource_type_meta(self, inst, node_index, param):
         """The meta parameter choosing a node's ram_style / resType, or None when fewer
@@ -1557,7 +1656,7 @@ class SetFolding(Transformation):
             max_nodes_in_partition=min(len(opt.model.graph.node), self.RESOURCE_PARTITION_SIZE),
             target_parameters=list(Optimizer.RESOURCE_TYPE_ATTRS),
         )
-        _, achieved, metrics, cost = self._refine(opt, targets, target_cycles)
+        achieved, metrics, cost = self._refine(opt, targets, target_cycles)
         # in place: opt.model is a private copy, and copying it per probe is expensive
         opt.model = opt.model.transform(AnnotateCycles(), make_deepcopy=False, cleanup=False)
         values = opt.params.get_meta_values()
@@ -1584,6 +1683,79 @@ class SetFolding(Transformation):
         for r, v in (fifo_estimate or {}).items():
             metrics[r] = metrics.get(r, 0.0) + v
         return scored, achieved, metrics
+
+    def _local_scorer(self, opt):
+        """``_score`` assembled per node and per edge: each node's cycles and resources,
+        and the DWCs InsertDWC puts on each edge (InsertDWC and SpecializeLayers run on the
+        edge's two nodes alone), memoized by the attributes of the nodes involved, so that
+        a move re-estimates only what it changes. Returns a function giving the current
+        folding's ``(bottleneck node names, cycles, resources)``, or None where only the
+        whole graph can be scored (FIFO-aware mode, nodes still to be specialized)."""
+        model = opt.model
+        if self.enable_folding_fifo_heuristic or any(
+            n.domain == "finn.custom_op.fpgadataflow" and n.op_type != "Shuffle"
+            for n in model.graph.node
+        ):
+            return None
+        consumer = {t: n for n in model.graph.node for t in n.input}
+        edges = [
+            (p, out_idx, consumer[t], max(i for i, x in enumerate(consumer[t].input) if x == t))
+            for p in model.graph.node
+            if _suitable_node(p)
+            for out_idx, t in enumerate(p.output)
+            if t in consumer and _suitable_node(consumer[t])
+        ]
+        memo = {}
+
+        def attrs(node):
+            return tuple(a.SerializeToString() for a in node.attribute)
+
+        def node_part(node):
+            key = (node.name, attrs(node))
+            if key not in memo:
+                inst = getCustomOp(node)
+                memo[key] = inst.get_exp_cycles(), inst.node_res_estimation(self.fpgapart)
+            return memo[key]
+
+        def edge_part(p, out_idx, c, in_idx):
+            key = (p.name, out_idx, c.name, in_idx, attrs(p), attrs(c))
+            if key not in memo:
+                memo[key] = self._edge_dwcs(model, p, c)
+            return memo[key]
+
+        def score():
+            parts, cycles = [], []
+            for node in model.graph.node:
+                node_cycles, res = node_part(node)
+                parts.append(res)
+                cycles.append((node_cycles, (node.name,)))
+            for edge in edges:
+                for dwc_cycles, res in edge_part(*edge):
+                    parts.append(res)
+                    cycles.append((dwc_cycles, (edge[0].name, edge[2].name)))
+            worst = max(c for c, _ in cycles)
+            names = {name for c, ends in cycles if c == worst for name in ends}
+            return names, worst, aggregate_dict_keys(dict(enumerate(parts)))
+
+        return score
+
+    def _edge_dwcs(self, model, producer, consumer):
+        """``(cycles, resources)`` of each DWC the build puts between two nodes: InsertDWC
+        and SpecializeLayers on a model of just the two."""
+        nodes = [copy.deepcopy(producer), copy.deepcopy(consumer)]
+        tensors = list(dict.fromkeys(t for n in nodes for t in [*n.input, *n.output]))
+        value_info = [model.get_tensor_valueinfo(t) for t in tensors]
+        graph = helper.make_graph(nodes, "edge", [], [], value_info=[v for v in value_info if v])
+        sub = ModelWrapper(qonnx_make_model(graph))
+        for t in tensors:
+            sub.set_tensor_datatype(t, model.get_tensor_datatype(t))
+        sub = sub.transform(InsertDWC(), make_deepcopy=False, cleanup=False)
+        sub = sub.transform(SpecializeLayers(self.fpgapart), make_deepcopy=False, cleanup=False)
+        return [
+            (inst.get_exp_cycles(), inst.node_res_estimation(self.fpgapart))
+            for inst in map(getCustomOp, sub.graph.node)
+            if inst.onnx_node.op_type.startswith("StreamingDataWidthConverter")
+        ]
 
     @staticmethod
     def _bottleneck_nodes(scored):
@@ -1614,21 +1786,28 @@ class SetFolding(Transformation):
         no DWC is slower than its neighbours. *Polish* then lowers folding factors one step
         at a time where that keeps the target (and the budget, if met) and does not raise
         the cost, within POLISH_EVALS_PER_PARAMETER evaluations per parameter. Every step
-        is scored like the verdict (``_score``). Leaves the model at the chosen values and
-        returns ``(scored graph, cycles, resources, cost)``."""
+        is scored like the verdict, but per node and edge (``_local_scorer``), and the
+        result once on the whole graph (``_score``). Leaves the model at the chosen values
+        and returns ``(cycles, resources, cost)``."""
         params = opt.params.parameters
         opt.params.add_all_params_to_index_list()
         folding = [i for i, p in enumerate(params) if p.name in ("SIMD", "PE")]
+        local = self._local_scorer(opt)
 
-        def evaluate(values):
+        def evaluate(values, whole=False):
             opt.params.set_values(values)
             opt.params.apply_updates(final=False, attrs=opt.PARAMETERS_TO_APPLY)
-            scored, achieved, metrics = self._score(opt.model, opt)
+            if local is None or whole:
+                scored, achieved, metrics = self._score(opt.model, opt)
+                names = functools.partial(self._bottleneck_nodes, scored)
+            else:
+                bottleneck, achieved, metrics = local()
+                names = functools.partial(set, bottleneck)
             cost = self._cost(metrics, targets)
             if not self.enable_folding_fifo_heuristic:
                 # the FIFOs are not in the scored graph: estimate them
                 cost += opt.resource_cost(opt.fifo_resources(opt.model, opt.graph_nodes()))
-            return scored, achieved, metrics, cost
+            return names, achieved, metrics, cost
 
         def step(values, i, direction):
             idx = params[i].possible_values.index(values[i]) + direction
@@ -1639,10 +1818,10 @@ class SetFolding(Transformation):
             return moved
 
         values = opt.params.get_meta_values()
-        scored, achieved, metrics, cost = evaluate(values)
+        bottleneck, achieved, metrics, cost = evaluate(values)
 
         while achieved > target_cycles:  # repair
-            names = self._bottleneck_nodes(scored)
+            names = bottleneck()
             moves = [
                 moved
                 for i in folding
@@ -1655,9 +1834,11 @@ class SetFolding(Transformation):
             results = [(moved, *evaluate(moved)) for moved in moves]
             met = [r for r in results if r[2] <= target_cycles]
             if met:
-                values, scored, achieved, metrics, cost = min(met, key=lambda r: r[4])
+                values, bottleneck, achieved, metrics, cost = min(met, key=lambda r: r[4])
             else:
-                values, scored, achieved, metrics, cost = min(results, key=lambda r: (r[2], r[4]))
+                values, bottleneck, achieved, metrics, cost = min(
+                    results, key=lambda r: (r[2], r[4])
+                )
 
         fits = self._fits(metrics, targets)  # polish
         limit = max(target_cycles, achieved)
@@ -1672,15 +1853,17 @@ class SetFolding(Transformation):
                 budget -= 1
                 r = evaluate(moved)
                 if r[1] <= limit and (self._fits(r[2], targets) or not fits) and r[3] <= cost:
-                    values, scored, achieved, metrics, cost = (moved, *r)
+                    values, bottleneck, achieved, metrics, cost = (moved, *r)
                     fits = self._fits(metrics, targets)
                     improved = True
                 if budget <= 0:
                     break
 
+        if local is not None:
+            _, achieved, metrics, cost = evaluate(values, whole=True)
         opt.params.set_values(values)
         opt.params.apply_updates(final=True, attrs=opt.PARAMETERS_TO_APPLY)
-        return scored, achieved, metrics, cost
+        return achieved, metrics, cost
 
     # ------------------------------------------------------------------ verdict
 
