@@ -291,7 +291,6 @@ def table(caption, label, groups, rows, legend, extra=None):
         " & ".join(head2) + " \\\\\\hline\\hline",
         *[" & ".join(r) + " \\\\\\hline" for r in rows],
         "\\end{tabular}}",
-        f"\\par\\medskip\\raggedright\\footnotesize\\textbf{{Columns.}} {legend}",
         "\\end{table}\\end{landscape}",
     ])
 
@@ -355,8 +354,8 @@ def main():
         f"\\date{{Snapshot {now:%Y-%m-%d %H:%M} (campaign variant {args.variant}, new upstream base)}}",
         "\\begin{document}\\maketitle",
         "\\section*{Results}",
-        "Each test resumes the convert-phase checkpoint of a cached estimate-only build with the committed folding, builds the stitched IP and checks it in stitched-IP rtlsim. Each table lists, per model, the result and the measured numbers of every test variant; the column definitions are given under each table.",
-        table("FIFO sizing on the committed folding: the analytical sizer (ours) and the rtlsim-based heuristic",
+        "Key: \\checkmark{} passed, $\\times$ failed, skip = skipped, run = running, blk = blocked, -- = not run; ref.\\ = the committed folding JSON; small = its parallelism cut 4--8$\\times$; res./ref.\\ = mean of the LUT, BRAM, URAM and DSP ratios; 1 kB = 1024 bytes.",
+        table("FIFO sizing results on the committed folding.",
               "tab:fifo", [("analytical, small", FIFO_F), ("analytical, full", FIFO_F),
                            ("rtlsim heuristic, small", FIFO_F), ("rtlsim heuristic, full", FIFO_F)],
               fifo_rows, "\\emph{result}: \\checkmark{} passed (output equal to the golden output and rtlsim throughput $\\geq 0.98\\times$ the build's own estimate), $\\times$ failed, skip = skipped, run = running, blk = blocked (its small run failed), -- = not run yet; metric cells stay empty unless the test finished. \\emph{\\#nodes}: compute layers of the committed folding (before FIFO/DWC insertion). \\emph{est.\\ fps}: analytic throughput of the committed folding JSON (the reference). \\emph{small}: committed folding with every node's parallelism cut 4--8$\\times$ (its reference is the small committed folding); \\emph{full}: the committed folding. Step times are wall-clock under the campaign's load. " + "\\emph{rtlsim/est.}: stitched-IP rtlsim throughput divided by the "
@@ -369,7 +368,7 @@ def main():
               "same folding (our estimated interval within 2\\% of theirs); n/c = their folding differs from the "
               "committed folding JSON (their interval in cycles in brackets); empty = model not in their table.",
               extra=("vs LiveFIFO best", ["Size [rel.]", "Intvl [degr.]"])),
-        table("Folding optimizer (FIFOs sized analytically) vs.\\ the committed folding JSON", "tab:fold",
+        table("Folding optimizer results.", "tab:fold",
               [("target, small", FOLD_F), ("target, full", FOLD_F), ("maximize", FOLD_F),
                ("FIFO-aware (target)", FAW_F)], fold_rows,
               "\\emph{result}: \\checkmark{} passed (output equal to the golden output and rtlsim throughput $\\geq 0.98\\times$ the build's own estimate), $\\times$ failed, skip = skipped, run = running, blk = blocked (its small run failed), -- = not run yet; metric cells stay empty unless the test finished. \\emph{\\#nodes}: compute layers of the committed folding (before FIFO/DWC insertion). \\emph{est.\\ fps}: analytic throughput of the committed folding JSON (the reference). \\emph{small}: committed folding with every node's parallelism cut 4--8$\\times$ (its reference is the small committed folding); \\emph{full}: the committed folding. Step times are wall-clock under the campaign's load. " + "\\emph{rtlsim/ref.}: stitched-IP rtlsim throughput of the build divided by the committed folding's estimated throughput (1.00 = same throughput as the provided JSON; maximize: the speed-up). \\emph{res./ref.}: estimated resources of the build divided by those of the committed folding built the same way (DWCs included, FIFOs excluded): mean of the LUT, BRAM\\_18K, URAM and DSP ratios over the resources the committed folding uses ($\\leq 1.00$ = same or fewer resources); a resource only the new folding uses is named after it (e.g.\\ +URAM); $^\\dagger$ = reference without DWCs (the committed folding's FIFO test has not finished yet). " + "\\emph{target}: optimizer at the committed folding's throughput; "
@@ -377,7 +376,7 @@ def main():
               "target mode with \\texttt{enable\\_folding\\_fifo\\_heuristic} (optional, slower). "
               "\\emph{FIFO [kB]}: total FIFO storage of the build (1 kB = 1024 bytes). \\emph{time [s]}: time of "
               "\\texttt{step\\_target\\_fps\\_parallelization}."),
-        table("DWC padding: optimizer with up to 4 channels of padding per layer at the committed throughput",
+        table("DWC padding results.",
               "tab:dwc", [("small", DWC_F), ("full", DWC_F)], dwc_rows,
               "\\emph{result}: \\checkmark{} passed (output equal to the golden output and rtlsim throughput $\\geq 0.98\\times$ the build's own estimate), $\\times$ failed, skip = skipped, run = running, blk = blocked (its small run failed), -- = not run yet; metric cells stay empty unless the test finished. \\emph{\\#nodes}: compute layers of the committed folding (before FIFO/DWC insertion). \\emph{est.\\ fps}: analytic throughput of the committed folding JSON (the reference). \\emph{small}: committed folding with every node's parallelism cut 4--8$\\times$ (its reference is the small committed folding); \\emph{full}: the committed folding. Step times are wall-clock under the campaign's load. " + "\\emph{rtlsim/ref.}: stitched-IP rtlsim throughput of the build divided by the committed folding's estimated throughput (1.00 = same throughput as the provided JSON; maximize: the speed-up). \\emph{res./ref.}: estimated resources of the build divided by those of the committed folding built the same way (DWCs included, FIFOs excluded): mean of the LUT, BRAM\\_18K, URAM and DSP ratios over the resources the committed folding uses ($\\leq 1.00$ = same or fewer resources); a resource only the new folding uses is named after it (e.g.\\ +URAM); $^\\dagger$ = reference without DWCs (the committed folding's FIFO test has not finished yet). " + "\\emph{pad.\\ DWCs}: padding/cropping data width converters in the build "
               "(skip: the padded search inserts none, no hardware build). A result below 1.00 rtlsim/ref.\\ is "

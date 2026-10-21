@@ -1,12 +1,12 @@
 \documentclass[a4paper,10pt]{article}
 \usepackage[margin=18mm]{geometry}\usepackage{booktabs}\usepackage{amssymb}\usepackage[table]{xcolor}\usepackage{graphicx}\usepackage{pdflscape}\usepackage[hidelinks]{hyperref}
 \title{FINN feature tests: FIFO sizing, folding and DWC padding on the finn-examples models}
-\date{Snapshot 2026-10-21 11:55 (campaign variant 2, new upstream base)}
+\date{Snapshot 2026-10-21 11:58 (campaign variant 2, new upstream base)}
 \begin{document}\maketitle
 \section*{Results}
-Each test resumes the convert-phase checkpoint of a cached estimate-only build with the committed folding, builds the stitched IP and checks it in stitched-IP rtlsim. Each table lists, per model, the result and the measured numbers of every test variant; the column definitions are given under each table.
+Key: \checkmark{} passed, $\times$ failed, skip = skipped, run = running, blk = blocked, -- = not run; ref.\ = the committed folding JSON; small = its parallelism cut 4--8$\times$; res./ref.\ = mean of the LUT, BRAM, URAM and DSP ratios; 1 kB = 1024 bytes.
 \begin{landscape}\begin{table}[p]\centering\scriptsize
-\caption{FIFO sizing on the committed folding: the analytical sizer (ours) and the rtlsim-based heuristic}\label{tab:fifo}
+\caption{FIFO sizing results on the committed folding.}\label{tab:fifo}
 \rowcolors{3}{gray!12}{white}
 \resizebox{\linewidth}{!}{%
 \begin{tabular}{|l|r|r|crrr|crrr|crrr|crrr|rr|}\hline
@@ -39,10 +39,9 @@ transformer\_radioml (ZCU104) & 67 & 21701.4 & $\times$ & 1.000 & 39.19 & 6 & bl
 transformer\_vision (ZCU104) & 122 & 1525.9 & $\times$ & 1.000 & 89.90 & 28 & blk &  &  &  & run &  &  &  & -- &  &  &  & -- & -- \\\hline
 transformer\_language (VCK190) & 118 & 1017.3 & $\times$ &  & 631.18 & 85 & -- &  &  &  & -- &  &  &  & -- &  &  &  & -- & -- \\\hline
 \end{tabular}}
-\par\medskip\raggedright\footnotesize\textbf{Columns.} \emph{result}: \checkmark{} passed (output equal to the golden output and rtlsim throughput $\geq 0.98\times$ the build's own estimate), $\times$ failed, skip = skipped, run = running, blk = blocked (its small run failed), -- = not run yet; metric cells stay empty unless the test finished. \emph{\#nodes}: compute layers of the committed folding (before FIFO/DWC insertion). \emph{est.\ fps}: analytic throughput of the committed folding JSON (the reference). \emph{small}: committed folding with every node's parallelism cut 4--8$\times$ (its reference is the small committed folding); \emph{full}: the committed folding. Step times are wall-clock under the campaign's load. \emph{rtlsim/est.}: stitched-IP rtlsim throughput divided by the committed folding's estimate (1.00 = the FIFOs reach the full throughput). \emph{FIFO [kB]}: total storage of all inserted FIFOs (depth $\times$ stream width, 1 kB = 1024 bytes). \emph{time [s]}: time of \texttt{step\_set\_fifo\_depths}. \emph{vs LiveFIFO best}: our analytical sizing (full) against the colleagues' LiveFIFO result (best order, their table): \emph{Size [rel.]} = our total FIFO size / LiveFIFO's best size in kB, \emph{Intvl [degr.]} = how much our stitched-IP rtlsim interval exceeds the interval LiveFIFO reaches (0\% = none). Only comparable where both size the same folding (our estimated interval within 2\% of theirs); n/c = their folding differs from the committed folding JSON (their interval in cycles in brackets); empty = model not in their table.
 \end{table}\end{landscape}
 \begin{landscape}\begin{table}[p]\centering\scriptsize
-\caption{Folding optimizer (FIFOs sized analytically) vs.\ the committed folding JSON}\label{tab:fold}
+\caption{Folding optimizer results.}\label{tab:fold}
 \rowcolors{3}{gray!12}{white}
 \resizebox{\linewidth}{!}{%
 \begin{tabular}{|l|r|r|crrr|crrr|crrr|crrrr|}\hline
@@ -75,10 +74,9 @@ transformer\_radioml (ZCU104) & 67 & 21701.4 & $\times$ & 1.000 & 0.77 & 18 & bl
 transformer\_vision (ZCU104) & 122 & 1525.9 & $\times$ & 1.000 & 0.81 & 33 & blk &  &  &  & $\times$ & 4.000 & 1.03 & 805 & $\times$ & 1.000 & 0.70 & 163.84 & 524 \\\hline
 transformer\_language (VCK190) & 118 & 1017.3 & -- &  &  &  & -- &  &  &  & -- &  &  &  & -- &  &  &  &  \\\hline
 \end{tabular}}
-\par\medskip\raggedright\footnotesize\textbf{Columns.} \emph{result}: \checkmark{} passed (output equal to the golden output and rtlsim throughput $\geq 0.98\times$ the build's own estimate), $\times$ failed, skip = skipped, run = running, blk = blocked (its small run failed), -- = not run yet; metric cells stay empty unless the test finished. \emph{\#nodes}: compute layers of the committed folding (before FIFO/DWC insertion). \emph{est.\ fps}: analytic throughput of the committed folding JSON (the reference). \emph{small}: committed folding with every node's parallelism cut 4--8$\times$ (its reference is the small committed folding); \emph{full}: the committed folding. Step times are wall-clock under the campaign's load. \emph{rtlsim/ref.}: stitched-IP rtlsim throughput of the build divided by the committed folding's estimated throughput (1.00 = same throughput as the provided JSON; maximize: the speed-up). \emph{res./ref.}: estimated resources of the build divided by those of the committed folding built the same way (DWCs included, FIFOs excluded): mean of the LUT, BRAM\_18K, URAM and DSP ratios over the resources the committed folding uses ($\leq 1.00$ = same or fewer resources); a resource only the new folding uses is named after it (e.g.\ +URAM); $^\dagger$ = reference without DWCs (the committed folding's FIFO test has not finished yet). \emph{target}: optimizer at the committed folding's throughput; \emph{maximize}: no target, maximum throughput within the device budget; \emph{FIFO-aware}: target mode with \texttt{enable\_folding\_fifo\_heuristic} (optional, slower). \emph{FIFO [kB]}: total FIFO storage of the build (1 kB = 1024 bytes). \emph{time [s]}: time of \texttt{step\_target\_fps\_parallelization}.
 \end{table}\end{landscape}
 \begin{landscape}\begin{table}[p]\centering\scriptsize
-\caption{DWC padding: optimizer with up to 4 channels of padding per layer at the committed throughput}\label{tab:dwc}
+\caption{DWC padding results.}\label{tab:dwc}
 \rowcolors{3}{gray!12}{white}
 \resizebox{\linewidth}{!}{%
 \begin{tabular}{|l|r|r|crrr|crrr|}\hline
@@ -103,7 +101,7 @@ resnet50 (V80) & 227 & 276.8 & run &  &  &  & -- &  &  &  \\\hline
 resnet18\_4w4a (U55C) & 106 & 3814.7 & \checkmark & 2 & 1.000 & 0.86 & run &  &  &  \\\hline
 resnet18\_8w8a (U55C) & 107 & 1695.4 & \checkmark & 1 & 0.988 &  & skip &  &  &  \\\hline
 espcn (KV260\_SOM) & 20 & 381.5 & run &  &  &  & -- &  &  &  \\\hline
-bert (VCK190) & 57 & 2034.5 & \checkmark & 2 & 1.000 & 0.86 & run &  &  &  \\\hline
+bert (VCK190) & 57 & 2034.5 & \checkmark & 2 & 1.000 & 0.86 & $\times$ & 2 & 0.425 & 0.86 \\\hline
 quantyolov8\_4w4a (U55C) & 271 & 90.4 & run &  &  &  & -- &  &  &  \\\hline
 quantyolov8\_8w8a (U55C) & 271 & 90.4 & run &  &  &  & -- &  &  &  \\\hline
 transformer\_benchmark (ZCU104) & 51 & 1525.9 & skip &  &  &  & skip &  &  &  \\\hline
@@ -111,7 +109,6 @@ transformer\_radioml (ZCU104) & 67 & 21701.4 & skip &  &  &  & $\times$ & 1 & 1.
 transformer\_vision (ZCU104) & 122 & 1525.9 & skip &  &  &  & skip &  &  &  \\\hline
 transformer\_language (VCK190) & 118 & 1017.3 & skip &  &  &  & -- &  &  &  \\\hline
 \end{tabular}}
-\par\medskip\raggedright\footnotesize\textbf{Columns.} \emph{result}: \checkmark{} passed (output equal to the golden output and rtlsim throughput $\geq 0.98\times$ the build's own estimate), $\times$ failed, skip = skipped, run = running, blk = blocked (its small run failed), -- = not run yet; metric cells stay empty unless the test finished. \emph{\#nodes}: compute layers of the committed folding (before FIFO/DWC insertion). \emph{est.\ fps}: analytic throughput of the committed folding JSON (the reference). \emph{small}: committed folding with every node's parallelism cut 4--8$\times$ (its reference is the small committed folding); \emph{full}: the committed folding. Step times are wall-clock under the campaign's load. \emph{rtlsim/ref.}: stitched-IP rtlsim throughput of the build divided by the committed folding's estimated throughput (1.00 = same throughput as the provided JSON; maximize: the speed-up). \emph{res./ref.}: estimated resources of the build divided by those of the committed folding built the same way (DWCs included, FIFOs excluded): mean of the LUT, BRAM\_18K, URAM and DSP ratios over the resources the committed folding uses ($\leq 1.00$ = same or fewer resources); a resource only the new folding uses is named after it (e.g.\ +URAM); $^\dagger$ = reference without DWCs (the committed folding's FIFO test has not finished yet). \emph{pad.\ DWCs}: padding/cropping data width converters in the build (skip: the padded search inserts none, no hardware build). A result below 1.00 rtlsim/ref.\ is accepted if within 10 \% and its resource saving is larger than the throughput loss.
 \end{table}\end{landscape}
 \clearpage\section*{Bugs fixed in the FINN compiler (outside our transformations)}
 Found while making the feature tests pass; each fix is a separate branch (dev-side PR), not part of the FIFO-sizing, folding or DWC PRs. Line counts include tests and docs.
