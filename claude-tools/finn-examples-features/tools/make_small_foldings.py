@@ -10,6 +10,13 @@ meta parameters of SetFolding's optimizer (their value lists respect every op's 
 SWG pairing rules) take the largest total parallelism <= current / K, scaled as evenly as possible. Nodes the
 optimizer does not fold (LabelSelect PE, Concat/Split SIMD) keep their committed values. Prints
 committed vs small estimated cycles per model.
+
+HLS MVAU/VVAU limits (issue 020): a small folding never needs more than the committed one of
+  * embedded weights: the FixedPointWeights initializer has PE x WMEM = MW x MH / SIMD entries;
+    Vitis HLS 2024.2 hangs in clang for days at 65536+ (cnv MVAU 512x512 at PE=8, SIMD=1), so at
+    most HLS_WEIGHT_WORDS, or the committed count if larger: SIMD stays, PE is reduced instead;
+  * MVAU_hls ipgen asserts SIMD >= MW / 1024 (resnet50 MVAU_hls_47: MW=2048, SIMD=1 failed);
+  * any weight memory depth (WMEM) at most HLS_WEIGHT_WORDS, or the committed depth if larger.
 """
 import copy
 import importlib.util
@@ -32,7 +39,7 @@ BENCH = os.path.join(WT, "tests/benchmark")
 # K per model dir: small models are already small (tfc-w1a1 is near fully unrolled)
 K = {"bnn-pynq": 4, "kws": 4, "cybersecurity-mlp": 4, "gtsrb": 4}
 K_DEFAULT = 8
-WMEM_CAP = 32768
+HLS_WEIGHT_WORDS = 32768
 FOLD_ATTRS = ("PE", "SIMD", "parallel_window")
 
 
@@ -66,6 +73,20 @@ def primary(v):
     return v[0] if isinstance(v, tuple) else v
 
 
+def hls_weight_words(node):
+    """Entries (PE x WMEM) of an HLS MVAU/VVAU's embedded weight initializer, 0 otherwise."""
+    if node.get_nodeattr("mem_mode") != "internal_embedded":
+        return 0
+    return node.get_nodeattr("PE") * node.calc_wmem()
+
+
+def hls_simd_ok(node):
+    """MVAU_hls ipgen requires SIMD >= MW / 1024."""
+    if node.onnx_node.op_type != "MVAU_hls":
+        return True
+    return node.get_nodeattr("SIMD") >= node.get_nodeattr("MW") / 1024
+
+
 def scaled_group(metas, curs, k):
     """New values for one node's PE/SIMD metas: total parallelism (product) <= current / K, as
     large as possible, the factors as evenly scaled as possible; the SWG side of a pair is
@@ -73,17 +94,32 @@ def scaled_group(metas, curs, k):
     target = np.prod([primary(c) for c in curs]) / k
     firsts = [sorted({primary(v) for v in m.possible_values}) for m in metas]
     combos = list(itertools.product(*firsts))
-    # HLS MVAU/VVAU: Vitis HLS cannot synthesize very deep embedded weight memories (131072
-    # words failed): not below WMEM_CAP words, or the committed depth if that is deeper
-    hls_w = [n for m in metas for n in m.unique_nodes
-             if n.onnx_node.op_type in ("MVAU_hls", "VVAU_hls")]
-    if hls_w:
-        weights = int(np.prod(hls_w[0].get_nodeattr("MW") if hls_w[0].onnx_node.op_type == "MVAU_hls"
-                              else 1)) * int(hls_w[0].get_nodeattr("MH") if hls_w[0].onnx_node.op_type
-                                             == "MVAU_hls" else 1)
-        cap = max(WMEM_CAP, hls_w[0].calc_wmem()) if hasattr(hls_w[0], "calc_wmem") else None
-        if cap and hls_w[0].onnx_node.op_type == "MVAU_hls":
-            combos = [c for c in combos if weights / np.prod(c) <= cap] or combos
+    # HLS MVAU/VVAU limits (see the module docstring): only combinations within them
+    hls = [n for m in metas for n in m.unique_nodes if n.onnx_node.op_type in ("MVAU_hls", "VVAU_hls")]
+    if hls:
+        cap = {n.onnx_node.name: max(HLS_WEIGHT_WORDS, hls_weight_words(n)) for n in hls}
+        # (as before issue 020, also for decoupled weights: WMEM depth capped the same way)
+        wmem_cap = {n.onnx_node.name: max(HLS_WEIGHT_WORDS, n.calc_wmem()) for n in hls}
+
+        def legal(c):
+            for m, v in zip(metas, c):
+                # the MVAU/VVAU side of a pair value does not depend on the SWG side
+                m.update_value(next(x for x in m.possible_values if primary(x) == v))
+                m.apply_value(final=False, attrs=FOLD_ATTRS)
+            return all(
+                hls_weight_words(n) <= cap[n.onnx_node.name]
+                and n.calc_wmem() <= wmem_cap[n.onnx_node.name]
+                and hls_simd_ok(n)
+                for n in hls
+            )
+
+        # trying combinations changes the nodes: restore the committed attributes after
+        nodes = list(dict.fromkeys(n for m in metas for n in m.unique_nodes))
+        saved = [copy.deepcopy(list(n.onnx_node.attribute)) for n in nodes]
+        combos = [c for c in combos if legal(c)] or combos
+        for n, attrs in zip(nodes, saved):
+            del n.onnx_node.attribute[:]
+            n.onnx_node.attribute.extend(attrs)
     fit = [c for c in combos if np.prod(c) <= target] or [min(combos, key=np.prod)]
     even = np.log(k) / len(metas)
 
