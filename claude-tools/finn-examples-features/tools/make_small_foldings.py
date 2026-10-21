@@ -32,6 +32,7 @@ BENCH = os.path.join(WT, "tests/benchmark")
 # K per model dir: small models are already small (tfc-w1a1 is near fully unrolled)
 K = {"bnn-pynq": 4, "kws": 4, "cybersecurity-mlp": 4, "gtsrb": 4}
 K_DEFAULT = 8
+WMEM_CAP = 32768
 FOLD_ATTRS = ("PE", "SIMD", "parallel_window")
 
 
@@ -72,6 +73,17 @@ def scaled_group(metas, curs, k):
     target = np.prod([primary(c) for c in curs]) / k
     firsts = [sorted({primary(v) for v in m.possible_values}) for m in metas]
     combos = list(itertools.product(*firsts))
+    # HLS MVAU/VVAU: Vitis HLS cannot synthesize very deep embedded weight memories (131072
+    # words failed): not below WMEM_CAP words, or the committed depth if that is deeper
+    hls_w = [n for m in metas for n in m.unique_nodes
+             if n.onnx_node.op_type in ("MVAU_hls", "VVAU_hls")]
+    if hls_w:
+        weights = int(np.prod(hls_w[0].get_nodeattr("MW") if hls_w[0].onnx_node.op_type == "MVAU_hls"
+                              else 1)) * int(hls_w[0].get_nodeattr("MH") if hls_w[0].onnx_node.op_type
+                                             == "MVAU_hls" else 1)
+        cap = max(WMEM_CAP, hls_w[0].calc_wmem()) if hasattr(hls_w[0], "calc_wmem") else None
+        if cap and hls_w[0].onnx_node.op_type == "MVAU_hls":
+            combos = [c for c in combos if weights / np.prod(c) <= cap] or combos
     fit = [c for c in combos if np.prod(c) <= target] or [min(combos, key=np.prod)]
     even = np.log(k) / len(metas)
 
