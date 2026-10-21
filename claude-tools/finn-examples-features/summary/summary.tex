@@ -1,7 +1,7 @@
 \documentclass[a4paper,10pt]{article}
 \usepackage[margin=18mm]{geometry}\usepackage{booktabs}\usepackage{amssymb}\usepackage[table]{xcolor}\usepackage{graphicx}\usepackage{pdflscape}\usepackage[hidelinks]{hyperref}
 \title{FINN feature tests: FIFO sizing, folding and DWC padding on the finn-examples models}
-\date{Snapshot 2026-10-21 11:30 (campaign variant 2, new upstream base)}
+\date{Snapshot 2026-10-21 11:31 (campaign variant 2, new upstream base)}
 \begin{document}\maketitle
 \section*{Results}
 Each test resumes the convert-phase checkpoint of a cached estimate-only build with the committed folding, builds the stitched IP and checks it in stitched-IP rtlsim. Each table lists, per model, the result and the measured numbers of every test variant; the column definitions are given under each table.
@@ -9,37 +9,37 @@ Each test resumes the convert-phase checkpoint of a cached estimate-only build w
 \caption{FIFO sizing on the committed folding: the analytical sizer (ours) and the rtlsim-based heuristic}\label{tab:fifo}
 \rowcolors{3}{gray!12}{white}
 \resizebox{\linewidth}{!}{%
-\begin{tabular}{|l|r|r|crrr|crrr|crrr|crrr|}\hline
- &  &  & \multicolumn{4}{c|}{\textbf{analytical, small}} & \multicolumn{4}{c|}{\textbf{analytical, full}} & \multicolumn{4}{c|}{\textbf{rtlsim heuristic, small}} & \multicolumn{4}{c|}{\textbf{rtlsim heuristic, full}} \\\cline{4-7}\cline{8-11}\cline{12-15}\cline{16-19}
-model (board) & \#nodes & est.\ fps & result & rtlsim/est. & FIFO [kB] & time [s] & result & rtlsim/est. & FIFO [kB] & time [s] & result & rtlsim/est. & FIFO [kB] & time [s] & result & rtlsim/est. & FIFO [kB] & time [s] \\\hline\hline
-tfc-w1a1 (AUP-ZU3\_8GB) & 6 & 11111111.1 & \checkmark & 1.000 & 0.64 & 0 & \checkmark & 1.000 & 2.28 & 0 & \checkmark & 1.000 & 0.64 & 972 & run &  &  &  \\\hline
-tfc-w1a2 (AUP-ZU3\_8GB) & 6 & 6666666.7 & \checkmark & 1.020 & 0.34 & 4 & \checkmark & 1.000 & 1.02 & 0 & \checkmark & 1.020 & 0.34 & 469 & \checkmark & 1.000 & 1.02 & 2679 \\\hline
-tfc-w2a2 (AUP-ZU3\_8GB) & 6 & 6666666.7 & \checkmark & 1.019 & 0.29 & 4 & \checkmark & 1.000 & 0.84 & 0 & \checkmark & 1.019 & 0.29 & 467 & \checkmark & 1.000 & 0.84 & 2249 \\\hline
-lfc-w1a1 (AUP-ZU3\_8GB) & 6 & 192678.2 & \checkmark & 1.000 & 0.44 & 4 & \checkmark & 1.002 & 0.60 & 1 & \checkmark & 1.000 & 0.44 & 10036 & run &  &  &  \\\hline
-lfc-w1a2 (AUP-ZU3\_8GB) & 6 & 48661.8 & \checkmark & 1.000 & 0.69 & 5 & \checkmark & 1.000 & 0.85 & 1 & \checkmark & 1.000 & 0.69 & 23815 & run &  &  &  \\\hline
-cnv-w1a1 (AUP-ZU3\_8GB) & 21 & 12244.4 & \checkmark & 1.001 & 1.73 & 2 & \checkmark & 1.001 & 1.49 & 3 & \checkmark & 1.001 & 1.77 & 1583 & \checkmark & 1.001 & 1.53 & 4581 \\\hline
-cnv-w1a2 (AUP-ZU3\_8GB) & 21 & 3028.5 & run &  &  &  & -- &  &  &  & run &  &  &  & -- &  &  &  \\\hline
-cnv-w2a2 (AUP-ZU3\_8GB) & 21 & 3028.5 & run &  &  &  & -- &  &  &  & run &  &  &  & -- &  &  &  \\\hline
-cnv-w1a2 (KV260\_SOM) & 21 & 3028.5 & run &  &  &  & -- &  &  &  & run &  &  &  & -- &  &  &  \\\hline
-cnv-w2a2 (U55C) & 21 & 3028.5 & run &  &  &  & -- &  &  &  & run &  &  &  & -- &  &  &  \\\hline
-gtsrb (AUP-ZU3\_8GB) & 21 & 8133.4 & \checkmark & 1.000 & 1.24 & 4 & \checkmark & 1.000 & 1.23 & 3 & \checkmark & 1.007 & 1.53 & 1063 & \checkmark & 1.000 & 1.27 & 3972 \\\hline
-kws (AUP-ZU3\_8GB) & 6 & 25464.7 & \checkmark & 1.000 & 0.53 & 0 & \checkmark & 1.000 & 0.53 & 0 & \checkmark & 1.000 & 0.53 & 419 & \checkmark & 1.000 & 0.53 & 730 \\\hline
-cybersecurity-mlp (AUP-ZU3\_8GB) & 4 & 12500000.0 & \checkmark & 1.100 & 0.24 & 0 & \checkmark & 1.333 & 0.46 & 0 & \checkmark & 1.100 & 0.24 & 2163 & run &  &  &  \\\hline
-vgg10-radioml (ZCU104) & 49 & 243190.7 & \checkmark & 1.001 & 1.38 & 13 & \checkmark & 1.001 & 1.96 & 1 & \checkmark & 1.001 & 1.40 & 685 & \checkmark & 1.001 & 2.01 & 1137 \\\hline
-espcn (KV260\_SOM) & 20 & 381.5 & run &  &  &  & -- &  &  &  & run &  &  &  & -- &  &  &  \\\hline
-mobilenet\_v1 (U55C) & 85 & 422.7 & \checkmark & 0.991 & 64.88 & 163 & \checkmark & 1.000 & 97.19 & 101 & \checkmark & 0.991 & 66.97 & 15799 & run &  &  &  \\\hline
-resnet18\_4w4a (U55C) & 106 & 3814.7 & \checkmark & 0.997 & 134.06 & 290 & run &  &  &  & run &  &  &  & -- &  &  &  \\\hline
-resnet18\_8w8a (U55C) & 107 & 1695.4 & skip &  &  &  & skip &  &  &  & skip &  &  &  & skip &  &  &  \\\hline
-quantyolov8\_4w4a (U55C) & 271 & 90.4 & run &  &  &  & -- &  &  &  & run &  &  &  & -- &  &  &  \\\hline
-quantyolov8\_8w8a (U55C) & 271 & 90.4 & run &  &  &  & -- &  &  &  & run &  &  &  & -- &  &  &  \\\hline
-bert (VCK190) & 57 & 2034.5 & \checkmark & 1.000 & 913.91 & 952 & \checkmark & 1.000 & 910.08 & 34 & \checkmark & 1.000 & 1167.22 & 4138 & run &  &  &  \\\hline
-resnet50 (V80) & 227 & 276.8 & $\times$ &  & 327.73 & 859 & blk &  &  &  & $\times$ &  & 0.00 & 7490 & blk &  &  &  \\\hline
-transformer\_benchmark (ZCU104) & 51 & 1525.9 & \checkmark & 1.000 & 11.21 & 1 & \checkmark & 1.000 & 11.21 & 1 & \checkmark & 1.000 & 12.53 & 1654 & run &  &  &  \\\hline
-transformer\_radioml (ZCU104) & 67 & 21701.4 & $\times$ & 1.000 & 39.19 & 6 & blk &  &  &  & $\times$ & 1.000 & 43.25 & 2968 & blk &  &  &  \\\hline
-transformer\_vision (ZCU104) & 122 & 1525.9 & $\times$ & 1.000 & 89.90 & 28 & blk &  &  &  & run &  &  &  & -- &  &  &  \\\hline
-transformer\_language (VCK190) & 118 & 1017.3 & $\times$ &  & 631.18 & 85 & -- &  &  &  & -- &  &  &  & -- &  &  &  \\\hline
+\begin{tabular}{|l|r|r|crrr|crrr|crrr|crrr|rr|}\hline
+ &  &  & \multicolumn{4}{c|}{\textbf{analytical, small}} & \multicolumn{4}{c|}{\textbf{analytical, full}} & \multicolumn{4}{c|}{\textbf{rtlsim heuristic, small}} & \multicolumn{4}{c|}{\textbf{rtlsim heuristic, full}} & \multicolumn{2}{c|}{\textbf{vs LiveFIFO best}} \\\cline{4-7}\cline{8-11}\cline{12-15}\cline{16-19}\cline{20-21}
+model (board) & \#nodes & est.\ fps & result & rtlsim/est. & FIFO [kB] & time [s] & result & rtlsim/est. & FIFO [kB] & time [s] & result & rtlsim/est. & FIFO [kB] & time [s] & result & rtlsim/est. & FIFO [kB] & time [s] & Size [rel.] & Intvl [degr.] \\\hline\hline
+tfc-w1a1 (AUP-ZU3\_8GB) & 6 & 11111111.1 & \checkmark & 1.000 & 0.64 & 0 & \checkmark & 1.000 & 2.28 & 0 & \checkmark & 1.000 & 0.64 & 972 & run &  &  &  & n/c & n/c (70) \\\hline
+tfc-w1a2 (AUP-ZU3\_8GB) & 6 & 6666666.7 & \checkmark & 1.020 & 0.34 & 4 & \checkmark & 1.000 & 1.02 & 0 & \checkmark & 1.020 & 0.34 & 469 & \checkmark & 1.000 & 1.02 & 2679 &  &  \\\hline
+tfc-w2a2 (AUP-ZU3\_8GB) & 6 & 6666666.7 & \checkmark & 1.019 & 0.29 & 4 & \checkmark & 1.000 & 0.84 & 0 & \checkmark & 1.019 & 0.29 & 467 & \checkmark & 1.000 & 0.84 & 2249 & n/c & n/c (70) \\\hline
+lfc-w1a1 (AUP-ZU3\_8GB) & 6 & 192678.2 & \checkmark & 1.000 & 0.44 & 4 & \checkmark & 1.002 & 0.60 & 1 & \checkmark & 1.000 & 0.44 & 10036 & run &  &  &  &  &  \\\hline
+lfc-w1a2 (AUP-ZU3\_8GB) & 6 & 48661.8 & \checkmark & 1.000 & 0.69 & 5 & \checkmark & 1.000 & 0.85 & 1 & \checkmark & 1.000 & 0.69 & 23815 & run &  &  &  &  &  \\\hline
+cnv-w1a1 (AUP-ZU3\_8GB) & 21 & 12244.4 & \checkmark & 1.001 & 1.73 & 2 & \checkmark & 1.001 & 1.49 & 3 & \checkmark & 1.001 & 1.77 & 1583 & \checkmark & 1.001 & 1.53 & 4581 & n/c & n/c (32774) \\\hline
+cnv-w1a2 (AUP-ZU3\_8GB) & 21 & 3028.5 & run &  &  &  & -- &  &  &  & run &  &  &  & -- &  &  &  &  &  \\\hline
+cnv-w2a2 (AUP-ZU3\_8GB) & 21 & 3028.5 & run &  &  &  & -- &  &  &  & run &  &  &  & -- &  &  &  & -- & -- \\\hline
+cnv-w1a2 (KV260\_SOM) & 21 & 3028.5 & run &  &  &  & -- &  &  &  & run &  &  &  & -- &  &  &  &  &  \\\hline
+cnv-w2a2 (U55C) & 21 & 3028.5 & run &  &  &  & -- &  &  &  & run &  &  &  & -- &  &  &  & -- & -- \\\hline
+gtsrb (AUP-ZU3\_8GB) & 21 & 8133.4 & \checkmark & 1.000 & 1.24 & 4 & \checkmark & 1.000 & 1.23 & 3 & \checkmark & 1.007 & 1.53 & 1063 & \checkmark & 1.000 & 1.27 & 3972 &  &  \\\hline
+kws (AUP-ZU3\_8GB) & 6 & 25464.7 & \checkmark & 1.000 & 0.53 & 0 & \checkmark & 1.000 & 0.53 & 0 & \checkmark & 1.000 & 0.53 & 419 & \checkmark & 1.000 & 0.53 & 730 & n/c & n/c (490) \\\hline
+cybersecurity-mlp (AUP-ZU3\_8GB) & 4 & 12500000.0 & \checkmark & 1.100 & 0.24 & 0 & \checkmark & 1.333 & 0.46 & 0 & \checkmark & 1.100 & 0.24 & 2163 & run &  &  &  & n/c & n/c (70) \\\hline
+vgg10-radioml (ZCU104) & 49 & 243190.7 & \checkmark & 1.001 & 1.38 & 13 & \checkmark & 1.001 & 1.96 & 1 & \checkmark & 1.001 & 1.40 & 685 & \checkmark & 1.001 & 2.01 & 1137 & 0.9x & 0\% \\\hline
+espcn (KV260\_SOM) & 20 & 381.5 & run &  &  &  & -- &  &  &  & run &  &  &  & -- &  &  &  &  &  \\\hline
+mobilenet\_v1 (U55C) & 85 & 422.7 & \checkmark & 0.991 & 64.88 & 163 & \checkmark & 1.000 & 97.19 & 101 & \checkmark & 0.991 & 66.97 & 15799 & run &  &  &  & n/c & n/c (394272) \\\hline
+resnet18\_4w4a (U55C) & 106 & 3814.7 & \checkmark & 0.997 & 134.06 & 290 & run &  &  &  & run &  &  &  & -- &  &  &  &  &  \\\hline
+resnet18\_8w8a (U55C) & 107 & 1695.4 & skip &  &  &  & skip &  &  &  & skip &  &  &  & skip &  &  &  &  &  \\\hline
+quantyolov8\_4w4a (U55C) & 271 & 90.4 & run &  &  &  & -- &  &  &  & run &  &  &  & -- &  &  &  &  &  \\\hline
+quantyolov8\_8w8a (U55C) & 271 & 90.4 & run &  &  &  & -- &  &  &  & run &  &  &  & -- &  &  &  &  &  \\\hline
+bert (VCK190) & 57 & 2034.5 & \checkmark & 1.000 & 913.91 & 952 & \checkmark & 1.000 & 910.08 & 34 & \checkmark & 1.000 & 1167.22 & 4138 & run &  &  &  &  &  \\\hline
+resnet50 (V80) & 227 & 276.8 & $\times$ &  & 327.73 & 859 & blk &  &  &  & $\times$ &  & 0.00 & 7490 & blk &  &  &  & -- & -- \\\hline
+transformer\_benchmark (ZCU104) & 51 & 1525.9 & \checkmark & 1.000 & 11.21 & 1 & \checkmark & 1.000 & 11.21 & 1 & \checkmark & 1.000 & 12.53 & 1654 & run &  &  &  &  &  \\\hline
+transformer\_radioml (ZCU104) & 67 & 21701.4 & $\times$ & 1.000 & 39.19 & 6 & blk &  &  &  & $\times$ & 1.000 & 43.25 & 2968 & blk &  &  &  & -- & -- \\\hline
+transformer\_vision (ZCU104) & 122 & 1525.9 & $\times$ & 1.000 & 89.90 & 28 & blk &  &  &  & run &  &  &  & -- &  &  &  & -- & -- \\\hline
+transformer\_language (VCK190) & 118 & 1017.3 & $\times$ &  & 631.18 & 85 & -- &  &  &  & -- &  &  &  & -- &  &  &  & -- & -- \\\hline
 \end{tabular}}
-\par\medskip\raggedright\footnotesize\textbf{Columns.} \emph{result}: \checkmark{} passed (output equal to the golden output and rtlsim throughput $\geq 0.98\times$ the build's own estimate), $\times$ failed, skip = skipped, run = running, blk = blocked (its small run failed), -- = not run yet; metric cells stay empty unless the test finished. \emph{\#nodes}: compute layers of the committed folding (before FIFO/DWC insertion). \emph{est.\ fps}: analytic throughput of the committed folding JSON (the reference). \emph{small}: committed folding with every node's parallelism cut 4--8$\times$ (its reference is the small committed folding); \emph{full}: the committed folding. Step times are wall-clock under the campaign's load. \emph{rtlsim/est.}: stitched-IP rtlsim throughput divided by the committed folding's estimate (1.00 = the FIFOs reach the full throughput). \emph{FIFO [kB]}: total storage of all inserted FIFOs (depth $\times$ stream width, 1 kB = 1024 bytes). \emph{time [s]}: time of \texttt{step\_set\_fifo\_depths}.
+\par\medskip\raggedright\footnotesize\textbf{Columns.} \emph{result}: \checkmark{} passed (output equal to the golden output and rtlsim throughput $\geq 0.98\times$ the build's own estimate), $\times$ failed, skip = skipped, run = running, blk = blocked (its small run failed), -- = not run yet; metric cells stay empty unless the test finished. \emph{\#nodes}: compute layers of the committed folding (before FIFO/DWC insertion). \emph{est.\ fps}: analytic throughput of the committed folding JSON (the reference). \emph{small}: committed folding with every node's parallelism cut 4--8$\times$ (its reference is the small committed folding); \emph{full}: the committed folding. Step times are wall-clock under the campaign's load. \emph{rtlsim/est.}: stitched-IP rtlsim throughput divided by the committed folding's estimate (1.00 = the FIFOs reach the full throughput). \emph{FIFO [kB]}: total storage of all inserted FIFOs (depth $\times$ stream width, 1 kB = 1024 bytes). \emph{time [s]}: time of \texttt{step\_set\_fifo\_depths}. \emph{vs LiveFIFO best}: our analytical sizing (full) against the colleagues' LiveFIFO result (best order, their table): \emph{Size [rel.]} = our total FIFO size / LiveFIFO's best size in kB, \emph{Intvl [degr.]} = how much our stitched-IP rtlsim interval exceeds the interval LiveFIFO reaches (0\% = none). Only comparable where both size the same folding (our estimated interval within 2\% of theirs); n/c = their folding differs from the committed folding JSON (their interval in cycles in brackets); empty = model not in their table.
 \end{table}\end{landscape}
 \begin{landscape}\begin{table}[p]\centering\scriptsize
 \caption{Folding optimizer (FIFOs sized analytically) vs.\ the committed folding JSON}\label{tab:fold}

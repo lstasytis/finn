@@ -153,6 +153,38 @@ def result_of(job, state):
 MARK = {"passed": "\\checkmark", "failed": "$\\times$", "skipped": "skip", "running": "run",
         "pending": "--", "blocked": "blk", "killed": "--", "aborted": "--"}
 RES = ("LUT", "BRAM_18K", "URAM", "DSP")
+# colleagues' LiveFIFO result (best order): best total FIFO size [kB] and the interval it reaches [cycles],
+# keyed by (model dir, model) of the matching row
+LIVEFIFO = {
+    ("kws", None): (0.4, 490), ("cybersecurity-mlp", None): (0.1, 70),
+    ("bnn-pynq", "tfc-w1a1"): (0.2, 70), ("bnn-pynq", "tfc-w2a2"): (0.2, 70),
+    ("bnn-pynq", "cnv-w1a1"): (2.7, 32774), ("bnn-pynq", "cnv-w2a2"): (10.1, 115206),
+    ("vgg10-radioml", None): (2.2, 1027), ("mobilenet_v1", None): (22.1, 394272),
+    ("resnet50", None): (202.7, 903174), ("transformer", "transformer_radioml"): (17.7, 5120),
+    ("transformer", "transformer_vision"): (85.0, 81920), ("transformer", "transformer_language"): (84.5, 81920),
+}
+# the same folding: our build's estimated interval within this fraction of LiveFIFO's
+SAME_FOLDING = 0.02
+
+
+def livefifo_cells(job, state, live):
+    """Size [rel.] and Intvl [degr.] of our analytical FIFO sizing (full) vs LiveFIFO's best, only where
+    both size the same folding; else n/c with LiveFIFO's interval."""
+    if live is None:
+        return ["", ""]
+    if job is None or result_of(job, state) not in ("passed", "failed"):
+        return ["--", "--"]
+    m = job_metrics(job) or {}
+    est = load(os.path.join(m.get("output_dir", ""), "report", "estimate_network_performance.json")) or {}
+    perf = load(os.path.join(m.get("output_dir", ""), "report", "rtlsim_performance.json")) or {}
+    kb, ivl = live
+    ours = est.get("max_cycles")
+    if not ours or abs(ours / ivl - 1) > SAME_FOLDING:
+        return ["n/c", "n/c (%d)" % ivl]
+    size = "%.1fx" % (m["fifo_kbit"] / 8 / kb) if m.get("fifo_kbit") is not None else ""
+    got = perf.get("steady_state_cycles") or perf.get("interval_cycles")
+    degr = ("%.1f\\%%" % max(0.0, 100.0 * (got / ivl - 1))).replace(".0\\%", "\\%") if got else ""
+    return [size, degr]
 HEADERS = {"ratio": "rtlsim/est.", "tref": "rtlsim/ref.", "res": "res./ref.", "kbit": "FIFO [kB]",
            "pad": "pad.\\ DWCs", "tfifo": "time [s]", "tfold": "time [s]"}
 
@@ -231,7 +263,7 @@ def cells(job, state, fields, jobs):
     return out
 
 
-def table(caption, label, groups, rows, legend):
+def table(caption, label, groups, rows, legend, extra=None):
     """groups: [(group title, [metric keys])]; rows: [[model, nodes, est] + cells...]. Grid with a
     two-level header and alternating row shading."""
     head1, head2, col = ["", "", ""], ["model (board)", "\\#nodes", "est.\\ fps"], 4
@@ -242,7 +274,13 @@ def table(caption, label, groups, rows, legend):
         head2 += ["result"] + [HEADERS[f] for f in fields]
         clines.append(f"\\cline{{{col}-{col + width - 1}}}")
         col += width
-    spec = "|l|r|r|" + "|".join("c" + "r" * len(f) for _, f in groups) + "|"
+    if extra:
+        title, heads = extra
+        head1.append(f"\\multicolumn{{{len(heads)}}}{{c|}}{{\\textbf{{{title}}}}}")
+        head2 += heads
+        clines.append(f"\\cline{{{col}-{col + len(heads) - 1}}}")
+    spec = "|l|r|r|" + "|".join("c" + "r" * len(f) for _, f in groups) + "|" + (
+        "r" * len(extra[1]) + "|" if extra else "")
     return "\n".join([
         "\\begin{landscape}\\begin{table}[p]\\centering\\scriptsize",
         f"\\caption{{{caption}}}\\label{{{label}}}",
@@ -295,6 +333,7 @@ def main():
             for f in ("fifo", "fifo-rtlsim"):
                 for sz in ("small", "full"):
                     row += cells(job(mdir, p, f, sz), state, FIFO_F, jobs)
+            row += livefifo_cells(job(mdir, p, "fifo", "full"), state, LIVEFIFO.get((mdir, model)))
             fifo_rows.append(row)
             row = list(head)
             for sz in ("small", "full"):
@@ -323,7 +362,13 @@ def main():
               fifo_rows, "\\emph{result}: \\checkmark{} passed (output equal to the golden output and rtlsim throughput $\\geq 0.98\\times$ the build's own estimate), $\\times$ failed, skip = skipped, run = running, blk = blocked (its small run failed), -- = not run yet; metric cells stay empty unless the test finished. \\emph{\\#nodes}: compute layers of the committed folding (before FIFO/DWC insertion). \\emph{est.\\ fps}: analytic throughput of the committed folding JSON (the reference). \\emph{small}: committed folding with every node's parallelism cut 4--8$\\times$ (its reference is the small committed folding); \\emph{full}: the committed folding. Step times are wall-clock under the campaign's load. " + "\\emph{rtlsim/est.}: stitched-IP rtlsim throughput divided by the "
               "committed folding's estimate (1.00 = the FIFOs reach the full throughput). \\emph{FIFO [kB]}: "
               "total storage of all inserted FIFOs (depth $\\times$ stream width, 1 kB = 1024 bytes). \\emph{time [s]}: time "
-              "of \\texttt{step\\_set\\_fifo\\_depths}."),
+              "of \\texttt{step\\_set\\_fifo\\_depths}. \\emph{vs LiveFIFO best}: our analytical sizing (full) "
+              "against the colleagues' LiveFIFO result (best order, their table): \\emph{Size [rel.]} = our total "
+              "FIFO size / LiveFIFO's best size in kB, \\emph{Intvl [degr.]} = how much our stitched-IP rtlsim "
+              "interval exceeds the interval LiveFIFO reaches (0\\% = none). Only comparable where both size the "
+              "same folding (our estimated interval within 2\\% of theirs); n/c = their folding differs from the "
+              "committed folding JSON (their interval in cycles in brackets); empty = model not in their table.",
+              extra=("vs LiveFIFO best", ["Size [rel.]", "Intvl [degr.]"])),
         table("Folding optimizer (FIFOs sized analytically) vs.\\ the committed folding JSON", "tab:fold",
               [("target, small", FOLD_F), ("target, full", FOLD_F), ("maximize", FOLD_F),
                ("FIFO-aware (target)", FAW_F)], fold_rows,
