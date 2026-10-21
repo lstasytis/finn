@@ -80,20 +80,20 @@
     "parallel_window": 0
   },
   "MVAU_hls_5": {
-    "PE": 1,
-    "SIMD": 4,
+    "PE": 2,
+    "SIMD": 9,
     "ram_style": "auto",
     "resType": "lut"
   },
   "MVAU_hls_6": {
-    "PE": 1,
+    "PE": 4,
     "SIMD": 1,
     "ram_style": "auto",
     "resType": "lut"
   },
   "MVAU_hls_7": {
-    "PE": 1,
-    "SIMD": 2,
+    "PE": 8,
+    "SIMD": 1,
     "ram_style": "auto",
     "resType": "lut"
   },
