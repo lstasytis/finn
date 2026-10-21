@@ -1,0 +1,1627 @@
+TAV A in  [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16]
+TAV B in  [1 1 2 2 3 3 4 4 5 5 6 6 7 7 8 8 9 9 10 10 11 11 12 12 13 13 14 14 15 15 16 16] out [0 0 0 0 0 0 0 0 1 2 3 4 5 6 7 8 8 8 8 8 8 8 8 8 9 10 11 12 13 14 15 16]
+TAV C in  [1 1 2 2 3 3 4 4 5 5 6 6 7 7 8 8 9 9 10 10 11 11 12 12 13 13 14 14 15 15 16 16]
+==============================================================================
+E1 chain, paced input
+==============================================================================
+global period (pass input 16, after max with TAVs) = 16
+  node A                                      period=8      rd/frame=8     wr/frame=8     drives_pacer=True in_branch=False
+  node B                                      period=16     rd/frame=8     wr/frame=8     drives_pacer=True in_branch=False
+  node C                                      period=16     rd/frame=8     wr/frame=8     drives_pacer=True in_branch=False
+-- pass causal=False latency=False
+   node A clock = [2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32]
+   node B clock = [2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33]
+   node C clock = [10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41]
+   graph input inp writes = [2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32]
+   edge A -> B [t0]
+      writes = [2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32]
+      reads  = [2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=8 t_prop=8 t_full=8 t_chain=8 fill_only=False throttleable=False allowance=4.00 after_slack=-4 burst=0 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge B -> C [t1]
+      writes = [10 11 12 13 14 15 16 17 26 27 28 29 30 31 32 33]
+      reads  = [10 12 14 16 18 20 22 24 26 28 30 32 34 36 38 40]
+      peak_fill=4 peak_steady=4 peak_joint=8 peak=4 per_frame=8 t_up=16 t_prop=0 t_full=16 t_chain=16 fill_only=False throttleable=False allowance=0.00 after_slack=4 burst=0 slack=0 refill=4 idle_floor=0 cap_applies=False floor=4 floor_capped=4 depth=4
+-- pass causal=False latency=True
+   node A clock = [2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32]
+   node B clock = [34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65]
+   node C clock = [74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100 101 102 103 104 105]
+   graph input inp writes = [2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32]
+   edge A -> B [t0]
+      writes = [34 36 38 40 42 44 46 48 50 52 54 56 58 60 62 64]
+      reads  = [34 36 38 40 42 44 46 48 50 52 54 56 58 60 62 64]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=8 t_prop=8 t_full=8 t_chain=8 fill_only=False throttleable=False allowance=4.00 after_slack=-4 burst=0 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge B -> C [t1]
+      writes = [74 75 76 77 78 79 80 81 90 91 92 93 94 95 96 97]
+      reads  = [74 76 78 80 82 84 86 88 90 92 94 96 98 100 102 104]
+      peak_fill=4 peak_steady=4 peak_joint=8 peak=4 per_frame=8 t_up=16 t_prop=0 t_full=16 t_chain=16 fill_only=False throttleable=False allowance=0.00 after_slack=4 burst=0 slack=0 refill=4 idle_floor=0 cap_applies=False floor=4 floor_capped=4 depth=4
+-- pass causal=True latency=False
+   node A lead = 0
+   node A clock = [2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32]
+   node A writes_raw = [2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32]
+   node A writes_causal = [2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32]
+   node B lead = 0
+   node B clock = [2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33]
+   node B writes_raw = [10 11 12 13 14 15 16 17 26 27 28 29 30 31 32 33]
+   node B writes_causal = [10 11 12 13 14 15 16 17 26 27 28 29 30 31 32 33]
+   node C lead = 0
+   node C clock = [10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41]
+   node C writes_raw = [10 12 14 16 18 20 22 24 26 28 30 32 34 36 38 40]
+   node C writes_causal = [10 12 14 16 18 20 22 24 26 28 30 32 34 36 38 40]
+   graph input inp writes = [2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32]
+   edge A -> B [t0]
+      writes = [2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32]
+      reads  = [2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=8 t_prop=8 t_full=8 t_chain=8 fill_only=False throttleable=False allowance=4.00 after_slack=-4 burst=0 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge B -> C [t1]
+      writes = [10 11 12 13 14 15 16 17 26 27 28 29 30 31 32 33]
+      reads  = [10 12 14 16 18 20 22 24 26 28 30 32 34 36 38 40]
+      peak_fill=4 peak_steady=4 peak_joint=8 peak=4 per_frame=8 t_up=16 t_prop=0 t_full=16 t_chain=16 fill_only=False throttleable=False allowance=0.00 after_slack=4 burst=0 slack=0 refill=4 idle_floor=0 cap_applies=False floor=4 floor_capped=4 depth=4
+-- pass causal=True latency=True
+   node A lead = 0
+   node A clock = [2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32]
+   node A writes_raw = [2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32]
+   node A writes_causal = [2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32]
+   node A writes_block = [2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32]
+   node B lead = 0
+   node B clock = [34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65]
+   node B writes_raw = [42 43 44 45 46 47 48 49 58 59 60 61 62 63 64 65]
+   node B writes_causal = [42 43 44 45 46 47 48 49 58 59 60 61 62 63 64 65]
+   node B writes_block = [42 43 44 45 46 47 48 49 58 59 60 61 62 63 64 65]
+   node C lead = 0
+   node C clock = [74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100 101 102 103 104 105]
+   node C writes_raw = [74 76 78 80 82 84 86 88 90 92 94 96 98 100 102 104]
+   node C writes_causal = [74 76 78 80 82 84 86 88 90 92 94 96 98 100 102 104]
+   node C writes_block = [74 76 78 80 82 84 86 88 90 92 94 96 98 100 102 104]
+   graph input inp writes = [2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32]
+   edge A -> B [t0]
+      writes = [34 36 38 40 42 44 46 48 50 52 54 56 58 60 62 64]
+      reads  = [34 36 38 40 42 44 46 48 50 52 54 56 58 60 62 64]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=8 t_prop=8 t_full=8 t_chain=8 fill_only=False throttleable=False allowance=4.00 after_slack=-4 burst=0 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge B -> C [t1]
+      writes = [74 75 76 77 78 79 80 81 90 91 92 93 94 95 96 97]
+      reads  = [74 76 78 80 82 84 86 88 90 92 94 96 98 100 102 104]
+      peak_fill=4 peak_steady=4 peak_joint=8 peak=4 per_frame=8 t_up=16 t_prop=0 t_full=16 t_chain=16 fill_only=False throttleable=False allowance=0.00 after_slack=4 burst=0 slack=0 refill=4 idle_floor=0 cap_applies=False floor=4 floor_capped=4 depth=4
+-- per-pass depths (tensor: causal/latency FF FT TF TT)
+   A -> B                                             [0, 0, 0, 0]
+   B -> C                                             [4, 4, 4, 4]
+-- join window floors: {}
+-- final depths:
+   <in> -> A                                                    5
+   A -> B                                                       2
+   B -> C                                                       4
+   C -> <out>                                                   5
+==============================================================================
+E1 chain, instantaneous source (graph_input_schedule ablated)
+==============================================================================
+global period (pass input 16, after max with TAVs) = 16
+  node A                                      period=8      rd/frame=8     wr/frame=8     drives_pacer=True in_branch=False
+  node B                                      period=16     rd/frame=8     wr/frame=8     drives_pacer=True in_branch=False
+  node C                                      period=16     rd/frame=8     wr/frame=8     drives_pacer=True in_branch=False
+-- pass causal=False latency=False
+   node A clock = [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15]
+   node B clock = [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31]
+   node C clock = [8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39]
+   graph input inp writes = [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
+   edge A -> B [t0]
+      writes = [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15]
+      reads  = [0 2 4 6 8 10 12 14 16 18 20 22 24 26 28 30]
+      peak_fill=4 peak_steady=8 peak_joint=8 peak=8 per_frame=8 t_up=8 t_prop=8 t_full=8 t_chain=8 fill_only=False throttleable=False allowance=4.00 after_slack=4 burst=0 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=4
+   edge B -> C [t1]
+      writes = [8 9 10 11 12 13 14 15 24 25 26 27 28 29 30 31]
+      reads  = [8 10 12 14 16 18 20 22 24 26 28 30 32 34 36 38]
+      peak_fill=4 peak_steady=4 peak_joint=8 peak=4 per_frame=8 t_up=16 t_prop=0 t_full=16 t_chain=16 fill_only=False throttleable=False allowance=0.00 after_slack=4 burst=0 slack=0 refill=4 idle_floor=0 cap_applies=False floor=4 floor_capped=4 depth=4
+-- pass causal=False latency=True
+   node A clock = [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15]
+   node B clock = [32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63]
+   node C clock = [72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100 101 102 103]
+   graph input inp writes = [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
+   edge A -> B [t0]
+      writes = [32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47]
+      reads  = [32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 62]
+      peak_fill=4 peak_steady=8 peak_joint=8 peak=8 per_frame=8 t_up=8 t_prop=8 t_full=8 t_chain=8 fill_only=False throttleable=False allowance=4.00 after_slack=4 burst=0 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=4
+   edge B -> C [t1]
+      writes = [72 73 74 75 76 77 78 79 88 89 90 91 92 93 94 95]
+      reads  = [72 74 76 78 80 82 84 86 88 90 92 94 96 98 100 102]
+      peak_fill=4 peak_steady=4 peak_joint=8 peak=4 per_frame=8 t_up=16 t_prop=0 t_full=16 t_chain=16 fill_only=False throttleable=False allowance=0.00 after_slack=4 burst=0 slack=0 refill=4 idle_floor=0 cap_applies=False floor=4 floor_capped=4 depth=4
+-- pass causal=True latency=False
+   node A lead = 0
+   node A clock = [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15]
+   node A writes_raw = [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15]
+   node A writes_causal = [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15]
+   node B lead = 0
+   node B clock = [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31]
+   node B writes_raw = [8 9 10 11 12 13 14 15 24 25 26 27 28 29 30 31]
+   node B writes_causal = [8 9 10 11 12 13 14 15 24 25 26 27 28 29 30 31]
+   node C lead = 0
+   node C clock = [8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39]
+   node C writes_raw = [8 10 12 14 16 18 20 22 24 26 28 30 32 34 36 38]
+   node C writes_causal = [8 10 12 14 16 18 20 22 24 26 28 30 32 34 36 38]
+   graph input inp writes = [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
+   edge A -> B [t0]
+      writes = [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15]
+      reads  = [0 2 4 6 8 10 12 14 16 18 20 22 24 26 28 30]
+      peak_fill=4 peak_steady=8 peak_joint=8 peak=8 per_frame=8 t_up=8 t_prop=8 t_full=8 t_chain=8 fill_only=False throttleable=False allowance=4.00 after_slack=4 burst=0 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=4
+   edge B -> C [t1]
+      writes = [8 9 10 11 12 13 14 15 24 25 26 27 28 29 30 31]
+      reads  = [8 10 12 14 16 18 20 22 24 26 28 30 32 34 36 38]
+      peak_fill=4 peak_steady=4 peak_joint=8 peak=4 per_frame=8 t_up=16 t_prop=0 t_full=16 t_chain=16 fill_only=False throttleable=False allowance=0.00 after_slack=4 burst=0 slack=0 refill=4 idle_floor=0 cap_applies=False floor=4 floor_capped=4 depth=4
+-- pass causal=True latency=True
+   node A lead = 0
+   node A clock = [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15]
+   node A writes_raw = [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15]
+   node A writes_causal = [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15]
+   node A writes_block = [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15]
+   node B lead = 0
+   node B clock = [32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63]
+   node B writes_raw = [40 41 42 43 44 45 46 47 56 57 58 59 60 61 62 63]
+   node B writes_causal = [40 41 42 43 44 45 46 47 56 57 58 59 60 61 62 63]
+   node B writes_block = [40 41 42 43 44 45 46 47 56 57 58 59 60 61 62 63]
+   node C lead = 0
+   node C clock = [72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100 101 102 103]
+   node C writes_raw = [72 74 76 78 80 82 84 86 88 90 92 94 96 98 100 102]
+   node C writes_causal = [72 74 76 78 80 82 84 86 88 90 92 94 96 98 100 102]
+   node C writes_block = [72 74 76 78 80 82 84 86 88 90 92 94 96 98 100 102]
+   graph input inp writes = [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
+   edge A -> B [t0]
+      writes = [32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47]
+      reads  = [32 34 36 38 40 42 44 46 48 50 52 54 56 58 60 62]
+      peak_fill=4 peak_steady=8 peak_joint=8 peak=8 per_frame=8 t_up=8 t_prop=8 t_full=8 t_chain=8 fill_only=False throttleable=False allowance=4.00 after_slack=4 burst=0 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=4
+   edge B -> C [t1]
+      writes = [72 73 74 75 76 77 78 79 88 89 90 91 92 93 94 95]
+      reads  = [72 74 76 78 80 82 84 86 88 90 92 94 96 98 100 102]
+      peak_fill=4 peak_steady=4 peak_joint=8 peak=4 per_frame=8 t_up=16 t_prop=0 t_full=16 t_chain=16 fill_only=False throttleable=False allowance=0.00 after_slack=4 burst=0 slack=0 refill=4 idle_floor=0 cap_applies=False floor=4 floor_capped=4 depth=4
+-- per-pass depths (tensor: causal/latency FF FT TF TT)
+   A -> B                                             [4, 4, 4, 4]
+   B -> C                                             [4, 4, 4, 4]
+-- join window floors: {}
+-- final depths:
+   <in> -> A                                                    5
+   A -> B                                                       4
+   B -> C                                                       4
+   C -> <out>                                                   5
+==============================================================================
+E2 relaxation, C reads every 3 cycles (period 24)
+==============================================================================
+global period (pass input 32, after max with TAVs) = 32
+  node P                                      period=32     rd/frame=8     wr/frame=8     drives_pacer=True in_branch=False
+  node X                                      period=8      rd/frame=8     wr/frame=8     drives_pacer=False in_branch=False
+  node C                                      period=24     rd/frame=8     wr/frame=8     drives_pacer=False in_branch=False
+-- pass causal=False latency=False
+   node P clock = [4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 ... 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67] (64)
+   node X clock = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+   node C clock = [28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 ... 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83] (48)
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge P -> X [t0]
+      writes = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+      reads  = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=32 t_prop=0 t_full=32 t_chain=32 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=6 slack=24 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge X -> C [t1]
+      writes = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+      reads  = [28 31 34 37 40 43 46 49 60 63 66 69 72 75 78 81]
+      peak_fill=5 peak_steady=5 peak_joint=10 peak=5 per_frame=8 t_up=8 t_prop=8 t_full=32 t_chain=8 fill_only=False throttleable=True allowance=6.00 after_slack=-1 burst=2 slack=16 refill=0 idle_floor=1 cap_applies=False floor=2 floor_capped=2 depth=2
+-- pass causal=False latency=True
+   node P clock = [4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 ... 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67] (64)
+   node X clock = [60 61 62 63 64 65 66 67 92 93 94 95 96 97 98 99]
+   node C clock = [92 93 94 95 96 97 98 99 100 101 102 103 104 105 106 107 108 109 110 111 ... 128 129 130 131 132 133 134 135 136 137 138 139 140 141 142 143 144 145 146 147] (48)
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge P -> X [t0]
+      writes = [60 61 62 63 64 65 66 67 92 93 94 95 96 97 98 99]
+      reads  = [60 61 62 63 64 65 66 67 92 93 94 95 96 97 98 99]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=32 t_prop=0 t_full=32 t_chain=32 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=6 slack=24 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge X -> C [t1]
+      writes = [92 93 94 95 96 97 98 99 124 125 126 127 128 129 130 131]
+      reads  = [92 95 98 101 104 107 110 113 124 127 130 133 136 139 142 145]
+      peak_fill=5 peak_steady=5 peak_joint=10 peak=5 per_frame=8 t_up=8 t_prop=8 t_full=32 t_chain=8 fill_only=False throttleable=True allowance=6.00 after_slack=-1 burst=2 slack=16 refill=0 idle_floor=1 cap_applies=False floor=2 floor_capped=2 depth=2
+-- pass causal=True latency=False
+   node P lead = 0
+   node P clock = [4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 ... 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67] (64)
+   node P writes_raw = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+   node P writes_causal = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+   node X lead = 0
+   node X clock = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+   node X writes_raw = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+   node X writes_causal = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+   node C lead = 0
+   node C clock = [28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 ... 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83] (48)
+   node C writes_raw = [28 31 34 37 40 43 46 49 60 63 66 69 72 75 78 81]
+   node C writes_causal = [28 31 34 37 40 43 46 49 60 63 66 69 72 75 78 81]
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge P -> X [t0]
+      writes = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+      reads  = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=32 t_prop=0 t_full=32 t_chain=32 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=6 slack=24 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge X -> C [t1]
+      writes = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+      reads  = [28 31 34 37 40 43 46 49 60 63 66 69 72 75 78 81]
+      peak_fill=5 peak_steady=5 peak_joint=10 peak=5 per_frame=8 t_up=8 t_prop=8 t_full=32 t_chain=8 fill_only=False throttleable=True allowance=6.00 after_slack=-1 burst=2 slack=16 refill=0 idle_floor=1 cap_applies=False floor=2 floor_capped=2 depth=2
+-- pass causal=True latency=True
+   node P lead = 0
+   node P clock = [4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 ... 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67] (64)
+   node P writes_raw = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+   node P writes_causal = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+   node P writes_block = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+   node X lead = 0
+   node X clock = [60 61 62 63 64 65 66 67 92 93 94 95 96 97 98 99]
+   node X writes_raw = [60 61 62 63 64 65 66 67 92 93 94 95 96 97 98 99]
+   node X writes_causal = [60 61 62 63 64 65 66 67 92 93 94 95 96 97 98 99]
+   node X writes_block = [60 61 62 63 64 65 66 67 92 93 94 95 96 97 98 99]
+   node C lead = 0
+   node C clock = [92 93 94 95 96 97 98 99 100 101 102 103 104 105 106 107 108 109 110 111 ... 128 129 130 131 132 133 134 135 136 137 138 139 140 141 142 143 144 145 146 147] (48)
+   node C writes_raw = [92 95 98 101 104 107 110 113 124 127 130 133 136 139 142 145]
+   node C writes_causal = [92 95 98 101 104 107 110 113 124 127 130 133 136 139 142 145]
+   node C writes_block = [92 95 98 101 104 107 110 113 124 127 130 133 136 139 142 145]
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge P -> X [t0]
+      writes = [60 61 62 63 64 65 66 67 92 93 94 95 96 97 98 99]
+      reads  = [60 61 62 63 64 65 66 67 92 93 94 95 96 97 98 99]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=32 t_prop=0 t_full=32 t_chain=32 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=6 slack=24 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge X -> C [t1]
+      writes = [92 93 94 95 96 97 98 99 124 125 126 127 128 129 130 131]
+      reads  = [92 95 98 101 104 107 110 113 124 127 130 133 136 139 142 145]
+      peak_fill=5 peak_steady=5 peak_joint=10 peak=5 per_frame=8 t_up=8 t_prop=8 t_full=32 t_chain=8 fill_only=False throttleable=True allowance=6.00 after_slack=-1 burst=2 slack=16 refill=0 idle_floor=1 cap_applies=False floor=2 floor_capped=2 depth=2
+-- per-pass depths (tensor: causal/latency FF FT TF TT)
+   P -> X                                             [0, 0, 0, 0]
+   X -> C                                             [2, 2, 2, 2]
+-- join window floors: {}
+-- final depths:
+   <in> -> P                                                    5
+   P -> X                                                       2
+   X -> C                                                       2
+   C -> <out>                                                   5
+   without burst floor: {'<in> -> P': 5, 'P -> X': 2, 'X -> C': 2, 'C -> <out>': 5}
+   X->C with t_up = t_full (no reset past the pacer): edge_depth = 5
+==============================================================================
+E2 relaxation, C reads every 2 cycles (period 16)
+==============================================================================
+global period (pass input 32, after max with TAVs) = 32
+  node P                                      period=32     rd/frame=8     wr/frame=8     drives_pacer=True in_branch=False
+  node X                                      period=8      rd/frame=8     wr/frame=8     drives_pacer=False in_branch=False
+  node C                                      period=16     rd/frame=8     wr/frame=8     drives_pacer=False in_branch=False
+-- pass causal=False latency=False
+   node P clock = [4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 ... 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67] (64)
+   node X clock = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+   node C clock = [28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75]
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge P -> X [t0]
+      writes = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+      reads  = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=32 t_prop=0 t_full=32 t_chain=32 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=6 slack=24 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge X -> C [t1]
+      writes = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+      reads  = [28 30 32 34 36 38 40 42 60 62 64 66 68 70 72 74]
+      peak_fill=4 peak_steady=4 peak_joint=8 peak=4 per_frame=8 t_up=8 t_prop=8 t_full=32 t_chain=8 fill_only=False throttleable=True allowance=6.00 after_slack=-2 burst=4 slack=24 refill=0 idle_floor=0 cap_applies=True floor=4 floor_capped=4 depth=4
+-- pass causal=False latency=True
+   node P clock = [4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 ... 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67] (64)
+   node X clock = [60 61 62 63 64 65 66 67 92 93 94 95 96 97 98 99]
+   node C clock = [92 93 94 95 96 97 98 99 100 101 102 103 104 105 106 107 124 125 126 127 128 129 130 131 132 133 134 135 136 137 138 139]
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge P -> X [t0]
+      writes = [60 61 62 63 64 65 66 67 92 93 94 95 96 97 98 99]
+      reads  = [60 61 62 63 64 65 66 67 92 93 94 95 96 97 98 99]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=32 t_prop=0 t_full=32 t_chain=32 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=6 slack=24 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge X -> C [t1]
+      writes = [92 93 94 95 96 97 98 99 124 125 126 127 128 129 130 131]
+      reads  = [92 94 96 98 100 102 104 106 124 126 128 130 132 134 136 138]
+      peak_fill=4 peak_steady=4 peak_joint=8 peak=4 per_frame=8 t_up=8 t_prop=8 t_full=32 t_chain=8 fill_only=False throttleable=True allowance=6.00 after_slack=-2 burst=4 slack=24 refill=0 idle_floor=0 cap_applies=True floor=4 floor_capped=4 depth=4
+-- pass causal=True latency=False
+   node P lead = 0
+   node P clock = [4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 ... 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67] (64)
+   node P writes_raw = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+   node P writes_causal = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+   node X lead = 0
+   node X clock = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+   node X writes_raw = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+   node X writes_causal = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+   node C lead = 0
+   node C clock = [28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75]
+   node C writes_raw = [28 30 32 34 36 38 40 42 60 62 64 66 68 70 72 74]
+   node C writes_causal = [28 30 32 34 36 38 40 42 60 62 64 66 68 70 72 74]
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge P -> X [t0]
+      writes = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+      reads  = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=32 t_prop=0 t_full=32 t_chain=32 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=6 slack=24 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge X -> C [t1]
+      writes = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+      reads  = [28 30 32 34 36 38 40 42 60 62 64 66 68 70 72 74]
+      peak_fill=4 peak_steady=4 peak_joint=8 peak=4 per_frame=8 t_up=8 t_prop=8 t_full=32 t_chain=8 fill_only=False throttleable=True allowance=6.00 after_slack=-2 burst=4 slack=24 refill=0 idle_floor=0 cap_applies=True floor=4 floor_capped=4 depth=4
+-- pass causal=True latency=True
+   node P lead = 0
+   node P clock = [4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 ... 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67] (64)
+   node P writes_raw = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+   node P writes_causal = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+   node P writes_block = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+   node X lead = 0
+   node X clock = [60 61 62 63 64 65 66 67 92 93 94 95 96 97 98 99]
+   node X writes_raw = [60 61 62 63 64 65 66 67 92 93 94 95 96 97 98 99]
+   node X writes_causal = [60 61 62 63 64 65 66 67 92 93 94 95 96 97 98 99]
+   node X writes_block = [60 61 62 63 64 65 66 67 92 93 94 95 96 97 98 99]
+   node C lead = 0
+   node C clock = [92 93 94 95 96 97 98 99 100 101 102 103 104 105 106 107 124 125 126 127 128 129 130 131 132 133 134 135 136 137 138 139]
+   node C writes_raw = [92 94 96 98 100 102 104 106 124 126 128 130 132 134 136 138]
+   node C writes_causal = [92 94 96 98 100 102 104 106 124 126 128 130 132 134 136 138]
+   node C writes_block = [92 94 96 98 100 102 104 106 124 126 128 130 132 134 136 138]
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge P -> X [t0]
+      writes = [60 61 62 63 64 65 66 67 92 93 94 95 96 97 98 99]
+      reads  = [60 61 62 63 64 65 66 67 92 93 94 95 96 97 98 99]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=32 t_prop=0 t_full=32 t_chain=32 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=6 slack=24 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge X -> C [t1]
+      writes = [92 93 94 95 96 97 98 99 124 125 126 127 128 129 130 131]
+      reads  = [92 94 96 98 100 102 104 106 124 126 128 130 132 134 136 138]
+      peak_fill=4 peak_steady=4 peak_joint=8 peak=4 per_frame=8 t_up=8 t_prop=8 t_full=32 t_chain=8 fill_only=False throttleable=True allowance=6.00 after_slack=-2 burst=4 slack=24 refill=0 idle_floor=0 cap_applies=True floor=4 floor_capped=4 depth=4
+-- per-pass depths (tensor: causal/latency FF FT TF TT)
+   P -> X                                             [0, 0, 0, 0]
+   X -> C                                             [4, 4, 4, 4]
+-- join window floors: {}
+-- final depths:
+   <in> -> P                                                    5
+   P -> X                                                       2
+   X -> C                                                       4
+   C -> <out>                                                   5
+   without burst floor: {'<in> -> P': 5, 'P -> X': 2, 'X -> C': 2, 'C -> <out>': 5}
+   X->C with t_up = t_full (no reset past the pacer): edge_depth = 4
+==============================================================================
+E3 throttled cap, X period 1024
+==============================================================================
+global period (pass input 4096, after max with TAVs) = 4096
+  node P                                      period=4096   rd/frame=1024  wr/frame=1024  drives_pacer=True in_branch=False
+  node X                                      period=1024   rd/frame=1024  wr/frame=1024  drives_pacer=False in_branch=False
+  node C                                      period=2048   rd/frame=1024  wr/frame=1024  drives_pacer=False in_branch=False
+-- pass causal=False latency=False
+   edge P -> X [t0]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=1024 t_up=4096 t_prop=0 t_full=4096 t_chain=4096 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=768 slack=3072 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge X -> C [t1]
+      peak_fill=512 peak_steady=512 peak_joint=1024 peak=512 per_frame=1024 t_up=1024 t_prop=1024 t_full=4096 t_chain=1024 fill_only=False throttleable=True allowance=768.00 after_slack=-256 burst=512 slack=2056 refill=0 idle_floor=0 cap_applies=True floor=512 floor_capped=256 depth=256
+-- pass causal=False latency=True
+   edge P -> X [t0]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=1024 t_up=4096 t_prop=0 t_full=4096 t_chain=4096 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=768 slack=3072 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge X -> C [t1]
+      peak_fill=512 peak_steady=512 peak_joint=1024 peak=512 per_frame=1024 t_up=1024 t_prop=1024 t_full=4096 t_chain=1024 fill_only=False throttleable=True allowance=768.00 after_slack=-256 burst=512 slack=2056 refill=0 idle_floor=0 cap_applies=True floor=512 floor_capped=256 depth=256
+-- pass causal=True latency=False
+   edge P -> X [t0]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=1024 t_up=4096 t_prop=0 t_full=4096 t_chain=4096 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=768 slack=3072 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge X -> C [t1]
+      peak_fill=512 peak_steady=512 peak_joint=1024 peak=512 per_frame=1024 t_up=1024 t_prop=1024 t_full=4096 t_chain=1024 fill_only=False throttleable=True allowance=768.00 after_slack=-256 burst=512 slack=2056 refill=0 idle_floor=0 cap_applies=True floor=512 floor_capped=256 depth=256
+-- pass causal=True latency=True
+   edge P -> X [t0]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=1024 t_up=4096 t_prop=0 t_full=4096 t_chain=4096 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=768 slack=3072 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge X -> C [t1]
+      peak_fill=512 peak_steady=512 peak_joint=1024 peak=512 per_frame=1024 t_up=1024 t_prop=1024 t_full=4096 t_chain=1024 fill_only=False throttleable=True allowance=768.00 after_slack=-256 burst=512 slack=2056 refill=0 idle_floor=0 cap_applies=True floor=512 floor_capped=256 depth=256
+-- per-pass depths (tensor: causal/latency FF FT TF TT)
+   P -> X                                             [0, 0, 0, 0]
+   X -> C                                             [256, 256, 256, 256]
+-- join window floors: {}
+-- final depths:
+   <in> -> P                                                    5
+   P -> X                                                       2
+   X -> C                                                       256
+   C -> <out>                                                   5
+   without cap: {'<in> -> P': 5, 'P -> X': 2, 'X -> C': 512, 'C -> <out>': 5}
+   without margin: {'<in> -> P': 5, 'P -> X': 2, 'X -> C': 256, 'C -> <out>': 5}
+==============================================================================
+E3 throttled cap, X period 1600
+==============================================================================
+global period (pass input 4096, after max with TAVs) = 4096
+  node P                                      period=4096   rd/frame=1024  wr/frame=1024  drives_pacer=True in_branch=False
+  node X                                      period=1600   rd/frame=1024  wr/frame=1024  drives_pacer=False in_branch=False
+  node C                                      period=2048   rd/frame=1024  wr/frame=1024  drives_pacer=False in_branch=False
+-- pass causal=False latency=False
+   edge P -> X [t0]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=1024 t_up=4096 t_prop=0 t_full=4096 t_chain=4096 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=768 slack=2496 refill=0 idle_floor=256 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge X -> C [t1]
+      peak_fill=512 peak_steady=512 peak_joint=1024 peak=512 per_frame=1024 t_up=1600 t_prop=1600 t_full=4096 t_chain=1600 fill_only=False throttleable=True allowance=624.00 after_slack=-112 burst=512 slack=2056 refill=0 idle_floor=0 cap_applies=False floor=512 floor_capped=512 depth=512
+-- pass causal=False latency=True
+   edge P -> X [t0]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=1024 t_up=4096 t_prop=0 t_full=4096 t_chain=4096 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=768 slack=2496 refill=0 idle_floor=256 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge X -> C [t1]
+      peak_fill=512 peak_steady=512 peak_joint=1024 peak=512 per_frame=1024 t_up=1600 t_prop=1600 t_full=4096 t_chain=1600 fill_only=False throttleable=True allowance=624.00 after_slack=-112 burst=512 slack=2056 refill=0 idle_floor=0 cap_applies=False floor=512 floor_capped=512 depth=512
+-- pass causal=True latency=False
+   edge P -> X [t0]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=1024 t_up=4096 t_prop=0 t_full=4096 t_chain=4096 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=768 slack=2496 refill=0 idle_floor=256 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge X -> C [t1]
+      peak_fill=512 peak_steady=512 peak_joint=1024 peak=512 per_frame=1024 t_up=1600 t_prop=1600 t_full=4096 t_chain=1600 fill_only=False throttleable=True allowance=624.00 after_slack=-112 burst=512 slack=2056 refill=0 idle_floor=0 cap_applies=False floor=512 floor_capped=512 depth=512
+-- pass causal=True latency=True
+   edge P -> X [t0]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=1024 t_up=4096 t_prop=0 t_full=4096 t_chain=4096 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=768 slack=2496 refill=0 idle_floor=256 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge X -> C [t1]
+      peak_fill=512 peak_steady=512 peak_joint=1024 peak=512 per_frame=1024 t_up=1600 t_prop=1600 t_full=4096 t_chain=1600 fill_only=False throttleable=True allowance=624.00 after_slack=-112 burst=512 slack=2056 refill=0 idle_floor=0 cap_applies=False floor=512 floor_capped=512 depth=512
+-- per-pass depths (tensor: causal/latency FF FT TF TT)
+   P -> X                                             [0, 0, 0, 0]
+   X -> C                                             [512, 512, 512, 512]
+-- join window floors: {}
+-- final depths:
+   <in> -> P                                                    5
+   P -> X                                                       2
+   X -> C                                                       512
+   C -> <out>                                                   5
+   without cap: {'<in> -> P': 5, 'P -> X': 2, 'X -> C': 512, 'C -> <out>': 5}
+   without margin: {'<in> -> P': 5, 'P -> X': 2, 'X -> C': 256, 'C -> <out>': 5}
+==============================================================================
+E4 pacer-bound consumer
+==============================================================================
+global period (pass input 32, after max with TAVs) = 32
+  node P                                      period=32     rd/frame=8     wr/frame=8     drives_pacer=True in_branch=False
+  node X                                      period=8      rd/frame=8     wr/frame=8     drives_pacer=True in_branch=False
+  node C                                      period=32     rd/frame=8     wr/frame=8     drives_pacer=True in_branch=False
+-- pass causal=False latency=False
+   node P clock = [4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 ... 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67] (64)
+   node X clock = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+   node C clock = [28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 ... 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91] (64)
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge P -> X [t0]
+      writes = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+      reads  = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=32 t_prop=0 t_full=32 t_chain=32 fill_only=False throttleable=False allowance=0.00 after_slack=0 burst=6 slack=24 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge X -> C [t1]
+      writes = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+      reads  = [28 32 36 40 44 48 52 56 60 64 68 72 76 80 84 88]
+      peak_fill=6 peak_steady=6 peak_joint=12 peak=6 per_frame=8 t_up=8 t_prop=8 t_full=32 t_chain=32 fill_only=False throttleable=False allowance=0.00 after_slack=6 burst=0 slack=8 refill=4 idle_floor=1 cap_applies=False floor=4 floor_capped=4 depth=6
+-- pass causal=False latency=True
+   node P clock = [4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 ... 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67] (64)
+   node X clock = [60 61 62 63 64 65 66 67 92 93 94 95 96 97 98 99]
+   node C clock = [92 93 94 95 96 97 98 99 100 101 102 103 104 105 106 107 108 109 110 111 ... 136 137 138 139 140 141 142 143 144 145 146 147 148 149 150 151 152 153 154 155] (64)
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge P -> X [t0]
+      writes = [60 61 62 63 64 65 66 67 92 93 94 95 96 97 98 99]
+      reads  = [60 61 62 63 64 65 66 67 92 93 94 95 96 97 98 99]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=32 t_prop=0 t_full=32 t_chain=32 fill_only=False throttleable=False allowance=0.00 after_slack=0 burst=6 slack=24 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge X -> C [t1]
+      writes = [92 93 94 95 96 97 98 99 124 125 126 127 128 129 130 131]
+      reads  = [92 96 100 104 108 112 116 120 124 128 132 136 140 144 148 152]
+      peak_fill=6 peak_steady=6 peak_joint=12 peak=6 per_frame=8 t_up=8 t_prop=8 t_full=32 t_chain=32 fill_only=False throttleable=False allowance=0.00 after_slack=6 burst=0 slack=8 refill=4 idle_floor=1 cap_applies=False floor=4 floor_capped=4 depth=6
+-- pass causal=True latency=False
+   node P lead = 0
+   node P clock = [4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 ... 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67] (64)
+   node P writes_raw = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+   node P writes_causal = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+   node X lead = 0
+   node X clock = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+   node X writes_raw = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+   node X writes_causal = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+   node C lead = 0
+   node C clock = [28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 ... 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91] (64)
+   node C writes_raw = [28 32 36 40 44 48 52 56 60 64 68 72 76 80 84 88]
+   node C writes_causal = [28 32 36 40 44 48 52 56 60 64 68 72 76 80 84 88]
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge P -> X [t0]
+      writes = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+      reads  = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=32 t_prop=0 t_full=32 t_chain=32 fill_only=False throttleable=False allowance=0.00 after_slack=0 burst=6 slack=24 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge X -> C [t1]
+      writes = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+      reads  = [28 32 36 40 44 48 52 56 60 64 68 72 76 80 84 88]
+      peak_fill=6 peak_steady=6 peak_joint=12 peak=6 per_frame=8 t_up=8 t_prop=8 t_full=32 t_chain=32 fill_only=False throttleable=False allowance=0.00 after_slack=6 burst=0 slack=8 refill=4 idle_floor=1 cap_applies=False floor=4 floor_capped=4 depth=6
+-- pass causal=True latency=True
+   node P lead = 0
+   node P clock = [4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 ... 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67] (64)
+   node P writes_raw = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+   node P writes_causal = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+   node P writes_block = [28 29 30 31 32 33 34 35 60 61 62 63 64 65 66 67]
+   node X lead = 0
+   node X clock = [60 61 62 63 64 65 66 67 92 93 94 95 96 97 98 99]
+   node X writes_raw = [60 61 62 63 64 65 66 67 92 93 94 95 96 97 98 99]
+   node X writes_causal = [60 61 62 63 64 65 66 67 92 93 94 95 96 97 98 99]
+   node X writes_block = [60 61 62 63 64 65 66 67 92 93 94 95 96 97 98 99]
+   node C lead = 0
+   node C clock = [92 93 94 95 96 97 98 99 100 101 102 103 104 105 106 107 108 109 110 111 ... 136 137 138 139 140 141 142 143 144 145 146 147 148 149 150 151 152 153 154 155] (64)
+   node C writes_raw = [92 96 100 104 108 112 116 120 124 128 132 136 140 144 148 152]
+   node C writes_causal = [92 96 100 104 108 112 116 120 124 128 132 136 140 144 148 152]
+   node C writes_block = [92 96 100 104 108 112 116 120 124 128 132 136 140 144 148 152]
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge P -> X [t0]
+      writes = [60 61 62 63 64 65 66 67 92 93 94 95 96 97 98 99]
+      reads  = [60 61 62 63 64 65 66 67 92 93 94 95 96 97 98 99]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=32 t_prop=0 t_full=32 t_chain=32 fill_only=False throttleable=False allowance=0.00 after_slack=0 burst=6 slack=24 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge X -> C [t1]
+      writes = [92 93 94 95 96 97 98 99 124 125 126 127 128 129 130 131]
+      reads  = [92 96 100 104 108 112 116 120 124 128 132 136 140 144 148 152]
+      peak_fill=6 peak_steady=6 peak_joint=12 peak=6 per_frame=8 t_up=8 t_prop=8 t_full=32 t_chain=32 fill_only=False throttleable=False allowance=0.00 after_slack=6 burst=0 slack=8 refill=4 idle_floor=1 cap_applies=False floor=4 floor_capped=4 depth=6
+-- per-pass depths (tensor: causal/latency FF FT TF TT)
+   P -> X                                             [0, 0, 0, 0]
+   X -> C                                             [6, 6, 6, 6]
+-- join window floors: {}
+-- final depths:
+   <in> -> P                                                    5
+   P -> X                                                       2
+   X -> C                                                       6
+   C -> <out>                                                   5
+   if C were throttleable (pacer_drivers ablated): {'<in> -> P': 5, 'P -> X': 2, 'X -> C': 2, 'C -> <out>': 5}
+==============================================================================
+E4b pacer tolerance, C period 399 of 400
+==============================================================================
+global period (pass input 400, after max with TAVs) = 400
+  node P                                      period=400    rd/frame=8     wr/frame=8     drives_pacer=True in_branch=False
+  node X                                      period=8      rd/frame=8     wr/frame=8     drives_pacer=True in_branch=False
+  node C                                      period=399    rd/frame=8     wr/frame=8     drives_pacer=True in_branch=False
+-- pass causal=False latency=False
+   edge P -> X [t0]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=400 t_prop=0 t_full=400 t_chain=400 fill_only=False throttleable=False allowance=0.00 after_slack=0 burst=7 slack=392 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge X -> C [t1]
+      peak_fill=7 peak_steady=7 peak_joint=14 peak=7 per_frame=8 t_up=8 t_prop=8 t_full=400 t_chain=400 fill_only=False throttleable=False allowance=0.00 after_slack=7 burst=1 slack=101 refill=5 idle_floor=1 cap_applies=False floor=5 floor_capped=5 depth=7
+-- pass causal=False latency=True
+   edge P -> X [t0]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=400 t_prop=0 t_full=400 t_chain=400 fill_only=False throttleable=False allowance=0.00 after_slack=0 burst=7 slack=392 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge X -> C [t1]
+      peak_fill=7 peak_steady=7 peak_joint=14 peak=7 per_frame=8 t_up=8 t_prop=8 t_full=400 t_chain=400 fill_only=False throttleable=False allowance=0.00 after_slack=7 burst=1 slack=101 refill=5 idle_floor=1 cap_applies=False floor=5 floor_capped=5 depth=7
+-- pass causal=True latency=False
+   edge P -> X [t0]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=400 t_prop=0 t_full=400 t_chain=400 fill_only=False throttleable=False allowance=0.00 after_slack=0 burst=7 slack=392 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge X -> C [t1]
+      peak_fill=7 peak_steady=7 peak_joint=14 peak=7 per_frame=8 t_up=8 t_prop=8 t_full=400 t_chain=400 fill_only=False throttleable=False allowance=0.00 after_slack=7 burst=1 slack=101 refill=5 idle_floor=1 cap_applies=False floor=5 floor_capped=5 depth=7
+-- pass causal=True latency=True
+   edge P -> X [t0]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=400 t_prop=0 t_full=400 t_chain=400 fill_only=False throttleable=False allowance=0.00 after_slack=0 burst=7 slack=392 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge X -> C [t1]
+      peak_fill=7 peak_steady=7 peak_joint=14 peak=7 per_frame=8 t_up=8 t_prop=8 t_full=400 t_chain=400 fill_only=False throttleable=False allowance=0.00 after_slack=7 burst=1 slack=101 refill=5 idle_floor=1 cap_applies=False floor=5 floor_capped=5 depth=7
+-- per-pass depths (tensor: causal/latency FF FT TF TT)
+   P -> X                                             [0, 0, 0, 0]
+   X -> C                                             [7, 7, 7, 7]
+-- join window floors: {}
+-- final depths:
+   <in> -> P                                                    5
+   P -> X                                                       2
+   X -> C                                                       7
+   C -> <out>                                                   5
+   exact pacer test (PACER_TOLERANCE = 1): {'<in> -> P': 5, 'P -> X': 2, 'X -> C': 2, 'C -> <out>': 5}
+==============================================================================
+E5 refill floor, A fed by the input
+==============================================================================
+global period (pass input 32, after max with TAVs) = 32
+  node A                                      period=16     rd/frame=8     wr/frame=8     drives_pacer=True in_branch=False
+  node C                                      period=32     rd/frame=8     wr/frame=8     drives_pacer=True in_branch=False
+-- pass causal=False latency=False
+   node A clock = [4 8 12 16 20 24 28 32 33 34 35 36 37 38 39 40 41 42 44 48 52 56 60 64 65 66 67 68 69 70 71 72]
+   node C clock = [33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 ... 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96] (64)
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge A -> C [t0]
+      writes = [33 34 35 36 37 38 39 40 65 66 67 68 69 70 71 72]
+      reads  = [33 37 41 45 49 53 57 61 65 69 73 77 81 85 89 93]
+      peak_fill=6 peak_steady=6 peak_joint=12 peak=6 per_frame=8 t_up=16 t_prop=16 t_full=16 t_chain=16 fill_only=False throttleable=False allowance=4.00 after_slack=2 burst=0 slack=0 refill=6 idle_floor=1 cap_applies=False floor=6 floor_capped=6 depth=6
+-- pass causal=False latency=True
+   node A clock = [4 8 12 16 20 24 28 32 33 34 35 36 37 38 39 40 41 42 44 48 52 56 60 64 65 66 67 68 69 70 71 72]
+   node C clock = [65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 ... 109 110 111 112 113 114 115 116 117 118 119 120 121 122 123 124 125 126 127 128] (64)
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge A -> C [t0]
+      writes = [65 66 67 68 69 70 71 72 97 98 99 100 101 102 103 104]
+      reads  = [65 69 73 77 81 85 89 93 97 101 105 109 113 117 121 125]
+      peak_fill=6 peak_steady=6 peak_joint=12 peak=6 per_frame=8 t_up=16 t_prop=16 t_full=16 t_chain=16 fill_only=False throttleable=False allowance=4.00 after_slack=2 burst=0 slack=0 refill=6 idle_floor=1 cap_applies=False floor=6 floor_capped=6 depth=6
+-- pass causal=True latency=False
+   node A lead = 0
+   node A clock = [4 8 12 16 20 24 28 32 33 34 35 36 37 38 39 40 41 42 44 48 52 56 60 64 65 66 67 68 69 70 71 72]
+   node A writes_raw = [33 34 35 36 37 38 39 40 65 66 67 68 69 70 71 72]
+   node A writes_causal = [33 34 35 36 37 38 39 40 65 66 67 68 69 70 71 72]
+   node C lead = 0
+   node C clock = [33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 ... 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96] (64)
+   node C writes_raw = [33 37 41 45 49 53 57 61 65 69 73 77 81 85 89 93]
+   node C writes_causal = [33 37 41 45 49 53 57 61 65 69 73 77 81 85 89 93]
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge A -> C [t0]
+      writes = [33 34 35 36 37 38 39 40 65 66 67 68 69 70 71 72]
+      reads  = [33 37 41 45 49 53 57 61 65 69 73 77 81 85 89 93]
+      peak_fill=6 peak_steady=6 peak_joint=12 peak=6 per_frame=8 t_up=16 t_prop=16 t_full=16 t_chain=16 fill_only=False throttleable=False allowance=4.00 after_slack=2 burst=0 slack=0 refill=6 idle_floor=1 cap_applies=False floor=6 floor_capped=6 depth=6
+-- pass causal=True latency=True
+   node A lead = 0
+   node A clock = [4 8 12 16 20 24 28 32 33 34 35 36 37 38 39 40 41 42 44 48 52 56 60 64 65 66 67 68 69 70 71 72]
+   node A writes_raw = [33 34 35 36 37 38 39 40 65 66 67 68 69 70 71 72]
+   node A writes_causal = [33 34 35 36 37 38 39 40 65 66 67 68 69 70 71 72]
+   node A writes_block = [33 34 35 36 37 38 39 40 65 66 67 68 69 70 71 72]
+   node C lead = 0
+   node C clock = [65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 ... 109 110 111 112 113 114 115 116 117 118 119 120 121 122 123 124 125 126 127 128] (64)
+   node C writes_raw = [65 69 73 77 81 85 89 93 97 101 105 109 113 117 121 125]
+   node C writes_causal = [65 69 73 77 81 85 89 93 97 101 105 109 113 117 121 125]
+   node C writes_block = [65 69 73 77 81 85 89 93 97 101 105 109 113 117 121 125]
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge A -> C [t0]
+      writes = [65 66 67 68 69 70 71 72 97 98 99 100 101 102 103 104]
+      reads  = [65 69 73 77 81 85 89 93 97 101 105 109 113 117 121 125]
+      peak_fill=6 peak_steady=6 peak_joint=12 peak=6 per_frame=8 t_up=16 t_prop=16 t_full=16 t_chain=16 fill_only=False throttleable=False allowance=4.00 after_slack=2 burst=0 slack=0 refill=6 idle_floor=1 cap_applies=False floor=6 floor_capped=6 depth=6
+-- per-pass depths (tensor: causal/latency FF FT TF TT)
+   A -> C                                             [6, 6, 6, 6]
+-- join window floors: {}
+-- final depths:
+   <in> -> A                                                    5
+   A -> C                                                       6
+   C -> <out>                                                   5
+   without refill floor: {'<in> -> A': 5, 'A -> C': 2, 'C -> <out>': 5}
+==============================================================================
+E5 refill floor, with U above A
+==============================================================================
+global period (pass input 32, after max with TAVs) = 32
+  node U                                      period=8      rd/frame=8     wr/frame=8     drives_pacer=True in_branch=False
+  node A                                      period=16     rd/frame=8     wr/frame=8     drives_pacer=True in_branch=False
+  node C                                      period=32     rd/frame=8     wr/frame=8     drives_pacer=True in_branch=False
+-- pass causal=False latency=False
+   node U clock = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node A clock = [4 8 12 16 20 24 28 32 33 34 35 36 37 38 39 40 41 42 44 48 52 56 60 64 65 66 67 68 69 70 71 72]
+   node C clock = [33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 ... 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96] (64)
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge U -> A [t0]
+      writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      reads  = [4 8 12 16 20 24 28 32 41 42 44 48 52 56 60 64]
+      peak_fill=0 peak_steady=2 peak_joint=2 peak=2 per_frame=8 t_up=8 t_prop=8 t_full=8 t_chain=8 fill_only=False throttleable=False allowance=6.00 after_slack=-4 burst=2 slack=16 refill=0 idle_floor=4 cap_applies=False floor=2 floor_capped=2 depth=2
+   edge A -> C [t1]
+      writes = [33 34 35 36 37 38 39 40 65 66 67 68 69 70 71 72]
+      reads  = [33 37 41 45 49 53 57 61 65 69 73 77 81 85 89 93]
+      peak_fill=6 peak_steady=6 peak_joint=12 peak=6 per_frame=8 t_up=16 t_prop=16 t_full=16 t_chain=16 fill_only=False throttleable=False allowance=4.00 after_slack=2 burst=0 slack=8 refill=4 idle_floor=1 cap_applies=False floor=4 floor_capped=4 depth=4
+-- pass causal=False latency=True
+   node U clock = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node A clock = [36 40 44 48 52 56 60 64 65 66 67 68 69 70 71 72 73 74 76 80 84 88 92 96 97 98 99 100 101 102 103 104]
+   node C clock = [97 98 99 100 101 102 103 104 105 106 107 108 109 110 111 112 113 114 115 116 ... 141 142 143 144 145 146 147 148 149 150 151 152 153 154 155 156 157 158 159 160] (64)
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge U -> A [t0]
+      writes = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+      reads  = [36 40 44 48 52 56 60 64 73 74 76 80 84 88 92 96]
+      peak_fill=0 peak_steady=2 peak_joint=2 peak=2 per_frame=8 t_up=8 t_prop=8 t_full=8 t_chain=8 fill_only=False throttleable=False allowance=6.00 after_slack=-4 burst=2 slack=16 refill=0 idle_floor=4 cap_applies=False floor=2 floor_capped=2 depth=2
+   edge A -> C [t1]
+      writes = [97 98 99 100 101 102 103 104 129 130 131 132 133 134 135 136]
+      reads  = [97 101 105 109 113 117 121 125 129 133 137 141 145 149 153 157]
+      peak_fill=6 peak_steady=6 peak_joint=12 peak=6 per_frame=8 t_up=16 t_prop=16 t_full=16 t_chain=16 fill_only=False throttleable=False allowance=4.00 after_slack=2 burst=0 slack=8 refill=4 idle_floor=1 cap_applies=False floor=4 floor_capped=4 depth=4
+-- pass causal=True latency=False
+   node U lead = 0
+   node U clock = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node U writes_raw = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node U writes_causal = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node A lead = 0
+   node A clock = [4 8 12 16 20 24 28 32 33 34 35 36 37 38 39 40 41 42 44 48 52 56 60 64 65 66 67 68 69 70 71 72]
+   node A writes_raw = [33 34 35 36 37 38 39 40 65 66 67 68 69 70 71 72]
+   node A writes_causal = [33 34 35 36 37 38 39 40 65 66 67 68 69 70 71 72]
+   node C lead = 0
+   node C clock = [33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 ... 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96] (64)
+   node C writes_raw = [33 37 41 45 49 53 57 61 65 69 73 77 81 85 89 93]
+   node C writes_causal = [33 37 41 45 49 53 57 61 65 69 73 77 81 85 89 93]
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge U -> A [t0]
+      writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      reads  = [4 8 12 16 20 24 28 32 41 42 44 48 52 56 60 64]
+      peak_fill=0 peak_steady=2 peak_joint=2 peak=2 per_frame=8 t_up=8 t_prop=8 t_full=8 t_chain=8 fill_only=False throttleable=False allowance=6.00 after_slack=-4 burst=2 slack=16 refill=0 idle_floor=4 cap_applies=False floor=2 floor_capped=2 depth=2
+   edge A -> C [t1]
+      writes = [33 34 35 36 37 38 39 40 65 66 67 68 69 70 71 72]
+      reads  = [33 37 41 45 49 53 57 61 65 69 73 77 81 85 89 93]
+      peak_fill=6 peak_steady=6 peak_joint=12 peak=6 per_frame=8 t_up=16 t_prop=16 t_full=16 t_chain=16 fill_only=False throttleable=False allowance=4.00 after_slack=2 burst=0 slack=8 refill=4 idle_floor=1 cap_applies=False floor=4 floor_capped=4 depth=4
+-- pass causal=True latency=True
+   node U lead = 0
+   node U clock = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node U writes_raw = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node U writes_causal = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node U writes_block = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node A lead = 0
+   node A clock = [36 40 44 48 52 56 60 64 65 66 67 68 69 70 71 72 73 74 76 80 84 88 92 96 97 98 99 100 101 102 103 104]
+   node A writes_raw = [65 66 67 68 69 70 71 72 97 98 99 100 101 102 103 104]
+   node A writes_causal = [65 66 67 68 69 70 71 72 97 98 99 100 101 102 103 104]
+   node A writes_block = [65 66 67 68 69 70 71 72 97 98 99 100 101 102 103 104]
+   node C lead = 0
+   node C clock = [97 98 99 100 101 102 103 104 105 106 107 108 109 110 111 112 113 114 115 116 ... 141 142 143 144 145 146 147 148 149 150 151 152 153 154 155 156 157 158 159 160] (64)
+   node C writes_raw = [97 101 105 109 113 117 121 125 129 133 137 141 145 149 153 157]
+   node C writes_causal = [97 101 105 109 113 117 121 125 129 133 137 141 145 149 153 157]
+   node C writes_block = [97 101 105 109 113 117 121 125 129 133 137 141 145 149 153 157]
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge U -> A [t0]
+      writes = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+      reads  = [36 40 44 48 52 56 60 64 73 74 76 80 84 88 92 96]
+      peak_fill=0 peak_steady=2 peak_joint=2 peak=2 per_frame=8 t_up=8 t_prop=8 t_full=8 t_chain=8 fill_only=False throttleable=False allowance=6.00 after_slack=-4 burst=2 slack=16 refill=0 idle_floor=4 cap_applies=False floor=2 floor_capped=2 depth=2
+   edge A -> C [t1]
+      writes = [97 98 99 100 101 102 103 104 129 130 131 132 133 134 135 136]
+      reads  = [97 101 105 109 113 117 121 125 129 133 137 141 145 149 153 157]
+      peak_fill=6 peak_steady=6 peak_joint=12 peak=6 per_frame=8 t_up=16 t_prop=16 t_full=16 t_chain=16 fill_only=False throttleable=False allowance=4.00 after_slack=2 burst=0 slack=8 refill=4 idle_floor=1 cap_applies=False floor=4 floor_capped=4 depth=4
+-- per-pass depths (tensor: causal/latency FF FT TF TT)
+   U -> A                                             [2, 2, 2, 2]
+   A -> C                                             [4, 4, 4, 4]
+-- join window floors: {}
+-- final depths:
+   <in> -> U                                                    5
+   U -> A                                                       2
+   A -> C                                                       4
+   C -> <out>                                                   5
+   without refill floor: {'<in> -> U': 5, 'U -> A': 2, 'A -> C': 2, 'C -> <out>': 5}
+==============================================================================
+E6 residual: P0 -> fork -> (shortcut | M) -> join
+==============================================================================
+global period (pass input 64, after max with TAVs) = 64
+  node P0                                     period=64     rd/frame=8     wr/frame=8     drives_pacer=True in_branch=False
+  node F                                      period=None   rd/frame=None  wr/frame=None  drives_pacer=False in_branch=False
+  node M                                      period=16     rd/frame=8     wr/frame=8     drives_pacer=False in_branch=True
+  node J                                      period=None   rd/frame=None  wr/frame=None  drives_pacer=False in_branch=False
+-- pass causal=False latency=False
+   node P0 clock = [8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 ... 116 117 118 119 120 121 122 123 124 125 126 127 128 129 130 131 132 133 134 135] (128)
+   node M clock = [8 16 24 32 40 48 56 64 65 66 67 68 69 70 71 72 73 80 88 96 104 112 120 128 129 130 131 132 133 134 135 136]
+   graph input inp writes = [8 16 24 32 40 48 56 64 72 80 88 96 104 112 120 128]
+   edge P0 -> F [x]
+      writes = [8 16 24 32 40 48 56 64 72 80 88 96 104 112 120 128]
+      reads  = [8 16 24 32 40 48 56 64 72 80 88 96 104 112 120 128]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=64 t_prop=0 t_full=64 t_chain=64 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=0 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge F -> M [l0]
+      writes = [8 16 24 32 40 48 56 64 72 80 88 96 104 112 120 128]
+      reads  = [8 16 24 32 40 48 56 64 73 80 88 96 104 112 120 128]
+      peak_fill=0 peak_steady=1 peak_joint=1 peak=0 per_frame=8 t_up=0 t_prop=0 t_full=64 t_chain=0 fill_only=True throttleable=True allowance=8.00 after_slack=-8 burst=1 slack=64 refill=0 idle_floor=4 cap_applies=True floor=0 floor_capped=0 depth=4
+   edge F -> J [short]
+      writes = [8 16 24 32 40 48 56 64 72 80 88 96 104 112 120 128]
+      reads  = [65 66 67 68 69 70 71 72 129 130 131 132 133 134 135 136]
+      peak_fill=8 peak_steady=8 peak_joint=16 peak=8 per_frame=8 t_up=0 t_prop=0 t_full=64 t_chain=0 fill_only=True throttleable=True allowance=8.00 after_slack=0 burst=7 slack=16 refill=0 idle_floor=0 cap_applies=False floor=7 floor_capped=7 depth=8
+   edge M -> J [l1]
+      writes = [65 66 67 68 69 70 71 72 129 130 131 132 133 134 135 136]
+      reads  = [65 66 67 68 69 70 71 72 129 130 131 132 133 134 135 136]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=16 t_prop=16 t_full=64 t_chain=16 fill_only=True throttleable=True allowance=6.00 after_slack=-6 burst=7 slack=48 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+-- pass causal=False latency=True
+   node P0 clock = [8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 ... 116 117 118 119 120 121 122 123 124 125 126 127 128 129 130 131 132 133 134 135] (128)
+   node M clock = [40 48 56 64 72 80 88 96 97 98 99 100 101 102 103 104 105 112 120 128 136 144 152 160 161 162 163 164 165 166 167 168]
+   graph input inp writes = [8 16 24 32 40 48 56 64 72 80 88 96 104 112 120 128]
+   edge P0 -> F [x]
+      writes = [40 48 56 64 72 80 88 96 104 112 120 128 136 144 152 160]
+      reads  = [40 48 56 64 72 80 88 96 104 112 120 128 136 144 152 160]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=64 t_prop=0 t_full=64 t_chain=64 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=0 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge F -> M [l0]
+      writes = [40 48 56 64 72 80 88 96 104 112 120 128 136 144 152 160]
+      reads  = [40 48 56 64 72 80 88 96 105 112 120 128 136 144 152 160]
+      peak_fill=0 peak_steady=1 peak_joint=1 peak=0 per_frame=8 t_up=0 t_prop=0 t_full=64 t_chain=0 fill_only=True throttleable=True allowance=8.00 after_slack=-8 burst=1 slack=64 refill=0 idle_floor=4 cap_applies=True floor=0 floor_capped=0 depth=4
+   edge F -> J [short]
+      writes = [40 48 56 64 72 80 88 96 104 112 120 128 136 144 152 160]
+      reads  = [129 130 131 132 133 134 135 136 193 194 195 196 197 198 199 200]
+      peak_fill=12 peak_steady=12 peak_joint=24 peak=12 per_frame=8 t_up=0 t_prop=0 t_full=64 t_chain=0 fill_only=True throttleable=True allowance=8.00 after_slack=4 burst=7 slack=16 refill=0 idle_floor=0 cap_applies=False floor=7 floor_capped=7 depth=12
+   edge M -> J [l1]
+      writes = [129 130 131 132 133 134 135 136 193 194 195 196 197 198 199 200]
+      reads  = [129 130 131 132 133 134 135 136 193 194 195 196 197 198 199 200]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=16 t_prop=16 t_full=64 t_chain=16 fill_only=True throttleable=True allowance=6.00 after_slack=-6 burst=7 slack=48 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+-- pass causal=True latency=False
+   node P0 lead = 0
+   node P0 clock = [8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 ... 116 117 118 119 120 121 122 123 124 125 126 127 128 129 130 131 132 133 134 135] (128)
+   node P0 writes_raw = [8 16 24 32 40 48 56 64 72 80 88 96 104 112 120 128]
+   node P0 writes_causal = [8 16 24 32 40 48 56 64 72 80 88 96 104 112 120 128]
+   node M lead = 0
+   node M clock = [8 16 24 32 40 48 56 64 65 66 67 68 69 70 71 72 73 80 88 96 104 112 120 128 129 130 131 132 133 134 135 136]
+   node M writes_raw = [65 66 67 68 69 70 71 72 129 130 131 132 133 134 135 136]
+   node M writes_causal = [65 66 67 68 69 70 71 72 129 130 131 132 133 134 135 136]
+   graph input inp writes = [8 16 24 32 40 48 56 64 72 80 88 96 104 112 120 128]
+   edge P0 -> F [x]
+      writes = [8 16 24 32 40 48 56 64 72 80 88 96 104 112 120 128]
+      reads  = [8 16 24 32 40 48 56 64 72 80 88 96 104 112 120 128]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=64 t_prop=0 t_full=64 t_chain=64 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=0 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge F -> M [l0]
+      writes = [8 16 24 32 40 48 56 64 72 80 88 96 104 112 120 128]
+      reads  = [8 16 24 32 40 48 56 64 73 80 88 96 104 112 120 128]
+      peak_fill=0 peak_steady=1 peak_joint=1 peak=0 per_frame=8 t_up=0 t_prop=0 t_full=64 t_chain=0 fill_only=True throttleable=True allowance=8.00 after_slack=-8 burst=1 slack=64 refill=0 idle_floor=4 cap_applies=True floor=0 floor_capped=0 depth=4
+   edge F -> J [short]
+      writes = [8 16 24 32 40 48 56 64 72 80 88 96 104 112 120 128]
+      reads  = [65 66 67 68 69 70 71 72 129 130 131 132 133 134 135 136]
+      peak_fill=8 peak_steady=8 peak_joint=16 peak=8 per_frame=8 t_up=0 t_prop=0 t_full=64 t_chain=0 fill_only=True throttleable=True allowance=8.00 after_slack=0 burst=7 slack=16 refill=0 idle_floor=0 cap_applies=False floor=7 floor_capped=7 depth=8
+   edge M -> J [l1]
+      writes = [65 66 67 68 69 70 71 72 129 130 131 132 133 134 135 136]
+      reads  = [65 66 67 68 69 70 71 72 129 130 131 132 133 134 135 136]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=16 t_prop=16 t_full=64 t_chain=16 fill_only=True throttleable=True allowance=6.00 after_slack=-6 burst=7 slack=48 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+-- pass causal=True latency=True
+   node P0 lead = 0
+   node P0 clock = [8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 ... 116 117 118 119 120 121 122 123 124 125 126 127 128 129 130 131 132 133 134 135] (128)
+   node P0 writes_raw = [8 16 24 32 40 48 56 64 72 80 88 96 104 112 120 128]
+   node P0 writes_causal = [8 16 24 32 40 48 56 64 72 80 88 96 104 112 120 128]
+   node P0 writes_block = [8 16 24 32 40 48 56 64 72 80 88 96 104 112 120 128]
+   node M lead = 0
+   node M clock = [40 48 56 64 72 80 88 96 97 98 99 100 101 102 103 104 105 112 120 128 136 144 152 160 161 162 163 164 165 166 167 168]
+   node M writes_raw = [97 98 99 100 101 102 103 104 161 162 163 164 165 166 167 168]
+   node M writes_causal = [97 98 99 100 101 102 103 104 161 162 163 164 165 166 167 168]
+   node M writes_block = [97 98 99 100 101 102 103 104 161 162 163 164 165 166 167 168]
+   graph input inp writes = [8 16 24 32 40 48 56 64 72 80 88 96 104 112 120 128]
+   edge P0 -> F [x]
+      writes = [40 48 56 64 72 80 88 96 104 112 120 128 136 144 152 160]
+      reads  = [40 48 56 64 72 80 88 96 104 112 120 128 136 144 152 160]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=64 t_prop=0 t_full=64 t_chain=64 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=0 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge F -> M [l0]
+      writes = [40 48 56 64 72 80 88 96 104 112 120 128 136 144 152 160]
+      reads  = [40 48 56 64 72 80 88 96 105 112 120 128 136 144 152 160]
+      peak_fill=0 peak_steady=1 peak_joint=1 peak=0 per_frame=8 t_up=0 t_prop=0 t_full=64 t_chain=0 fill_only=True throttleable=True allowance=8.00 after_slack=-8 burst=1 slack=64 refill=0 idle_floor=4 cap_applies=True floor=0 floor_capped=0 depth=4
+   edge F -> J [short]
+      writes = [40 48 56 64 72 80 88 96 104 112 120 128 136 144 152 160]
+      reads  = [129 130 131 132 133 134 135 136 193 194 195 196 197 198 199 200]
+      peak_fill=12 peak_steady=12 peak_joint=24 peak=12 per_frame=8 t_up=0 t_prop=0 t_full=64 t_chain=0 fill_only=True throttleable=True allowance=8.00 after_slack=4 burst=7 slack=16 refill=0 idle_floor=0 cap_applies=False floor=7 floor_capped=7 depth=12
+   edge M -> J [l1]
+      writes = [129 130 131 132 133 134 135 136 193 194 195 196 197 198 199 200]
+      reads  = [129 130 131 132 133 134 135 136 193 194 195 196 197 198 199 200]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=16 t_prop=16 t_full=64 t_chain=16 fill_only=True throttleable=True allowance=6.00 after_slack=-6 burst=7 slack=48 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+-- per-pass depths (tensor: causal/latency FF FT TF TT)
+   F -> M                                             [4, 4, 4, 4]
+   M -> J                                             [0, 0, 0, 0]
+   F -> J                                             [8, 12, 8, 12]
+   P0 -> F                                            [0, 0, 0, 0]
+-- join window floors: {'short': 3}
+-- final depths:
+   <in> -> P0                                                   5
+   P0 -> F                                                      2
+   F -> J                                                       12
+   F -> M                                                       4
+   M -> J                                                       2
+   J -> <out>                                                   5
+   without idle-window floor: {'<in> -> P0': 5, 'P0 -> F': 2, 'F -> J': 12, 'F -> M': 2, 'M -> J': 2, 'J -> <out>': 5}
+   without join floor: {'<in> -> P0': 5, 'P0 -> F': 2, 'F -> J': 12, 'F -> M': 4, 'M -> J': 2, 'J -> <out>': 5}
+   l0 as a chain edge: edge_depth = 0 (fill_only: 4)
+   short as a chain edge: edge_depth = 7 (fill_only: 12)
+   l1 as a chain edge: edge_depth = 0 (fill_only: 0)
+==============================================================================
+E7 absorbed frame: the consumer's TAV reads nothing
+==============================================================================
+global period (pass input 16, after max with TAVs) = 16
+  node A                                      period=16     rd/frame=8     wr/frame=8     drives_pacer=True in_branch=False
+  node L                                      period=16     rd/frame=0     wr/frame=8     drives_pacer=True in_branch=False
+-- pass causal=False latency=False
+   node A clock = [2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33]
+   node L clock = [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31]
+   graph input inp writes = [2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32]
+   edge A -> L [t0]
+      absorbed=8 depth=8
+-- pass causal=False latency=True
+   node A clock = [2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33]
+   node L clock = [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31]
+   graph input inp writes = [2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32]
+   edge A -> L [t0]
+      absorbed=8 depth=8
+-- pass causal=True latency=False
+   node A lead = 0
+   node A clock = [2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33]
+   node A writes_raw = [2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32]
+   node A writes_causal = [2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32]
+   node L lead = 0
+   node L clock = [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31]
+   node L writes_raw = [8 9 10 11 12 13 14 15 24 25 26 27 28 29 30 31]
+   node L writes_causal = [8 9 10 11 12 13 14 15 24 25 26 27 28 29 30 31]
+   graph input inp writes = [2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32]
+   edge A -> L [t0]
+      absorbed=8 depth=8
+-- pass causal=True latency=True
+   node A lead = 0
+   node A clock = [2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33]
+   node A writes_raw = [2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32]
+   node A writes_causal = [2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32]
+   node A writes_block = [2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32]
+   node L lead = 0
+   node L clock = [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31]
+   node L writes_raw = [8 9 10 11 12 13 14 15 24 25 26 27 28 29 30 31]
+   node L writes_causal = [8 9 10 11 12 13 14 15 24 25 26 27 28 29 30 31]
+   node L writes_block = [8 9 10 11 12 13 14 15 24 25 26 27 28 29 30 31]
+   graph input inp writes = [2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32]
+   edge A -> L [t0]
+      absorbed=8 depth=8
+-- per-pass depths (tensor: causal/latency FF FT TF TT)
+   A -> L                                             [8, 8, 8, 8]
+-- join window floors: {}
+-- final depths:
+   <in> -> A                                                    5
+   A -> L                                                       8
+   L -> <out>                                                   5
+==============================================================================
+E8 causal_writes / phase_lead, function level
+  4:1 compactor, input times [0 10 20 30 40 50 60 70 80 90 100 110 120 130 140 150]
+  TAV writes (all at 0)   -> [30 70 70 70]
+  phase_lead(out=[1, 2, 2, 2, 3, 3, 4, 5, 5, 5, 6, 6], in=[0, 0, 1, 2, 3, 3, 3, 3, 4, 5, 6, 6]) = 2
+  phase_lead expanding (out x2) = 0
+  causal_writes(writes=[0, 10, 20, 30, 40, 50, 60, 70], lead=2) = [20, 30, 40, 50, 60, 70, 80, 90]
+==============================================================================
+E8b compactor K between P and C
+==============================================================================
+global period (pass input 32, after max with TAVs) = 32
+  node P                                      period=32     rd/frame=8     wr/frame=8     drives_pacer=True in_branch=False
+  node K                                      period=8      rd/frame=8     wr/frame=2     drives_pacer=False in_branch=False
+  node C                                      period=16     rd/frame=2     wr/frame=2     drives_pacer=False in_branch=False
+-- pass causal=False latency=False
+   node P clock = [4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 ... 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67] (64)
+   node K clock = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node C clock = [8 9 10 11 12 13 14 15 24 25 26 27 28 29 30 31 40 41 42 43 44 45 46 47 56 57 58 59 60 61 62 63]
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge P -> K [t0]
+      writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      reads  = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=32 t_prop=0 t_full=32 t_chain=32 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=0 slack=24 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge K -> C [t1]
+      writes = [8 24 40 56]
+      reads  = [8 24 40 56]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=2 t_up=8 t_prop=8 t_full=32 t_chain=8 fill_only=False throttleable=True allowance=1.50 after_slack=-2 burst=0 slack=24 refill=0 idle_floor=1 cap_applies=True floor=0 floor_capped=0 depth=0
+-- pass causal=False latency=True
+   node P clock = [4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 ... 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67] (64)
+   node K clock = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+   node C clock = [72 73 74 75 76 77 78 79 88 89 90 91 92 93 94 95 104 105 106 107 108 109 110 111 120 121 122 123 124 125 126 127]
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge P -> K [t0]
+      writes = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+      reads  = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=32 t_prop=0 t_full=32 t_chain=32 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=0 slack=24 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge K -> C [t1]
+      writes = [72 88 104 120]
+      reads  = [72 88 104 120]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=2 t_up=8 t_prop=8 t_full=32 t_chain=8 fill_only=False throttleable=True allowance=1.50 after_slack=-2 burst=0 slack=24 refill=0 idle_floor=1 cap_applies=True floor=0 floor_capped=0 depth=0
+-- pass causal=True latency=False
+   node P lead = 0
+   node P clock = [4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 ... 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67] (64)
+   node P writes_raw = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node P writes_causal = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node K lead = 0
+   node K clock = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node K writes_raw = [8 24 40 56]
+   node K writes_causal = [16 32 40 56]
+   node C lead = 0
+   node C clock = [16 17 18 19 20 21 22 23 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 56 57 58 59 60 61 62 63]
+   node C writes_raw = [16 32 40 56]
+   node C writes_causal = [16 32 40 56]
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge P -> K [t0]
+      writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      reads  = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=32 t_prop=0 t_full=32 t_chain=32 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=0 slack=24 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge K -> C [t1]
+      writes = [16 32 40 56]
+      reads  = [16 32 40 56]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=2 t_up=8 t_prop=8 t_full=32 t_chain=8 fill_only=False throttleable=True allowance=1.50 after_slack=-2 burst=1 slack=24 refill=0 idle_floor=1 cap_applies=True floor=0 floor_capped=0 depth=0
+-- pass causal=True latency=True
+   node P lead = 0
+   node P clock = [4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 ... 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67] (64)
+   node P writes_raw = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node P writes_causal = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node P writes_block = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node K lead = 0
+   node K clock = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+   node K writes_raw = [40 56 72 88]
+   node K writes_causal = [48 64 72 88]
+   node K writes_block = [48 64 72 88]
+   node C lead = 0
+   node C clock = [80 81 82 83 84 85 86 87 96 97 98 99 100 101 102 103 104 105 106 107 108 109 110 111 120 121 122 123 124 125 126 127]
+   node C writes_raw = [80 96 104 120]
+   node C writes_causal = [80 96 104 120]
+   node C writes_block = [80 96 104 120]
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge P -> K [t0]
+      writes = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+      reads  = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=32 t_prop=0 t_full=32 t_chain=32 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=0 slack=24 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge K -> C [t1]
+      writes = [80 96 104 120]
+      reads  = [80 96 104 120]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=2 t_up=8 t_prop=8 t_full=32 t_chain=8 fill_only=False throttleable=True allowance=1.50 after_slack=-2 burst=1 slack=24 refill=0 idle_floor=1 cap_applies=True floor=0 floor_capped=0 depth=0
+-- per-pass depths (tensor: causal/latency FF FT TF TT)
+   P -> K                                             [0, 0, 0, 0]
+   K -> C                                             [0, 0, 0, 0]
+-- join window floors: {}
+-- final depths:
+   <in> -> P                                                    5
+   P -> K                                                       2
+   K -> C                                                       2
+   C -> <out>                                                   5
+==============================================================================
+E8c compactor K and expander E inside a residual branch
+==============================================================================
+global period (pass input 32, after max with TAVs) = 32
+  node P0                                     period=32     rd/frame=8     wr/frame=8     drives_pacer=True in_branch=False
+  node F                                      period=None   rd/frame=None  wr/frame=None  drives_pacer=False in_branch=False
+  node K                                      period=8      rd/frame=8     wr/frame=2     drives_pacer=False in_branch=True
+  node E                                      period=8      rd/frame=2     wr/frame=8     drives_pacer=False in_branch=True
+  node J                                      period=None   rd/frame=None  wr/frame=None  drives_pacer=False in_branch=False
+-- pass causal=False latency=False
+   node P0 clock = [4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 ... 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67] (64)
+   node K clock = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node E clock = [8 9 10 11 24 25 26 27 40 41 42 43 56 57 58 59]
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge P0 -> F [x]
+      writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      reads  = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=32 t_prop=0 t_full=32 t_chain=32 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=0 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge F -> K [l0]
+      writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      reads  = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=0 t_prop=0 t_full=32 t_chain=0 fill_only=True throttleable=True allowance=8.00 after_slack=-8 burst=0 slack=32 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge K -> E [l1]
+      writes = [8 24 40 56]
+      reads  = [8 24 40 56]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=2 t_up=8 t_prop=8 t_full=32 t_chain=8 fill_only=True throttleable=True allowance=1.50 after_slack=-2 burst=0 slack=40 refill=0 idle_floor=1 cap_applies=True floor=0 floor_capped=0 depth=1
+   edge F -> J [short]
+      writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      reads  = [8 9 12 16 24 25 28 32 40 41 44 48 56 57 60 64]
+      peak_fill=1 peak_steady=1 peak_joint=2 peak=1 per_frame=8 t_up=0 t_prop=0 t_full=32 t_chain=0 fill_only=True throttleable=True allowance=8.00 after_slack=-7 burst=1 slack=8 refill=0 idle_floor=0 cap_applies=True floor=1 floor_capped=1 depth=1
+   edge E -> J [l2]
+      writes = [8 9 10 11 24 25 26 27 40 41 42 43 56 57 58 59]
+      reads  = [8 9 12 16 24 25 28 32 40 41 44 48 56 57 60 64]
+      peak_fill=2 peak_steady=2 peak_joint=4 peak=2 per_frame=8 t_up=8 t_prop=8 t_full=32 t_chain=8 fill_only=True throttleable=True allowance=6.00 after_slack=-4 burst=1 slack=48 refill=0 idle_floor=0 cap_applies=True floor=1 floor_capped=1 depth=2
+-- pass causal=False latency=True
+   node P0 clock = [4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 ... 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67] (64)
+   node K clock = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+   node E clock = [72 73 74 75 88 89 90 91 104 105 106 107 120 121 122 123]
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge P0 -> F [x]
+      writes = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+      reads  = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=32 t_prop=0 t_full=32 t_chain=32 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=0 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge F -> K [l0]
+      writes = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+      reads  = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=0 t_prop=0 t_full=32 t_chain=0 fill_only=True throttleable=True allowance=8.00 after_slack=-8 burst=0 slack=32 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge K -> E [l1]
+      writes = [72 88 104 120]
+      reads  = [72 88 104 120]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=2 t_up=8 t_prop=8 t_full=32 t_chain=8 fill_only=True throttleable=True allowance=1.50 after_slack=-2 burst=0 slack=40 refill=0 idle_floor=1 cap_applies=True floor=0 floor_capped=0 depth=1
+   edge F -> J [short]
+      writes = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+      reads  = [104 105 106 107 120 121 122 123 136 137 138 139 152 153 154 155]
+      peak_fill=17 peak_steady=17 peak_joint=34 peak=17 per_frame=8 t_up=0 t_prop=0 t_full=32 t_chain=0 fill_only=True throttleable=True allowance=8.00 after_slack=9 burst=3 slack=8 refill=0 idle_floor=0 cap_applies=False floor=3 floor_capped=3 depth=17
+   edge E -> J [l2]
+      writes = [104 105 106 107 120 121 122 123 136 137 138 139 152 153 154 155]
+      reads  = [104 105 106 107 120 121 122 123 136 137 138 139 152 153 154 155]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=8 t_prop=8 t_full=32 t_chain=8 fill_only=True throttleable=True allowance=6.00 after_slack=-6 burst=3 slack=48 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+-- pass causal=True latency=False
+   node P0 lead = 0
+   node P0 clock = [4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 ... 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67] (64)
+   node P0 writes_raw = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node P0 writes_causal = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node K lead = 0
+   node K clock = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node K writes_raw = [8 24 40 56]
+   node K writes_causal = [16 32 40 56]
+   node E lead = 0
+   node E clock = [16 17 18 19 32 33 34 35 40 41 42 43 56 57 58 59]
+   node E writes_raw = [16 17 18 19 32 33 34 35 40 41 42 43 56 57 58 59]
+   node E writes_causal = [16 17 18 19 32 33 34 35 40 41 42 43 56 57 58 59]
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge P0 -> F [x]
+      writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      reads  = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=32 t_prop=0 t_full=32 t_chain=32 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=0 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge F -> K [l0]
+      writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      reads  = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=0 t_prop=0 t_full=32 t_chain=0 fill_only=True throttleable=True allowance=8.00 after_slack=-8 burst=0 slack=32 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge K -> E [l1]
+      writes = [16 32 40 56]
+      reads  = [16 32 40 56]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=2 t_up=8 t_prop=8 t_full=32 t_chain=8 fill_only=True throttleable=True allowance=1.50 after_slack=-2 burst=1 slack=40 refill=0 idle_floor=1 cap_applies=True floor=0 floor_capped=0 depth=1
+   edge F -> J [short]
+      writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      reads  = [16 17 18 19 32 33 34 35 40 41 44 48 56 57 60 64]
+      peak_fill=3 peak_steady=1 peak_joint=3 peak=3 per_frame=8 t_up=0 t_prop=0 t_full=32 t_chain=0 fill_only=True throttleable=True allowance=8.00 after_slack=-5 burst=3 slack=8 refill=0 idle_floor=0 cap_applies=True floor=3 floor_capped=3 depth=3
+   edge E -> J [l2]
+      writes = [16 17 18 19 32 33 34 35 40 41 42 43 56 57 58 59]
+      reads  = [16 17 18 19 32 33 34 35 40 41 44 48 56 57 60 64]
+      peak_fill=0 peak_steady=2 peak_joint=2 peak=0 per_frame=8 t_up=8 t_prop=8 t_full=32 t_chain=8 fill_only=True throttleable=True allowance=6.00 after_slack=-6 burst=3 slack=48 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+-- pass causal=True latency=True
+   node P0 lead = 0
+   node P0 clock = [4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 ... 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67] (64)
+   node P0 writes_raw = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node P0 writes_causal = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node P0 writes_block = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node K lead = 0
+   node K clock = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+   node K writes_raw = [40 56 72 88]
+   node K writes_causal = [48 64 72 88]
+   node K writes_block = [48 64 72 88]
+   node E lead = 0
+   node E clock = [80 81 82 83 96 97 98 99 104 105 106 107 120 121 122 123]
+   node E writes_raw = [80 81 82 83 96 97 98 99 104 105 106 107 120 121 122 123]
+   node E writes_causal = [80 81 82 83 96 97 98 99 104 105 106 107 120 121 122 123]
+   node E writes_block = [80 81 82 83 96 97 98 99 104 105 106 107 120 121 122 123]
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge P0 -> F [x]
+      writes = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+      reads  = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=32 t_prop=0 t_full=32 t_chain=32 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=0 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge F -> K [l0]
+      writes = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+      reads  = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=0 t_prop=0 t_full=32 t_chain=0 fill_only=True throttleable=True allowance=8.00 after_slack=-8 burst=0 slack=32 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge K -> E [l1]
+      writes = [80 96 104 120]
+      reads  = [80 96 104 120]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=2 t_up=8 t_prop=8 t_full=32 t_chain=8 fill_only=True throttleable=True allowance=1.50 after_slack=-2 burst=1 slack=40 refill=0 idle_floor=1 cap_applies=True floor=0 floor_capped=0 depth=1
+   edge F -> J [short]
+      writes = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+      reads  = [112 113 114 115 128 129 130 131 136 137 138 139 152 153 154 155]
+      peak_fill=19 peak_steady=17 peak_joint=35 peak=19 per_frame=8 t_up=0 t_prop=0 t_full=32 t_chain=0 fill_only=True throttleable=True allowance=8.00 after_slack=11 burst=5 slack=8 refill=0 idle_floor=0 cap_applies=False floor=5 floor_capped=5 depth=19
+   edge E -> J [l2]
+      writes = [112 113 114 115 128 129 130 131 136 137 138 139 152 153 154 155]
+      reads  = [112 113 114 115 128 129 130 131 136 137 138 139 152 153 154 155]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=8 t_prop=8 t_full=32 t_chain=8 fill_only=True throttleable=True allowance=6.00 after_slack=-6 burst=5 slack=48 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+-- per-pass depths (tensor: causal/latency FF FT TF TT)
+   F -> K                                             [0, 0, 0, 0]
+   K -> E                                             [1, 1, 1, 1]
+   E -> J                                             [2, 0, 0, 0]
+   F -> J                                             [1, 17, 3, 19]
+   P0 -> F                                            [0, 0, 0, 0]
+-- join window floors: {'short': 3}
+-- final depths:
+   <in> -> P0                                                   5
+   P0 -> F                                                      2
+   F -> J                                                       19
+   F -> K                                                       2
+   K -> E                                                       2
+   E -> J                                                       2
+   J -> <out>                                                   5
+==============================================================================
+E8d phase lead of M inside a residual branch
+==============================================================================
+global period (pass input 32, after max with TAVs) = 32
+  node P0                                     period=32     rd/frame=8     wr/frame=8     drives_pacer=True in_branch=False
+  node F                                      period=None   rd/frame=None  wr/frame=None  drives_pacer=False in_branch=False
+  node M                                      period=10     rd/frame=8     wr/frame=8     drives_pacer=False in_branch=True
+  node J                                      period=None   rd/frame=None  wr/frame=None  drives_pacer=False in_branch=False
+-- pass causal=False latency=False
+   node P0 clock = [4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 ... 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67] (64)
+   node M clock = [0 1 4 8 12 16 20 24 28 32 33 34 36 40 44 48 52 56 60 64]
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge P0 -> F [x]
+      writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      reads  = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=32 t_prop=0 t_full=32 t_chain=32 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=0 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge F -> M [l0]
+      writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      reads  = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=0 t_prop=0 t_full=32 t_chain=0 fill_only=True throttleable=True allowance=8.00 after_slack=-8 burst=0 slack=30 refill=0 idle_floor=2 cap_applies=True floor=0 floor_capped=0 depth=2
+   edge F -> J [short]
+      writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      reads  = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=0 t_prop=0 t_full=32 t_chain=0 fill_only=True throttleable=True allowance=8.00 after_slack=-8 burst=0 slack=8 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge M -> J [l1]
+      writes = [0 1 4 8 12 16 20 24 33 34 36 40 44 48 52 56]
+      reads  = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      peak_fill=2 peak_steady=2 peak_joint=4 peak=2 per_frame=8 t_up=10 t_prop=10 t_full=32 t_chain=10 fill_only=True throttleable=True allowance=5.50 after_slack=-4 burst=0 slack=16 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=2
+-- pass causal=False latency=True
+   node P0 clock = [4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 ... 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67] (64)
+   node M clock = [0 1 36 40 44 48 52 56 60 64 65 66 68 72 76 80 84 88 92 96]
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge P0 -> F [x]
+      writes = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+      reads  = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=32 t_prop=0 t_full=32 t_chain=32 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=0 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge F -> M [l0]
+      writes = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+      reads  = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=0 t_prop=0 t_full=32 t_chain=0 fill_only=True throttleable=True allowance=8.00 after_slack=-8 burst=0 slack=30 refill=0 idle_floor=2 cap_applies=True floor=0 floor_capped=0 depth=2
+   edge F -> J [short]
+      writes = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+      reads  = [36 40 68 72 76 80 84 88 97 98 100 104 108 112 116 120]
+      peak_fill=6 peak_steady=8 peak_joint=14 peak=6 per_frame=8 t_up=0 t_prop=0 t_full=32 t_chain=0 fill_only=True throttleable=True allowance=8.00 after_slack=-2 burst=2 slack=8 refill=0 idle_floor=0 cap_applies=True floor=2 floor_capped=2 depth=6
+   edge M -> J [l1]
+      writes = [32 33 68 72 76 80 84 88 97 98 100 104 108 112 116 120]
+      reads  = [36 40 68 72 76 80 84 88 97 98 100 104 108 112 116 120]
+      peak_fill=2 peak_steady=0 peak_joint=2 peak=2 per_frame=8 t_up=10 t_prop=10 t_full=32 t_chain=10 fill_only=True throttleable=True allowance=5.50 after_slack=-4 burst=2 slack=16 refill=0 idle_floor=0 cap_applies=True floor=2 floor_capped=2 depth=2
+-- pass causal=True latency=False
+   node P0 lead = 0
+   node P0 clock = [4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 ... 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67] (64)
+   node P0 writes_raw = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node P0 writes_causal = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node M lead = 2
+   node M clock = [0 1 4 8 12 16 20 24 28 32 33 34 36 40 44 48 52 56 60 64]
+   node M writes_raw = [0 1 4 8 12 16 20 24 33 34 36 40 44 48 52 56]
+   node M writes_causal = [4 8 12 16 20 24 33 34 36 40 44 48 52 56 65 66]
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge P0 -> F [x]
+      writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      reads  = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=32 t_prop=0 t_full=32 t_chain=32 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=0 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge F -> M [l0]
+      writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      reads  = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=0 t_prop=0 t_full=32 t_chain=0 fill_only=True throttleable=True allowance=8.00 after_slack=-8 burst=0 slack=30 refill=0 idle_floor=2 cap_applies=True floor=0 floor_capped=0 depth=2
+   edge F -> J [short]
+      writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+      reads  = [4 8 12 16 20 24 33 34 36 40 44 48 52 56 65 66]
+      peak_fill=2 peak_steady=2 peak_joint=4 peak=2 per_frame=8 t_up=0 t_prop=0 t_full=32 t_chain=0 fill_only=True throttleable=True allowance=8.00 after_slack=-6 burst=2 slack=8 refill=0 idle_floor=0 cap_applies=True floor=2 floor_capped=2 depth=2
+   edge M -> J [l1]
+      writes = [4 8 12 16 20 24 33 34 36 40 44 48 52 56 65 66]
+      reads  = [4 8 12 16 20 24 33 34 36 40 44 48 52 56 65 66]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=10 t_prop=10 t_full=32 t_chain=10 fill_only=True throttleable=True allowance=5.50 after_slack=-6 burst=2 slack=16 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+-- pass causal=True latency=True
+   node P0 lead = 0
+   node P0 clock = [4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 ... 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67] (64)
+   node P0 writes_raw = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node P0 writes_causal = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node P0 writes_block = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   node M lead = 2
+   node M clock = [0 1 36 40 44 48 52 56 60 64 65 66 68 72 76 80 84 88 92 96]
+   node M writes_raw = [0 1 36 40 44 48 52 56 65 66 68 72 76 80 84 88]
+   node M writes_causal = [36 40 44 48 52 56 65 66 68 72 76 80 84 88 97 98]
+   node M writes_block = [36 40 44 48 52 56 65 66 68 72 76 80 84 88 97 98]
+   graph input inp writes = [4 8 12 16 20 24 28 32 36 40 44 48 52 56 60 64]
+   edge P0 -> F [x]
+      writes = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+      reads  = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=32 t_prop=0 t_full=32 t_chain=32 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=0 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge F -> M [l0]
+      writes = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+      reads  = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=0 t_prop=0 t_full=32 t_chain=0 fill_only=True throttleable=True allowance=8.00 after_slack=-8 burst=0 slack=30 refill=0 idle_floor=2 cap_applies=True floor=0 floor_capped=0 depth=2
+   edge F -> J [short]
+      writes = [36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96]
+      reads  = [68 72 76 80 84 88 97 98 100 104 108 112 116 120 129 130]
+      peak_fill=10 peak_steady=10 peak_joint=20 peak=10 per_frame=8 t_up=0 t_prop=0 t_full=32 t_chain=0 fill_only=True throttleable=True allowance=8.00 after_slack=2 burst=2 slack=8 refill=0 idle_floor=0 cap_applies=False floor=2 floor_capped=2 depth=10
+   edge M -> J [l1]
+      writes = [68 72 76 80 84 88 97 98 100 104 108 112 116 120 129 130]
+      reads  = [68 72 76 80 84 88 97 98 100 104 108 112 116 120 129 130]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=8 t_up=10 t_prop=10 t_full=32 t_chain=10 fill_only=True throttleable=True allowance=5.50 after_slack=-6 burst=2 slack=16 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+-- per-pass depths (tensor: causal/latency FF FT TF TT)
+   F -> M                                             [2, 2, 2, 2]
+   M -> J                                             [2, 2, 0, 0]
+   F -> J                                             [0, 6, 2, 10]
+   P0 -> F                                            [0, 0, 0, 0]
+-- join window floors: {'short': 3}
+-- final depths:
+   <in> -> P0                                                   5
+   P0 -> F                                                      2
+   F -> J                                                       10
+   F -> M                                                       2
+   M -> J                                                       2
+   J -> <out>                                                   5
+==============================================================================
+E9 block_writes, function level (unit test numbers)
+  node_latency = 32
+  get_tav_input_blocks = {1: (8, 6)}
+  matrix words at [0 10 20 30 40 50 60 70 80 90 100 110 120 130 140 150]
+  writes [0 1 2 3 4 5 6 7 8 9 10 11] -> [70 71 72 73 74 75 150 151 152 153 154 155]
+  InnerShuffle node_latency = 96
+  DuplicateStreams_hls_0 exp_cycles=16 window=(1, 1)
+  MVAU_hls_0 exp_cycles=128 window=(8, 8)
+  ElementwiseAdd_hls_0 exp_cycles=16 window=(1, 1)
+==============================================================================
+E10 join window floor
+==============================================================================
+global period (pass input 132, after max with TAVs) = 132
+  node DuplicateStreams_hls_0                 period=None   rd/frame=None  wr/frame=None  drives_pacer=True in_branch=False
+  node MVAU_hls_0                             period=132    rd/frame=16    wr/frame=16    drives_pacer=True in_branch=True
+  node ElementwiseAdd_hls_0                   period=None   rd/frame=None  wr/frame=None  drives_pacer=False in_branch=False
+-- pass causal=False latency=False
+   edge MVAU_hls_0 -> ElementwiseAdd_hls_0 [l1]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=16 t_up=132 t_prop=0 t_full=132 t_chain=132 fill_only=True throttleable=True allowance=0.00 after_slack=0 burst=1 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+-- pass causal=False latency=True
+   edge MVAU_hls_0 -> ElementwiseAdd_hls_0 [l1]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=16 t_up=132 t_prop=0 t_full=132 t_chain=132 fill_only=True throttleable=True allowance=0.00 after_slack=0 burst=1 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+-- pass causal=True latency=False
+   edge MVAU_hls_0 -> ElementwiseAdd_hls_0 [l1]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=16 t_up=132 t_prop=0 t_full=132 t_chain=132 fill_only=True throttleable=True allowance=0.00 after_slack=0 burst=1 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+-- pass causal=True latency=True
+   edge MVAU_hls_0 -> ElementwiseAdd_hls_0 [l1]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=16 t_up=132 t_prop=0 t_full=132 t_chain=132 fill_only=True throttleable=True allowance=0.00 after_slack=0 burst=1 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+-- per-pass depths (tensor: causal/latency FF FT TF TT)
+   MVAU_hls_0 -> ElementwiseAdd_hls_0                 [0, 0, 0, 0]
+-- join window floors: {'short': 10}
+-- final depths:
+   <in> -> DuplicateStreams_hls_0                               5
+   DuplicateStreams_hls_0 -> ElementwiseAdd_hls_0               10
+   DuplicateStreams_hls_0 -> MVAU_hls_0                         2
+   MVAU_hls_0 -> ElementwiseAdd_hls_0                           2
+   ElementwiseAdd_hls_0 -> <out>                                5
+  join ElementwiseAdd_hls_0 input short (fork DuplicateStreams_hls_0, period 132): backlog 8
+     k        [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32]
+     need     [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32]
+     times    [8.2 16.5 24.8 33.0 41.2 49.5 57.8 66.0 74.2 82.5 90.8 99.0 107.2 115.5 123.8 132.0 140.2 148.5 156.8 165.0 173.2 181.5 189.8 198.0 206.2 214.5 222.8 231.0 239.2 247.5 255.8 264.0]
+     total    [8 8 8 8 8 8 8 8 16 16 16 16 16 16 16 16 24 24 24 24 24 24 24 24 32 32 32 32 32 32 32 32]
+     taken    [66.0 74.0 82.0 90.0 98.0 106.0 114.0 122.0 132.0 140.0 148.0 156.0 164.0 172.0 180.0 188.0 198.0 206.0 214.0 222.0 230.0 238.0 246.0 254.0 264.0 272.0 280.0 288.0 296.0 304.0 312.0 320.0]
+     deadlock [7 6 5 4 3 2 1 0 7 6 5 4 3 2 1 0 7 6 5 4 3 2 1 0 7 6 5 4 3 2 1 0]
+     paced    [8 7 7 7 7 7 7 7 8 7 7 7 7 7 7 7 8 7 7 7 7 7 7 7 8 7 6 5 4 3 2 1]
+  join ElementwiseAdd_hls_0 input l1 (fork DuplicateStreams_hls_0, period 132): backlog 1
+     k        [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32]
+     need     [8 8 8 8 8 8 8 8 16 16 16 16 16 16 16 16 24 24 24 24 24 24 24 24 32 32 32 32 32 32 32 32]
+     times    [66.0 74.0 82.0 90.0 98.0 106.0 114.0 122.0 132.0 140.0 148.0 156.0 164.0 172.0 180.0 188.0 198.0 206.0 214.0 222.0 230.0 238.0 246.0 254.0 264.0 272.0 280.0 288.0 296.0 304.0 312.0 320.0]
+     total    [8 8 8 8 8 8 8 8 16 16 16 16 16 16 16 16 24 24 24 24 24 24 24 24 32 32 32 32 32 32 32 32]
+     taken    [66.0 74.0 82.0 90.0 98.0 106.0 114.0 122.0 132.0 140.0 148.0 156.0 164.0 172.0 180.0 188.0 198.0 206.0 214.0 222.0 230.0 238.0 246.0 254.0 264.0 272.0 280.0 288.0 296.0 304.0 312.0 320.0]
+     deadlock [0 -1 -2 -3 -4 -5 -6 -7 0 -1 -2 -3 -4 -5 -6 -7 0 -1 -2 -3 -4 -5 -6 -7 0 -1 -2 -3 -4 -5 -6 -7]
+     paced    [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+==============================================================================
+U1 test_chained_tav_mlp_chain
+==============================================================================
+global period (pass input 1028, after max with TAVs) = 1028
+  node MVAU_hls_0                             period=1028   rd/frame=128   wr/frame=128   drives_pacer=True in_branch=False
+  node StreamingDataWidthConverter_rtl_0      period=512    rd/frame=128   wr/frame=512   drives_pacer=False in_branch=False
+  node MVAU_hls_1                             period=516    rd/frame=512   wr/frame=16    drives_pacer=False in_branch=False
+  node MVAU_hls_2                             period=20     rd/frame=16    wr/frame=16    drives_pacer=False in_branch=False
+-- pass causal=False latency=False
+   edge MVAU_hls_0 -> StreamingDataWidthConverter_rtl_0 [t0]
+      peak_fill=1 peak_steady=0 peak_joint=1 peak=1 per_frame=128 t_up=1028 t_prop=0 t_full=1028 t_chain=1028 fill_only=False throttleable=True allowance=0.00 after_slack=1 burst=1 slack=516 refill=0 idle_floor=1 cap_applies=False floor=1 floor_capped=1 depth=1
+   edge StreamingDataWidthConverter_rtl_0 -> MVAU_hls_1 [gewRIF]
+      peak_fill=4 peak_steady=0 peak_joint=4 peak=4 per_frame=512 t_up=512 t_prop=512 t_full=1028 t_chain=512 fill_only=False throttleable=True allowance=257.00 after_slack=-253 burst=4 slack=528 refill=0 idle_floor=0 cap_applies=True floor=4 floor_capped=4 depth=4
+   edge MVAU_hls_1 -> MVAU_hls_2 [t1]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=16 t_up=516 t_prop=516 t_full=1028 t_chain=516 fill_only=False throttleable=True allowance=7.97 after_slack=-8 burst=1 slack=1032 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+-- pass causal=False latency=True
+   edge MVAU_hls_0 -> StreamingDataWidthConverter_rtl_0 [t0]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=128 t_up=1028 t_prop=0 t_full=1028 t_chain=1028 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=1 slack=516 refill=0 idle_floor=1 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge StreamingDataWidthConverter_rtl_0 -> MVAU_hls_1 [gewRIF]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=512 t_up=512 t_prop=512 t_full=1028 t_chain=512 fill_only=False throttleable=True allowance=257.00 after_slack=-257 burst=4 slack=528 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge MVAU_hls_1 -> MVAU_hls_2 [t1]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=16 t_up=516 t_prop=516 t_full=1028 t_chain=516 fill_only=False throttleable=True allowance=7.97 after_slack=-8 burst=1 slack=1028 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+-- pass causal=True latency=False
+   edge MVAU_hls_0 -> StreamingDataWidthConverter_rtl_0 [t0]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=128 t_up=1028 t_prop=0 t_full=1028 t_chain=1028 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=1 slack=516 refill=0 idle_floor=1 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge StreamingDataWidthConverter_rtl_0 -> MVAU_hls_1 [gewRIF]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=512 t_up=512 t_prop=512 t_full=1028 t_chain=512 fill_only=False throttleable=True allowance=257.00 after_slack=-257 burst=4 slack=528 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge MVAU_hls_1 -> MVAU_hls_2 [t1]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=16 t_up=516 t_prop=516 t_full=1028 t_chain=516 fill_only=False throttleable=True allowance=7.97 after_slack=-8 burst=1 slack=1028 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+-- pass causal=True latency=True
+   edge MVAU_hls_0 -> StreamingDataWidthConverter_rtl_0 [t0]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=128 t_up=1028 t_prop=0 t_full=1028 t_chain=1028 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=1 slack=516 refill=0 idle_floor=1 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge StreamingDataWidthConverter_rtl_0 -> MVAU_hls_1 [gewRIF]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=512 t_up=512 t_prop=512 t_full=1028 t_chain=512 fill_only=False throttleable=True allowance=257.00 after_slack=-257 burst=4 slack=528 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge MVAU_hls_1 -> MVAU_hls_2 [t1]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=16 t_up=516 t_prop=516 t_full=1028 t_chain=516 fill_only=False throttleable=True allowance=7.97 after_slack=-8 burst=1 slack=1028 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+-- per-pass depths (tensor: causal/latency FF FT TF TT)
+   StreamingDataWidthConverter_rtl_0 -> MVAU_hls_1    [4, 0, 0, 0]
+   MVAU_hls_0 -> StreamingDataWidthConverter_rtl_0    [1, 0, 0, 0]
+   MVAU_hls_1 -> MVAU_hls_2                           [0, 0, 0, 0]
+-- join window floors: {}
+-- final depths:
+   <in> -> MVAU_hls_0                                           5
+   MVAU_hls_0 -> StreamingDataWidthConverter_rtl_0              2
+   StreamingDataWidthConverter_rtl_0 -> MVAU_hls_1              4
+   MVAU_hls_1 -> MVAU_hls_2                                     2
+   MVAU_hls_2 -> <out>                                          5
+==============================================================================
+U2 test_chained_tav_residual
+==============================================================================
+global period (pass input 132, after max with TAVs) = 132
+  node DuplicateStreams_hls_0                 period=None   rd/frame=None  wr/frame=None  drives_pacer=True in_branch=False
+  node StreamingDataWidthConverter_rtl_0      period=128    rd/frame=128   wr/frame=16    drives_pacer=False in_branch=True
+  node MVAU_hls_0                             period=132    rd/frame=128   wr/frame=16    drives_pacer=True in_branch=True
+  node ElementwiseAdd_hls_0                   period=None   rd/frame=None  wr/frame=None  drives_pacer=False in_branch=False
+-- pass causal=False latency=False
+   edge StreamingDataWidthConverter_rtl_0 -> ElementwiseAdd_hls_0 [0oIkvp]
+      peak_fill=0 peak_steady=1 peak_joint=1 peak=0 per_frame=16 t_up=128 t_prop=128 t_full=128 t_chain=128 fill_only=True throttleable=True allowance=0.48 after_slack=0 burst=1 slack=0 refill=1 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge MVAU_hls_0 -> ElementwiseAdd_hls_0 [l1]
+      peak_fill=1 peak_steady=1 peak_joint=2 peak=1 per_frame=16 t_up=132 t_prop=0 t_full=132 t_chain=132 fill_only=True throttleable=True allowance=0.00 after_slack=1 burst=1 slack=0 refill=1 idle_floor=0 cap_applies=False floor=1 floor_capped=1 depth=1
+-- pass causal=False latency=True
+   edge StreamingDataWidthConverter_rtl_0 -> ElementwiseAdd_hls_0 [0oIkvp]
+      peak_fill=0 peak_steady=1 peak_joint=1 peak=0 per_frame=16 t_up=128 t_prop=128 t_full=128 t_chain=128 fill_only=True throttleable=True allowance=0.48 after_slack=0 burst=1 slack=0 refill=1 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge MVAU_hls_0 -> ElementwiseAdd_hls_0 [l1]
+      peak_fill=1 peak_steady=1 peak_joint=2 peak=1 per_frame=16 t_up=132 t_prop=0 t_full=132 t_chain=132 fill_only=True throttleable=True allowance=0.00 after_slack=1 burst=1 slack=0 refill=1 idle_floor=0 cap_applies=False floor=1 floor_capped=1 depth=1
+-- pass causal=True latency=False
+   edge StreamingDataWidthConverter_rtl_0 -> ElementwiseAdd_hls_0 [0oIkvp]
+      peak_fill=0 peak_steady=1 peak_joint=1 peak=0 per_frame=16 t_up=128 t_prop=128 t_full=128 t_chain=128 fill_only=True throttleable=True allowance=0.48 after_slack=0 burst=1 slack=0 refill=1 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge MVAU_hls_0 -> ElementwiseAdd_hls_0 [l1]
+      peak_fill=1 peak_steady=1 peak_joint=2 peak=1 per_frame=16 t_up=132 t_prop=0 t_full=132 t_chain=132 fill_only=True throttleable=True allowance=0.00 after_slack=1 burst=1 slack=0 refill=1 idle_floor=0 cap_applies=False floor=1 floor_capped=1 depth=1
+-- pass causal=True latency=True
+   edge StreamingDataWidthConverter_rtl_0 -> ElementwiseAdd_hls_0 [0oIkvp]
+      peak_fill=0 peak_steady=1 peak_joint=1 peak=0 per_frame=16 t_up=128 t_prop=128 t_full=128 t_chain=128 fill_only=True throttleable=True allowance=0.48 after_slack=0 burst=1 slack=0 refill=1 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge MVAU_hls_0 -> ElementwiseAdd_hls_0 [l1]
+      peak_fill=1 peak_steady=1 peak_joint=2 peak=1 per_frame=16 t_up=132 t_prop=0 t_full=132 t_chain=132 fill_only=True throttleable=True allowance=0.00 after_slack=1 burst=1 slack=0 refill=1 idle_floor=0 cap_applies=False floor=1 floor_capped=1 depth=1
+-- per-pass depths (tensor: causal/latency FF FT TF TT)
+   StreamingDataWidthConverter_rtl_0 -> ElementwiseAdd_hls_0 [0, 0, 0, 0]
+   MVAU_hls_0 -> ElementwiseAdd_hls_0                 [1, 1, 1, 1]
+-- join window floors: {}
+-- final depths:
+   <in> -> DuplicateStreams_hls_0                               5
+   DuplicateStreams_hls_0 -> StreamingDataWidthConverter_rtl_0  2
+   DuplicateStreams_hls_0 -> MVAU_hls_0                         2
+   StreamingDataWidthConverter_rtl_0 -> ElementwiseAdd_hls_0    2
+   MVAU_hls_0 -> ElementwiseAdd_hls_0                           2
+   ElementwiseAdd_hls_0 -> <out>                                5
+==============================================================================
+U3 test_chained_tav_residual_mvau_rtl
+==============================================================================
+global period (pass input 16386, after max with TAVs) = 16386
+  node MVAU_rtl_0                             period=515    rd/frame=16    wr/frame=512   drives_pacer=True in_branch=False
+  node DuplicateStreams_hls_0                 period=None   rd/frame=None  wr/frame=None  drives_pacer=True in_branch=False
+  node MVAU_rtl_1                             period=16386  rd/frame=512   wr/frame=512   drives_pacer=True in_branch=True
+  node MVAU_rtl_2                             period=16386  rd/frame=512   wr/frame=512   drives_pacer=True in_branch=True
+  node ElementwiseAdd_hls_0                   period=None   rd/frame=None  wr/frame=None  drives_pacer=False in_branch=False
+-- pass causal=False latency=False
+   edge MVAU_rtl_0 -> DuplicateStreams_hls_0 [x]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=512 t_up=515 t_prop=515 t_full=515 t_chain=515 fill_only=False throttleable=False allowance=495.91 after_slack=-496 burst=33 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge DuplicateStreams_hls_0 -> MVAU_rtl_1 [l0]
+      peak_fill=28 peak_steady=28 peak_joint=56 peak=28 per_frame=512 t_up=515 t_prop=515 t_full=515 t_chain=515 fill_only=True throttleable=False allowance=495.91 after_slack=-468 burst=31 slack=64 refill=25 idle_floor=31 cap_applies=False floor=28 floor_capped=28 depth=31
+   edge MVAU_rtl_1 -> MVAU_rtl_2 [l1]
+      peak_fill=31 peak_steady=31 peak_joint=62 peak=31 per_frame=512 t_up=16386 t_prop=0 t_full=16386 t_chain=16386 fill_only=True throttleable=False allowance=0.00 after_slack=31 burst=31 slack=0 refill=26 idle_floor=31 cap_applies=False floor=31 floor_capped=31 depth=31
+   edge DuplicateStreams_hls_0 -> ElementwiseAdd_hls_0 [short]
+      peak_fill=27 peak_steady=27 peak_joint=54 peak=27 per_frame=512 t_up=515 t_prop=515 t_full=515 t_chain=515 fill_only=True throttleable=True allowance=495.91 after_slack=-469 burst=7 slack=64 refill=25 idle_floor=0 cap_applies=True floor=7 floor_capped=7 depth=27
+   edge MVAU_rtl_2 -> ElementwiseAdd_hls_0 [l2]
+      peak_fill=7 peak_steady=7 peak_joint=14 peak=7 per_frame=512 t_up=16386 t_prop=0 t_full=16386 t_chain=16386 fill_only=True throttleable=True allowance=0.00 after_slack=7 burst=7 slack=0 refill=4 idle_floor=0 cap_applies=False floor=7 floor_capped=7 depth=7
+-- pass causal=False latency=True
+   edge MVAU_rtl_0 -> DuplicateStreams_hls_0 [x]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=512 t_up=515 t_prop=515 t_full=515 t_chain=515 fill_only=False throttleable=False allowance=495.91 after_slack=-496 burst=33 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge DuplicateStreams_hls_0 -> MVAU_rtl_1 [l0]
+      peak_fill=28 peak_steady=28 peak_joint=56 peak=28 per_frame=512 t_up=515 t_prop=515 t_full=515 t_chain=515 fill_only=True throttleable=False allowance=495.91 after_slack=-468 burst=31 slack=64 refill=25 idle_floor=31 cap_applies=False floor=28 floor_capped=28 depth=31
+   edge MVAU_rtl_1 -> MVAU_rtl_2 [l1]
+      peak_fill=31 peak_steady=31 peak_joint=62 peak=31 per_frame=512 t_up=16386 t_prop=0 t_full=16386 t_chain=16386 fill_only=True throttleable=False allowance=0.00 after_slack=31 burst=31 slack=0 refill=31 idle_floor=31 cap_applies=False floor=31 floor_capped=31 depth=31
+   edge DuplicateStreams_hls_0 -> ElementwiseAdd_hls_0 [short]
+      peak_fill=28 peak_steady=28 peak_joint=56 peak=28 per_frame=512 t_up=515 t_prop=515 t_full=515 t_chain=515 fill_only=True throttleable=True allowance=495.91 after_slack=-468 burst=7 slack=64 refill=26 idle_floor=0 cap_applies=True floor=7 floor_capped=7 depth=28
+   edge MVAU_rtl_2 -> ElementwiseAdd_hls_0 [l2]
+      peak_fill=7 peak_steady=6 peak_joint=13 peak=7 per_frame=512 t_up=16386 t_prop=0 t_full=16386 t_chain=16386 fill_only=True throttleable=True allowance=0.00 after_slack=7 burst=7 slack=0 refill=7 idle_floor=0 cap_applies=False floor=7 floor_capped=7 depth=7
+-- pass causal=True latency=False
+   edge MVAU_rtl_0 -> DuplicateStreams_hls_0 [x]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=512 t_up=515 t_prop=515 t_full=515 t_chain=515 fill_only=False throttleable=False allowance=495.91 after_slack=-496 burst=33 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge DuplicateStreams_hls_0 -> MVAU_rtl_1 [l0]
+      peak_fill=28 peak_steady=28 peak_joint=56 peak=28 per_frame=512 t_up=515 t_prop=515 t_full=515 t_chain=515 fill_only=True throttleable=False allowance=495.91 after_slack=-468 burst=31 slack=64 refill=25 idle_floor=31 cap_applies=False floor=28 floor_capped=28 depth=31
+   edge MVAU_rtl_1 -> MVAU_rtl_2 [l1]
+      peak_fill=31 peak_steady=31 peak_joint=62 peak=31 per_frame=512 t_up=16386 t_prop=0 t_full=16386 t_chain=16386 fill_only=True throttleable=False allowance=0.00 after_slack=31 burst=31 slack=0 refill=31 idle_floor=31 cap_applies=False floor=31 floor_capped=31 depth=31
+   edge DuplicateStreams_hls_0 -> ElementwiseAdd_hls_0 [short]
+      peak_fill=88 peak_steady=88 peak_joint=176 peak=88 per_frame=512 t_up=515 t_prop=515 t_full=515 t_chain=515 fill_only=True throttleable=True allowance=495.91 after_slack=-408 burst=1 slack=64 refill=29 idle_floor=0 cap_applies=True floor=1 floor_capped=1 depth=88
+   edge MVAU_rtl_2 -> ElementwiseAdd_hls_0 [l2]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=512 t_up=16386 t_prop=0 t_full=16386 t_chain=16386 fill_only=True throttleable=True allowance=0.00 after_slack=0 burst=1 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+-- pass causal=True latency=True
+   edge MVAU_rtl_0 -> DuplicateStreams_hls_0 [x]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=512 t_up=515 t_prop=515 t_full=515 t_chain=515 fill_only=False throttleable=False allowance=495.91 after_slack=-496 burst=33 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge DuplicateStreams_hls_0 -> MVAU_rtl_1 [l0]
+      peak_fill=28 peak_steady=28 peak_joint=56 peak=28 per_frame=512 t_up=515 t_prop=515 t_full=515 t_chain=515 fill_only=True throttleable=False allowance=495.91 after_slack=-468 burst=31 slack=64 refill=25 idle_floor=31 cap_applies=False floor=28 floor_capped=28 depth=31
+   edge MVAU_rtl_1 -> MVAU_rtl_2 [l1]
+      peak_fill=31 peak_steady=31 peak_joint=62 peak=31 per_frame=512 t_up=16386 t_prop=0 t_full=16386 t_chain=16386 fill_only=True throttleable=False allowance=0.00 after_slack=31 burst=31 slack=0 refill=31 idle_floor=31 cap_applies=False floor=31 floor_capped=31 depth=31
+   edge DuplicateStreams_hls_0 -> ElementwiseAdd_hls_0 [short]
+      peak_fill=90 peak_steady=90 peak_joint=180 peak=90 per_frame=512 t_up=515 t_prop=515 t_full=515 t_chain=515 fill_only=True throttleable=True allowance=495.91 after_slack=-406 burst=1 slack=64 refill=29 idle_floor=0 cap_applies=True floor=1 floor_capped=1 depth=90
+   edge MVAU_rtl_2 -> ElementwiseAdd_hls_0 [l2]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=512 t_up=16386 t_prop=0 t_full=16386 t_chain=16386 fill_only=True throttleable=True allowance=0.00 after_slack=0 burst=1 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+-- per-pass depths (tensor: causal/latency FF FT TF TT)
+   DuplicateStreams_hls_0 -> MVAU_rtl_1               [31, 31, 31, 31]
+   MVAU_rtl_1 -> MVAU_rtl_2                           [31, 31, 31, 31]
+   MVAU_rtl_2 -> ElementwiseAdd_hls_0                 [7, 7, 0, 0]
+   DuplicateStreams_hls_0 -> ElementwiseAdd_hls_0     [27, 28, 88, 90]
+   MVAU_rtl_0 -> DuplicateStreams_hls_0               [0, 0, 0, 0]
+-- join window floors: {'short': 78}
+-- final depths:
+   <in> -> MVAU_rtl_0                                           5
+   MVAU_rtl_0 -> DuplicateStreams_hls_0                         2
+   DuplicateStreams_hls_0 -> ElementwiseAdd_hls_0               90
+   DuplicateStreams_hls_0 -> MVAU_rtl_1                         31
+   MVAU_rtl_1 -> MVAU_rtl_2                                     31
+   MVAU_rtl_2 -> ElementwiseAdd_hls_0                           7
+   ElementwiseAdd_hls_0 -> <out>                                5
+==============================================================================
+U4 test_join_window_floor (fork PE 1, MVAU SIMD = PE = 1)
+==============================================================================
+global period (pass input 65540, after max with TAVs) = 65540
+  node DuplicateStreams_hls_0                 period=None   rd/frame=None  wr/frame=None  drives_pacer=True in_branch=False
+  node MVAU_hls_0                             period=65540  rd/frame=1024  wr/frame=1024  drives_pacer=True in_branch=True
+  node ElementwiseAdd_hls_0                   period=None   rd/frame=None  wr/frame=None  drives_pacer=False in_branch=False
+-- pass causal=False latency=False
+   edge MVAU_hls_0 -> ElementwiseAdd_hls_0 [l1]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=1024 t_up=65540 t_prop=0 t_full=65540 t_chain=65540 fill_only=True throttleable=True allowance=0.00 after_slack=0 burst=1 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+-- pass causal=False latency=True
+   edge MVAU_hls_0 -> ElementwiseAdd_hls_0 [l1]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=1024 t_up=65540 t_prop=0 t_full=65540 t_chain=65540 fill_only=True throttleable=True allowance=0.00 after_slack=0 burst=1 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+-- pass causal=True latency=False
+   edge MVAU_hls_0 -> ElementwiseAdd_hls_0 [l1]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=1024 t_up=65540 t_prop=0 t_full=65540 t_chain=65540 fill_only=True throttleable=True allowance=0.00 after_slack=0 burst=1 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+-- pass causal=True latency=True
+   edge MVAU_hls_0 -> ElementwiseAdd_hls_0 [l1]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=1024 t_up=65540 t_prop=0 t_full=65540 t_chain=65540 fill_only=True throttleable=True allowance=0.00 after_slack=0 burst=1 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+-- per-pass depths (tensor: causal/latency FF FT TF TT)
+   MVAU_hls_0 -> ElementwiseAdd_hls_0                 [0, 0, 0, 0]
+-- join window floors: {'short': 80}
+-- final depths:
+   <in> -> DuplicateStreams_hls_0                               5
+   DuplicateStreams_hls_0 -> ElementwiseAdd_hls_0               80
+   DuplicateStreams_hls_0 -> MVAU_hls_0                         2
+   MVAU_hls_0 -> ElementwiseAdd_hls_0                           2
+   ElementwiseAdd_hls_0 -> <out>                                5
+==============================================================================
+U5 test_chained_tav_residual_latency
+==============================================================================
+global period (pass input 515, after max with TAVs) = 515
+  node MVAU_rtl_0                             period=515    rd/frame=16    wr/frame=512   drives_pacer=True in_branch=False
+  node DuplicateStreams_hls_0                 period=None   rd/frame=None  wr/frame=None  drives_pacer=False in_branch=False
+  node StreamingDataWidthConverter_rtl_0      period=512    rd/frame=512   wr/frame=16    drives_pacer=False in_branch=True
+  node MVAU_rtl_1                             period=19     rd/frame=16    wr/frame=16    drives_pacer=False in_branch=True
+  node MVAU_rtl_2                             period=19     rd/frame=16    wr/frame=16    drives_pacer=False in_branch=True
+  node MVAU_rtl_3                             period=19     rd/frame=16    wr/frame=16    drives_pacer=False in_branch=True
+  node MVAU_rtl_4                             period=19     rd/frame=16    wr/frame=16    drives_pacer=False in_branch=True
+  node StreamingDataWidthConverter_rtl_1      period=512    rd/frame=16    wr/frame=512   drives_pacer=False in_branch=True
+  node ElementwiseAdd_hls_0                   period=None   rd/frame=None  wr/frame=None  drives_pacer=False in_branch=False
+-- pass causal=False latency=False
+   edge MVAU_rtl_0 -> DuplicateStreams_hls_0 [x]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=512 t_up=515 t_prop=0 t_full=515 t_chain=515 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=3 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge DuplicateStreams_hls_0 -> StreamingDataWidthConverter_rtl_0 [l0]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=512 t_up=0 t_prop=0 t_full=515 t_chain=0 fill_only=True throttleable=True allowance=512.00 after_slack=-512 burst=3 slack=5 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge StreamingDataWidthConverter_rtl_0 -> MVAU_rtl_1 [CbCBL8]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=16 t_up=512 t_prop=512 t_full=515 t_chain=512 fill_only=True throttleable=True allowance=0.09 after_slack=0 burst=1 slack=500 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge MVAU_rtl_1 -> MVAU_rtl_2 [l1]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=16 t_up=512 t_prop=512 t_full=515 t_chain=512 fill_only=True throttleable=True allowance=0.09 after_slack=0 burst=4 slack=564 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge MVAU_rtl_2 -> MVAU_rtl_3 [l2]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=16 t_up=512 t_prop=512 t_full=515 t_chain=512 fill_only=True throttleable=True allowance=0.09 after_slack=0 burst=7 slack=628 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge MVAU_rtl_3 -> MVAU_rtl_4 [l3]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=16 t_up=512 t_prop=512 t_full=515 t_chain=512 fill_only=True throttleable=True allowance=0.09 after_slack=0 burst=8 slack=693 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge MVAU_rtl_4 -> StreamingDataWidthConverter_rtl_1 [l4]
+      peak_fill=8 peak_steady=8 peak_joint=16 peak=8 per_frame=16 t_up=512 t_prop=512 t_full=515 t_chain=512 fill_only=True throttleable=True allowance=0.09 after_slack=8 burst=1 slack=264 refill=0 idle_floor=1 cap_applies=False floor=1 floor_capped=1 depth=8
+   edge DuplicateStreams_hls_0 -> ElementwiseAdd_hls_0 [short]
+      peak_fill=262 peak_steady=259 peak_joint=521 peak=262 per_frame=512 t_up=0 t_prop=0 t_full=515 t_chain=0 fill_only=True throttleable=True allowance=512.00 after_slack=-250 burst=3 slack=2 refill=1 idle_floor=0 cap_applies=True floor=3 floor_capped=3 depth=262
+   edge StreamingDataWidthConverter_rtl_1 -> ElementwiseAdd_hls_0 [cieyWa]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=512 t_up=512 t_prop=512 t_full=515 t_chain=512 fill_only=True throttleable=True allowance=2.98 after_slack=-3 burst=3 slack=519 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+-- pass causal=False latency=True
+   edge MVAU_rtl_0 -> DuplicateStreams_hls_0 [x]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=512 t_up=515 t_prop=0 t_full=515 t_chain=515 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=3 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge DuplicateStreams_hls_0 -> StreamingDataWidthConverter_rtl_0 [l0]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=512 t_up=0 t_prop=0 t_full=515 t_chain=0 fill_only=True throttleable=True allowance=512.00 after_slack=-512 burst=3 slack=5 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge StreamingDataWidthConverter_rtl_0 -> MVAU_rtl_1 [CbCBL8]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=16 t_up=512 t_prop=512 t_full=515 t_chain=512 fill_only=True throttleable=True allowance=0.09 after_slack=0 burst=1 slack=500 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge MVAU_rtl_1 -> MVAU_rtl_2 [l1]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=16 t_up=512 t_prop=512 t_full=515 t_chain=512 fill_only=True throttleable=True allowance=0.09 after_slack=0 burst=4 slack=564 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge MVAU_rtl_2 -> MVAU_rtl_3 [l2]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=16 t_up=512 t_prop=512 t_full=515 t_chain=512 fill_only=True throttleable=True allowance=0.09 after_slack=0 burst=7 slack=628 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge MVAU_rtl_3 -> MVAU_rtl_4 [l3]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=16 t_up=512 t_prop=512 t_full=515 t_chain=512 fill_only=True throttleable=True allowance=0.09 after_slack=0 burst=8 slack=693 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge MVAU_rtl_4 -> StreamingDataWidthConverter_rtl_1 [l4]
+      peak_fill=8 peak_steady=8 peak_joint=16 peak=8 per_frame=16 t_up=512 t_prop=512 t_full=515 t_chain=512 fill_only=True throttleable=True allowance=0.09 after_slack=8 burst=1 slack=264 refill=0 idle_floor=1 cap_applies=False floor=1 floor_capped=1 depth=8
+   edge DuplicateStreams_hls_0 -> ElementwiseAdd_hls_0 [short]
+      peak_fill=449 peak_steady=448 peak_joint=897 peak=449 per_frame=512 t_up=0 t_prop=0 t_full=515 t_chain=0 fill_only=True throttleable=True allowance=512.00 after_slack=-63 burst=3 slack=2 refill=0 idle_floor=0 cap_applies=False floor=3 floor_capped=3 depth=449
+   edge StreamingDataWidthConverter_rtl_1 -> ElementwiseAdd_hls_0 [cieyWa]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=512 t_up=512 t_prop=512 t_full=515 t_chain=512 fill_only=True throttleable=True allowance=2.98 after_slack=-3 burst=3 slack=519 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+-- pass causal=True latency=False
+   edge MVAU_rtl_0 -> DuplicateStreams_hls_0 [x]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=512 t_up=515 t_prop=0 t_full=515 t_chain=515 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=3 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge DuplicateStreams_hls_0 -> StreamingDataWidthConverter_rtl_0 [l0]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=512 t_up=0 t_prop=0 t_full=515 t_chain=0 fill_only=True throttleable=True allowance=512.00 after_slack=-512 burst=3 slack=5 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge StreamingDataWidthConverter_rtl_0 -> MVAU_rtl_1 [CbCBL8]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=16 t_up=512 t_prop=512 t_full=515 t_chain=512 fill_only=True throttleable=True allowance=0.09 after_slack=0 burst=1 slack=500 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge MVAU_rtl_1 -> MVAU_rtl_2 [l1]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=16 t_up=512 t_prop=512 t_full=515 t_chain=512 fill_only=True throttleable=True allowance=0.09 after_slack=0 burst=4 slack=564 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge MVAU_rtl_2 -> MVAU_rtl_3 [l2]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=16 t_up=512 t_prop=512 t_full=515 t_chain=512 fill_only=True throttleable=True allowance=0.09 after_slack=0 burst=7 slack=628 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge MVAU_rtl_3 -> MVAU_rtl_4 [l3]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=16 t_up=512 t_prop=512 t_full=515 t_chain=512 fill_only=True throttleable=True allowance=0.09 after_slack=0 burst=8 slack=693 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge MVAU_rtl_4 -> StreamingDataWidthConverter_rtl_1 [l4]
+      peak_fill=8 peak_steady=8 peak_joint=16 peak=8 per_frame=16 t_up=512 t_prop=512 t_full=515 t_chain=512 fill_only=True throttleable=True allowance=0.09 after_slack=8 burst=1 slack=264 refill=0 idle_floor=1 cap_applies=False floor=1 floor_capped=1 depth=8
+   edge DuplicateStreams_hls_0 -> ElementwiseAdd_hls_0 [short]
+      peak_fill=262 peak_steady=259 peak_joint=521 peak=262 per_frame=512 t_up=0 t_prop=0 t_full=515 t_chain=0 fill_only=True throttleable=True allowance=512.00 after_slack=-250 burst=3 slack=2 refill=1 idle_floor=0 cap_applies=True floor=3 floor_capped=3 depth=262
+   edge StreamingDataWidthConverter_rtl_1 -> ElementwiseAdd_hls_0 [cieyWa]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=512 t_up=512 t_prop=512 t_full=515 t_chain=512 fill_only=True throttleable=True allowance=2.98 after_slack=-3 burst=3 slack=519 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+-- pass causal=True latency=True
+   edge MVAU_rtl_0 -> DuplicateStreams_hls_0 [x]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=512 t_up=515 t_prop=0 t_full=515 t_chain=515 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=3 slack=0 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge DuplicateStreams_hls_0 -> StreamingDataWidthConverter_rtl_0 [l0]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=512 t_up=0 t_prop=0 t_full=515 t_chain=0 fill_only=True throttleable=True allowance=512.00 after_slack=-512 burst=3 slack=5 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge StreamingDataWidthConverter_rtl_0 -> MVAU_rtl_1 [CbCBL8]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=16 t_up=512 t_prop=512 t_full=515 t_chain=512 fill_only=True throttleable=True allowance=0.09 after_slack=0 burst=1 slack=500 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge MVAU_rtl_1 -> MVAU_rtl_2 [l1]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=16 t_up=512 t_prop=512 t_full=515 t_chain=512 fill_only=True throttleable=True allowance=0.09 after_slack=0 burst=4 slack=564 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge MVAU_rtl_2 -> MVAU_rtl_3 [l2]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=16 t_up=512 t_prop=512 t_full=515 t_chain=512 fill_only=True throttleable=True allowance=0.09 after_slack=0 burst=7 slack=628 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge MVAU_rtl_3 -> MVAU_rtl_4 [l3]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=16 t_up=512 t_prop=512 t_full=515 t_chain=512 fill_only=True throttleable=True allowance=0.09 after_slack=0 burst=8 slack=693 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+   edge MVAU_rtl_4 -> StreamingDataWidthConverter_rtl_1 [l4]
+      peak_fill=8 peak_steady=8 peak_joint=16 peak=8 per_frame=16 t_up=512 t_prop=512 t_full=515 t_chain=512 fill_only=True throttleable=True allowance=0.09 after_slack=8 burst=1 slack=264 refill=0 idle_floor=1 cap_applies=False floor=1 floor_capped=1 depth=8
+   edge DuplicateStreams_hls_0 -> ElementwiseAdd_hls_0 [short]
+      peak_fill=449 peak_steady=448 peak_joint=897 peak=449 per_frame=512 t_up=0 t_prop=0 t_full=515 t_chain=0 fill_only=True throttleable=True allowance=512.00 after_slack=-63 burst=3 slack=2 refill=0 idle_floor=0 cap_applies=False floor=3 floor_capped=3 depth=449
+   edge StreamingDataWidthConverter_rtl_1 -> ElementwiseAdd_hls_0 [cieyWa]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=512 t_up=512 t_prop=512 t_full=515 t_chain=512 fill_only=True throttleable=True allowance=2.98 after_slack=-3 burst=3 slack=519 refill=0 idle_floor=0 cap_applies=True floor=0 floor_capped=0 depth=0
+-- per-pass depths (tensor: causal/latency FF FT TF TT)
+   StreamingDataWidthConverter_rtl_0 -> MVAU_rtl_1    [0, 0, 0, 0]
+   StreamingDataWidthConverter_rtl_1 -> ElementwiseAdd_hls_0 [0, 0, 0, 0]
+   DuplicateStreams_hls_0 -> StreamingDataWidthConverter_rtl_0 [0, 0, 0, 0]
+   MVAU_rtl_1 -> MVAU_rtl_2                           [0, 0, 0, 0]
+   MVAU_rtl_2 -> MVAU_rtl_3                           [0, 0, 0, 0]
+   MVAU_rtl_3 -> MVAU_rtl_4                           [0, 0, 0, 0]
+   MVAU_rtl_4 -> StreamingDataWidthConverter_rtl_1    [8, 8, 8, 8]
+   DuplicateStreams_hls_0 -> ElementwiseAdd_hls_0     [262, 449, 262, 449]
+   MVAU_rtl_0 -> DuplicateStreams_hls_0               [0, 0, 0, 0]
+-- join window floors: {'short': 40}
+-- final depths:
+   <in> -> MVAU_rtl_0                                           5
+   MVAU_rtl_0 -> DuplicateStreams_hls_0                         2
+   DuplicateStreams_hls_0 -> ElementwiseAdd_hls_0               449
+   DuplicateStreams_hls_0 -> StreamingDataWidthConverter_rtl_0  2
+   StreamingDataWidthConverter_rtl_0 -> MVAU_rtl_1              2
+   MVAU_rtl_1 -> MVAU_rtl_2                                     2
+   MVAU_rtl_2 -> MVAU_rtl_3                                     2
+   MVAU_rtl_3 -> MVAU_rtl_4                                     2
+   MVAU_rtl_4 -> StreamingDataWidthConverter_rtl_1              8
+   StreamingDataWidthConverter_rtl_1 -> ElementwiseAdd_hls_0    2
+   ElementwiseAdd_hls_0 -> <out>                                5
+==============================================================================
+U6 compacting DWC (PE 2 -> SIMD 8)
+==============================================================================
+global period (pass input 4100, after max with TAVs) = 4100
+  node MVAU_hls_0                             period=4100   rd/frame=128   wr/frame=512   drives_pacer=True in_branch=False
+  node StreamingDataWidthConverter_rtl_0      period=512    rd/frame=512   wr/frame=128   drives_pacer=False in_branch=False
+  node MVAU_hls_1                             period=1028   rd/frame=128   wr/frame=128   drives_pacer=False in_branch=False
+-- pass causal=False latency=False
+   edge MVAU_hls_0 -> StreamingDataWidthConverter_rtl_0 [t0]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=512 t_up=4100 t_prop=0 t_full=4100 t_chain=4100 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=1 slack=3588 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge StreamingDataWidthConverter_rtl_0 -> MVAU_hls_1 [1hflOb]
+      peak_fill=1 peak_steady=1 peak_joint=2 peak=1 per_frame=128 t_up=512 t_prop=512 t_full=4100 t_chain=512 fill_only=False throttleable=True allowance=112.02 after_slack=-111 burst=1 slack=3088 refill=0 idle_floor=7 cap_applies=True floor=1 floor_capped=1 depth=1
+-- pass causal=False latency=True
+   edge MVAU_hls_0 -> StreamingDataWidthConverter_rtl_0 [t0]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=512 t_up=4100 t_prop=0 t_full=4100 t_chain=4100 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=1 slack=3588 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge StreamingDataWidthConverter_rtl_0 -> MVAU_hls_1 [1hflOb]
+      peak_fill=1 peak_steady=1 peak_joint=2 peak=1 per_frame=128 t_up=512 t_prop=512 t_full=4100 t_chain=512 fill_only=False throttleable=True allowance=112.02 after_slack=-111 burst=1 slack=3088 refill=0 idle_floor=7 cap_applies=True floor=1 floor_capped=1 depth=1
+-- pass causal=True latency=False
+   edge MVAU_hls_0 -> StreamingDataWidthConverter_rtl_0 [t0]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=512 t_up=4100 t_prop=0 t_full=4100 t_chain=4100 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=1 slack=3588 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge StreamingDataWidthConverter_rtl_0 -> MVAU_hls_1 [1hflOb]
+      peak_fill=1 peak_steady=1 peak_joint=2 peak=1 per_frame=128 t_up=512 t_prop=512 t_full=4100 t_chain=512 fill_only=False throttleable=True allowance=112.02 after_slack=-111 burst=1 slack=3088 refill=0 idle_floor=7 cap_applies=True floor=1 floor_capped=1 depth=1
+-- pass causal=True latency=True
+   edge MVAU_hls_0 -> StreamingDataWidthConverter_rtl_0 [t0]
+      peak_fill=0 peak_steady=0 peak_joint=0 peak=0 per_frame=512 t_up=4100 t_prop=0 t_full=4100 t_chain=4100 fill_only=False throttleable=True allowance=0.00 after_slack=0 burst=1 slack=3588 refill=0 idle_floor=0 cap_applies=False floor=0 floor_capped=0 depth=0
+   edge StreamingDataWidthConverter_rtl_0 -> MVAU_hls_1 [1hflOb]
+      peak_fill=1 peak_steady=1 peak_joint=2 peak=1 per_frame=128 t_up=512 t_prop=512 t_full=4100 t_chain=512 fill_only=False throttleable=True allowance=112.02 after_slack=-111 burst=1 slack=3088 refill=0 idle_floor=7 cap_applies=True floor=1 floor_capped=1 depth=1
+-- per-pass depths (tensor: causal/latency FF FT TF TT)
+   StreamingDataWidthConverter_rtl_0 -> MVAU_hls_1    [1, 1, 1, 1]
+   MVAU_hls_0 -> StreamingDataWidthConverter_rtl_0    [0, 0, 0, 0]
+-- join window floors: {}
+-- final depths:
+   <in> -> MVAU_hls_0                                           5
+   MVAU_hls_0 -> StreamingDataWidthConverter_rtl_0              2
+   StreamingDataWidthConverter_rtl_0 -> MVAU_hls_1              2
+   MVAU_hls_1 -> <out>                                          5
