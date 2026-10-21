@@ -149,44 +149,53 @@ def result_of(job, state):
     return res
 
 
-def cell(job, state, fields):
-    """One table cell: result mark plus the requested metrics."""
+MARK = {"passed": "\\checkmark", "failed": "$\\times$", "skipped": "skip", "running": "run",
+        "pending": "--", "blocked": "blk", "killed": "--", "aborted": "--"}
+# metric -> (header, formatter of the feature_metrics.json row)
+METRICS = {
+    "ratio": ("rtlsim/est.", lambda m, t: "%.3f" % m["rtlsim_vs_est"] if m.get("rtlsim_vs_est") is not None else ""),
+    "ref": ("est./ref.", lambda m, t: "%.2f" % m["est_vs_ref"] if m.get("est_vs_ref") is not None else ""),
+    "kbit": ("FIFO [kbit]", lambda m, t: "%.1f" % m["fifo_kbit"] if m.get("fifo_kbit") is not None else ""),
+    "pad": ("pad.\\ DWCs", lambda m, t: "%d" % m["pad_dwcs"] if m.get("pad_dwcs") is not None else ""),
+    "tfifo": ("FIFO step [s]", lambda m, t: "%.0f" % t["step_set_fifo_depths"] if "step_set_fifo_depths" in t else ""),
+    "tfold": ("folding step [s]",
+              lambda m, t: "%.0f" % t["step_target_fps_parallelization"] if "step_target_fps_parallelization" in t else ""),
+}
+
+
+def cells(job, state, fields):
+    """Result mark followed by one cell per metric (empty if the job did not finish)."""
     if job is None:
-        return "n/a"
+        return ["n/a"] + [""] * len(fields)
     res = result_of(job, state)
-    mark = {"passed": "\\checkmark", "failed": "$\\times$", "skipped": "skip", "running": "run",
-            "pending": "--", "blocked": "blk", "killed": "--", "aborted": "--"}.get(res, res)
     if res not in ("passed", "failed"):
-        return mark
+        return [MARK.get(res, res)] + [""] * len(fields)
     m = job_metrics(job) or {}
-    parts = [mark]
-    times = m.get("step_times_s") or {}
-    for f in fields:
-        if f == "ratio" and m.get("rtlsim_vs_est") is not None:
-            parts.append("%.3f" % m["rtlsim_vs_est"])
-        elif f == "ref" and m.get("est_vs_ref") is not None:
-            parts.append("%.2fx" % m["est_vs_ref"])
-        elif f == "kbit" and m.get("fifo_kbit") is not None:
-            parts.append("%.1fk" % m["fifo_kbit"])
-        elif f == "pad" and m.get("pad_dwcs") is not None:
-            parts.append("%dp" % m["pad_dwcs"])
-        elif f == "tfifo" and "step_set_fifo_depths" in times:
-            parts.append("%.0fs" % times["step_set_fifo_depths"])
-        elif f == "tfold" and "step_target_fps_parallelization" in times:
-            parts.append("%.0fs" % times["step_target_fps_parallelization"])
-    return " ".join(parts)
+    t = m.get("step_times_s") or {}
+    return [MARK[res]] + [METRICS[f][1](m, t) for f in fields]
 
 
-def table(caption, label, header, rows, colspec):
+def table(caption, label, groups, rows, legend):
+    """groups: [(group title, [metric keys])]; rows: [[model, est] + cells...]. Two-level header."""
+    ncols = 2 + sum(1 + len(f) for _, f in groups)
+    head1, head2, rules, col = ["", ""], ["model (board)", "est.\\ fps"], [], 3
+    for title, fields in groups:
+        width = 1 + len(fields)
+        head1.append(f"\\multicolumn{{{width}}}{{c}}{{{title}}}")
+        head2 += ["result"] + [METRICS[f][0] for f in fields]
+        rules.append(f"\\cmidrule(lr){{{col}-{col + width - 1}}}")
+        col += width
     return "\n".join([
-        "\\begin{table}[ht]\\centering\\scriptsize",
+        "\\begin{landscape}\\begin{table}[p]\\centering\\scriptsize",
         f"\\caption{{{caption}}}\\label{{{label}}}",
-        "\\resizebox{\\textwidth}{!}{%",
-        f"\\begin{{tabular}}{{{colspec}}}\\toprule",
-        " & ".join(header) + " \\\\\\midrule",
+        "\\resizebox{\\linewidth}{!}{%",
+        f"\\begin{{tabular}}{{l r {' '.join('c' + 'r' * len(f) for _, f in groups)}}}\\toprule",
+        " & ".join(head1) + " \\\\", "".join(rules),
+        " & ".join(head2) + " \\\\\\midrule",
         *[" & ".join(r) + " \\\\" for r in rows],
         "\\bottomrule\\end{tabular}}",
-        "\\end{table}",
+        f"\\par\\medskip\\raggedright\\footnotesize\\textbf{{Columns.}} {legend}",
+        "\\end{table}\\end{landscape}",
     ])
 
 
@@ -205,6 +214,9 @@ def main():
                      and j["feature"] == feature and j.get("size") == size), None)
 
     fifo_rows, fold_rows, dwc_rows = [], [], []
+    FIFO_F, FOLD_F, MAX_F, FAW_F, DWC_F = (["ratio", "kbit", "tfifo"], ["ratio", "ref", "tfold"],
+                                          ["ratio", "ref", "tfold"], ["ratio", "kbit", "tfold"],
+                                          ["pad", "ratio", "ref"])
     for mdir, _, params in tiers:
         for p, *_ in params:
             board, model = split_param(p)
@@ -215,41 +227,53 @@ def main():
                 est = est or load(latest(wt + args.variant, f"est_{mtag}_{board}_",
                                          "report/estimate_network_performance.json"))
             est_s = "%.1f" % est["estimated_throughput_fps"] if est else "--"
-            fifo_rows.append([name, est_s] + [
-                cell(job(mdir, p, f, s), state, ["ratio", "kbit", "tfifo"])
-                for f in ("fifo", "fifo-rtlsim") for s in ("small", "full")])
-            fold_rows.append([name] + [
-                cell(job(mdir, p, "fold-target", s), state, ["ratio", "ref", "tfold"]) for s in ("small", "full")
-            ] + [cell(job(mdir, p, "fold-max", "full"), state, ["ratio", "ref", "tfold"]),
-                 cell(job(mdir, p, "fold-fifo", "full"), state, ["ratio", "kbit", "tfold"])])
-            dwc_rows.append([name] + [cell(job(mdir, p, "dwc", s), state, ["pad", "ratio", "ref"])
-                                      for s in ("small", "full")])
+            row = [name, est_s]
+            for f in ("fifo", "fifo-rtlsim"):
+                for sz in ("small", "full"):
+                    row += cells(job(mdir, p, f, sz), state, FIFO_F)
+            fifo_rows.append(row)
+            row = [name, est_s]
+            for sz in ("small", "full"):
+                row += cells(job(mdir, p, "fold-target", sz), state, FOLD_F)
+            row += cells(job(mdir, p, "fold-max", "full"), state, MAX_F)
+            row += cells(job(mdir, p, "fold-fifo", "full"), state, FAW_F)
+            fold_rows.append(row)
+            row = [name, est_s]
+            for sz in ("small", "full"):
+                row += cells(job(mdir, p, "dwc", sz), state, DWC_F)
+            dwc_rows.append(row)
 
     now = datetime.datetime.now()
     doc = [
         "\\documentclass[a4paper,10pt]{article}",
         "\\usepackage[margin=18mm]{geometry}\\usepackage{booktabs}\\usepackage{amssymb}"
-        "\\usepackage{graphicx}\\usepackage[hidelinks]{hyperref}",
+        "\\usepackage{graphicx}\\usepackage{pdflscape}\\usepackage[hidelinks]{hyperref}",
         "\\title{FINN feature tests: FIFO sizing, folding and DWC padding on the finn-examples models}",
         f"\\date{{Snapshot {now:%Y-%m-%d %H:%M} (campaign variant {args.variant}, new upstream base)}}",
         "\\begin{document}\\maketitle",
         "\\section*{Results}",
-        "Each test resumes the convert-phase checkpoint of a cached estimate-only build with the committed folding, "
-        "builds the stitched IP and checks it in stitched-IP rtlsim: output equal to the golden output and rtlsim "
-        "throughput $\\geq 0.98\\times$ the build's own analytic estimate. \\emph{small}: the committed folding with "
-        "every node's parallelism cut 4--8$\\times$ (fast functional check, runs first); \\emph{full}: the committed "
-        "folding (target = its estimated throughput). Cell: \\checkmark{} passed / $\\times$ failed, rtlsim/estimate "
-        "ratio, FIFO storage (k = kbit), est/ref = the folding's estimate vs the committed folding's, $n$p = padding "
-        "DWCs, time of the feature's step. -- not run yet, run = running, blk = blocked (small run failed), skip = "
-        "skipped (DWC: no padding needed).",
-        table("FIFO sizing (analytical vs.\\ rtlsim-based heuristic), committed folding", "tab:fifo",
-              ["model (board)", "est.\\ fps", "analytical small", "analytical full", "rtlsim small", "rtlsim full"],
-              fifo_rows, "lrllll"),
-        table("Folding optimizer (FIFOs sized analytically): at the committed throughput (target), maximized within "
-              "the device budget, and the optional FIFO-aware search at the target", "tab:fold",
-              ["model (board)", "target small", "target full", "maximize", "FIFO-aware"], fold_rows, "lllll"),
-        table("DWC padding: optimizer with up to 4 channels of padding at the committed throughput",
-              "tab:dwc", ["model (board)", "small", "full"], dwc_rows, "lll"),
+        "Each test resumes the convert-phase checkpoint of a cached estimate-only build with the committed folding, builds the stitched IP and checks it in stitched-IP rtlsim. Each table lists, per model, the result and the measured numbers of every test variant; the column definitions are given under each table.",
+        table("FIFO sizing on the committed folding: the analytical sizer (ours) and the rtlsim-based heuristic",
+              "tab:fifo", [("analytical, small", FIFO_F), ("analytical, full", FIFO_F),
+                           ("rtlsim heuristic, small", FIFO_F), ("rtlsim heuristic, full", FIFO_F)],
+              fifo_rows, "\\emph{result}: \\checkmark{} passed (output equal to the golden output and rtlsim throughput $\\geq 0.98\\times$ the build's own estimate), $\\times$ failed, skip = skipped, run = running, blk = blocked (its small run failed), -- = not run yet; metric cells stay empty unless the test finished. \\emph{est.\\ fps}: analytic throughput of the committed folding (the reference). \\emph{rtlsim/est.}: stitched-IP rtlsim throughput divided by the build's own analytic estimate. \\emph{small}: committed folding with every node's parallelism cut 4--8$\\times$; \\emph{full}: committed folding. Step times are wall-clock under the campaign's load, not isolated measurements. " + "\\emph{FIFO [kbit]}: total storage of all inserted FIFOs "
+              "(depth $\\times$ stream width). \\emph{FIFO step [s]}: time of \\texttt{step\\_set\\_fifo\\_depths}."),
+        table("Folding optimizer (FIFOs sized analytically)", "tab:fold",
+              [("target, small", FOLD_F), ("target, full", FOLD_F), ("maximize", MAX_F),
+               ("FIFO-aware (target)", FAW_F)], fold_rows,
+              "\\emph{result}: \\checkmark{} passed (output equal to the golden output and rtlsim throughput $\\geq 0.98\\times$ the build's own estimate), $\\times$ failed, skip = skipped, run = running, blk = blocked (its small run failed), -- = not run yet; metric cells stay empty unless the test finished. \\emph{est.\\ fps}: analytic throughput of the committed folding (the reference). \\emph{rtlsim/est.}: stitched-IP rtlsim throughput divided by the build's own analytic estimate. \\emph{small}: committed folding with every node's parallelism cut 4--8$\\times$; \\emph{full}: committed folding. Step times are wall-clock under the campaign's load, not isolated measurements. " + "\\emph{target}: optimizer at the committed folding's throughput (must be met); "
+              "\\emph{maximize}: optimizer with no target, maximizing throughput within the device budget; "
+              "\\emph{FIFO-aware}: target mode with \\texttt{enable\\_folding\\_fifo\\_heuristic} (the search "
+              "scores foldings with analytically sized FIFOs; optional, slower). \\emph{est./ref.}: the "
+              "optimizer folding's estimated throughput divided by the committed folding's (1.00 = target met "
+              "exactly, maximize: speed-up). \\emph{FIFO [kbit]}: total FIFO storage of the build. "
+              "\\emph{folding step [s]}: time of \\texttt{step\\_target\\_fps\\_parallelization}."),
+        table("DWC padding: optimizer with up to 4 channels of padding per layer at the committed throughput",
+              "tab:dwc", [("small", DWC_F), ("full", DWC_F)], dwc_rows,
+              "\\emph{result}: \\checkmark{} passed (output equal to the golden output and rtlsim throughput $\\geq 0.98\\times$ the build's own estimate), $\\times$ failed, skip = skipped, run = running, blk = blocked (its small run failed), -- = not run yet; metric cells stay empty unless the test finished. \\emph{est.\\ fps}: analytic throughput of the committed folding (the reference). \\emph{rtlsim/est.}: stitched-IP rtlsim throughput divided by the build's own analytic estimate. \\emph{small}: committed folding with every node's parallelism cut 4--8$\\times$; \\emph{full}: committed folding. Step times are wall-clock under the campaign's load, not isolated measurements. " + "\\emph{pad.\\ DWCs}: number of padding/cropping data width converters in the build "
+              "(skip: the padded search inserts none, so no hardware build is needed). \\emph{est./ref.}: "
+              "padded folding's estimated throughput divided by the committed folding's (below 1.00 is accepted "
+              "if within 10 \\% and its resource saving is larger than the throughput loss)."),
         "\\clearpage\\section*{Bugs fixed in the FINN compiler (outside our transformations)}",
         "Found while making the feature tests pass; each fix is a separate branch (dev-side PR), not part of the "
         "FIFO-sizing, folding or DWC PRs. Line counts include tests and docs.",
