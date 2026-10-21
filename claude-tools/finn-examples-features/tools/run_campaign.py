@@ -202,6 +202,7 @@ def main():
     ap.add_argument("--only", default=None, help="regex on job ids")
     ap.add_argument("--deadline", default="19:15")
     ap.add_argument("--max-threads", type=int, default=None)
+    ap.add_argument("--max-load", type=float, default=102, help="no launch above this 1-min load")
     ap.add_argument("--rerun-failed", action="store_true")
     ap.add_argument("--variant", default="", help="queue this variant's jobs (e.g. 2)")
     ap.add_argument("--first", action="append", default=[], help="regex: run these first")
@@ -277,8 +278,12 @@ def main():
         subprocess.run([sys.executable, os.path.join(TOOLS, "status_table.py")] + extra,
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
+    last_regen = time.time()
     while pending or running:
         now = datetime.datetime.now()
+        if time.time() - last_regen > 600:  # running/pending markers, also without completions
+            regen_status()
+            last_regen = time.time()
         # reap
         for jid, (job, proc, start) in list(running.items()):
             if proc.poll() is not None:
@@ -323,7 +328,7 @@ def main():
                     print(f"{now:%H:%M} blocked {job['id']} ({dep}: {res})", flush=True)
                     continue
             need = job["workers"] + 1
-            if used + need > budget or os.getloadavg()[0] > 102:
+            if used + need > budget or os.getloadavg()[0] > args.max_load:
                 break
             if mem_available() - job["mem"] * GIB < 151 * GIB:
                 break

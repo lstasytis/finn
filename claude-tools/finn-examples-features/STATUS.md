@@ -1,31 +1,35 @@
 # Feature-test status (models x features)
 
-Generated 2026-10-19 19:10 by `tools/status_table.py` from the campaign results. Cells: result, rtlsim/estimate throughput ratio, (folding/DWC) own estimate vs the committed folding's estimate, FIFO storage, padding DWCs, time of the feature's step (FIFO sizing or folding; measured under load, not comparable to isolated timings). ⏳ running, ⏸ not run yet, aborted = killed at the reboot deadline.
+Generated 2026-10-21 00:38 by `tools/status_table.py` from the campaign results (variant 2). Cells: result, rtlsim/estimate throughput ratio, (folding/DWC) own estimate vs the committed folding's estimate, FIFO storage, padding DWCs, time of the feature's step (measured under load). With sizes, a cell lists the small folding first, then the full one. ⏳ running, ⏸ not run yet, blocked = its small run failed. FIFO-aware folding (optional, `enable_folding_fifo_heuristic`) at the reference target: folding time, throughput, final FIFO size, each vs the plain optimizer folding.
 
-| model (board) | est. fps (committed) | FIFO analytical | Folding target | Folding maximize | DWC | FIFO rtlsim | Notes |
-|---|---|---|---|---|---|---|---|
-| tfc-w1a1 (AUP-ZU3_8GB) | 11111111.1 | ✅ 1.000x 18.3 kbit 0.1 s | ❌ 1.000x est 0.60x ref 4.7 kbit 1.8 s target infeasible in budget (committed MVAU_hls_0 PE32xSIMD784; LabelSelect PE=1), see #005 | ✅ 1.045x est 0.39x ref 2.4 kbit 21.8 s | skip (no padding) | ✅ 1.000x 18.3 kbit 13849.3 s | folding target: committed folding near-fully unrolled (9 cycles) - beyond the optimizer's ZU3 budget and LabelSelect kept at PE=1; optimizer 15 cycles, rtlsim = estimate |
-| tfc-w1a2 (AUP-ZU3_8GB) | 6666666.7 | ✅ 1.000x 8.2 kbit 0.2 s | ✅ 1.000x est 1.00x ref 6.1 kbit 1.8 s | ✅ 1.000x est 0.43x ref 2.9 kbit 22.3 s | skip (no padding) | ✅ 1.000x 8.2 kbit 1303.4 s |  |
-| tfc-w2a2 (AUP-ZU3_8GB) | 6666666.7 | ✅ 1.000x 6.7 kbit 0.2 s | ✅ 1.000x est 1.00x ref 6.1 kbit 1.8 s | ✅ 1.000x est 0.43x ref 2.9 kbit 22.8 s | skip (no padding) | ✅ 1.000x 6.7 kbit 1225.3 s |  |
-| lfc-w1a1 (AUP-ZU3_8GB) | 192678.2 | ✅ 0.988x 4.8 kbit 0.6 s | ✅ 1.000x est 1.00x ref 5.4 kbit 2.2 s | ✅ 1.000x est 1.00x ref 5.4 kbit 34.0 s | skip (no padding) | ✅ 1.002x 4.8 kbit 3747.5 s |  |
-| lfc-w1a2 (AUP-ZU3_8GB) | 48661.8 | ✅ 0.997x 6.8 kbit 0.6 s | ✅ 1.000x est 1.00x ref 6.8 kbit 2.2 s | ✅ 1.000x est 1.99x ref 10.4 kbit 34.9 s | skip (no padding) | ✅ 1.000x 6.9 kbit 5396.6 s |  |
-| cnv-w1a1 (AUP-ZU3_8GB) | 12244.4 | ✅ 1.001x 11.9 kbit 1.9 s | ✅ 1.001x est 1.00x ref 17.2 kbit 9.5 s | ✅ 1.000x est 0.57x ref 41.1 kbit 159.5 s | skip (no padding) | ✅ 1.001x 12.2 kbit 2528.3 s |  |
-| cnv-w1a2 (AUP-ZU3_8GB) | 3028.5 | ✅ 1.008x 26.7 kbit 2.9 s | ✅ 1.008x est 1.00x ref 40.0 kbit 9.6 s | ✅ 1.000x est 1.19x ref 99.4 kbit 152.1 s | skip (no padding) | ✅ 1.008x 26.7 kbit 1839.0 s |  |
-| cnv-w2a2 (AUP-ZU3_8GB) | 3028.5 | ✅ 1.008x 25.5 kbit 3.2 s | ✅ 1.008x est 1.00x ref 41.0 kbit 10.6 s | ✅ 1.000x est 1.19x ref 99.4 kbit 155.4 s | skip (no padding) | ✅ 1.008x 25.6 kbit 1826.4 s |  |
-| cnv-w1a2 (KV260_SOM) | 3028.5 | ✅ 1.008x 26.7 kbit 2.8 s | ✅ 1.008x est 1.00x ref 29.9 kbit 11.4 s | ✅ 1.000x est 1.79x ref 46.9 kbit 153.6 s | skip (no padding) | ✅ 1.008x 26.7 kbit 1767.1 s |  |
-| cnv-w2a2 (U55C) | 3028.5 | ✅ 1.007x 25.5 kbit 3.2 s | ✅ 1.007x est 1.00x ref 29.9 kbit 11.4 s | ❌ 0.941x est 20.97x ref 34.9 kbit 151.7 s #006 (21x committed, rtlsim 0.94x est) | skip (no padding) | ✅ 1.007x 25.6 kbit 1793.5 s |  |
-| gtsrb (AUP-ZU3_8GB) | 8133.4 | ✅ 1.000x 9.9 kbit 2.3 s | ✅ 1.001x est 1.09x ref 27.0 kbit 10.4 s | ✅ 1.000x est 0.96x ref 75.3 kbit 153.1 s | skip (no padding) | ✅ 1.000x 10.1 kbit 2198.1 s |  |
-| kws (AUP-ZU3_8GB) | 25464.7 | ✅ 0.998x 4.3 kbit 0.1 s | ✅ 0.998x est 1.00x ref 4.8 kbit 1.9 s | ✅ 0.988x est 8.00x ref 5.5 kbit 26.8 s | skip (no padding) | ✅ 1.000x 4.3 kbit 435.3 s |  |
-| cybersecurity-mlp (AUP-ZU3_8GB) | 12500000.0 | ✅ 1.333x 3.7 kbit 0.1 s | ✅ 1.333x est 1.00x ref 3.7 kbit 1.3 s | ✅ 1.000x est 0.35x ref 3.5 kbit 17.7 s | skip (no padding) | ✅ 1.333x 3.7 kbit 4718.9 s |  |
-| vgg10-radioml (ZCU104) | 243190.7 | ✅ 1.001x 15.7 kbit 0.7 s | ✅ 1.001x est 1.00x ref 14.6 kbit 21.1 s | ✅ 1.001x est 1.00x ref 14.6 kbit 351.6 s | ✅ 1.000x est 1.00x ref 14.8 kbit 2 pad DWC 48.8 s | ✅ 1.001x 14.6 kbit 684.4 s |  |
-| espcn (KV260_SOM) | 381.5 | ❌ #007 stitched-IP rtlsim output wrong (job aborted at the deadline in the throughput measurement) | ❌ #007 same zero pattern (aborted at the deadline) | aborted (an earlier run's output verified, #007 report) | skip (no padding) | aborted | #007: output zeros under backpressure (FIFO analytical, fold-target); fold-max passes; OuterShuffle_hls II=3 (upstream) |
-| mobilenet_v1 (U55C) | 422.7 | ✅ 1.000x 777.5 kbit 47.1 s | ✅ 0.987x est 1.00x ref 87.9 kbit 59.6 s | ❌ 0.848x est 15.71x ref 641.8 kbit 1172.9 s #006 (15.7x committed, rtlsim 0.85x est) | ❌ 0.976x est 1.00x ref 740.0 kbit 16 pad DWC 123.0 s #006 (16 pad DWCs, target met, rtlsim 0.976x est) | ✅ 1.000x 971.6 kbit 3946.6 s |  |
-| resnet18_4w4a (U55C) | 3814.7 | aborted | ❌ 0.2 s #003 (fixed 18:45, not rerun: deadline) | ❌ 0.1 s #003 (fixed 18:45, not rerun: deadline) | ❌ #003 (fixed 18:45, not rerun: deadline) | aborted |  |
-| resnet18_8w8a (U55C) | 1695.4 | skip | ❌ 0.1 s #003 (fixed 18:45, not rerun: deadline) | ❌ 0.2 s #003 (fixed 18:45, not rerun: deadline) | ❌ #003 (fixed 18:45, not rerun: deadline) | skip | FIFO: n/a, committed folding has runtime-writeable URAM weights, not initialized in stitched-IP rtlsim |
-| quantyolov8_4w4a (U55C) | 90.4 | aborted | ❌ 0.3 s #003 (fixed 18:45, not rerun: deadline) | ❌ 0.2 s #003 (fixed 18:45, not rerun: deadline) | ❌ #003 (fixed 18:45, not rerun: deadline) | aborted |  |
-| quantyolov8_8w8a (U55C) | 90.4 | aborted | ❌ 0.3 s #003 (fixed 18:45, not rerun: deadline) | ❌ 0.3 s #003 (fixed 18:45, not rerun: deadline) | ❌ #003 (fixed 18:45, not rerun: deadline) | aborted |  |
-| bert (VCK190) | 508.6 | ✅ 4.000x 6085.0 kbit 20.1 s | ❌ 0.1 s #003 (fixed 18:45, not rerun: deadline) | ❌ 0.1 s #003 (fixed 18:45, not rerun: deadline) | ❌ #003 (fixed 18:45, not rerun: deadline) | ✅ 2.841x 6537.7 kbit 826.6 s | FIFO: #001 fixed (dynamic MVAU characterization), rerun; estimate 4x pessimistic for tiled MVAUs (TH), rtlsim 4.0x est |
-| resnet50 (V80) | 276.8 | aborted | ❌ 0.4 s #003 (fixed 18:45, not rerun: deadline) | ❌ 0.4 s #003 (fixed 18:45, not rerun: deadline) | ❌ #003 (fixed 18:45, not rerun: deadline) | aborted |  |
+| model (board) | est. fps (committed) | FIFO analytical | Folding target | Folding maximize | DWC | FIFO-aware: time | FIFO-aware: throughput | FIFO-aware: FIFO size | FIFO rtlsim | Notes |
+|---|---|---|---|---|---|---|---|---|---|---|
+| tfc-w1a1 (AUP-ZU3_8GB) | 11111111.1 | ✅ 1.000x 5.1 kbit 0.1 s / ⏸ | ⏳ / ⏸ | ⏸ | ⏳ / ⏸ | ⏸ |  |  | ⏸ / ⏸ | folding target: committed folding near-fully unrolled (9 cycles) - beyond the optimizer's ZU3 budget and LabelSelect kept at PE=1; optimizer 15 cycles, rtlsim = estimate |
+| tfc-w1a2 (AUP-ZU3_8GB) | 6666666.7 | ✅ 1.020x 2.7 kbit 4.0 s / ⏸ | ⏳ / ⏸ | ⏸ | ⏸ / ⏸ | ⏸ |  |  | ⏸ / ⏸ |  |
+| tfc-w2a2 (AUP-ZU3_8GB) | 6666666.7 | ✅ 1.019x 2.4 kbit 3.6 s / ⏸ | ⏳ / ⏸ | ⏸ | ⏸ / ⏸ | ⏸ |  |  | ⏸ / ⏸ |  |
+| lfc-w1a1 (AUP-ZU3_8GB) | 192678.2 | ✅ 1.000x 3.5 kbit 4.5 s / ⏸ | ⏳ / ⏸ | ⏸ | ⏸ / ⏸ | ⏸ |  |  | ⏸ / ⏸ |  |
+| lfc-w1a2 (AUP-ZU3_8GB) | 48661.8 | ✅ 1.000x 5.5 kbit 4.5 s / ⏸ | ⏳ / ⏸ | ⏸ | ⏸ / ⏸ | ⏸ |  |  | ⏸ / ⏸ |  |
+| cnv-w1a1 (AUP-ZU3_8GB) | 12244.4 | ✅ 1.001x 13.9 kbit 2.5 s / ⏸ | ⏳ / ⏸ | ⏸ | ⏸ / ⏸ | ⏸ |  |  | ⏸ / ⏸ |  |
+| cnv-w1a2 (AUP-ZU3_8GB) | 3028.5 | ⏳ / ⏸ | ⏳ / ⏸ | ⏸ | ⏸ / ⏸ | ⏸ |  |  | ⏸ / ⏸ |  |
+| cnv-w2a2 (AUP-ZU3_8GB) | 3028.5 | ⏳ / ⏸ | ⏳ / ⏸ | ⏸ | ⏸ / ⏸ | ⏸ |  |  | ⏸ / ⏸ |  |
+| cnv-w1a2 (KV260_SOM) | 3028.5 | ⏳ / ⏸ | ⏳ / ⏸ | ⏸ | ⏸ / ⏸ | ⏸ |  |  | ⏸ / ⏸ |  |
+| cnv-w2a2 (U55C) | 3028.5 | ⏳ / ⏸ | ⏳ / ⏸ | ⏸ | ⏸ / ⏸ | ⏸ |  |  | ⏸ / ⏸ |  |
+| gtsrb (AUP-ZU3_8GB) | 8133.4 | ✅ 1.000x 9.9 kbit 4.3 s / ⏸ | ⏳ / ⏸ | ⏸ | ⏸ / ⏸ | ⏸ |  |  | ⏸ / ⏸ |  |
+| kws (AUP-ZU3_8GB) | 25464.7 | ✅ 1.000x 4.2 kbit 0.2 s / ⏸ | ⏳ / ⏸ | ⏸ | ⏸ / ⏸ | ⏸ |  |  | ⏸ / ⏸ |  |
+| cybersecurity-mlp (AUP-ZU3_8GB) | 12500000.0 | ✅ 1.100x 1.9 kbit 0.1 s / ⏸ | ⏳ / ⏸ | ⏸ | ⏸ / ⏸ | ⏸ |  |  | ⏸ / ⏸ |  |
+| vgg10-radioml (ZCU104) | 243190.7 | ✅ 1.001x 11.0 kbit 13.1 s / ⏸ | ⏳ / ⏸ | ⏸ | ⏸ / ⏸ | ⏸ |  |  | ⏸ / ⏸ |  |
+| espcn (KV260_SOM) | 381.5 | ⏳ / ⏸ | ⏳ / ⏸ | ⏸ | ⏸ / ⏸ | ⏸ |  |  | ⏸ / ⏸ | #007: output zeros under backpressure (FIFO analytical, fold-target); fold-max passes; OuterShuffle_hls II=3 (upstream) |
+| mobilenet_v1 (U55C) | 422.7 | ✅ 0.991x 519.0 kbit 163.4 s / ⏸ | ✅ 0.986x est 1.00x ref 561.2 kbit 22.7 s / ✅ 0.987x est 1.00x ref 87.9 kbit 23.1 s | ❌ 0.883x est 15.71x ref 1132.8 kbit 392.4 s (see log) | ✅ 0.983x est 1.00x ref 545.4 kbit 6 pad DWC 46.7 s / ❌ 0.979x est 1.00x ref 721.5 kbit 23 pad DWC 49.4 s (see log) | ⏸ |  |  | ⏸ / ⏸ |  |
+| resnet18_4w4a (U55C) | 3814.7 | ⏳ / ⏸ | ✅ 1.000x est 1.00x ref 1457.0 kbit 29.1 s / ⏳ | ⏳ | ✅ 1.000x est 1.00x ref 1485.9 kbit 2 pad DWC 53.8 s / ⏳ | ⏸ |  |  | ⏸ / ⏸ |  |
+| resnet18_8w8a (U55C) | 1695.4 | skip / ⏸ | ⏳ / ⏸ | ⏳ | ⏳ / ⏸ | ⏸ |  |  | ⏸ / ⏸ | FIFO: n/a, committed folding has runtime-writeable URAM weights, not initialized in stitched-IP rtlsim |
+| quantyolov8_4w4a (U55C) | 90.4 | ⏳ / ⏸ | ⏳ / ⏸ | ⏳ | ⏳ / ⏸ | ⏸ |  |  | ⏸ / ⏸ |  |
+| quantyolov8_8w8a (U55C) | 90.4 | ⏳ / ⏸ | ⏳ / ⏸ | ⏳ | ⏳ / ⏸ | ⏸ |  |  | ⏸ / ⏸ |  |
+| bert (VCK190) | 2034.5 | ❌ 3510.0 kbit 457.1 s (see log) / ✅ 1.000x 6085.0 kbit 20.3 s | ❌ est 1.00x ref 2714.5 kbit 14.0 s (see log) / ⏸ | ⏸ | ⏸ / ⏸ | ⏸ |  |  | ⏸ / ⏸ | FIFO: #001 fixed (dynamic MVAU characterization), rerun; estimate 4x pessimistic for tiled MVAUs (TH), rtlsim 4.0x est |
+| resnet50 (V80) | 276.8 | ⏳ / ⏸ | ⏳ / ⏸ | ❌ est 12.00x ref 2289.0 kbit 2232.9 s (see log) | ⏳ / ⏸ | ⏸ |  |  | ⏸ / ⏸ |  |
+| transformer_benchmark (ZCU104) | 1525.9 | ✅ 1.000x 89.7 kbit 1.0 s / ✅ 1.000x 89.7 kbit 1.1 s | ✅ 1.000x est 1.00x ref 89.7 kbit 6.8 s / ✅ 1.000x est 1.00x ref 89.7 kbit 7.2 s | ✅ 1.000x est 51.20x ref 246.5 kbit 143.5 s | skip (no padding) / skip (no padding) | 8 s (plain 7 s) | ✅ 1525.9 fps (1.000x est) | 89.7 kbit (plain 89.7) | ⏸ / ⏸ |  |
+| transformer_radioml (ZCU104) | 21701.4 | ❌ 278.2 kbit 2.9 s (see log) / ❌ 330.2 kbit 1.3 s (see log) | ❌ est 1.00x ref 302.7 kbit 10.7 s (see log) / ❌ 2.667x est 0.75x ref 414.7 kbit 20.9 s (see log) | ❌ 2.667x est 0.75x ref 419.9 kbit 240.9 s (see log) | ⏸ / ⏸ | 275 s (plain 21 s) | ❌ 43402.8 fps (4.000x est) | 284.4 kbit (plain 414.7) | ⏸ / ⏸ |  |
+| transformer_vision (ZCU104) | 1525.9 | ❌ 527.3 kbit 13.7 s (see log) / ❌ 1167.6 kbit 11.2 s (see log) | ❌ 0.883x est 1.00x ref 574.0 kbit 27.8 s (see log) / ❌ est 1.00x ref 1207.0 kbit 25.3 s (see log) | ❌ 0.267x est 4.00x ref 1783.5 kbit 390.8 s (see log) | ❌ 0.899x est 1.12x ref 1328.5 kbit 1 pad DWC 46.4 s (see log) / ⏸ | 366 s (plain 25 s) | ❌ 1525.9 fps (1.000x est) | 1230.5 kbit (plain 1207.0) | ⏸ / ⏸ |  |
+| transformer_language (VCK190) | 1017.3 | ❌ 5049.5 kbit 85.0 s (see log) / ⏸ | ⏸ / ⏸ | ⏸ | skip (no padding) / ⏸ | ⏸ |  |  | ⏸ / ⏸ |  |
 
 Issues: `claude-tools/finn-examples-features/issues/<NNN-...>/ISSUE.md` (+ `REPORT.md` of the fix agent).
 * #001 fixed: bert dynamic MVAUs now characterized (tree model + in1 TAV); landed on feature/dev/analytical-fifo-sizing.
