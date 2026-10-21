@@ -37,6 +37,23 @@ TAGS = {
 COLS = ["fifo", "fold-target", "fold-max", "dwc", "fifo-rtlsim"]
 
 
+# row order of the result tables (user): model groups, variants keep their order within a group
+MODEL_ORDER = ["tfc", "cnv", "lfc", "gtsrb", "kws", "cybersecurity-mlp", "vgg10-radioml", "mobilenet_v1",
+               "resnet50", "resnet18", "espcn", "bert", "yolov8", "transformer"]
+
+
+def ordered_params(tiers):
+    """(mdir, param) pairs of the tiers in MODEL_ORDER (bnn-pynq split into tfc / cnv / lfc)."""
+    pairs = [(mdir, p) for mdir, _, params in tiers for p, *_ in params]
+
+    def group(pair):
+        mdir, p = pair
+        key = p.split("-")[-2] if mdir == "bnn-pynq" else mdir  # e.g. AUP-ZU3_8GB-tfc-w1a1 -> tfc
+        return MODEL_ORDER.index(key) if key in MODEL_ORDER else len(MODEL_ORDER)
+
+    return sorted(pairs, key=group)  # stable: variants keep their order
+
+
 def split_param(p):
     board = next(b for b in BOARDS if p.startswith(b))
     return board, p[len(board) + 1 :] or None
@@ -149,8 +166,8 @@ def main():
         "FIFO-aware: FIFO size | FIFO rtlsim | Notes |",
         "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
-    for mdir, stem, params in tiers:
-        for p, *_ in params:
+    for mdir, p in ordered_params(tiers):
+        if True:
             board, model = split_param(p)
             row = f"{model or mdir} ({board})"
             mtag = f"{mdir}_{model}" if mdir in MULTI else mdir

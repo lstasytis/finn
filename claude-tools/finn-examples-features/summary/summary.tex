@@ -1,7 +1,7 @@
 \documentclass[a4paper,10pt]{article}
 \usepackage[margin=18mm]{geometry}\usepackage{booktabs}\usepackage{amssymb}\usepackage[table]{xcolor}\usepackage{graphicx}\usepackage{pdflscape}\usepackage[hidelinks]{hyperref}
 \title{FINN feature tests: FIFO sizing, folding and DWC padding on the finn-examples models}
-\date{Snapshot 2026-10-21 11:31 (campaign variant 2, new upstream base)}
+\date{Snapshot 2026-10-21 11:55 (campaign variant 2, new upstream base)}
 \begin{document}\maketitle
 \section*{Results}
 Each test resumes the convert-phase checkpoint of a cached estimate-only build with the committed folding, builds the stitched IP and checks it in stitched-IP rtlsim. Each table lists, per model, the result and the measured numbers of every test variant; the column definitions are given under each table.
@@ -15,25 +15,25 @@ model (board) & \#nodes & est.\ fps & result & rtlsim/est. & FIFO [kB] & time [s
 tfc-w1a1 (AUP-ZU3\_8GB) & 6 & 11111111.1 & \checkmark & 1.000 & 0.64 & 0 & \checkmark & 1.000 & 2.28 & 0 & \checkmark & 1.000 & 0.64 & 972 & run &  &  &  & n/c & n/c (70) \\\hline
 tfc-w1a2 (AUP-ZU3\_8GB) & 6 & 6666666.7 & \checkmark & 1.020 & 0.34 & 4 & \checkmark & 1.000 & 1.02 & 0 & \checkmark & 1.020 & 0.34 & 469 & \checkmark & 1.000 & 1.02 & 2679 &  &  \\\hline
 tfc-w2a2 (AUP-ZU3\_8GB) & 6 & 6666666.7 & \checkmark & 1.019 & 0.29 & 4 & \checkmark & 1.000 & 0.84 & 0 & \checkmark & 1.019 & 0.29 & 467 & \checkmark & 1.000 & 0.84 & 2249 & n/c & n/c (70) \\\hline
-lfc-w1a1 (AUP-ZU3\_8GB) & 6 & 192678.2 & \checkmark & 1.000 & 0.44 & 4 & \checkmark & 1.002 & 0.60 & 1 & \checkmark & 1.000 & 0.44 & 10036 & run &  &  &  &  &  \\\hline
-lfc-w1a2 (AUP-ZU3\_8GB) & 6 & 48661.8 & \checkmark & 1.000 & 0.69 & 5 & \checkmark & 1.000 & 0.85 & 1 & \checkmark & 1.000 & 0.69 & 23815 & run &  &  &  &  &  \\\hline
 cnv-w1a1 (AUP-ZU3\_8GB) & 21 & 12244.4 & \checkmark & 1.001 & 1.73 & 2 & \checkmark & 1.001 & 1.49 & 3 & \checkmark & 1.001 & 1.77 & 1583 & \checkmark & 1.001 & 1.53 & 4581 & n/c & n/c (32774) \\\hline
 cnv-w1a2 (AUP-ZU3\_8GB) & 21 & 3028.5 & run &  &  &  & -- &  &  &  & run &  &  &  & -- &  &  &  &  &  \\\hline
 cnv-w2a2 (AUP-ZU3\_8GB) & 21 & 3028.5 & run &  &  &  & -- &  &  &  & run &  &  &  & -- &  &  &  & -- & -- \\\hline
 cnv-w1a2 (KV260\_SOM) & 21 & 3028.5 & run &  &  &  & -- &  &  &  & run &  &  &  & -- &  &  &  &  &  \\\hline
 cnv-w2a2 (U55C) & 21 & 3028.5 & run &  &  &  & -- &  &  &  & run &  &  &  & -- &  &  &  & -- & -- \\\hline
+lfc-w1a1 (AUP-ZU3\_8GB) & 6 & 192678.2 & \checkmark & 1.000 & 0.44 & 4 & \checkmark & 1.002 & 0.60 & 1 & \checkmark & 1.000 & 0.44 & 10036 & \checkmark & 1.002 & 0.60 & 7999 &  &  \\\hline
+lfc-w1a2 (AUP-ZU3\_8GB) & 6 & 48661.8 & \checkmark & 1.000 & 0.69 & 5 & \checkmark & 1.000 & 0.85 & 1 & \checkmark & 1.000 & 0.69 & 23815 & run &  &  &  &  &  \\\hline
 gtsrb (AUP-ZU3\_8GB) & 21 & 8133.4 & \checkmark & 1.000 & 1.24 & 4 & \checkmark & 1.000 & 1.23 & 3 & \checkmark & 1.007 & 1.53 & 1063 & \checkmark & 1.000 & 1.27 & 3972 &  &  \\\hline
 kws (AUP-ZU3\_8GB) & 6 & 25464.7 & \checkmark & 1.000 & 0.53 & 0 & \checkmark & 1.000 & 0.53 & 0 & \checkmark & 1.000 & 0.53 & 419 & \checkmark & 1.000 & 0.53 & 730 & n/c & n/c (490) \\\hline
 cybersecurity-mlp (AUP-ZU3\_8GB) & 4 & 12500000.0 & \checkmark & 1.100 & 0.24 & 0 & \checkmark & 1.333 & 0.46 & 0 & \checkmark & 1.100 & 0.24 & 2163 & run &  &  &  & n/c & n/c (70) \\\hline
 vgg10-radioml (ZCU104) & 49 & 243190.7 & \checkmark & 1.001 & 1.38 & 13 & \checkmark & 1.001 & 1.96 & 1 & \checkmark & 1.001 & 1.40 & 685 & \checkmark & 1.001 & 2.01 & 1137 & 0.9x & 0\% \\\hline
-espcn (KV260\_SOM) & 20 & 381.5 & run &  &  &  & -- &  &  &  & run &  &  &  & -- &  &  &  &  &  \\\hline
 mobilenet\_v1 (U55C) & 85 & 422.7 & \checkmark & 0.991 & 64.88 & 163 & \checkmark & 1.000 & 97.19 & 101 & \checkmark & 0.991 & 66.97 & 15799 & run &  &  &  & n/c & n/c (394272) \\\hline
+resnet50 (V80) & 227 & 276.8 & $\times$ &  & 327.73 & 859 & blk &  &  &  & $\times$ &  & 0.00 & 7490 & blk &  &  &  & -- & -- \\\hline
 resnet18\_4w4a (U55C) & 106 & 3814.7 & \checkmark & 0.997 & 134.06 & 290 & run &  &  &  & run &  &  &  & -- &  &  &  &  &  \\\hline
 resnet18\_8w8a (U55C) & 107 & 1695.4 & skip &  &  &  & skip &  &  &  & skip &  &  &  & skip &  &  &  &  &  \\\hline
+espcn (KV260\_SOM) & 20 & 381.5 & run &  &  &  & -- &  &  &  & run &  &  &  & -- &  &  &  &  &  \\\hline
+bert (VCK190) & 57 & 2034.5 & \checkmark & 1.000 & 913.91 & 952 & \checkmark & 1.000 & 910.08 & 34 & \checkmark & 1.000 & 1167.22 & 4138 & run &  &  &  &  &  \\\hline
 quantyolov8\_4w4a (U55C) & 271 & 90.4 & run &  &  &  & -- &  &  &  & run &  &  &  & -- &  &  &  &  &  \\\hline
 quantyolov8\_8w8a (U55C) & 271 & 90.4 & run &  &  &  & -- &  &  &  & run &  &  &  & -- &  &  &  &  &  \\\hline
-bert (VCK190) & 57 & 2034.5 & \checkmark & 1.000 & 913.91 & 952 & \checkmark & 1.000 & 910.08 & 34 & \checkmark & 1.000 & 1167.22 & 4138 & run &  &  &  &  &  \\\hline
-resnet50 (V80) & 227 & 276.8 & $\times$ &  & 327.73 & 859 & blk &  &  &  & $\times$ &  & 0.00 & 7490 & blk &  &  &  & -- & -- \\\hline
 transformer\_benchmark (ZCU104) & 51 & 1525.9 & \checkmark & 1.000 & 11.21 & 1 & \checkmark & 1.000 & 11.21 & 1 & \checkmark & 1.000 & 12.53 & 1654 & run &  &  &  &  &  \\\hline
 transformer\_radioml (ZCU104) & 67 & 21701.4 & $\times$ & 1.000 & 39.19 & 6 & blk &  &  &  & $\times$ & 1.000 & 43.25 & 2968 & blk &  &  &  & -- & -- \\\hline
 transformer\_vision (ZCU104) & 122 & 1525.9 & $\times$ & 1.000 & 89.90 & 28 & blk &  &  &  & run &  &  &  & -- &  &  &  & -- & -- \\\hline
@@ -51,25 +51,25 @@ model (board) & \#nodes & est.\ fps & result & rtlsim/ref. & res./ref. & time [s
 tfc-w1a1 (AUP-ZU3\_8GB) & 6 & 11111111.1 & \checkmark & 1.000 & 1.00 & 2 & $\times$ & 0.600 & 0.26 & 2 & \checkmark & 0.409 & 0.13 & 22 & $\times$ & 0.600 & 0.26 & 0.59 & 3 \\\hline
 tfc-w1a2 (AUP-ZU3\_8GB) & 6 & 6666666.7 & \checkmark & 1.065 & 0.95 & 2 & \checkmark & 1.000 & 0.99 & 2 & \checkmark & 0.429 & 0.32 & 28 & \checkmark & 1.000 & 0.99 & 0.76 & 3 \\\hline
 tfc-w2a2 (AUP-ZU3\_8GB) & 6 & 6666666.7 & \checkmark & 1.065 & 0.96 & 2 & \checkmark & 1.000 & 0.99 & 2 & \checkmark & 0.429 & 0.32 & 28 & \checkmark & 1.000 & 0.99 & 0.76 & 3 \\\hline
-lfc-w1a1 (AUP-ZU3\_8GB) & 6 & 192678.2 & \checkmark & 1.000 & 0.66 & 3 & \checkmark & 1.000 & 0.67 & 3 & \checkmark & 1.000 & 0.67 & 34 & \checkmark & 1.000 & 0.67 & 0.67 & 5 \\\hline
-lfc-w1a2 (AUP-ZU3\_8GB) & 6 & 48661.8 & $\times$ & 0.898 & 0.58 & 3 & blk &  &  &  & \checkmark & 1.993 & 0.85 & 29 & \checkmark & 1.000 & 0.61 & 0.85 & 4 \\\hline
 cnv-w1a1 (AUP-ZU3\_8GB) & 21 & 12244.4 & \checkmark & 1.001 & 0.63 & 10 & \checkmark & 1.001 & 0.50 & 10 & \checkmark & 0.567 & 0.40 & 130 & \checkmark & 1.001 & 0.50 & 2.15 & 32 \\\hline
 cnv-w1a2 (AUP-ZU3\_8GB) & 21 & 3028.5 & run &  &  &  & -- &  &  &  & \checkmark & 1.194 & 1.04$^\dagger$ & 142 & \checkmark & 1.008 & 0.98$^\dagger$ & 5.12 & 66 \\\hline
 cnv-w2a2 (AUP-ZU3\_8GB) & 21 & 3028.5 & run &  &  &  & -- &  &  &  & \checkmark & 1.194 & 1.04$^\dagger$ & 142 & \checkmark & 1.008 & 0.98$^\dagger$ & 5.12 & 73 \\\hline
 cnv-w1a2 (KV260\_SOM) & 21 & 3028.5 & run &  &  &  & -- &  &  &  & \checkmark & 1.791 & 1.25$^\dagger$ & 138 & \checkmark & 1.008 & 0.97$^\dagger$ & 3.85 & 73 \\\hline
 cnv-w2a2 (U55C) & 21 & 3028.5 & run &  &  &  & -- &  &  &  & \checkmark & 20.978 & 8.47$^\dagger$ & 137 & \checkmark & 1.007 & 0.97$^\dagger$ & 3.85 & 77 \\\hline
+lfc-w1a1 (AUP-ZU3\_8GB) & 6 & 192678.2 & \checkmark & 1.000 & 0.66 & 3 & \checkmark & 1.000 & 0.67 & 3 & \checkmark & 1.000 & 0.67 & 34 & \checkmark & 1.000 & 0.67 & 0.67 & 5 \\\hline
+lfc-w1a2 (AUP-ZU3\_8GB) & 6 & 48661.8 & $\times$ & 0.898 & 0.58 & 3 & blk &  &  &  & \checkmark & 1.993 & 0.85 & 29 & \checkmark & 1.000 & 0.61 & 0.85 & 4 \\\hline
 gtsrb (AUP-ZU3\_8GB) & 21 & 8133.4 & \checkmark & 1.007 & 0.79 & 11 & \checkmark & 1.092 & 0.74 & 10 & \checkmark & 0.960 & 0.65 & 135 & \checkmark & 1.092 & 0.74 & 3.37 & 120 \\\hline
 kws (AUP-ZU3\_8GB) & 6 & 25464.7 & \checkmark & 1.999 & 0.78 & 2 & \checkmark & 1.000 & 0.53 & 2 & \checkmark & 7.998 & 1.53 & 33 & \checkmark & 1.000 & 0.53 & 0.60 & 3 \\\hline
 cybersecurity-mlp (AUP-ZU3\_8GB) & 4 & 12500000.0 & \checkmark & 1.000 & 1.00 & 2 & \checkmark & 1.333 & 1.00 & 2 & \checkmark & 0.348 & 0.06 & 20 & \checkmark & 1.333 & 1.00 & 0.46 & 2 \\\hline
 vgg10-radioml (ZCU104) & 49 & 243190.7 & \checkmark & 1.000 & 0.80 & 14 & \checkmark & 1.001 & 0.91 & 12 & \checkmark & 1.001 & 0.91 & 164 & \checkmark & 1.001 & 0.91 & 2.02 & 157 \\\hline
-espcn (KV260\_SOM) & 20 & 381.5 & $\times$ & 0.895 & 13.58$^\dagger$ & 5 & blk &  &  &  & run &  &  &  & run &  &  &  &  \\\hline
 mobilenet\_v1 (U55C) & 85 & 422.7 & \checkmark & 0.986 & 0.92 & 23 & \checkmark & 0.987 & 0.46 & 23 & $\times$ & 13.875 & 1.15 & 392 & run &  &  &  &  \\\hline
+resnet50 (V80) & 227 & 276.8 & run &  &  &  & -- &  &  &  & $\times$ &  & 4.85$^\dagger$ & 2233 & run &  &  &  &  \\\hline
 resnet18\_4w4a (U55C) & 106 & 3814.7 & \checkmark & 1.000 & 0.87 & 29 & $\times$ & 0.959 & 0.92$^\dagger$ & 35 & $\times$ & 0.959 & 0.92$^\dagger$ & 498 & run &  &  &  &  \\\hline
 resnet18\_8w8a (U55C) & 107 & 1695.4 & \checkmark & 1.125 &  & 26 & run &  &  &  & run &  &  &  & run &  &  &  &  \\\hline
+espcn (KV260\_SOM) & 20 & 381.5 & $\times$ & 0.895 & 13.58$^\dagger$ & 5 & blk &  &  &  & run &  &  &  & run &  &  &  &  \\\hline
+bert (VCK190) & 57 & 2034.5 & \checkmark & 1.000 & 0.86 & 16 & $\times$ & 0.425 & 0.86 & 21 & \checkmark & 1.500 & 1.09 & 299 & $\times$ & 0.425 & 0.86 & 732.37 & 151 \\\hline
 quantyolov8\_4w4a (U55C) & 271 & 90.4 & run &  &  &  & -- &  &  &  & run &  &  &  & run &  &  &  &  \\\hline
 quantyolov8\_8w8a (U55C) & 271 & 90.4 & run &  &  &  & -- &  &  &  & run &  &  &  & run &  &  &  &  \\\hline
-bert (VCK190) & 57 & 2034.5 & \checkmark & 1.000 & 0.86 & 16 & run &  &  &  & \checkmark & 1.500 & 1.09 & 299 & $\times$ & 0.425 & 0.86 & 732.37 & 151 \\\hline
-resnet50 (V80) & 227 & 276.8 & run &  &  &  & -- &  &  &  & $\times$ &  & 4.85$^\dagger$ & 2233 & run &  &  &  &  \\\hline
 transformer\_benchmark (ZCU104) & 51 & 1525.9 & \checkmark & 1.000 & 1.00 & 7 & \checkmark & 1.000 & 1.00 & 7 & \checkmark & 51.200 & 4.96 & 143 & \checkmark & 1.000 & 1.00 & 11.21 & 8 \\\hline
 transformer\_radioml (ZCU104) & 67 & 21701.4 & $\times$ & 1.000 & 0.77 & 18 & blk &  &  &  & $\times$ & 2.000 & 1.48 & 339 & $\times$ & 0.750 & 0.71 & 45.36 & 780 \\\hline
 transformer\_vision (ZCU104) & 122 & 1525.9 & $\times$ & 1.000 & 0.81 & 33 & blk &  &  &  & $\times$ & 4.000 & 1.03 & 805 & $\times$ & 1.000 & 0.70 & 163.84 & 524 \\\hline
@@ -87,25 +87,25 @@ model (board) & \#nodes & est.\ fps & result & pad.\ DWCs & rtlsim/ref. & res./r
 tfc-w1a1 (AUP-ZU3\_8GB) & 6 & 11111111.1 & skip &  &  &  & skip &  &  &  \\\hline
 tfc-w1a2 (AUP-ZU3\_8GB) & 6 & 6666666.7 & \checkmark & 4 & 0.980 & 0.77 & skip &  &  &  \\\hline
 tfc-w2a2 (AUP-ZU3\_8GB) & 6 & 6666666.7 & \checkmark & 4 & 0.980 & 0.78 & skip &  &  &  \\\hline
-lfc-w1a1 (AUP-ZU3\_8GB) & 6 & 192678.2 & skip &  &  &  & skip &  &  &  \\\hline
-lfc-w1a2 (AUP-ZU3\_8GB) & 6 & 48661.8 & skip &  &  &  & skip &  &  &  \\\hline
 cnv-w1a1 (AUP-ZU3\_8GB) & 21 & 12244.4 & skip &  &  &  & skip &  &  &  \\\hline
 cnv-w1a2 (AUP-ZU3\_8GB) & 21 & 3028.5 & run &  &  &  & -- &  &  &  \\\hline
 cnv-w2a2 (AUP-ZU3\_8GB) & 21 & 3028.5 & run &  &  &  & -- &  &  &  \\\hline
 cnv-w1a2 (KV260\_SOM) & 21 & 3028.5 & run &  &  &  & -- &  &  &  \\\hline
 cnv-w2a2 (U55C) & 21 & 3028.5 & run &  &  &  & -- &  &  &  \\\hline
+lfc-w1a1 (AUP-ZU3\_8GB) & 6 & 192678.2 & skip &  &  &  & skip &  &  &  \\\hline
+lfc-w1a2 (AUP-ZU3\_8GB) & 6 & 48661.8 & skip &  &  &  & skip &  &  &  \\\hline
 gtsrb (AUP-ZU3\_8GB) & 21 & 8133.4 & \checkmark & 1 & 1.007 & 0.79 & \checkmark & 3 & 1.045 & 0.71 \\\hline
 kws (AUP-ZU3\_8GB) & 6 & 25464.7 & \checkmark & 2 & 1.424 & 0.73 & skip &  &  &  \\\hline
 cybersecurity-mlp (AUP-ZU3\_8GB) & 4 & 12500000.0 & skip &  &  &  & skip &  &  &  \\\hline
 vgg10-radioml (ZCU104) & 49 & 243190.7 & \checkmark & 4 & 1.000 & 0.81 & \checkmark & 2 & 1.000 & 0.91 \\\hline
-espcn (KV260\_SOM) & 20 & 381.5 & run &  &  &  & -- &  &  &  \\\hline
 mobilenet\_v1 (U55C) & 85 & 422.7 & \checkmark & 6 & 0.983 & 0.92 & $\times$ & 23 & 0.979 & 0.44 \\\hline
+resnet50 (V80) & 227 & 276.8 & run &  &  &  & -- &  &  &  \\\hline
 resnet18\_4w4a (U55C) & 106 & 3814.7 & \checkmark & 2 & 1.000 & 0.86 & run &  &  &  \\\hline
 resnet18\_8w8a (U55C) & 107 & 1695.4 & \checkmark & 1 & 0.988 &  & skip &  &  &  \\\hline
+espcn (KV260\_SOM) & 20 & 381.5 & run &  &  &  & -- &  &  &  \\\hline
+bert (VCK190) & 57 & 2034.5 & \checkmark & 2 & 1.000 & 0.86 & run &  &  &  \\\hline
 quantyolov8\_4w4a (U55C) & 271 & 90.4 & run &  &  &  & -- &  &  &  \\\hline
 quantyolov8\_8w8a (U55C) & 271 & 90.4 & run &  &  &  & -- &  &  &  \\\hline
-bert (VCK190) & 57 & 2034.5 & \checkmark & 2 & 1.000 & 0.86 & run &  &  &  \\\hline
-resnet50 (V80) & 227 & 276.8 & run &  &  &  & -- &  &  &  \\\hline
 transformer\_benchmark (ZCU104) & 51 & 1525.9 & skip &  &  &  & skip &  &  &  \\\hline
 transformer\_radioml (ZCU104) & 67 & 21701.4 & skip &  &  &  & $\times$ & 1 & 1.000 & 0.76 \\\hline
 transformer\_vision (ZCU104) & 122 & 1525.9 & skip &  &  &  & skip &  &  &  \\\hline

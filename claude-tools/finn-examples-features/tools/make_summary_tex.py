@@ -11,7 +11,7 @@ import os
 import subprocess
 
 from run_campaign import LOGDIR, M, TIER1, TIER2, TIER_TRANSFORMER, build_queue, junit_result
-from status_table import MULTI, job_metrics, latest, load, split_param
+from status_table import MULTI, job_metrics, latest, load, ordered_params, split_param
 
 OUT = os.path.join(M, "claude-tools/finn-examples-features/summary/summary.tex")
 VARIANT = "2"
@@ -315,8 +315,8 @@ def main():
     fifo_rows, fold_rows, dwc_rows = [], [], []
     FIFO_F, FOLD_F, FAW_F, DWC_F = (["ratio", "kbit", "tfifo"], ["tref", "res", "tfold"],
                                     ["tref", "res", "kbit", "tfold"], ["pad", "tref", "res"])
-    for mdir, _, params in tiers:
-        for p, *_ in params:
+    for mdir, p in ordered_params(tiers):
+        if True:
             board, model = split_param(p)
             name = tex(f"{model or mdir} ({board})")
             mtag = f"{mdir}_{model}" if mdir in MULTI else mdir
