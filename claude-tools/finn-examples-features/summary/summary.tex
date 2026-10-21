@@ -1,0 +1,205 @@
+\documentclass[a4paper,10pt]{article}
+\usepackage[margin=18mm]{geometry}\usepackage{booktabs}\usepackage{amssymb}\usepackage{graphicx}\usepackage[hidelinks]{hyperref}
+\title{FINN feature tests: FIFO sizing, folding and DWC padding on the finn-examples models}
+\date{Snapshot 2026-10-21 08:29 (campaign variant 2, new upstream base)}
+\begin{document}\maketitle
+\section*{Results}
+Each test resumes the convert-phase checkpoint of a cached estimate-only build with the committed folding, builds the stitched IP and checks it in stitched-IP rtlsim: output equal to the golden output and rtlsim throughput $\geq 0.98\times$ the build's own analytic estimate. \emph{small}: the committed folding with every node's parallelism cut 4--8$\times$ (fast functional check, runs first); \emph{full}: the committed folding (target = its estimated throughput). Cell: \checkmark{} passed / $\times$ failed, rtlsim/estimate ratio, FIFO storage (k = kbit), est/ref = the folding's estimate vs the committed folding's, $n$p = padding DWCs, time of the feature's step. -- not run yet, run = running, blk = blocked (small run failed), skip = skipped (DWC: no padding needed).
+\begin{table}[ht]\centering\scriptsize
+\caption{FIFO sizing (analytical vs.\ rtlsim-based heuristic), committed folding}\label{tab:fifo}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lrllll}\toprule
+model (board) & est.\ fps & analytical small & analytical full & rtlsim small & rtlsim full \\\midrule
+tfc-w1a1 (AUP-ZU3\_8GB) & 11111111.1 & \checkmark 1.000 5.1k 0s & \checkmark 1.000 18.3k 0s & \checkmark 1.000 5.1k 972s & -- \\
+tfc-w1a2 (AUP-ZU3\_8GB) & 6666666.7 & \checkmark 1.020 2.7k 4s & \checkmark 1.000 8.2k 0s & \checkmark 1.020 2.7k 469s & -- \\
+tfc-w2a2 (AUP-ZU3\_8GB) & 6666666.7 & \checkmark 1.019 2.4k 4s & \checkmark 1.000 6.7k 0s & \checkmark 1.019 2.4k 467s & -- \\
+lfc-w1a1 (AUP-ZU3\_8GB) & 192678.2 & \checkmark 1.000 3.5k 4s & \checkmark 1.002 4.8k 1s & \checkmark 1.000 3.5k 10036s & -- \\
+lfc-w1a2 (AUP-ZU3\_8GB) & 48661.8 & \checkmark 1.000 5.5k 5s & \checkmark 1.000 6.8k 1s & \checkmark 1.000 5.5k 23815s & -- \\
+cnv-w1a1 (AUP-ZU3\_8GB) & 12244.4 & \checkmark 1.001 13.9k 2s & \checkmark 1.001 11.9k 3s & \checkmark 1.001 14.2k 1583s & -- \\
+cnv-w1a2 (AUP-ZU3\_8GB) & 3028.5 & run & -- & run & -- \\
+cnv-w2a2 (AUP-ZU3\_8GB) & 3028.5 & run & -- & run & -- \\
+cnv-w1a2 (KV260\_SOM) & 3028.5 & run & -- & run & -- \\
+cnv-w2a2 (U55C) & 3028.5 & run & -- & run & -- \\
+gtsrb (AUP-ZU3\_8GB) & 8133.4 & \checkmark 1.000 9.9k 4s & \checkmark 1.000 9.9k 3s & \checkmark 1.007 12.3k 1063s & -- \\
+kws (AUP-ZU3\_8GB) & 25464.7 & \checkmark 1.000 4.2k 0s & \checkmark 1.000 4.3k 0s & \checkmark 1.000 4.2k 419s & -- \\
+cybersecurity-mlp (AUP-ZU3\_8GB) & 12500000.0 & \checkmark 1.100 1.9k 0s & \checkmark 1.333 3.7k 0s & \checkmark 1.100 1.9k 2163s & -- \\
+vgg10-radioml (ZCU104) & 243190.7 & \checkmark 1.001 11.0k 13s & \checkmark 1.001 15.7k 1s & \checkmark 1.001 11.2k 685s & -- \\
+espcn (KV260\_SOM) & 381.5 & run & -- & run & -- \\
+mobilenet\_v1 (U55C) & 422.7 & \checkmark 0.991 519.0k 163s & \checkmark 1.000 777.5k 101s & \checkmark 0.991 535.8k 15799s & -- \\
+resnet18\_4w4a (U55C) & 3814.7 & \checkmark 0.997 1072.5k 290s & run & run & -- \\
+resnet18\_8w8a (U55C) & 1695.4 & skip & skip & skip & -- \\
+quantyolov8\_4w4a (U55C) & 90.4 & run & -- & run & -- \\
+quantyolov8\_8w8a (U55C) & 90.4 & run & -- & run & -- \\
+bert (VCK190) & 2034.5 & \checkmark 1.000 7311.3k 952s & \checkmark 1.000 7280.6k 34s & \checkmark 1.000 9337.8k 4138s & -- \\
+resnet50 (V80) & 276.8 & $\times$ 2621.9k 859s & blk & $\times$ 0.0k 7490s & -- \\
+transformer\_benchmark (ZCU104) & 1525.9 & \checkmark 1.000 89.7k 1s & \checkmark 1.000 89.7k 1s & \checkmark 1.000 100.3k 1654s & -- \\
+transformer\_radioml (ZCU104) & 21701.4 & $\times$ 1.000 313.5k 6s & blk & $\times$ 1.000 346.0k 2968s & -- \\
+transformer\_vision (ZCU104) & 1525.9 & run & -- & run & -- \\
+transformer\_language (VCK190) & 1017.3 & $\times$ 5049.5k 85s & -- & -- & -- \\
+\bottomrule\end{tabular}}
+\end{table}
+\begin{table}[ht]\centering\scriptsize
+\caption{Folding optimizer (FIFOs sized analytically): at the committed throughput (target), maximized within the device budget, and the optional FIFO-aware search at the target}\label{tab:fold}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lllll}\toprule
+model (board) & target small & target full & maximize & FIFO-aware \\\midrule
+tfc-w1a1 (AUP-ZU3\_8GB) & \checkmark 1.000 1.00x 2s & $\times$ 1.000 0.60x 2s & \checkmark 1.045 0.39x 22s & $\times$ 1.000 4.7k 3s \\
+tfc-w1a2 (AUP-ZU3\_8GB) & \checkmark 1.022 1.04x 2s & \checkmark 1.000 1.00x 2s & \checkmark 1.000 0.43x 28s & \checkmark 1.000 6.1k 3s \\
+tfc-w2a2 (AUP-ZU3\_8GB) & \checkmark 1.022 1.04x 2s & \checkmark 1.000 1.00x 2s & \checkmark 1.000 0.43x 28s & \checkmark 1.000 6.1k 3s \\
+lfc-w1a1 (AUP-ZU3\_8GB) & \checkmark 1.000 1.00x 3s & \checkmark 1.000 1.00x 3s & \checkmark 1.000 1.00x 34s & \checkmark 1.000 5.4k 5s \\
+lfc-w1a2 (AUP-ZU3\_8GB) & $\times$ 0.898 1.00x 3s & blk & \checkmark 1.000 1.99x 29s & run \\
+cnv-w1a1 (AUP-ZU3\_8GB) & \checkmark 1.001 1.00x 10s & \checkmark 1.001 1.00x 10s & \checkmark 1.000 0.57x 130s & \checkmark 1.001 17.2k 32s \\
+cnv-w1a2 (AUP-ZU3\_8GB) & run & -- & \checkmark 1.000 1.19x 142s & run \\
+cnv-w2a2 (AUP-ZU3\_8GB) & run & -- & \checkmark 1.000 1.19x 142s & run \\
+cnv-w1a2 (KV260\_SOM) & run & -- & \checkmark 1.000 1.79x 138s & run \\
+cnv-w2a2 (U55C) & run & -- & \checkmark 1.001 20.97x 137s & run \\
+gtsrb (AUP-ZU3\_8GB) & \checkmark 1.007 1.00x 11s & \checkmark 1.001 1.09x 10s & \checkmark 1.000 0.96x 135s & run \\
+kws (AUP-ZU3\_8GB) & \checkmark 1.000 2.00x 2s & \checkmark 1.000 1.00x 2s & \checkmark 0.998 8.01x 33s & \checkmark 1.000 4.8k 3s \\
+cybersecurity-mlp (AUP-ZU3\_8GB) & \checkmark 1.000 1.00x 2s & \checkmark 1.333 1.00x 2s & \checkmark 1.000 0.35x 20s & run \\
+vgg10-radioml (ZCU104) & \checkmark 1.000 1.00x 14s & \checkmark 1.001 1.00x 12s & \checkmark 1.001 1.00x 164s & run \\
+espcn (KV260\_SOM) & run & -- & run & run \\
+mobilenet\_v1 (U55C) & \checkmark 0.986 1.00x 23s & \checkmark 0.987 1.00x 23s & $\times$ 0.883 15.71x 392s & -- \\
+resnet18\_4w4a (U55C) & \checkmark 1.000 1.00x 29s & $\times$ 0.959 1.00x 35s & $\times$ 0.959 1.00x 498s & -- \\
+resnet18\_8w8a (U55C) & \checkmark 1.000 1.12x 26s & run & run & -- \\
+quantyolov8\_4w4a (U55C) & run & -- & run & -- \\
+quantyolov8\_8w8a (U55C) & run & -- & run & -- \\
+bert (VCK190) & \checkmark 1.000 1.00x 16s & run & run & run \\
+resnet50 (V80) & run & -- & $\times$ 12.00x 2233s & -- \\
+transformer\_benchmark (ZCU104) & \checkmark 1.000 1.00x 7s & \checkmark 1.000 1.00x 7s & \checkmark 1.000 51.20x 143s & \checkmark 1.000 89.7k 8s \\
+transformer\_radioml (ZCU104) & $\times$ 1.000 1.00x 18s & blk & $\times$ 1.000 2.00x 339s & $\times$ 1.500 362.9k 780s \\
+transformer\_vision (ZCU104) & run & -- & $\times$ 1.000 4.00x 805s & run \\
+transformer\_language (VCK190) & -- & -- & -- & -- \\
+\bottomrule\end{tabular}}
+\end{table}
+\begin{table}[ht]\centering\scriptsize
+\caption{DWC padding: optimizer with up to 4 channels of padding at the committed throughput}\label{tab:dwc}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lll}\toprule
+model (board) & small & full \\\midrule
+tfc-w1a1 (AUP-ZU3\_8GB) & skip & skip \\
+tfc-w1a2 (AUP-ZU3\_8GB) & \checkmark 4p 0.980 1.00x & skip \\
+tfc-w2a2 (AUP-ZU3\_8GB) & \checkmark 4p 0.980 1.00x & skip \\
+lfc-w1a1 (AUP-ZU3\_8GB) & skip & skip \\
+lfc-w1a2 (AUP-ZU3\_8GB) & skip & skip \\
+cnv-w1a1 (AUP-ZU3\_8GB) & skip & skip \\
+cnv-w1a2 (AUP-ZU3\_8GB) & run & -- \\
+cnv-w2a2 (AUP-ZU3\_8GB) & run & -- \\
+cnv-w1a2 (KV260\_SOM) & run & -- \\
+cnv-w2a2 (U55C) & run & -- \\
+gtsrb (AUP-ZU3\_8GB) & \checkmark 1p 1.007 1.00x & \checkmark 3p 1.000 1.05x \\
+kws (AUP-ZU3\_8GB) & \checkmark 2p 1.000 1.42x & skip \\
+cybersecurity-mlp (AUP-ZU3\_8GB) & skip & skip \\
+vgg10-radioml (ZCU104) & \checkmark 4p 1.000 1.00x & \checkmark 2p 1.000 1.00x \\
+espcn (KV260\_SOM) & run & -- \\
+mobilenet\_v1 (U55C) & \checkmark 6p 0.983 1.00x & $\times$ 23p 0.979 1.00x \\
+resnet18\_4w4a (U55C) & \checkmark 2p 1.000 1.00x & run \\
+resnet18\_8w8a (U55C) & run & -- \\
+quantyolov8\_4w4a (U55C) & run & -- \\
+quantyolov8\_8w8a (U55C) & run & -- \\
+bert (VCK190) & \checkmark 2p 1.000 1.00x & run \\
+resnet50 (V80) & run & -- \\
+transformer\_benchmark (ZCU104) & skip & skip \\
+transformer\_radioml (ZCU104) & skip & $\times$ 1p 1.000 1.00x \\
+transformer\_vision (ZCU104) & skip & skip \\
+transformer\_language (VCK190) & skip & -- \\
+\bottomrule\end{tabular}}
+\end{table}
+\clearpage\section*{Bugs fixed in the FINN compiler (outside our transformations)}
+Found while making the feature tests pass; each fix is a separate branch (dev-side PR), not part of the FIFO-sizing, folding or DWC PRs. Line counts include tests and docs.
+\begin{enumerate}
+\item \textbf{MVU output queue overflow at SF = 1} (issue 007, 012). mvu\_vvu\_axi's output queue was sized for an outdated core latency (non-power-of-2 SIMD and non-INT8 DSP58 cores are deeper) and a registered output lock let one more item in: under output backpressure results were overwritten and read back as X (espcn: whole pixels zeroed). The RTL's own assertion fired unseen.\\
+\emph{Fix:} +97/$-$12 lines, branch \texttt{feature/dev/mvu-output-queue}, commit(s) \texttt{55a0edb83}.\\
+{\footnotesize \texttt{finn-rtllib/mvu/mvu\_vvu\_axi.sv} (+15/$-$12); \texttt{tests/fpgadataflow/test\_fpgadataflow\_mvau.py} (+82/$-$0)}
+\item \textbf{Tiled MVAU expected cycles} (issue 009). get\_exp\_cycles multiplied by TH (bert estimate 4x pessimistic); upstream's c15fb8a9a drops it, plus the two per-group stalls of the tiled MVU (activation replay, output reorder) modelled from the RTL.\\
+\emph{Fix:} +241/$-$30 lines, branch \texttt{feature/dev/mvau-exp-cycles}, commit(s) \texttt{187efdac7 cbd53df4c}.\\
+{\footnotesize \texttt{src/finn/custom\_op/fpgadataflow/matrixvectoractivation.py} (+97/$-$6); \texttt{src/finn/custom\_op/fpgadataflow/rtl/finn\_loop.py} (+5/$-$3); \texttt{tests/fpgadataflow/test\_fpgadataflow\_finnloop.py} (+9/$-$21); \texttt{tests/fpgadataflow/test\_fpgadataflow\_mvau.py} (+130/$-$0)}
+\item \textbf{StreamingSplit/Concat at 5 cycles per word} (issue 010, 012). the generated HLS top was not pipelined (interval 5) while the estimate said 1 word/cycle; a dataflow pragma makes them 1 word/cycle (and smaller).\\
+\emph{Fix:} +61/$-$0 lines, branch \texttt{feature/dev/split-concat-dataflow}, commit(s) \texttt{bcb838bbb}.\\
+{\footnotesize \texttt{src/finn/custom\_op/fpgadataflow/hls/concat\_hls.py} (+4/$-$0); \texttt{src/finn/custom\_op/fpgadataflow/hls/split\_hls.py} (+4/$-$0); \texttt{tests/fpgadataflow/test\_fpgadataflow\_concat.py} (+27/$-$0); \texttt{tests/fpgadataflow/test\_fpgadataflow\_split.py} (+26/$-$0)}
+\item \textbf{GlobalAccPool on non-square inputs} (issue 011). AccPool\_Batch assumed a square image: the transformer token pool ([1,1,64]) summed one token only.\\
+\emph{Fix:} +53/$-$13 lines, branch \texttt{fix/011-up (upstream PR)}, commit(s) \texttt{d87bf52e3}.\\
+{\footnotesize \texttt{src/finn/custom\_op/fpgadataflow/hls/globalaccpool\_hls.py} (+45/$-$8); \texttt{tests/fpgadataflow/test\_fpgadataflow\_globalaccpool.py} (+8/$-$5)}
+\item \textbf{Requant\_rtl with unsigned inputs} (issue 011). the RTL reads its input as signed but specialization accepted any integer type: UINT8 values >= 128 became negative (radioml, vision).\\
+\emph{Fix:} +31/$-$4 lines, branch \texttt{fix/011-up (upstream PR)}, commit(s) \texttt{aff7232c9}.\\
+{\footnotesize \texttt{src/finn/transformation/fpgadataflow/specialize\_layers.py} (+4/$-$3); \texttt{tests/fpgadataflow/test\_fpgadataflow\_requant.py} (+27/$-$1)}
+\item \textbf{Per-frame HLS overhead in MVAU\_hls / LabelSelect\_hls estimates} (issue 002). the HLS top function is not frame-pipelined: +7 / +4 cycles per frame missing from get\_exp\_cycles (tfc/MLP rtlsim at 0.53x of the estimate).\\
+\emph{Fix:} +21/$-$1 lines, branch \texttt{feature/dev/hls-exp-cycles-overhead}, commit(s) \texttt{2169d7b6d}.\\
+{\footnotesize \texttt{src/finn/custom\_op/fpgadataflow/hls/labelselect\_hls.py} (+9/$-$0); \texttt{src/finn/custom\_op/fpgadataflow/hls/matrixvectoractivation\_hls.py} (+10/$-$0); \texttt{tests/fpgadataflow/test\_set\_folding.py} (+2/$-$1)}
+\item \textbf{Phantom URAM estimate of embedded MVAU weights} (issue 005). internal\_embedded weights were costed as URAM, so the folding budget saw URAM use that does not exist.\\
+\emph{Fix:} +2/$-$1 lines, branch \texttt{feature/dev/set-folding-optimizer}, commit(s) \texttt{48a274bdb}.\\
+{\footnotesize \texttt{src/finn/custom\_op/fpgadataflow/matrixvectoractivation.py} (+2/$-$1)}
+\item \textbf{DWC cycles in elements instead of words} (issue --). StreamingDataWidthConverter estimated cycles per frame in elements, not stream words.\\
+\emph{Fix:} +10/$-$0 lines, branch \texttt{feature/dev/set-folding-optimizer}, commit(s) \texttt{474ea4474}.\\
+{\footnotesize \texttt{src/finn/custom\_op/fpgadataflow/streamingdatawidthconverter.py} (+10/$-$0)}
+\item \textbf{Missing platform resource counts} (issue --). KV260\_SOM, VCK190 and V80 had no resource counts, so no budget for folding on them.\\
+\emph{Fix:} +75/$-$0 lines, branch \texttt{feature/dev/set-folding-optimizer}, commit(s) \texttt{023c304d9}.\\
+{\footnotesize \texttt{src/finn/util/platforms.py} (+75/$-$0)}
+\end{enumerate}
+\section*{Bugs fixed in our transformations (FIFO sizing, folding, DWC)}
+Fixed on the respective PR branches. Line counts include tests and docs.
+\begin{enumerate}
+\item \textbf{FIFO: dynamic MVAUs not characterized} (issue 001). attention matmuls (mem\_mode dynamic) fell back to rtlsim characterization, which never fed the second input (timeout); tree model + in1 TAV added.\\
+\emph{Fix:} +118/$-$13 lines, branch \texttt{feature/dev/analytical-fifo-sizing}, commit(s) \texttt{1c7d93f2e 19ed61ff7}.\\
+{\footnotesize \texttt{src/finn/custom\_op/fpgadataflow/matrixvectoractivation.py} (+46/$-$8); \texttt{tests/fpgadataflow/test\_fpgadataflow\_mvau.py} (+72/$-$5)}
+\item \textbf{FIFO: balanced foldings 2-6 \% below the estimate} (issue 006). pacer-bound chains and a refill floor for pacer-driving consumers.\\
+\emph{Fix:} +142/$-$10 lines, branch \texttt{feature/dev/analytical-fifo-sizing}, commit(s) \texttt{ba7cfe45a}.\\
+{\footnotesize \texttt{docs/finn/fifo\_sizing\_heuristics.rst} (+67/$-$0); \texttt{src/finn/transformation/fpgadataflow/derive\_characteristic.py} (+68/$-$10); \texttt{tests/fpgadataflow/test\_fifosizing\_chained\_tav.py} (+7/$-$0)}
+\item \textbf{FIFO: tiled MVAU tree model} (issue 009). the replay stall from the shared stall function; reorder-stall foldings declined to rtlsim.\\
+\emph{Fix:} +22/$-$11 lines, branch \texttt{feature/dev/analytical-fifo-sizing}, commit(s) \texttt{e8c2cc992}.\\
+{\footnotesize \texttt{src/finn/custom\_op/fpgadataflow/matrixvectoractivation.py} (+18/$-$11); \texttt{tests/fpgadataflow/test\_fpgadataflow\_mvau.py} (+4/$-$0)}
+\item \textbf{FIFO: MVAU\_rtl phase lead} (issue 010). TAVs opening with outputs before the first read made residual shortcuts 63 words short (0.965x).\\
+\emph{Fix:} +133/$-$5 lines, branch \texttt{feature/dev/analytical-fifo-sizing}, commit(s) \texttt{c74d17dc5}.\\
+{\footnotesize \texttt{docs/finn/fifo\_sizing\_heuristics.rst} (+26/$-$0); \texttt{src/finn/transformation/fpgadataflow/derive\_characteristic.py} (+26/$-$2); \texttt{tests/fpgadataflow/test\_fifosizing\_chained\_tav.py} (+81/$-$3)}
+\item \textbf{FIFO: no node latency} (issue 013). pipeline latency, InnerShuffle page and dynamic-MVAU matrix hold missing: shortcuts ~300 words short at fast foldings (0.73x).\\
+\emph{Fix:} +232/$-$21 lines, branch \texttt{feature/dev/analytical-fifo-sizing}, commit(s) \texttt{5e25783c8 86942e9ee}.\\
+{\footnotesize \texttt{docs/finn/fifo\_sizing\_heuristics.rst} (+44/$-$4); \texttt{src/finn/custom\_op/fpgadataflow/hwcustomop.py} (+14/$-$0); \texttt{src/finn/custom\_op/fpgadataflow/inner\_shuffle.py} (+6/$-$0); \texttt{src/finn/custom\_op/fpgadataflow/matrixvectoractivation.py} (+11/$-$0); \texttt{src/finn/transformation/fpgadataflow/derive\_characteristic.py} (+72/$-$12); \texttt{tests/fpgadataflow/test\_fifosizing\_chained\_tav.py} (+85/$-$5)}
+\item \textbf{FIFO: residual skip-edge deadlock} (issue 015). skip FIFOs below the other branch's input window (radioml 20 words for a 48-word token): deadlock; join window floor (deadlock / paced backlog + 25 \%).\\
+\emph{Fix:} +384/$-$50 lines, branch \texttt{feature/dev/analytical-fifo-sizing}, commit(s) \texttt{729e7d033 b0fbc933e 57aaa6e98 8aeb70760 99de01f40 4655649a7 39dac9a18}.\\
+{\footnotesize \texttt{docs/finn/fifo\_sizing\_heuristics.rst} (+80/$-$11); \texttt{src/finn/custom\_op/fpgadataflow/hwcustomop.py} (+20/$-$0); \texttt{src/finn/custom\_op/fpgadataflow/hwsoftmax.py} (+6/$-$0); \texttt{src/finn/custom\_op/fpgadataflow/inner\_shuffle.py} (+5/$-$0); \texttt{src/finn/custom\_op/fpgadataflow/matrixvectoractivation.py} (+11/$-$2); \texttt{src/finn/custom\_op/fpgadataflow/outer\_shuffle.py} (+12/$-$0); \texttt{src/finn/transformation/fpgadataflow/derive\_characteristic.py} (+194/$-$34); \texttt{tests/fpgadataflow/test\_fifosizing\_chained\_tav.py} (+56/$-$3)}
+\item \textbf{FIFO: Split/Concat tree models and rtlsim harness} (issue 016). tree models hard-coded interval 5 (wrong with the dataflow pragma); node rtlsim drove only stream 0 (Split crashed, Concat timed out).\\
+\emph{Fix:} +251/$-$30 lines, branch \texttt{feature/dev/analytical-fifo-sizing}, commit(s) \texttt{af38b555c}.\\
+{\footnotesize \texttt{src/finn/custom\_op/fpgadataflow/concat.py} (+37/$-$10); \texttt{src/finn/custom\_op/fpgadataflow/hls/concat\_hls.py} (+6/$-$0); \texttt{src/finn/custom\_op/fpgadataflow/hls/split\_hls.py} (+6/$-$0); \texttt{src/finn/custom\_op/fpgadataflow/hlsbackend.py} (+14/$-$0); \texttt{src/finn/custom\_op/fpgadataflow/split.py} (+41/$-$20); \texttt{tests/fpgadataflow/test\_fpgadataflow\_split\_concat\_characterization.py} (+147/$-$0)}
+\item \textbf{Folding: SWG pairing in branching graphs, streamed weights} (issue 003). an SWG was paired with the next node instead of its consumer (resnet, yolov8); dynamic-MVAU weights resized.\\
+\emph{Fix:} +146/$-$17 lines, branch \texttt{feature/dev/set-folding-optimizer}, commit(s) \texttt{648bf6279 4f2a7d5a7}.\\
+{\footnotesize \texttt{src/finn/transformation/fpgadataflow/set\_folding.py} (+26/$-$17); \texttt{tests/fpgadataflow/test\_set\_folding.py} (+120/$-$0)}
+\item \textbf{Folding: DWC bottleneck missed in repair} (issue 004). unnamed DWC bottlenecks were never repaired (vgg10 1280 -> 1028 cycles).\\
+\emph{Fix:} +22/$-$4 lines, branch \texttt{feature/dev/set-folding-optimizer}, commit(s) \texttt{085be7d79}.\\
+{\footnotesize \texttt{src/finn/transformation/fpgadataflow/set\_folding.py} (+5/$-$4); \texttt{tests/fpgadataflow/test\_set\_folding.py} (+17/$-$0)}
+\item \textbf{Folding: padding next to a reshape} (issue 004). padding next to a reshape broke InsertDWC.\\
+\emph{Fix:} +83/$-$0 lines, branch \texttt{feature/dev/set-folding-optimizer}, commit(s) \texttt{4410df870}.\\
+{\footnotesize \texttt{src/finn/transformation/fpgadataflow/set\_folding.py} (+22/$-$0); \texttt{tests/fpgadataflow/test\_set\_folding.py} (+61/$-$0)}
+\item \textbf{Folding: maximize mode on small parts} (issue 005). maximize searched beyond the as-built budget.\\
+\emph{Fix:} +54/$-$10 lines, branch \texttt{feature/dev/set-folding-optimizer}, commit(s) \texttt{7c458eeb0}.\\
+{\footnotesize \texttt{src/finn/transformation/fpgadataflow/set\_folding.py} (+54/$-$10)}
+\item \textbf{Folding: transformer / branching graphs folded slowly} (issue 008). every evaluation walked the whole graph (FIFO estimate, repair/polish re-scoring): bert 509 s -> 14 s per fold; partitions follow branches.\\
+\emph{Fix:} +202/$-$38 lines, branch \texttt{feature/dev/set-folding-optimizer}, commit(s) \texttt{4b09bdfd3}.\\
+{\footnotesize \texttt{src/finn/transformation/fpgadataflow/set\_folding.py} (+202/$-$38)}
+\item \textbf{Folding: generic Shuffle not folded} (issue 008). the optimizer skipped Shuffle layers (naive folder folds them).\\
+\emph{Fix:} +21/$-$2 lines, branch \texttt{feature/dev/set-folding-optimizer}, commit(s) \texttt{81b625ae3}.\\
+{\footnotesize \texttt{src/finn/transformation/fpgadataflow/set\_folding.py} (+21/$-$2)}
+\item \textbf{Folding: Shuffle SIMD without valid decomposition} (issue --). probed SIMD values that raise or that a decomposition stage rejects were offered and not restored (bert).\\
+\emph{Fix:} +28/$-$8 lines, branch \texttt{feature/dev/set-folding-optimizer}, commit(s) \texttt{8e24e65ea 081f70a4d}.\\
+{\footnotesize \texttt{src/finn/transformation/fpgadataflow/set\_folding.py} (+28/$-$8)}
+\item \textbf{Folding: URAM for embedded constants off Versal} (issue --). ram\_style ultra offered for internal\_embedded ElementwiseBinary/Lookup constants on non-Versal parts.\\
+\emph{Fix:} +36/$-$2 lines, branch \texttt{feature/dev/set-folding-optimizer}, commit(s) \texttt{57594bf0c}.\\
+{\footnotesize \texttt{src/finn/transformation/fpgadataflow/set\_folding.py} (+12/$-$2); \texttt{tests/fpgadataflow/test\_set\_folding.py} (+24/$-$0)}
+\item \textbf{Folding: StreamingSplit/Concat SIMD never folded} (issue 010). they were in DO\_NOT\_FOLD (0.2x at maximize).\\
+\emph{Fix:} +38/$-$4 lines, branch \texttt{feature/dev/set-folding-optimizer}, commit(s) \texttt{a2d217bc6 c38d441c8}.\\
+{\footnotesize \texttt{src/finn/transformation/fpgadataflow/set\_folding.py} (+3/$-$4); \texttt{tests/fpgadataflow/test\_set\_folding.py} (+35/$-$0)}
+\item \textbf{Folding/DWC: padding rarely chosen} (issue 014). 8x HLS penalty on (RTL) padding DWCs, polish could not reach padded SWG tuples, cheaper padded foldings rejected on peak utilization, conv PE never padded.\\
+\emph{Fix:} +198/$-$40 lines, branch \texttt{feature/dev/set-folding-optimizer}, commit(s) \texttt{a1caca9ed}.\\
+{\footnotesize \texttt{src/finn/transformation/fpgadataflow/set\_folding.py} (+90/$-$40); \texttt{tests/fpgadataflow/test\_set\_folding.py} (+108/$-$0)}
+\item \textbf{Folding: Split -> Concat DWC heuristic crash} (issue 014). 'Malformed model' for a Concat fed by a Split's second output (yolov8).\\
+\emph{Fix:} +7/$-$6 lines, branch \texttt{feature/dev/set-folding-optimizer}, commit(s) \texttt{2620ceeeb}.\\
+{\footnotesize \texttt{src/finn/transformation/fpgadataflow/set\_folding.py} (+7/$-$6)}
+\item \textbf{DWC: InsertDWC datatype check and plain width conversions} (issue 003). compared the producer with the consumer's input 0 instead of the connected input; dynamic-MVAU weight conversions read as crops.\\
+\emph{Fix:} +5/$-$3 lines, branch \texttt{feature/dev/generalized-datawidthconverter}, commit(s) \texttt{44c8618d3 0a3af1d37}.\\
+{\footnotesize \texttt{src/finn/transformation/fpgadataflow/insert\_dwc.py} (+5/$-$3)}
+\end{enumerate}
+\section*{Open}
+\begin{itemize}
+\item transformer\_language: output wrong after the deadlock fix (issue 017, in progress).
+\item OuterShuffle\_hls reaches only II=3 (3$\times$ its estimate; espcn tail), upstream.
+\item FIFO tree models emit one row per Split/Concat (unequal stream widths may under-size), node-by-node verification aborts on 3D Requant\_rtl tensors (upstream).
+\end{itemize}
+\end{document}
