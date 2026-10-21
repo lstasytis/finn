@@ -370,6 +370,15 @@ class Optimizer:
     # large FINITE cost of a missed cycle target, so that the annealer can climb out of
     # an infeasible region instead of aborting on inf
     INFEASIBLE_PENALTY = 1e6
+    # limits of the code Vitis HLS (2024.2) can compile: no ap_int wider than 8191 bits
+    # (an HLS MVAU/VVAU's weight stream is PE * SIMD * weight bits wide), MVAU_hls SIMD >=
+    # MW / 1024 (asserted at ipgen), and an embedded weight initializer of at most
+    # HLS_MAX_EMBEDDED_WEIGHTS entries (PE x WMEM = MW x MH / SIMD): with 65536 entries of
+    # 18 bits (3.7M instructions) csynth was still in clang after 22 h. A folding beyond
+    # them is not offered, or (PE * SIMD) costs HLS_LIMIT_PENALTY
+    HLS_MAX_WIDTH = 8191
+    HLS_MAX_EMBEDDED_WEIGHTS = 32768
+    HLS_LIMIT_PENALTY = 1e3 * INFEASIBLE_PENALTY
 
     @staticmethod
     def max_folding_factor(node_inst, op_type, param):
@@ -379,6 +388,69 @@ class Optimizer:
         if op_type in Optimizer.SIMD_MAX_OVERRIDE:
             return Optimizer.SIMD_MAX_OVERRIDE[op_type](node_inst)
         return int(node_inst.get_normal_input_shape()[-1])
+
+    @classmethod
+    def breaks_hls_limits(cls, inst):
+        """Whether an HLS node at its current folding exceeds a limit of Vitis HLS (see
+        HLS_MAX_WIDTH): any stream or the op's own AP_INT_MAX_W wider than HLS_MAX_WIDTH,
+        an MVAU_hls SIMD below MW / 1024, or more than HLS_MAX_EMBEDDED_WEIGHTS embedded
+        weight entries in an MVAU_hls / VVAU_hls."""
+        onnx_node = inst.onnx_node
+        if not is_hls_node(onnx_node):
+            return False
+        widths = []
+        for get, count in (
+            (inst.get_instream_width, len(onnx_node.input)),
+            (inst.get_outstream_width, len(onnx_node.output)),
+        ):
+            for i in range(count):
+                try:
+                    widths.append(get(i))
+                except Exception:  # not a stream of this op
+                    pass
+        try:
+            widths.append(inst.get_ap_int_max_w())
+        except AssertionError:  # the base class asserts the limit itself
+            return True
+        if max(widths, default=0) > cls.HLS_MAX_WIDTH:
+            return True
+        op_type = onnx_node.op_type
+        if op_type == "MVAU_hls" and inst.get_nodeattr("SIMD") < inst.get_nodeattr("MW") / 1024:
+            return True
+        if op_type in ("MVAU_hls", "VVAU_hls"):
+            if inst.get_nodeattr("mem_mode") == "internal_embedded":
+                entries = inst.get_nodeattr("PE") * inst.calc_wmem()
+                return entries > cls.HLS_MAX_EMBEDDED_WEIGHTS
+        return False
+
+    def _within_hls_limits(self, inst, attrs):
+        """Whether ``inst`` with ``attrs`` (and its other PE / SIMD at 1) stays within the
+        HLS limits: the values a meta parameter may offer, whatever the others are. The
+        node's attributes are restored."""
+        if not is_hls_node(inst.onnx_node):
+            return True
+        declared = inst.get_nodeattr_types()
+        trial = {a: 1 for a in ("PE", "SIMD") if a in declared}
+        trial.update({a: v for a, v in attrs.items() if a is not None})
+        original = {a: inst.get_nodeattr(a) for a in trial}
+        try:
+            for a, v in trial.items():
+                inst.set_nodeattr(a, v)
+            return not self.breaks_hls_limits(inst)
+        except Exception:  # an attribute combination the op cannot evaluate
+            return True
+        finally:
+            for a, v in original.items():
+                inst.set_nodeattr(a, v)
+
+    @staticmethod
+    def _keep_within_hls_limits(candidates, within):
+        """The ``candidates`` for which ``within`` holds, or all of them if none does."""
+        kept = [c for c in candidates if within(c)]
+        return kept or list(candidates)
+
+    def _hls_limits_broken(self, nodes):
+        return any(self.breaks_hls_limits(n) for n in nodes)
 
     # ------------------------------------------------------------------ cost model
 
@@ -404,6 +476,8 @@ class Optimizer:
         violation = cycles / self.targets["max_cycles"]
         if violation > 1:
             cost += self.INFEASIBLE_PENALTY * violation
+        if self._hls_limits_broken(nodes):
+            cost += self.HLS_LIMIT_PENALTY
         return cost
 
     def resource_cost(self, resources):
@@ -774,10 +848,12 @@ class Optimizer:
                     params[i].update_value(value)
                     params[i].apply_value(attrs=self.PARAMETERS_TO_APPLY)
 
-            combos = []
+            combos, beyond_limits = [], []
             for combo in itertools.product(*(params[i].possible_values for i in indices)):
                 set_combo(combo)
-                combos.append((max(self.exp_cycles(n) for n in nodes), combo))
+                entry = (max(self.exp_cycles(n) for n in nodes), combo)
+                (beyond_limits if self._hls_limits_broken(nodes) else combos).append(entry)
+            combos = combos or beyond_limits
             fastest = min(cycles for cycles, _ in combos)
             feasible = [c for c in combos if c[0] <= target] or [
                 c for c in combos if c[0] == fastest
@@ -908,12 +984,18 @@ class Optimizer:
         if op_type in ("StreamingSplit_hls", "StreamingConcat_hls"):
             # SIMD must divide every stream's channel count
             valid = set(common_divisors(inst.get_nodeattr("ChannelsPerStream")))
-        values, real_values, seen_factors = [], [], set()
+        candidates = []
         for value, bound in zip(*allowed_divisors(max_value, padding)):
             if valid is not None and value not in valid:
                 continue
             if param == "SIMD" and op_type in self.SIMD_MAX_OVERRIDE:
                 bound = inst.get_nodeattr("Kernel")  # the (unpaddable) kernel window
+            candidates.append((value, bound))
+        candidates = self._keep_within_hls_limits(
+            candidates, lambda c: self._within_hls_limits(inst, {param: c[0], bound_attr: c[1]})
+        )
+        values, real_values, seen_factors = [], [], set()
+        for value, bound in candidates:
             factor = int(np.prod(bound)) // value
             if factor in seen_factors:
                 continue
@@ -1057,31 +1139,42 @@ class Optimizer:
         _, ifm_values = allowed_divisors(ifm_real, 0 if self._xnor_mode(mvau) else max_padding)
         kernel_size = int(np.prod(swg.get_nodeattr("ConvKernelDim")))
         weight_bits = mvau.get_input_datatype(1).bitwidth()
+        simd_candidates = [
+            (ifm, kernel_size * ifm, mvau_simd)
+            for ifm in sorted(set(ifm_values))
+            for mvau_simd in divisors(kernel_size * ifm)
+            if weight_bits * mvau_simd < self.mvau_wwidth_max
+            and mvau_simd > kernel_size * ifm / 1024
+        ]
+        simd_candidates = self._keep_within_hls_limits(
+            simd_candidates, lambda c: self._within_hls_limits(mvau, {"SIMD": c[2], "MW": c[1]})
+        )
         values, real_values, seen_factors = [], [], []
-        for ifm in sorted(set(ifm_values)):
-            mw = kernel_size * ifm
-            for mvau_simd in divisors(mw):
-                if not (weight_bits * mvau_simd < self.mvau_wwidth_max and mvau_simd > mw / 1024):
+        for ifm, mw, mvau_simd in simd_candidates:
+            # a padding DWC pads only within a word: a padded channel count must be the
+            # smallest multiple of the SWG's SIMD above the real one
+            swg_choices = [
+                (d, 0) for d in divisors(ifm) if d <= mvau_simd and -(-ifm_real // d) * d == ifm
+            ]
+            if mvau_simd > ifm:
+                swg_choices.append((ifm, 1))
+            for swg_simd, parallel_window in swg_choices:
+                value = (mvau_simd, swg_simd, parallel_window)
+                factors = (mw // mvau_simd, ifm // swg_simd, parallel_window)
+                if value in values or factors in seen_factors:
                     continue
-                # a padding DWC pads only within a word: a padded channel count must be the
-                # smallest multiple of the SWG's SIMD above the real one
-                swg_choices = [
-                    (d, 0) for d in divisors(ifm) if d <= mvau_simd and -(-ifm_real // d) * d == ifm
-                ]
-                if mvau_simd > ifm:
-                    swg_choices.append((ifm, 1))
-                for swg_simd, parallel_window in swg_choices:
-                    value = (mvau_simd, swg_simd, parallel_window)
-                    factors = (mw // mvau_simd, ifm // swg_simd, parallel_window)
-                    if value in values or factors in seen_factors:
-                        continue
-                    values.append(value)
-                    seen_factors.append(factors)
-                    simd = self._param(mvau, consumer_index, "SIMD", mvau_simd, ("MW", mw), True)
-                    swg_params = self._swg_params(swg, node_index, swg_simd, ifm, parallel_window)
-                    real_values.append(swg_params + [simd])
+                values.append(value)
+                seen_factors.append(factors)
+                simd = self._param(mvau, consumer_index, "SIMD", mvau_simd, ("MW", mw), True)
+                swg_params = self._swg_params(swg, node_index, swg_simd, ifm, parallel_window)
+                real_values.append(swg_params + [simd])
         # the PE over the (padded) output channels, as for a dense MVAU
-        pe_values, mh_values = allowed_divisors(mvau.get_nodeattr("MH"), max_padding)
+        pe_values, mh_values = zip(
+            *self._keep_within_hls_limits(
+                list(zip(*allowed_divisors(mvau.get_nodeattr("MH"), max_padding))),
+                lambda c: self._within_hls_limits(mvau, {"PE": c[0], "MH": c[1]}),
+            )
+        )
         pe_real_values = [
             [self._param(mvau, consumer_index, "PE", pe, ("MH", mh), True)]
             for pe, mh in zip(pe_values, mh_values)
@@ -1099,6 +1192,19 @@ class Optimizer:
         _, ifm_values = allowed_divisors(swg.get_nodeattr("IFMChannels"), max_padding)
         kernel_dim = swg.get_nodeattr("ConvKernelDim")
         kernel = ("Kernel", [kernel_dim[0], kernel_dim[1]])
+        allowed = set(
+            self._keep_within_hls_limits(
+                [
+                    (ifm, pe, simd)
+                    for ifm in set(ifm_values)
+                    for pe in divisors(ifm)
+                    for simd in divisors(int(np.prod(kernel_dim)) if pe == ifm else 1)
+                ],
+                lambda c: self._within_hls_limits(
+                    vvau, {"PE": c[1], "SIMD": c[2], "Channels": c[0]}
+                ),
+            )
+        )
         values, real_values, seen_pe_factors = [], [], []
         for ifm in sorted(set(ifm_values)):
             for pe in divisors(ifm):
@@ -1107,7 +1213,7 @@ class Optimizer:
                 seen_pe_factors.append(ifm // pe)
                 parallel_window = int(pe == ifm)
                 for simd in divisors(int(np.prod(kernel_dim)) if parallel_window else 1):
-                    if simd * pe in values:
+                    if simd * pe in values or (ifm, pe, simd) not in allowed:
                         continue
                     values.append(simd * pe)
                     real_values.append(
@@ -1845,13 +1951,23 @@ class SetFolding(Transformation):
                 cost += opt.resource_cost(opt.fifo_resources(opt.model, opt.graph_nodes()))
             return names, achieved, metrics, cost
 
+        def beyond_hls_limits(values, i):
+            opt.params.set_values(values)
+            opt.params.apply_updates(final=False, attrs=opt.PARAMETERS_TO_APPLY)
+            return opt._hls_limits_broken(params[i].unique_nodes)
+
+        def within_hls_limits(values, moved, i):
+            """Whether moving parameter ``i`` keeps its nodes within the HLS limits (or
+            they were beyond them already)."""
+            return not beyond_hls_limits(moved, i) or beyond_hls_limits(values, i)
+
         def step(values, i, direction):
             idx = params[i].possible_values.index(values[i]) + direction
             if not 0 <= idx < len(params[i].possible_values):
                 return None
             moved = list(values)
             moved[i] = params[i].possible_values[idx]
-            return moved
+            return moved if within_hls_limits(values, moved, i) else None
 
         values = opt.params.get_meta_values()
         bottleneck, achieved, metrics, cost = evaluate(values)
@@ -1904,7 +2020,9 @@ class SetFolding(Transformation):
         polish(self.POLISH_EVALS_PER_PARAMETER * len(folding))
         tightened = False
         for i in folding:  # tighten
-            scored = [(m, evaluate(m)) for m in self._slower_values(opt, state[0], i, limit)]
+            slower = self._slower_values(opt, state[0], i, limit)
+            slower = [m for m in slower if within_hls_limits(state[0], m, i)]
+            scored = [(m, evaluate(m)) for m in slower]
             for moved, r in sorted(scored, key=lambda mr: mr[1][3]):
                 if r[3] < state[4] and accept(moved, r):
                     tightened = True
