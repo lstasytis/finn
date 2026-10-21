@@ -54,6 +54,7 @@ from finn.transformation.fpgadataflow.derive_characteristic import (
     burst_above_rate,
     causal_writes,
     derive_chained_tav_depths,
+    join_window_floors,
     local_clock,
     node_latency,
     peak_occupancy,
@@ -399,3 +400,55 @@ def test_node_latency_and_block_writes():
     assert list(held) == [70, 71, 72, 73, 74, 75, 150, 151, 152, 153, 154, 155]
     # an input without a schedule (weights) holds nothing
     assert list(block_writes(writes, mvau, {})) == list(writes)
+
+
+@pytest.mark.fpgadataflow
+def test_join_window_floor():
+    # Fork (PE = 1) -> (shortcut | MVAU at SIMD = PE = 1) -> join. The MVAU
+    # reads a whole 64-word vector before its first output, the fork writes
+    # both outputs together: the shortcut has to take 63 words before the join
+    # can start, or the fork stalls and the graph deadlocks. The tree-model
+    # TAVs miss it (the shortcut came out at 2). Paced, the MVAU emits a
+    # vector's 64 outputs while the fork writes the next vector: backlog 64,
+    # floor 64 plus 25 %.
+    model, _ = characterize(make_residual(nvec=16, ch=64, simd=1, pe=1))
+    mvau = getCustomOp(model.graph.node[1])
+    assert mvau.get_tav_input_window(0) == (64, 64)
+    assert join_window_floors(model, list(model.graph.node)) == {"short": 80}
+    depths = size_fifos(make_residual(nvec=16, ch=64, simd=1, pe=1))
+    assert depths == {
+        "DuplicateStreams_hls_0 -> ElementwiseAdd_hls_0": 80,
+        "DuplicateStreams_hls_0 -> MVAU_hls_0": 2,
+        "MVAU_hls_0 -> ElementwiseAdd_hls_0": 2,
+    }
+    # fork at PE = 64, MVAU at SIMD = 64: the MVAU needs one fork word a
+    # vector, the 1:64 width converter in the shortcut makes 64 join words of
+    # it. Nothing to buffer beyond what the TAVs give.
+    model, _ = characterize(make_residual(nvec=16, ch=64, simd=64, pe=1))
+    dwc = getCustomOp(model.graph.node[1])
+    assert dwc.get_tav_input_window(0) == (1, 64)
+    assert join_window_floors(model, list(model.graph.node)) == {}
+    # two MVAU_rtl (SIMD = PE = 1, 1024 cycles a vector) in series: the second
+    # only starts a vector once the first has emitted all of it, so paced the
+    # shortcut holds two vectors (63) where the deadlock bound is one (31);
+    # floor 79, below the 90 the TAVs give (test_chained_tav_residual_mvau_rtl)
+    model, _ = characterize(make_residual_rtl(nvec=16, ch=32, n_mvau=2), "xczu7ev-ffvc1156-2-e")
+    assert join_window_floors(model, list(model.graph.node)) == {"short": 79}
+    # an OuterShuffle (tokens x heads -> heads x tokens) emits word j once the
+    # input word it reads, and every one before it in the frame, is in: head 0
+    # of the second token is input word 6
+    shuffle = helper.make_node(
+        "OuterShuffle",
+        ["x"],
+        ["y"],
+        domain="finn.custom_op.fpgadataflow",
+        backend="fpgadataflow",
+        data_type="INT8",
+        in_shape=[1, 4, 3, 2],
+        out_shape=[1, 3, 4, 2],
+        transpose_in_shape=[1, 4, 3, 2],
+        perm=[0, 2, 1, 3],
+        SIMD=1,
+    )
+    need = getCustomOp(shuffle).get_tav_input_need(0)
+    assert list(need[:4]) == [1, 2, 7, 8] and need[-1] == 24 and len(need) == 24
