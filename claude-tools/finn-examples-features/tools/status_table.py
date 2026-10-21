@@ -83,9 +83,9 @@ def fifo_aware_cells(job, plain, state, notes):
     thr = head[:1] + (" %.1f fps" % fps if fps else "")
     if m.get("rtlsim_vs_est") is not None:
         thr += " (%.3fx est)" % m["rtlsim_vs_est"]
-    size = "%.1f kbit" % m["fifo_kbit"] if m.get("fifo_kbit") is not None else "-"
+    size = "%.2f kB" % (m["fifo_kbit"] / 8) if m.get("fifo_kbit") is not None else "-"
     if p.get("fifo_kbit"):
-        size += " (plain %.1f)" % p["fifo_kbit"]
+        size += " (plain %.2f)" % (p["fifo_kbit"] / 8)
     return [time_s, thr, size]
 
 
@@ -109,7 +109,7 @@ def cell(job, state, notes):
             if metrics.get("est_vs_ref") is not None:
                 parts.append("est %.2fx ref" % metrics["est_vs_ref"])
         if metrics.get("fifo_kbit") is not None:
-            parts.append("%.1f kbit" % metrics["fifo_kbit"])
+            parts.append("%.2f kB" % (metrics["fifo_kbit"] / 8))
         if job["feature"] == "dwc" and metrics.get("pad_dwcs") is not None:
             parts.append("%d pad DWC" % metrics["pad_dwcs"])
         times = metrics.get("step_times_s") or {}
@@ -138,7 +138,7 @@ def main():
         f"Generated {datetime.datetime.now():%Y-%m-%d %H:%M} by `tools/status_table.py` from the "
         "campaign results" + (f" (variant {args.variant})" if args.variant else "") + ". Cells: "
         "result, rtlsim/estimate throughput ratio, (folding/DWC) own estimate vs the committed "
-        "folding's estimate, FIFO storage, padding DWCs, time of the feature's step (measured under "
+        "folding's estimate, FIFO storage (kB, 1 kB = 1024 bytes), padding DWCs, time of the feature's step (measured under "
         "load). With sizes, a cell lists the small folding first, then the full one. ⏳ running, "
         "⏸ not run yet, blocked = its small run failed. FIFO-aware folding (optional, "
         "`enable_folding_fifo_heuristic`) at the reference target: folding time, throughput, final "
