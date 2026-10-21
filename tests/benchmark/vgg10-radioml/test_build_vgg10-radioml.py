@@ -310,6 +310,116 @@ def assert_target_or_trade(metrics, ref_dir, target_fps, board):
     assert loss <= TARGET_TOLERANCE and saved > loss, msg % (100 * loss, 100 * saved)
 
 
+# DWC padding vs none: the optimizer at the same target and seed with padding off and on
+RESOURCES = ("LUT", "BRAM_18K", "URAM", "DSP")
+# padding only widens the search space: a padded folding needing more resources than the
+# unpadded one is annealing noise up to this fraction (warning), beyond it the test fails
+PADDING_WORSE_TOLERANCE = 0.05
+
+
+def estimated_resources(output_dir):
+    """A build's estimated LUT/BRAM_18K/URAM/DSP counts (FIFOs excluded)."""
+    layers = _load_json(os.path.join(output_dir, "report", "estimate_layer_resources.json"))
+    used = dict.fromkeys(RESOURCES, 0.0)
+    for name, res in (layers or {}).items():
+        if name != "total" and not name.startswith("StreamingFIFO") and isinstance(res, dict):
+            for r in RESOURCES:
+                used[r] += float(res.get(r, 0) or 0)
+    return used
+
+
+def resource_ratio(new, base):
+    """Mean of new/base over the resources ``base`` uses, and the resources only ``new``
+    uses (the res./ref. metric of the claude-tools summary)."""
+    ratios = [new[r] / base[r] for r in RESOURCES if base[r] > 0]
+    extra = [r for r in RESOURCES if base[r] == 0 and new[r] > 0]
+    return (sum(ratios) / len(ratios) if ratios else 1.0), extra
+
+
+def padding_summary(metrics):
+    """The numbers of one estimate-only folding kept in the comparison."""
+    return dict(
+        est_fps=metrics["est_fps"],
+        pad_dwcs=metrics.get("pad_dwcs"),
+        resources=estimated_resources(metrics["output_dir"]),
+        output_dir=metrics["output_dir"],
+    )
+
+
+def padding_comparison(build, target_fps):
+    """Estimate-only optimizer foldings at ``target_fps`` without and with padding (same
+    seed) for every seed in DWC_SEEDS; ``build(name, estimate_only=True, **overrides)``
+    runs one. Returns the comparison of the seed where padding saves the most resources."""
+    best, best_key, seeds = None, None, []
+    for seed in DWC_SEEDS:
+        runs = [
+            padding_summary(
+                build(
+                    name,
+                    estimate_only=True,
+                    **dict(
+                        OPTIMIZER_FOLDING,
+                        target_fps=target_fps,
+                        folding_maximum_padding=pad,
+                        folding_seed=seed,
+                    ),
+                )
+            )
+            for name, pad in (("dwc-est-nopad", 0), ("dwc-est", FOLDING_MAX_PADDING))
+        ]
+        ratio, extra = resource_ratio(runs[1]["resources"], runs[0]["resources"])
+        row = dict(seed=seed, res_ratio=ratio, res_extra=extra, nopad=runs[0], pad=runs[1])
+        seeds.append(
+            dict(seed=seed, res_ratio=ratio, res_extra=extra, pad_dwcs=runs[1]["pad_dwcs"])
+        )
+        # on a tie the padded folding that pads, so that the hardware build has padding DWCs
+        key = (bool(extra), ratio, not runs[1]["pad_dwcs"])
+        if best is None or key < best_key:
+            best, best_key = row, key
+    if best["res_extra"] or best["res_ratio"] > 1:
+        best["verdict"] = "worse"
+    elif not best["pad"]["pad_dwcs"]:
+        best["verdict"] = "no gain (no padding DWC)"
+    else:
+        best["verdict"] = "gain" if best["res_ratio"] < 1 else "no gain"
+    return dict(best, target_fps=target_fps, seeds=seeds)
+
+
+def padding_maximize(build):
+    """Estimated throughput of the maximize-mode optimizer (no target) without and with
+    padding."""
+    nopad, pad = [
+        padding_summary(
+            build(
+                name,
+                estimate_only=True,
+                **dict(OPTIMIZER_FOLDING, folding_maximum_padding=padding),
+            )
+        )
+        for name, padding in (("dwc-max-nopad", 0), ("dwc-max", FOLDING_MAX_PADDING))
+    ]
+    ratio, extra = resource_ratio(pad["resources"], nopad["resources"])
+    fps_ratio = pad["est_fps"] / nopad["est_fps"]
+    if fps_ratio < 1:
+        warnings.warn("maximize: padded folding %.3fx the unpadded throughput" % fps_ratio)
+    return dict(fps_ratio=fps_ratio, res_ratio=ratio, res_extra=extra, nopad=nopad, pad=pad)
+
+
+def assert_padding_not_worse(compare):
+    """Beyond annealing noise the padded folding needs no more resources than the unpadded
+    one at the same target and seed (warning above 1.00x, failure above
+    1 + PADDING_WORSE_TOLERANCE)."""
+    ratio, extra = compare["res_ratio"], compare["res_extra"]
+    msg = "padded folding needs %.3fx the resources of the unpadded one%s (seed %d)" % (
+        ratio,
+        " and " + "/".join(extra) if extra else "",
+        compare["seed"],
+    )
+    if compare["verdict"] == "worse":
+        warnings.warn(msg)
+    assert ratio <= 1 + PADDING_WORSE_TOLERANCE, msg
+
+
 def reference_estimate(board, small=False):
     """Estimate-only build with the committed folding: its convert-phase
     checkpoint and estimated throughput are the feature tests' reference."""
@@ -332,9 +442,10 @@ def reference_estimate(board, small=False):
     )
 
 
-def run_feature_build(small, board, name, estimate_only=False, **overrides):
+def run_feature_build(small, board, name, estimate_only=False, extra_metrics=None, **overrides):
     """Resume the reference checkpoint with ``overrides`` and, unless
-    ``estimate_only``, check the stitched IP in rtlsim. Returns the metrics."""
+    ``estimate_only``, check the stitched IP in rtlsim. Returns the metrics
+    (with ``extra_metrics``, also stored in feature_metrics.json)."""
     ref_dir = reference_estimate(board, small=small)
     output_dir = make_build_dir(f"{name}{'-small' if small else ''}_vgg10-radioml_{board}_")
     cfg = configure_build(
@@ -355,7 +466,9 @@ def run_feature_build(small, board, name, estimate_only=False, **overrides):
             setattr(cfg, key, None)
     with timed_steps() as step_times:
         ret = build.build_dataflow_cfg(resume_checkpoint(ref_dir, output_dir), cfg)
-    metrics = feature_metrics(output_dir, ref_dir, test=name, step_times_s=step_times)
+    metrics = feature_metrics(
+        output_dir, ref_dir, test=name, step_times_s=step_times, **(extra_metrics or {})
+    )
     assert ret == 0, f"build failed, see {output_dir}/build_dataflow.log"
     if not estimate_only:
         assert metrics["verified"], "stitched-IP rtlsim output differs from the golden output"
@@ -428,18 +541,19 @@ def test_vgg10radioml_dwc(board, size):
     small = size == "small"
     ref_dir = reference_estimate(board, small=small)
     target_fps = int(estimated_throughput(ref_dir))
-    # the folding search is cheap: find a seed whose padded folding pads (padding wins
-    # only on some search paths), skip the hardware build if none does
-    for seed in DWC_SEEDS:
-        padded = dict(
-            OPTIMIZER_FOLDING,
-            target_fps=target_fps,
-            folding_maximum_padding=FOLDING_MAX_PADDING,
-            folding_seed=seed,
-        )
-        if run_feature_build(small, board, "dwc-est", estimate_only=True, **padded)["pad_dwcs"]:
-            break
-    else:
-        pytest.skip("no padding needed: no padded folding inserts a padding DWC")
-    metrics = run_feature_build(small, board, "dwc", **padded)
+    build = functools.partial(run_feature_build, small, board)
+    # padding off vs on at the reference target (same seed): the seed where padding saves the
+    # most resources is built, also when padding gains nothing ("verdict" in the metrics)
+    compare = padding_comparison(build, target_fps)
+    if not small:
+        # maximize mode (no small variant): the throughput padding adds within the budget
+        compare["maximize"] = padding_maximize(build)
+    padded = dict(
+        OPTIMIZER_FOLDING,
+        target_fps=target_fps,
+        folding_maximum_padding=FOLDING_MAX_PADDING,
+        folding_seed=compare["seed"],
+    )
+    metrics = build("dwc", extra_metrics=dict(pad_compare=compare), **padded)
     assert_target_or_trade(metrics, ref_dir, target_fps, board)
+    assert_padding_not_worse(compare)
