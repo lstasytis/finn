@@ -842,8 +842,8 @@
     "depth_trigger_bram": 38000
   },
   "MVAU_hls_47": {
-    "PE": 32,
-    "SIMD": 1,
+    "PE": 16,
+    "SIMD": 2,
     "ram_style": "auto",
     "resType": "lut",
     "mem_mode": "internal_decoupled",
@@ -898,8 +898,8 @@
     "depth_trigger_bram": 38000
   },
   "MVAU_hls_50": {
-    "PE": 32,
-    "SIMD": 1,
+    "PE": 16,
+    "SIMD": 2,
     "ram_style": "auto",
     "resType": "lut",
     "mem_mode": "internal_decoupled",
