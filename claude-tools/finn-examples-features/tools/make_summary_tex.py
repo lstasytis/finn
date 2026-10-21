@@ -154,7 +154,7 @@ MARK = {"passed": "\\checkmark", "failed": "$\\times$", "skipped": "skip", "runn
         "pending": "--", "blocked": "blk", "killed": "--", "aborted": "--"}
 RES = ("LUT", "BRAM_18K", "URAM", "DSP")
 HEADERS = {"ratio": "rtlsim/est.", "tref": "rtlsim/ref.", "res": "res./ref.", "kbit": "FIFO [kbit]",
-           "pad": "pad.\\ DWCs", "tfifo": "FIFO step [s]", "tfold": "folding step [s]"}
+           "pad": "pad.\\ DWCs", "tfifo": "time [s]", "tfold": "time [s]"}
 
 
 def resources(output_dir):
@@ -322,7 +322,7 @@ def main():
                            ("rtlsim heuristic, small", FIFO_F), ("rtlsim heuristic, full", FIFO_F)],
               fifo_rows, "\\emph{result}: \\checkmark{} passed (output equal to the golden output and rtlsim throughput $\\geq 0.98\\times$ the build's own estimate), $\\times$ failed, skip = skipped, run = running, blk = blocked (its small run failed), -- = not run yet; metric cells stay empty unless the test finished. \\emph{\\#nodes}: compute layers of the committed folding (before FIFO/DWC insertion). \\emph{est.\\ fps}: analytic throughput of the committed folding JSON (the reference). \\emph{small}: committed folding with every node's parallelism cut 4--8$\\times$ (its reference is the small committed folding); \\emph{full}: the committed folding. Step times are wall-clock under the campaign's load. " + "\\emph{rtlsim/est.}: stitched-IP rtlsim throughput divided by the "
               "committed folding's estimate (1.00 = the FIFOs reach the full throughput). \\emph{FIFO [kbit]}: "
-              "total storage of all inserted FIFOs (depth $\\times$ stream width). \\emph{FIFO step [s]}: time "
+              "total storage of all inserted FIFOs (depth $\\times$ stream width). \\emph{time [s]}: time "
               "of \\texttt{step\\_set\\_fifo\\_depths}."),
         table("Folding optimizer (FIFOs sized analytically) vs.\\ the committed folding JSON", "tab:fold",
               [("target, small", FOLD_F), ("target, full", FOLD_F), ("maximize", FOLD_F),
@@ -330,7 +330,7 @@ def main():
               "\\emph{result}: \\checkmark{} passed (output equal to the golden output and rtlsim throughput $\\geq 0.98\\times$ the build's own estimate), $\\times$ failed, skip = skipped, run = running, blk = blocked (its small run failed), -- = not run yet; metric cells stay empty unless the test finished. \\emph{\\#nodes}: compute layers of the committed folding (before FIFO/DWC insertion). \\emph{est.\\ fps}: analytic throughput of the committed folding JSON (the reference). \\emph{small}: committed folding with every node's parallelism cut 4--8$\\times$ (its reference is the small committed folding); \\emph{full}: the committed folding. Step times are wall-clock under the campaign's load. " + "\\emph{rtlsim/ref.}: stitched-IP rtlsim throughput of the build divided by the committed folding's estimated throughput (1.00 = same throughput as the provided JSON; maximize: the speed-up). \\emph{res./ref.}: estimated resources of the build divided by those of the committed folding built the same way (DWCs included, FIFOs excluded): mean of the LUT, BRAM\\_18K, URAM and DSP ratios over the resources the committed folding uses ($\\leq 1.00$ = same or fewer resources); a resource only the new folding uses is named after it (e.g.\\ +URAM); $^\\dagger$ = reference without DWCs (the committed folding's FIFO test has not finished yet). " + "\\emph{target}: optimizer at the committed folding's throughput; "
               "\\emph{maximize}: no target, maximum throughput within the device budget; \\emph{FIFO-aware}: "
               "target mode with \\texttt{enable\\_folding\\_fifo\\_heuristic} (optional, slower). "
-              "\\emph{FIFO [kbit]}: total FIFO storage of the build. \\emph{folding step [s]}: time of "
+              "\\emph{FIFO [kbit]}: total FIFO storage of the build. \\emph{time [s]}: time of "
               "\\texttt{step\\_target\\_fps\\_parallelization}."),
         table("DWC padding: optimizer with up to 4 channels of padding per layer at the committed throughput",
               "tab:dwc", [("small", DWC_F), ("full", DWC_F)], dwc_rows,
