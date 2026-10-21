@@ -153,8 +153,13 @@ def test_set_folding(target_fps, platform, style):
     min_cycles = dict()
     min_cycles["AUP-ZU3_8GB"] = 64
     min_cycles["Ultra96"] = 64
-    # SIMD <= 8 (mvau_wwidth_max): 128 / 8 cycles plus the MVAU_hls per-frame overhead
-    min_cycles["U200"] = 16 + 7
+    # unrolled further, the 4-bit weight stream of an HLS MVAU (PE * SIMD * 4 bits) exceeds
+    # the 8191 bits of an ap_int: the fastest folding the optimizer may choose (128 / 8
+    # cycles plus the MVAU_hls per-frame overhead)
+    fastest = getCustomOp(dataflow_model.graph.node[0])
+    fastest.set_nodeattr("PE", 8)
+    fastest.set_nodeattr("SIMD", 128)
+    min_cycles["U200"] = fastest.get_exp_cycles()
 
     assert achieved_cycles_per_frame <= max(
         min_cycles[platform], target_cycles_per_frame
@@ -848,3 +853,81 @@ def test_set_folding_split_concat_simd(style):
         simd = inst.get_nodeattr("SIMD")
         assert simd > 1 and 8 % simd == 0, f"{node.name}: SIMD={simd}"
         assert inst.get_exp_cycles() <= target
+
+
+def _mvau_hls_model(mw, mh, wdt, mem_mode):
+    """A single dense MVAU_hls (no activation) with random ``wdt`` weights."""
+    node = helper.make_node(
+        "MVAU_hls",
+        ["inp", "w"],
+        ["outp"],
+        domain="finn.custom_op.fpgadataflow.hls",
+        backend="fpgadataflow",
+        MW=mw,
+        MH=mh,
+        SIMD=1,
+        PE=1,
+        inputDataType="INT4",
+        weightDataType=wdt,
+        outputDataType="INT32",
+        noActivation=1,
+        mem_mode=mem_mode,
+    )
+    graph = helper.make_graph(
+        [node],
+        "mvau_hls",
+        [helper.make_tensor_value_info("inp", TensorProto.FLOAT, [1, mw])],
+        [helper.make_tensor_value_info("outp", TensorProto.FLOAT, [1, mh])],
+    )
+    model = ModelWrapper(qonnx_make_model(graph))
+    model.set_initializer("w", gen_finn_dt_tensor(DataType[wdt], (mw, mh)))
+    for name, dt in (("inp", "INT4"), ("w", wdt), ("outp", "INT32")):
+        model.set_tensor_datatype(name, DataType[dt])
+    return model.transform(GiveUniqueNodeNames())
+
+
+# target 1: as fast as possible; None: maximize (resnet50 on V80 got PE=32, SIMD=49 at 8 bits)
+@pytest.mark.parametrize("target", [1, None])
+@pytest.mark.fpgadataflow
+def test_set_folding_hls_mvau_weight_stream_width(target):
+    # unrolled, the weight stream of this MVAU_hls is 32 * 64 * 8 = 16384 bits wide, beyond
+    # the 8191 bits of an HLS ap_int: the optimizer must stay within PE * SIMD * 8 <= 8191
+    mw, mh = 64, 32
+    model = _mvau_hls_model(mw, mh, "INT8", "internal_decoupled")
+    opt = Optimizer(model, "t", {"max_cycles": 1})
+    opt.generate_parameter_set()
+    # each value alone is offered (8191 bits are exceeded only by the product)
+    assert {p.name: max(p.possible_values) for p in opt.params.parameters} == {
+        "SIMD": mw,
+        "PE": mh,
+    }
+    model = model.transform(SetFolding(target, platform="U250", folding_effort=20, seed=0))
+    inst = getCustomOp(model.graph.node[0])
+    pe, simd = inst.get_nodeattr("PE"), inst.get_nodeattr("SIMD")
+    assert pe * simd * 8 <= Optimizer.HLS_MAX_WIDTH
+    assert not Optimizer.breaks_hls_limits(inst)
+    # and as fast as the limit allows: PE * SIMD = 512 (1024 would be 8192 bits)
+    assert pe * simd == 512
+
+
+@pytest.mark.parametrize(
+    "mw, mh, wdt, min_simd",
+    [
+        # 512 x 128 embedded weights: at SIMD=1 the initializer has 65536 entries
+        (512, 128, "INT2", 2),
+        # MVAU_hls ipgen requires SIMD >= MW / 1024
+        (2048, 8, "INT2", 2),
+    ],
+)
+@pytest.mark.fpgadataflow
+def test_set_folding_hls_mvau_simd_limits(mw, mh, wdt, min_simd):
+    # a slow target would fold SIMD to 1; the HLS limits keep it at min_simd or above
+    model = _mvau_hls_model(mw, mh, wdt, "internal_embedded")
+    opt = Optimizer(model, "t", {"max_cycles": 1})
+    opt.generate_parameter_set()
+    simd = next(p for p in opt.params.parameters if p.name == "SIMD")
+    assert min(simd.possible_values) == min_simd
+    model = model.transform(SetFolding(mw * mh, platform="U250", folding_effort=20, seed=0))
+    inst = getCustomOp(model.graph.node[0])
+    assert inst.get_nodeattr("SIMD") >= min_simd
+    assert not Optimizer.breaks_hls_limits(inst)
