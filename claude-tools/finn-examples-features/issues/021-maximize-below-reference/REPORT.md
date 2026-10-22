@@ -35,7 +35,7 @@ Campaign (`v2__fold-max__*`, rtlsim/estimate >= 0.98 and stitched-IP verified in
 | cnv-w1a1 | ZU3 | 0.57x | 1.30x, **failed**: rtlsim 0.972 of its estimate (15482 fps = 1.26x the committed estimate) | 54.1 k LUT synth (77 %); the 0.8 run (1.73x) and the 0.75 run before the ROM-depth commit (1.54x) passed (1.000, 1.006): 54.6 k routed (77 %) |
 | cybersecurity-mlp | ZU3 | 0.35x | **1.00x** (rtlsim 1.33x est) | = committed folding: 7.5 k LUT synth |
 | gtsrb | ZU3 | 0.96x | **1.31x** (rtlsim 0.989) | (0.8 run, 1.71x: 53.2 k synth, 46.2 k routed, 65 %) |
-| espcn | KV260 | 0.67x | 0.10x, verdict "does NOT fit (BRAM 485 > 230)" | job still in rtlsim after 5 h (5.2 M-cycle frames); no folding fits: the committed one is 468 BRAM_18K of 288 |
+| espcn | KV260 | 0.67x | 0.10x, verdict "does NOT fit (BRAM 485 > 230)" | job failed: rtlsim 0.967 of its estimate (38 fps); no folding fits: the committed one is 468 BRAM_18K of 288 |
 | cnv-w1a2 | ZU3 | 1.19x | 2.63x | 59.6 k LUT synth (84 %), 55.9 k routed (79 %) |
 | cnv-w2a2 | ZU3 | 1.19x | 2.63x | 62.7 k LUT synth (89 %), 61.2 k routed (87 %), 324 BRAM_18K |
 | cnv-w1a2 | KV260 | 1.79x | 4.77x (rtlsim 0.982) | 90.2 k LUT synth (77 %), 83.9 k routed (72 %) |
