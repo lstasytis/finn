@@ -67,6 +67,8 @@ from finn.transformation.fpgadataflow.minimize_weight_bit_width import (
 )
 from finn.transformation.fpgadataflow.specialize_layers import SpecializeLayers
 from finn.transformation.fpgadataflow.transpose_decomposition import (
+    InferInnerOuterShuffles,
+    ShuffleDecomposition,
     decompose_transpose_with_constraints,
 )
 from finn.transformation.streamline.round_thresholds import RoundAndClipThresholds
@@ -308,6 +310,8 @@ class Optimizer:
     enable_folding_dwc_heuristic: bool = True
     resource_weights: dict = field(default_factory=dict)
     allow_uram_weights: bool = False
+    #: weight_info() of the model, for node_resources
+    weights: dict = None
     #: only apply the initial guess, no search
     init_run: bool = False
     #: the RESOURCE_TYPE_ATTRS that may be tuned
@@ -489,7 +493,9 @@ class Optimizer:
         )
 
     def get_resources(self, nodes):
-        return aggregate_dict_keys({n: n.node_res_estimation(self.fpgapart) for n in nodes})
+        return aggregate_dict_keys(
+            {n: node_resources(n, self.fpgapart, self.weights) for n in nodes}
+        )
 
     def graph_nodes(self):
         """Every hardware node of the model as a custom op instance."""
@@ -863,7 +869,9 @@ class Optimizer:
             def estimate(n):  # a node's estimate depends on its own attributes only
                 key = (id(n), str(n.onnx_node.attribute))
                 if key not in estimates:
-                    estimates[key] = self.resource_cost(n.node_res_estimation(self.fpgapart))
+                    estimates[key] = self.resource_cost(
+                        node_resources(n, self.fpgapart, self.weights)
+                    )
                 return estimates[key]
 
             best = None
@@ -1226,6 +1234,59 @@ class Optimizer:
         return [MetaParameter("SIMD", values, real_values, node_index)]
 
 
+def weight_info(model):
+    """Per MVAU with a weight initializer, by node name: its (MW, MH), whether all weights
+    are +-1 and how many are non-zero, for ``node_resources``."""
+    info = {}
+    for node in model.graph.node:
+        if node.op_type.startswith("MVAU") and len(node.input) > 1:
+            weights = model.get_initializer(node.input[1])
+            if weights is not None:
+                inst = getCustomOp(node)
+                info[node.name] = (
+                    (inst.get_nodeattr("MW"), inst.get_nodeattr("MH")),
+                    bool(np.isin(weights, (-1, 1)).all()),
+                    int(np.count_nonzero(weights)),
+                )
+    return info
+
+
+def node_resources(inst, fpgapart, weights=None):
+    """``inst.node_res_estimation``, corrected by the weight values (``weight_info``) where
+    synthesis exploits them (OOC synthesis, Vivado 2024.2, issue 021):
+
+    * +-1 weights stored as INT2 (step_minimize_bit_width makes BIPOLAR weights INT2):
+      one bit of every word is constant and trimmed, the weight memory holds one bit per
+      weight (lfc-w1a2: 176 BRAM_18K measured, 426 estimated at 2 bits, 176 at 1 bit);
+    * constant weights (MVAU_hls, embedded, one word per PE: fully unrolled): the
+      multiply-adds of zero weights vanish, the LUTs scale with the non-zero share
+      (cybersecurity-mlp, 91 % zeros: 7.5 k LUT measured, 181 k estimated dense).
+
+    A padded node (other MW / MH than recorded) has zero weights added: not +-1."""
+    res = inst.node_res_estimation(fpgapart)
+    info = (weights or {}).get(inst.onnx_node.name)
+    if info is None:
+        return res
+    shape, pm1, nonzero = info
+    mw, mh = inst.get_nodeattr("MW"), inst.get_nodeattr("MH")
+    if pm1 and (mw, mh) == shape and inst.get_input_datatype(1).bitwidth() > 1:
+        original = inst.get_nodeattr("weightDataType")
+        inst.set_nodeattr("weightDataType", "BIPOLAR")
+        try:
+            res = dict(
+                res, BRAM_18K=inst.bram_estimation(fpgapart), URAM=inst.uram_estimation(fpgapart)
+            )
+        finally:
+            inst.set_nodeattr("weightDataType", original)
+    if (
+        inst.onnx_node.op_type == "MVAU_hls"
+        and inst.get_nodeattr("mem_mode") == "internal_embedded"
+        and inst.calc_wmem() == 1
+    ):
+        res = dict(res, LUT=res["LUT"] * nonzero / (mw * mh))
+    return res
+
+
 def analytic_fifo_sizer():
     """The analytic FIFO sizer (token access vectors from the operators' tree models, no
     IP generation), or None on a tree without it."""
@@ -1392,6 +1453,17 @@ class SetFolding(Transformation):
     }
     # cost-model weight of the resource a preference avoids (higher = avoided more strongly)
     PREFERENCE_PENALTY = 8.0
+    # share of each resource of the platform the folding may use: FINN's DEFAULT_RES_LIMITS
+    # (0.8), but 0.8 instead of 0.7 of the LUTs. The committed finn-examples foldings,
+    # implemented on the boards, use up to 75 % of xczu3eg's LUTs (gtsrb: 53.2 k of 70.6 k
+    # in OOC synthesis), and the LUT estimates are within -18..+13 % of OOC synthesis on
+    # 25 builds (issue 021)
+    RESOURCE_LIMITS = {
+        "LUT": 0.8,
+        "BRAM_18K": DEFAULT_RES_LIMITS[2],
+        "URAM": DEFAULT_RES_LIMITS[3],
+        "DSP": DEFAULT_RES_LIMITS[4],
+    }
     # throughput probes when maximizing throughput (target_cycles_per_frame=None)
     MAXIMIZE_SEARCH_STEPS = 15
     # nodes per partition in the folding pass and in the resource-type pass
@@ -1420,6 +1492,8 @@ class SetFolding(Transformation):
         )
         # the budget verdict of the last search (see _record_search_result)
         self.last_search_report = None
+        # weight_info() of the model being folded
+        self._weights = None
         self._search_truncated = False
         # sidecar files of the in-loop FIFO sizer, removed after the search
         self._fifo_work_dir = None
@@ -1471,6 +1545,7 @@ class SetFolding(Transformation):
         4. ``_record_search_result`` publishes the budget verdict of the chosen folding."""
         model = model.transform(GiveUniqueNodeNames())
         model = model.transform(AnnotateCycles())
+        self._weights = weight_info(model)
         weight_types = self._weight_types_as_built(model)
         maximize = self.target_cycles_per_frame is None
         fastest_cycles = self._probe_fastest_throughput(model)
@@ -1537,6 +1612,7 @@ class SetFolding(Transformation):
             enable_folding_dwc_heuristic=self.enable_folding_dwc_heuristic,
             resource_weights=self.resource_weights,
             allow_uram_weights=self.allow_uram_weights,
+            weights=self._weights,
             init_run=init_run,
             resource_type_params=Optimizer.RESOURCE_TYPE_ATTRS,
         )
@@ -1560,18 +1636,17 @@ class SetFolding(Transformation):
         return opt.model.transform(AnnotateCycles()).analysis(dataflow_performance)["max_cycles"]
 
     def _resource_budgets(self):
-        """Per-resource budget of the platform: its resources times the default limits."""
-        limit_index = {"LUT": 0, "BRAM_18K": 2, "URAM": 3, "DSP": 4}
+        """Per-resource budget of the platform: its resources times RESOURCE_LIMITS."""
         counts = platforms[self.platform](self.devices).resource_count_dict.values()
         return {
-            r: max(DEFAULT_RES_LIMITS[i] * sum(c[r] for c in counts), 0.001)
-            for r, i in limit_index.items()
+            r: max(limit * sum(c[r] for c in counts), 0.001)
+            for r, limit in self.RESOURCE_LIMITS.items()
         }
 
     def _aggregate_resources(self, model):
         insts = [getCustomOp(node) for node in model.graph.node]
         return aggregate_dict_keys(
-            {inst: inst.node_res_estimation(self.fpgapart) for inst in insts}
+            {inst: node_resources(inst, self.fpgapart, self._weights) for inst in insts}
         )
 
     def _cost(self, metrics, targets):
@@ -1852,7 +1927,9 @@ class SetFolding(Transformation):
             key = (node.name, attrs(node))
             if key not in memo:
                 inst = getCustomOp(node)
-                memo[key] = inst.get_exp_cycles(), inst.node_res_estimation(self.fpgapart)
+                memo[key] = inst.get_exp_cycles(), node_resources(
+                    inst, self.fpgapart, self._weights
+                )
             return memo[key]
 
         def edge_part(p, out_idx, c, in_idx):
@@ -2135,10 +2212,16 @@ class SetFolding(Transformation):
     def _resources_as_built(self, model):
         """Resources of the graph the build carries: with DWCs and after
         step_minimize_bit_width, which can also widen accumulators and thresholds (cnv-w1a2
-        on Pynq-Z1: 33428 LUT / 142 BRAM scored, 40025 / 278 as built)."""
+        on Pynq-Z1: 33428 LUT / 142 BRAM scored, 40025 / 278 as built), and with each
+        generic Shuffle split into its Inner/OuterShuffle stages as by
+        step_transpose_decomposition (an OuterShuffle's reorder buffer: espcn 456 BRAM_18K)."""
         m = copy.deepcopy(model).transform(GiveUniqueNodeNames())
         m = m.transform(InsertDWC())
         m = m.transform(SpecializeLayers(self.fpgapart))
+        if m.get_nodes_by_op_type("Shuffle"):
+            m = m.transform(ShuffleDecomposition())
+            m = m.transform(InferInnerOuterShuffles())
+            m = m.transform(SpecializeLayers(self.fpgapart))
         m = m.transform(MinimizeWeightBitWidth())
         m = m.transform(MinimizeAccumulatorWidth())
         m = m.transform(InferDataTypes())
