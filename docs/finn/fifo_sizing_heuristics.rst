@@ -397,12 +397,64 @@ been measured (its ZCU104 stitched-IP rtlsim is not available in the
 benchmark), so the cap is the one rule on this page without a throughput
 example.
 
-The cap only fires when the producer's blocking allowance exceeds the peak by
-``CAP_MARGIN`` (1.25): the allowance is first-order average-rate arithmetic,
+Where the chain is decoupled (`Decoupled chain`_) the floor is dropped
+altogether. The cap only fires when the producer's blocking allowance exceeds
+the peak by ``CAP_MARGIN`` (1.25): the allowance is first-order average-rate arithmetic,
 and an edge whose allowance only just covers its peak is one the estimate
 cannot be trusted about. The margin changes one depth on the regression set,
 ``Pool_hls_1 -> MVAU_rtl_0`` in resnet50 (272 with the margin, 256 without),
 on no other model.
+
+Decoupled chain
+---------------
+
+*What:* no burst floor (and no throttled cap) for an edge whose consumer can be
+throttled, when two more conditions hold: the slowest node between the last
+pacer and the producer (the producer excluded, ``t_above``) takes at least
+``1 - 1 / CAP_MARGIN`` (20 %) of the period, and it and the slowest node at or
+below the consumer (``t_below``, ``downstream_periods``) take at most
+``CAP_MARGIN`` periods together. The depth is then what the slack relaxation
+leaves, at least 2.
+
+*Why:* the peak occupancy is the depth at which the producer never waits. The
+burst floor puts that peak back wherever the consumer's reads are bursty against
+the frame rate, which on a chain of fast nodes between slow ones is every edge:
+each fast producer runs a row ahead of the slow node below it, and the same
+backlog shows up again at every such edge down the chain. With a shallow FIFO the
+slow stage above the producer and the slow stage below the consumer are coupled:
+at worst they take turns, and a frame takes ``t_above + t_below``; mostly they
+still overlap (the fast nodes in between pass rows on as they come), so up to
+``CAP_MARGIN`` periods are taken as harmless. A slow stage above the producer
+also means the producer is not fed just in time by the pacer, so blocking it
+does not stall the pacer at once. The exceptions are where the floor is needed: a
+producer right below the pacer (only fast nodes in between) holds the pacer's
+continuous output while the nodes below pause (padding rows, a sliding window
+generator's first rows); two stages at 0.67 or 0.9 of the period on either side
+of the edge stall each other.
+
+*Example:* mobilenet_v1, committed U55C folding (pacer the ``Thresholding_rtl``
+with one channel per cycle below ``MVAU_hls_1``, 788544 cycles; the nodes below
+take at most 0.51 of the period). The sizer put 97.2 kB into 141 FIFOs, 76 % of
+it on wide edges with a burst floor equal to the peak (``VVAU_hls -> DWC`` 640 /
+352 / 176 bit at 77-223, ``FMPadding_rtl -> ConvolutionInputGenerator_rtl`` at
+202-256, ``MVAU_hls -> DWC`` at 176-226). Stitched-IP rtlsim (2 frames,
+interval) with depths changed against the sized design: every FIFO into a
+consumer that can be throttled at 2: 794807 (-0.8 %, 9.5 kB); the same except the
+three below the pacer (``DWC -> FMPadding_rtl_1`` 14, ``FMPadding_rtl_1 ->
+ConvolutionInputGenerator_rtl_2`` 256, ``VVAU_hls_1 -> DWC`` 80): 788544, 17.0
+kB, which is what the rule gives. Each of those three alone at 2 loses 0.1 to 0.4
+%; all ``VVAU_hls -> DWC`` edges below them at 2: 788544, all
+``FMPadding -> ConvolutionInputGenerator`` below them at 2: 788544. Small
+folding (``MVAU_hls`` at 0.90 of the period on both sides of every edge, so the
+second condition fails): every ``DWC -> MVAU_hls`` at 2 loses 29 %, every FIFO
+into a throttleable consumer at 2 loses 40 %; the rule changes nothing there.
+``test_fifosizing_linear[cnv]`` (target 1000 fps; ``MVAU_hls_6`` and ``_7`` at
+0.67 of the period): ``StreamingDataWidthConverter_rtl_12 -> MVAU_hls_7`` 63 to
+20 without the second condition dropped rtlsim to 0.83 of the estimate; with it
+the edge keeps 63. Other models (offline re-sizing of the same TAVs, total
+kbit): vgg10-radioml 15.6 to 15.3 (rtlsim 1027 cycles either way), transformer_radioml
+387.0 to 386.2 (2304 either way), resnet18 2237.7 to 2225.2, transformer_vision
+1291.1 to 1290.9, espcn and bert by less than 0.1 %, the others unchanged.
 
 Joins and reconvergent branches
 -------------------------------
