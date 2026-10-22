@@ -12,7 +12,9 @@ folder name was given by the user.)
   carry the FIFO sizer. No conflicts; DWC invariant holds on integ and dwc2 (one
   `get_exp_cycles`, tree-model guard present).
 * `tests/fpgadataflow/test_fifosizing_chained_tav.py`: 8 passed on the FIFO branch and on integ.
-* rtlsim spot checks espcn / resnet18 (`fx/fix018/res7`, PID 2759763): see issue 018's report.
+* rtlsim spot checks (`fx/fix018/res7`, finished after hand-back): espcn interval 783369 cycles
+  base and 018 (FIFO bits 120.63 M -> 120.62 M), resnet18 100978 both (2.292 M -> 2.279 M bits);
+  both complete, no timeout: same throughput with slightly smaller FIFOs.
 
 ## 2. LabelSelect PE folds under the optimizer
 
@@ -109,7 +111,6 @@ folder name was given by the user.)
 
 ## Open points
 * tfc-w1a1 maximize: 9 vs 8 estimated cycles/frame in rtlsim (see section 2); find the node.
-* 018 rtlsim spot checks espcn / resnet18 (`fx/fix018/res7`, PID 2759763) still running at hand-back.
 * `v2__fold-fifo__*` jobs: same staleness as fold-max/target; requeue if wanted.
 * test2/fifo lacks `feature/dev/resource-estimates` (rebuild_branches.sh includes it): merge it at
   the next rebuild; new FIFO builds then report the new model directly.
