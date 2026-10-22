@@ -1454,12 +1454,12 @@ class SetFolding(Transformation):
     # cost-model weight of the resource a preference avoids (higher = avoided more strongly)
     PREFERENCE_PENALTY = 8.0
     # share of each resource of the platform the folding may use: FINN's DEFAULT_RES_LIMITS
-    # (0.8), but 0.8 instead of 0.7 of the LUTs. The committed finn-examples foldings,
+    # (0.8), but 0.75 instead of 0.7 of the LUTs. The committed finn-examples foldings,
     # implemented on the boards, use up to 75 % of xczu3eg's LUTs (gtsrb: 53.2 k of 70.6 k
-    # in OOC synthesis), and the LUT estimates are within -18..+13 % of OOC synthesis on
-    # 25 builds (issue 021)
+    # in OOC synthesis); the LUT estimates are within -16..+13 % of OOC synthesis on 36
+    # builds, and at 0.8 a cnv-w2a2 folding estimated 15 % low filled 98.5 % (issue 021)
     RESOURCE_LIMITS = {
-        "LUT": 0.8,
+        "LUT": 0.75,
         "BRAM_18K": DEFAULT_RES_LIMITS[2],
         "URAM": DEFAULT_RES_LIMITS[3],
         "DSP": DEFAULT_RES_LIMITS[4],
