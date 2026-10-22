@@ -17,6 +17,7 @@ DWC=feature/dev/generalized-datawidthconverter
 PR=upstream/update/finn-examples
 HLS=feature/dev/hls-exp-cycles-overhead   # standalone fix of dev's HLS cycle estimates (issue 002)
 MVC=feature/dev/mvau-exp-cycles   # tiled MVAU exp cycles: upstream c15fb8a9a + group stalls (issue 009)
+EST=feature/dev/resource-estimates   # MVAU/DWC/OuterShuffle estimates calibrated to OOC synthesis (issue 021)
 # separate dev PRs (issue 012): MVU output-queue overflow fix, Split/Concat dataflow pragma
 DEVPRS="feature/dev/mvu-output-queue feature/dev/split-concat-dataflow"
 # issue 011's upstream fixes (GAP non-square, Requant_rtl signed only) are cherry-picked from fix/011:
@@ -51,10 +52,10 @@ check_dwc() {
 
 for t in "$@"; do
   case $t in
-    integ) wt=$M/build/wt/integ; br=dev-finnexamples-features; base=$DWC; extra="$FIFO $PR $HLS $MVC $DEVPRS";;
-    fifo) wt=$M/build/wt/fifo$S; br=test$S/fifo; base=$FIFO; extra="$PR $HLS $MVC $DEVPRS";;
-    folding) wt=$M/build/wt/folding$S; br=test$S/folding; base=$FOLD; extra="$PR $FIFO $HLS $MVC $DEVPRS";;
-    dwc) wt=$M/build/wt/dwc$S; br=test$S/dwc; base=$DWC; extra="$PR $FIFO $HLS $MVC $DEVPRS";;
+    integ) wt=$M/build/wt/integ; br=dev-finnexamples-features; base=$DWC; extra="$FIFO $PR $HLS $MVC $EST $DEVPRS";;
+    fifo) wt=$M/build/wt/fifo$S; br=test$S/fifo; base=$FIFO; extra="$PR $HLS $MVC $EST $DEVPRS";;
+    folding) wt=$M/build/wt/folding$S; br=test$S/folding; base=$FOLD; extra="$PR $FIFO $HLS $MVC $EST $DEVPRS";;
+    dwc) wt=$M/build/wt/dwc$S; br=test$S/dwc; base=$DWC; extra="$PR $FIFO $HLS $MVC $EST $DEVPRS";;
     *) echo "unknown $t"; exit 1;;
   esac
   [ -d $wt ] || git -C $M worktree add -q $wt -b $br $base

@@ -26,7 +26,9 @@
     "fold-max__mobilenet_v1__U55C": "#006 (15.7x committed, rtlsim 0.85x est)",
     "dwc__mobilenet_v1__U55C": "#006 (16 pad DWCs, target met, rtlsim 0.976x est)",
     "fold-max__bnn-pynq__U55C-cnv-w2a2": "#006 (21x committed, rtlsim 0.94x est)",
-    "fold-target__espcn__KV260_SOM": "#007"
+    "fold-target__espcn__KV260_SOM": "#007",
+    "fold-max__espcn__KV260_SOM": "#021: no folding fits KV260 (OuterShuffle reorder buffer 456 BRAM_18K est., 464 measured, of 288)",
+    "fold-max__bnn-pynq__AUP-ZU3_8GB-tfc-w1a1": "#021: 15 cycles, bound by LabelSelect PE=1 (DO_NOT_FOLD); committed 9 cycles at PE=5"
   },
   "tfc-w1a1 (AUP-ZU3_8GB)": "folding target: committed folding near-fully unrolled (9 cycles) - beyond the optimizer's ZU3 budget and LabelSelect kept at PE=1; optimizer 15 cycles, rtlsim = estimate",
   "resnet18_8w8a (U55C)": "FIFO: n/a, committed folding has runtime-writeable URAM weights, not initialized in stitched-IP rtlsim",
@@ -40,7 +42,8 @@
     "* Folding/DWC jobs of bnn-pynq, gtsrb, vgg10 rerun after fixes 004/005 (13:47).",
     "* DWC tests: at the reference targets the padded optimizer (seeds 1-8 tried) inserts no padding DWC on the small models; same with the pre-fix set_folding.py (checked on tfc-w1a1), so padding is not broken, it just doesn't pay off at these targets.",
     "* #006 fixed: FIFO sizing (pacer-bound chains + refill floor) for balanced foldings; cnv maximize now 1.000x. mobilenet maximize: ~80 nodes at exactly the target period, 12 % loss not FIFO-related (optimizer margin?); mobilenet DWC 0.976x is FIFO sizing, edge not found.",
-    "* #007 open: espcn stitched-IP rtlsim replaces whole pixels by 0 in a fixed pattern from ~29 % of the frame, only in the full design under backpressure (golden and Python flow correct, all sub-graphs correct); also OuterShuffle_hls II=3 (3x its estimate, upstream)."
+    "* #007 open: espcn stitched-IP rtlsim replaces whole pixels by 0 in a fixed pattern from ~29 % of the frame, only in the full design under backpressure (golden and Python flow correct, all sub-graphs correct); also OuterShuffle_hls II=3 (3x its estimate, upstream).",
+    "* #021 fixed: maximize below the committed folding on ZU3 was FINN's LUT estimate (2-8x pessimistic for binary/low-bit HLS MVAUs; committed foldings 7.5-53 k LUT in OOC synthesis); estimates recalibrated (new feature/dev/resource-estimates), SetFolding LUT budget 0.75, +-1/constant weights corrected; tfc/cnv-w1a1/cybersecurity/gtsrb maximize now >= 1.00x (tfc-w1a1 0.60x: LabelSelect PE=1); espcn: committed folding does not fit KV260 (OuterShuffle 464 BRAM_18K)."
   ],
   "bert (VCK190)": "FIFO: #001 fixed (dynamic MVAU characterization), rerun; estimate 4x pessimistic for tiled MVAUs (TH), rtlsim 4.0x est",
   "espcn (KV260_SOM)": "#007: output zeros under backpressure (FIFO analytical, fold-target); fold-max passes; OuterShuffle_hls II=3 (upstream)",
