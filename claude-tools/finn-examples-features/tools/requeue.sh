@@ -18,11 +18,16 @@ for j in sys.argv[1:]:
     d.get("finished", {}).pop(j, None)
 json.dump(d, open(p, "w"), indent=1)
 PY
+LIVE=()
 if [ -f $L/runner.pid ] && kill -0 $(cat $L/runner.pid) 2>/dev/null; then
-  kill $(cat $L/runner.pid); sleep 3
+  RPID=$(cat $L/runner.pid)
+  # the live runner's exact arguments (python3 run_campaign.py ARGS...)
+  mapfile -d '' LIVE < /proc/$RPID/cmdline
+  kill $RPID; sleep 3
 fi
-# the current runner's arguments (one per line in runner.args: no shell quoting needed)
-if [ -f $L/runner.args ]; then mapfile -t ARGS < <(tr ' ' '\n' < $L/runner.args | grep -v '^$')
+if [ ${#LIVE[@]} -gt 2 ]; then ARGS=("${LIVE[@]:2}")
+# else the arguments in runner.args (space-separated, no shell quoting needed)
+elif [ -f $L/runner.args ]; then mapfile -t ARGS < <(tr ' ' '\n' < $L/runner.args | grep -v '^$')
 else ARGS=(--max-threads $BUDGET --deadline $DEADLINE); fi
 cd $L && (setsid nohup python3 $T/run_campaign.py "${ARGS[@]}" >> runner.log 2>&1 < /dev/null &)
 sleep 5; echo "runner pid $(cat $L/runner.pid)"

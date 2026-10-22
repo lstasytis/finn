@@ -65,8 +65,10 @@ helpers in `tests/benchmark/benchmark_helpers.py`). Markers `fifo_sizing`, `fold
   correct output and `rtlsim fps >= 0.98 x own estimate`. Writes `report/feature_metrics.json`.
 * Tests: `test_<m>_fifo_sizing[heuristic_analytical|heuristic_rtlsim]` (committed folding),
   `test_<m>_folding[target|maximize]` (optimizer, FIFOs `heuristic_analytical`; target = reference
-  fps, must be met by the estimate), `test_<m>_dwc` (optimizer at the reference target with
-  `folding_maximum_padding=4`; skipped if no padding DWC is inserted).
+  fps, must be met by the estimate), `test_<m>_dwc` (optimizer estimate-only with padding off vs
+  `folding_maximum_padding=4`, same seed, at the reference target for seeds 1-8 and, full size, in
+  maximize mode; the seed where padding saves the most resources is built; never skipped; fails if
+  padding needs > 5 % more resources; numbers in `feature_metrics.json` `pad_compare`, issue 022).
 * Never use `largefifo_rtlsim`.
 
 Run one test (example):

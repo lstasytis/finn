@@ -106,6 +106,22 @@ def fifo_aware_cells(job, plain, state, notes):
     return [time_s, thr, size]
 
 
+def pad_compare_cells(job):
+    """DWC padding vs none (the DWC test's "pad_compare"): padded / unpadded resources at the
+    reference target, padded / unpadded maximize throughput (full size only), padding DWCs of
+    the padded target folding; "-" where the job has no comparison (yet)."""
+    if job is None:
+        return ["-", "-", "-"]
+    c = (job_metrics(job) or {}).get("pad_compare")
+    if not c:
+        return ["-", "-", "-"]
+    res = "%.3fx" % c["res_ratio"] + "".join(" +" + r for r in c.get("res_extra") or [])
+    res += " (%s, seed %d)" % (c["verdict"], c["seed"])
+    mx = c.get("maximize")
+    fps = "%.3fx (%s pad DWC)" % (mx["fps_ratio"], mx["pad"]["pad_dwcs"]) if mx else "-"
+    return [res, fps, str(c["pad"]["pad_dwcs"])]
+
+
 def cell(job, state, notes):
     if job["id"] in notes.get("cells", {}):
         return notes["cells"][job["id"]]
@@ -159,12 +175,15 @@ def main():
         "load). With sizes, a cell lists the small folding first, then the full one. ⏳ running, "
         "⏸ not run yet, blocked = its small run failed. FIFO-aware folding (optional, "
         "`enable_folding_fifo_heuristic`) at the reference target: folding time, throughput, final "
-        "FIFO size, each vs the plain optimizer folding.",
+        "FIFO size, each vs the plain optimizer folding. DWC pad/no-pad: the optimizer with padding vs "
+        "without at the same seed, estimated resources (mean of the LUT/BRAM_18K/URAM/DSP ratios) at "
+        "the reference target (best of the seeds) and estimated throughput in maximize mode.",
         "",
         "| model (board) | est. fps (committed) | FIFO analytical | Folding target | "
-        "Folding maximize | DWC | FIFO-aware: time | FIFO-aware: throughput | "
+        "Folding maximize | DWC | DWC pad/no-pad res. (target) | DWC pad/no-pad fps (maximize) | "
+        "DWC #pad DWCs | FIFO-aware: time | FIFO-aware: throughput | "
         "FIFO-aware: FIFO size | FIFO rtlsim | Notes |",
-        "|---|---|---|---|---|---|---|---|---|---|---|",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for mdir, p in ordered_params(tiers):
         if True:
@@ -184,6 +203,10 @@ def main():
             cells = []
             for col in ["fifo", "fold-target", "fold-max", "dwc"]:
                 cells.append(" / ".join(cell(j, state, notes) for j in of(col)) or "-")
+            dwc = [pad_compare_cells(j) for j in of("dwc")]
+            for i in range(3):
+                vals = [d[i] for d in dwc]
+                cells.append(" / ".join(vals) if any(v != "-" for v in vals) else "-")
             fifo_aware = of("fold-fifo")
             plain = of("fold-target", "full") or of("fold-target")
             if fifo_aware:

@@ -186,7 +186,8 @@ def livefifo_cells(job, state, live):
     degr = ("%.1f\\%%" % max(0.0, 100.0 * (got / ivl - 1))).replace(".0\\%", "\\%") if got else ""
     return [size, degr]
 HEADERS = {"ratio": "rtlsim/est.", "tref": "rtlsim/ref.", "res": "res./ref.", "kbit": "FIFO [kB]",
-           "pad": "pad.\\ DWCs", "tfifo": "time [s]", "tfold": "time [s]"}
+           "pad": "\\#pad DWCs", "tfifo": "time [s]", "tfold": "time [s]",
+           "padres": "res.\\ pad/no-pad", "padfps": "fps pad/no-pad (max.)"}
 
 
 def resources(output_dir):
@@ -255,6 +256,13 @@ def cells(job, state, fields, jobs):
             out.append("%.2f" % (m["fifo_kbit"] / 8) if m.get("fifo_kbit") is not None else "")
         elif f == "pad":
             out.append("%d" % m["pad_dwcs"] if m.get("pad_dwcs") is not None else "")
+        elif f == "padres":  # DWC test: padded / unpadded optimizer folding, same seed, at the target
+            c = m.get("pad_compare")
+            out.append("%.2f" % c["res_ratio"] + "".join(" +" + r.split("_")[0] for r in c["res_extra"])
+                       if c else "")
+        elif f == "padfps":  # DWC test: padded / unpadded maximize-mode throughput
+            mx = (m.get("pad_compare") or {}).get("maximize")
+            out.append("%.3f" % mx["fps_ratio"] if mx else "")
         elif f == "tfifo":
             out.append("%.0f" % t["step_set_fifo_depths"] if "step_set_fifo_depths" in t else "")
         elif f == "tfold":
@@ -313,7 +321,8 @@ def main():
 
     fifo_rows, fold_rows, dwc_rows = [], [], []
     FIFO_F, FOLD_F, FAW_F, DWC_F = (["ratio", "kbit", "tfifo"], ["tref", "res", "tfold"],
-                                    ["tref", "res", "kbit", "tfold"], ["pad", "tref", "res"])
+                                    ["tref", "res", "kbit", "tfold"], ["pad", "padres", "tref", "res"])
+    DWC_FULL = ["pad", "padres", "padfps", "tref", "res"]
     for mdir, p in ordered_params(tiers):
         if True:
             board, model = split_param(p)
@@ -341,8 +350,8 @@ def main():
             row += cells(job(mdir, p, "fold-fifo", "full"), state, FAW_F, jobs)
             fold_rows.append(row)
             row = list(head)
-            for sz in ("small", "full"):
-                row += cells(job(mdir, p, "dwc", sz), state, DWC_F, jobs)
+            row += cells(job(mdir, p, "dwc", "small"), state, DWC_F, jobs)
+            row += cells(job(mdir, p, "dwc", "full"), state, DWC_FULL, jobs)
             dwc_rows.append(row)
 
     now = datetime.datetime.now()
@@ -376,11 +385,16 @@ def main():
               "target mode with \\texttt{enable\\_folding\\_fifo\\_heuristic} (optional, slower). "
               "\\emph{FIFO [kB]}: total FIFO storage of the build (1 kB = 1024 bytes). \\emph{time [s]}: time of "
               "\\texttt{step\\_target\\_fps\\_parallelization}."),
-        table("DWC padding results.",
-              "tab:dwc", [("small", DWC_F), ("full", DWC_F)], dwc_rows,
-              "\\emph{result}: \\checkmark{} passed (output equal to the golden output and rtlsim throughput $\\geq 0.98\\times$ the build's own estimate), $\\times$ failed, skip = skipped, run = running, blk = blocked (its small run failed), -- = not run yet; metric cells stay empty unless the test finished. \\emph{\\#nodes}: compute layers of the committed folding (before FIFO/DWC insertion). \\emph{est.\\ fps}: analytic throughput of the committed folding JSON (the reference). \\emph{small}: committed folding with every node's parallelism cut 4--8$\\times$ (its reference is the small committed folding); \\emph{full}: the committed folding. Step times are wall-clock under the campaign's load. " + "\\emph{rtlsim/ref.}: stitched-IP rtlsim throughput of the build divided by the committed folding's estimated throughput (1.00 = same throughput as the provided JSON; maximize: the speed-up). \\emph{res./ref.}: estimated resources of the build divided by those of the committed folding built the same way (DWCs included, FIFOs excluded): mean of the LUT, BRAM\\_18K, URAM and DSP ratios over the resources the committed folding uses ($\\leq 1.00$ = same or fewer resources); a resource only the new folding uses is named after it (e.g.\\ +URAM); $^\\dagger$ = reference without DWCs (the committed folding's FIFO test has not finished yet). " + "\\emph{pad.\\ DWCs}: padding/cropping data width converters in the build "
-              "(skip: the padded search inserts none, no hardware build). A result below 1.00 rtlsim/ref.\\ is "
-              "accepted if within 10 \\% and its resource saving is larger than the throughput loss."),
+        table("DWC padding results: the padded optimizer folding built in hardware and compared with the "
+              "unpadded optimizer at the same seed.",
+              "tab:dwc", [("small", DWC_F), ("full", DWC_FULL)], dwc_rows,
+              "\\emph{result}: \\checkmark{} passed (output equal to the golden output and rtlsim throughput $\\geq 0.98\\times$ the build's own estimate), $\\times$ failed, skip = skipped, run = running, blk = blocked (its small run failed), -- = not run yet; metric cells stay empty unless the test finished. \\emph{\\#nodes}: compute layers of the committed folding (before FIFO/DWC insertion). \\emph{est.\\ fps}: analytic throughput of the committed folding JSON (the reference). \\emph{small}: committed folding with every node's parallelism cut 4--8$\\times$ (its reference is the small committed folding); \\emph{full}: the committed folding. Step times are wall-clock under the campaign's load. " + "\\emph{rtlsim/ref.}: stitched-IP rtlsim throughput of the build divided by the committed folding's estimated throughput (1.00 = same throughput as the provided JSON; maximize: the speed-up). \\emph{res./ref.}: estimated resources of the build divided by those of the committed folding built the same way (DWCs included, FIFOs excluded): mean of the LUT, BRAM\\_18K, URAM and DSP ratios over the resources the committed folding uses ($\\leq 1.00$ = same or fewer resources); a resource only the new folding uses is named after it (e.g.\\ +URAM); $^\\dagger$ = reference without DWCs (the committed folding's FIFO test has not finished yet). " + "\\emph{\\#pad DWCs}: padding/cropping data width converters in the build. "
+              "\\emph{res.\\ pad/no-pad}: estimated resources of the padded / the unpadded optimizer folding "
+              "(same seed, reference target; the seed with the largest saving of DWC\\_SEEDS), mean of the LUT, "
+              "BRAM\\_18K, URAM and DSP ratios ($<1.00$ = padding saves). \\emph{fps pad/no-pad (max.)}: "
+              "estimated throughput of the padded / unpadded optimizer in maximize mode (full size only). A "
+              "result below 1.00 rtlsim/ref.\\ is accepted if within 10 \\% and its resource saving is larger "
+              "than the throughput loss."),
         "\\clearpage\\section*{Bugs fixed in the FINN compiler (outside our transformations)}",
         "Found while making the feature tests pass; each fix is a separate branch (dev-side PR), not part of the "
         "FIFO-sizing, folding or DWC PRs. Line counts include tests and docs.",
