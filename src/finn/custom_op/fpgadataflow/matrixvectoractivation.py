@@ -392,47 +392,88 @@ class MVAU(HWCustomOp):
         depth_multiplier = math.ceil(omega / 4096)
         return width_multiplier * depth_multiplier
 
-    def bram_estimation(self, fpgapart):
-        """Calculates resource estimation for BRAM based on:
-        - FINN-R: An End-to-End Deep-Learning Framework for Fast
-        Exploration of Quantized Neural Networks
-        - M. Blott, T. B. Preusser, N. J. Fraser, G. Gambardella, K. O'Brien,
-        Y. Umuroglu, M. Leeser and K. Vissers
-        - 12. Sep 2018
-        """
-        # TODO add in/out FIFO contributions
-        P = self.get_nodeattr("PE")
-        Q = self.get_nodeattr("SIMD")
-        wdt = self.get_input_datatype(1)
-        W = wdt.bitwidth()
-        D_in = self.get_nodeattr("MW")
-        D_out = self.get_nodeattr("MH")
-        omega = (D_in * D_out) / (Q * P)
-        mem_width = Q * W * P
+    # Where Vivado puts a weight memory (OOC synthesis, Vivado 2024.2, xczu3eg/xck26):
+    # an embedded weight ROM (internal_embedded; Vitis HLS ignores ram_style there) of at
+    # most ROM_LOGIC_DEPTH words, or of at most ROM_LOGIC_BITS bits, becomes logic, a
+    # deeper one BRAM; an internal_decoupled memory with ram_style "auto" of at most
+    # AUTO_LUTRAM_DEPTH words becomes LUTRAM (depth 48: LUTRAM, 64: BRAM).
+    ROM_LOGIC_DEPTH = 16
+    ROM_LOGIC_BITS = 1024
+    AUTO_LUTRAM_DEPTH = 48
+
+    @staticmethod
+    def bram18_count(depth, width):
+        """RAMB18s of a depth x width memory, assuming SDP mode RAMB18s (UG573 Table 1-10),
+        after FINN-R (M. Blott, T. B. Preusser, N. J. Fraser, G. Gambardella, K. O'Brien,
+        Y. Umuroglu, M. Leeser and K. Vissers, 2018)."""
+        if width == 1:
+            return math.ceil(depth / 16384)
+        elif width == 2:
+            return math.ceil(depth / 8192)
+        elif width <= 4:
+            return (math.ceil(depth / 4096)) * (math.ceil(width / 4))
+        elif width <= 9:
+            return (math.ceil(depth / 2048)) * (math.ceil(width / 9))
+        elif width <= 18 or depth > 512:
+            return (math.ceil(depth / 1024)) * (math.ceil(width / 18))
+        else:
+            return (math.ceil(depth / 512)) * (math.ceil(width / 36))
+
+    @classmethod
+    def rom_in_bram(cls, depth, width):
+        """Whether Vivado builds a ROM of depth x width bits from BRAM (else from logic)."""
+        return depth > cls.ROM_LOGIC_DEPTH and depth * width > cls.ROM_LOGIC_BITS
+
+    def weights_in_luts(self):
+        """Whether the weight memory is built from LUTs (logic or LUTRAM), not BRAM."""
         mmode = self.get_nodeattr("mem_mode")
         mstyle = self.get_nodeattr("ram_style")
-        if (
-            (mmode == "internal_decoupled" and mstyle in ["distributed", "ultra"])
-            or (mmode == "internal_embedded" and self.calc_wmem() <= 128)
-            or (mmode == "external")
-            or (mmode == "external_mem")
+        wmem = self.calc_wmem()
+        if mmode == "internal_embedded":
+            width = self.get_nodeattr("SIMD") * self.get_input_datatype(1).bitwidth()
+            return not self.rom_in_bram(wmem, width)
+        if mmode == "internal_decoupled":
+            return mstyle == "distributed" or (mstyle == "auto" and wmem <= self.AUTO_LUTRAM_DEPTH)
+        return False
+
+    def threshold_bram_estimation(self):
+        """RAMB18s of the thresholds of an MVAU with an activation (HLS: one ROM per PE)."""
+        if self.get_nodeattr("noActivation") == 1:
+            return 0
+        if self.get_nodeattr("ram_style_thresholds") == "distributed":
+            return 0
+        tmem = self.calc_tmem()
+        width = (2 ** self.get_output_datatype().bitwidth() - 1) * (
+            self.get_accumulator_datatype().bitwidth()
+        )
+        if self.get_nodeattr("ram_style_thresholds") == "auto" and not self.rom_in_bram(
+            tmem, width
         ):
             return 0
-        # assuming SDP mode RAMB18s (see UG573 Table 1-10)
-        # assuming internal_decoupled (RTL) memory,
-        # which is more efficient than internal_embedded (HLS)
-        if mem_width == 1:
-            return math.ceil(omega / 16384)
-        elif mem_width == 2:
-            return math.ceil(omega / 8192)
-        elif mem_width <= 4:
-            return (math.ceil(omega / 4096)) * (math.ceil(mem_width / 4))
-        elif mem_width <= 9:
-            return (math.ceil(omega / 2048)) * (math.ceil(mem_width / 9))
-        elif mem_width <= 18 or omega > 512:
-            return (math.ceil(omega / 1024)) * (math.ceil(mem_width / 18))
-        else:
-            return (math.ceil(omega / 512)) * (math.ceil(mem_width / 36))
+        return self.get_nodeattr("PE") * self.bram18_count(tmem, width)
+
+    def bram_estimation(self, fpgapart):
+        """RAMB18s of the weight memory (and thresholds). An embedded weight memory is one
+        HLS ROM per PE, of a power-of-two depth; an internal_decoupled one a single
+        PE * SIMD wide memory. Memories Vivado builds from LUTs count none
+        (``weights_in_luts``)."""
+        P = self.get_nodeattr("PE")
+        Q = self.get_nodeattr("SIMD")
+        W = self.get_input_datatype(1).bitwidth()
+        omega = self.calc_wmem()
+        mmode = self.get_nodeattr("mem_mode")
+        mstyle = self.get_nodeattr("ram_style")
+        thresholds = self.threshold_bram_estimation()
+        if (
+            (mmode == "internal_decoupled" and mstyle == "ultra")
+            or mmode in ("external", "external_mem")
+            or self.weights_in_luts()
+        ):
+            return thresholds
+        if mmode == "internal_embedded":
+            depth = 1 << math.ceil(math.log2(omega))
+            return P * self.bram18_count(depth, Q * W) + thresholds
+        return self.bram18_count(omega, P * Q * W) + thresholds
 
     def bram_efficiency_estimation(self, fpgapart):
         wdt = self.get_input_datatype(1)

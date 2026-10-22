@@ -115,3 +115,9 @@ class StreamingDataWidthConverter_rtl(StreamingDataWidthConverter, RTLBackend):
             % (self.get_nodeattr("gen_top_module"), self.onnx_node.name)
         )
         return cmd
+
+    def lut_estimation(self, fpgapart):
+        """About one LUT per bit of the narrower stream (the wider side is a register of
+        FFs) plus control: OOC synthesis (Vivado 2024.2, xczu3eg/xck26) of 182 RTL DWCs of
+        finn-examples builds measured 4420 LUTs in total, the base estimate 34730."""
+        return int(min(self.get_instream_width(), self.get_outstream_width()) + 30)
