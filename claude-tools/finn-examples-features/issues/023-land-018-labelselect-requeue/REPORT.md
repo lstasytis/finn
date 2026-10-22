@@ -38,7 +38,11 @@ folder name was given by the user.)
   (`f4f3a9409`, `6326db5f9`) and `test2/dwc` (`0fec95f6c`, `f6ba08c1b`).
 * tfc-w1a1 AUP-ZU3 maximize, estimate only on test2/folding (`fx/fix023/chk-max_*`): 12.5 M fps =
   **1.125x** the committed folding (was 0.60x); LabelSelect PE=5 (6 cycles with the HLS overhead),
-  the four MVAUs and the input DWC/Thresholding at 8 cycles. The campaign job reruns with rtlsim.
+  the four MVAUs and the input DWC/Thresholding at 8 cycles. Campaign rerun
+  (`fx/folding2/fold-max_bnn-pynq_tfc-w1a1_AUP-ZU3_8GB_pkcsty7c`): output verified, but rtlsim
+  11.11 M fps = 0.889x its estimate (9 cycles/frame instead of 8), so the test FAILS its 0.98
+  rtlsim/est. check; rtlsim is exactly the committed folding's estimate (1.00x ref). Some node
+  takes one cycle more per frame than modelled (LabelSelect at PE=5 or an MVAU at 8): open.
 * `tests/fpgadataflow/test_set_folding.py`: folding branch 52 passed / 5 skipped / 1 xfailed (the 2
   new ones passed separately); integ 57 / 1 xfailed; test2/dwc 57 / 1 xfailed; test2/folding 55 /
   2 skipped / 1 xfailed. black/isort/flake8 clean.
@@ -104,6 +108,8 @@ folder name was given by the user.)
 * GENERAL.md: note on est dirs and the reference resources.
 
 ## Open points
+* tfc-w1a1 maximize: 9 vs 8 estimated cycles/frame in rtlsim (see section 2); find the node.
+* 018 rtlsim spot checks espcn / resnet18 (`fx/fix018/res7`, PID 2759763) still running at hand-back.
 * `v2__fold-fifo__*` jobs: same staleness as fold-max/target; requeue if wanted.
 * test2/fifo lacks `feature/dev/resource-estimates` (rebuild_branches.sh includes it): merge it at
   the next rebuild; new FIFO builds then report the new model directly.
