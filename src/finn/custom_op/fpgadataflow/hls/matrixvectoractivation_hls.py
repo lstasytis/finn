@@ -68,67 +68,52 @@ class MVAU_hls(MVAU, HLSBackend):
         return MVAU.get_exp_cycles(self) + hls_overhead
 
     def lut_estimation(self, fpgapart):
-        """Calculates resource estimations for LUTs based on:
-        - FINN-R: An End-to-End Deep-Learning Framework for Fast
-        Exploration of Quantized Neural Networks
-        - M. Blott, T. B. Preusser, N. J. Fraser, G. Gambardella, K. O'Brien,
-        Y. Umuroglu, M. Leeser and K. Vissers
-        - 12. Sep 2018
+        """LUTs, fitted to OOC synthesis (Vivado 2024.2, xczu3eg) of 159 MVAU_hls of 25
+        finn-examples builds (tfc, lfc, cnv, gtsrb, kws; per build within -28..+12 %): a
+        fixed part, per MAC lane (PE * SIMD) an XNOR-popcount lane or a multiplier and
+        adder-tree lane, per PE the accumulator and threshold comparators, and the weight
+        memory: an embedded ROM as logic or BRAM read path, or the decoupled weight
+        stream (input registers, output SRLs and, if built from LUTs, its LUTRAM).
         """
-        # TODO add in/out FIFO contributions
         P = self.get_nodeattr("PE")
         Q = self.get_nodeattr("SIMD")
         MW = self.get_nodeattr("MW")
-        wdt = self.get_input_datatype(1)
-        W = wdt.bitwidth()
-        # determine tdt with input and weight data types
+        W = self.get_input_datatype(1).bitwidth()
         idt = self.get_input_datatype(0)
         A = idt.bitwidth()
-        # parameters from experiments in paper mentioned above
-        c0 = 300
-        c1 = 1.1
-        c2 = 0
-        mmode = self.get_nodeattr("mem_mode")
-        mstyle = self.get_nodeattr("ram_style")
-        if (mmode == "internal_decoupled" and mstyle == "distributed") or (
-            mmode == "internal_embedded" and self.calc_wmem() <= 128
-        ):
-            c2 = (P * Q * W) * math.ceil(self.calc_wmem() / 64)
-
-        # multiplication
-        res_type = self.get_nodeattr("resType")
-        if res_type == "dsp":
-            mult_luts = 0
+        lanes = P * Q
+        if self.get_nodeattr("binaryXnorMode") == 1:
+            lane_luts = 0.9 * lanes
         else:
-            mult_luts = Q * (2 * math.ceil((W + A) / 6) - 1) * (W + A)
-        # adder tree
-        addertree_luts = (W + A) * (2 * Q - 1)
-        # accumulator
+            mult = 0 if self.get_nodeattr("resType") == "dsp" else 0.36 * W * A
+            lane_luts = lanes * (0.85 * (W + A) + mult)
+        # accumulator, at most as wide as the data types bound it
+        # (https://arxiv.org/abs/2301.13376), and one comparator per threshold
         acc_datatype = self.get_accumulator_datatype()
-        # if accDataType is not set, then it will default to INT32, which would
-        # be a large overestimate in most (if not all) cases. In this scenario,
-        # we would use the minimum accumulator as determined by the data types
-        # bound, derived in https://arxiv.org/abs/2301.13376
         alpha = math.log(MW, 2) + W + A - 1 - int(idt.signed())
         acc_bits = min(
             acc_datatype.bitwidth(),
             np.ceil(alpha + math.log(1 + pow(2, -alpha), 2) + 1),
         )
-        acc_luts = acc_bits
-        # thresholds and threshold comparators
+        n_thr = 0
         thr_luts = 0
-        comp_luts = 0
-        noact = self.get_nodeattr("noActivation")
-        tmem_style = self.get_nodeattr("ram_style_thresholds")
-        if (noact == 0) and (tmem_style == "distributed"):
-            odt = self.get_output_datatype()
-            B = odt.bitwidth()
-            thr_luts = (2**B - 1) * acc_bits * math.ceil(self.calc_tmem() / 64)
-            comp_luts = (2**B - 1) * acc_bits
-
-        return int(
-            c0 + c1 * (P * (mult_luts + addertree_luts + acc_luts + thr_luts + comp_luts)) + c2
-        )
+        if self.get_nodeattr("noActivation") == 0:
+            n_thr = 2 ** self.get_output_datatype().bitwidth() - 1
+            if self.get_nodeattr("ram_style_thresholds") == "distributed":
+                thr_luts = P * n_thr * acc_bits * math.ceil(self.calc_tmem() / 64)
+        pe_luts = P * 0.8 * acc_bits * (1 + n_thr)
+        # weight memory
+        wmem = self.calc_wmem()
+        wbits = lanes * W
+        if self.get_nodeattr("mem_mode") == "internal_decoupled":
+            mem_luts = 3.1 * wbits
+            if self.weights_in_luts():
+                mem_luts += wbits * math.ceil(wmem / 32)
+        elif self.weights_in_luts():
+            mem_luts = 1.25 * wbits * min(wmem, self.ROM_LOGIC_DEPTH) / self.ROM_LOGIC_DEPTH
+        else:
+            mem_luts = 1.25 * wbits
+        return int(500 + lane_luts + pe_luts + thr_luts + mem_luts)
 
     def dsp_estimation(self, fpgapart):
         # multiplication

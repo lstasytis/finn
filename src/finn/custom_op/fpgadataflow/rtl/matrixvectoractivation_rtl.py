@@ -26,6 +26,7 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import math
 import numpy as np
 import os
 
@@ -158,7 +159,19 @@ class MVAU_rtl(MVAU, RTLBackend):
             )
 
     def lut_estimation(self, fpgapart):
-        return 0
+        """LUTs of the DSP48 MVU: per MAC lane (PE * SIMD) its share of the operand
+        packing, adder tree and pipeline, ~2.3 LUTs per operand bit, plus the weight memory
+        if built from LUTRAM. Fitted to OOC synthesis (Vivado 2024.2, xck26) of 8 MVAU_rtl
+        of espcn (within -15..+10 %). Not measured on DSP58 (Versal): 0 there."""
+        if get_dsp_block(fpgapart) == "DSP58":
+            return 0
+        lanes = self.get_nodeattr("PE") * self.get_nodeattr("SIMD")
+        W = self.get_input_datatype(1).bitwidth()
+        A = self.get_input_datatype(0).bitwidth()
+        luts = 2.3 * (W + A) * lanes
+        if self.get_nodeattr("mem_mode") == "internal_decoupled" and self.weights_in_luts():
+            luts += lanes * W * math.ceil(self.calc_wmem() / 32)
+        return int(luts)
 
     def dsp_estimation(self, fpgapart):
         # multiplication

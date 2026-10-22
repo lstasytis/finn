@@ -543,3 +543,39 @@ class OuterShuffle(HWCustomOp):
                 )
             )
         return Characteristic_Node("OuterShuffle frame", phases, False)
+
+    # a deeper reorder buffer is inferred as URAM (as in get_exp_cycles)
+    URAM_DEPTH = 262144
+
+    def reorder_buffer(self):
+        """Depth (BUF_SIZE, as in get_exp_cycles) and bits of input_gen's reorder buffer."""
+        simd = self.get_nodeattr("SIMD")
+        in_shape = list(self.get_nodeattr("transpose_in_shape"))
+        perm = list(self.get_nodeattr("perm"))
+        out_shape = [in_shape[p] for p in perm]
+        adjusted = in_shape + [1]
+        input_strides = [int(np.prod(adjusted[i + 1 :])) for i in range(len(in_shape))]
+        loop_coeffs = [input_strides[p] for p in perm]
+        out_shape[-1] = int(out_shape[-1] / simd)
+        lc = [1 if x == 1 else int(x / simd) for x in loop_coeffs]
+        interleaved = [int(item) for pair in zip(out_shape, lc) for item in pair]
+        nest = _NestSim(True, int(np.prod(out_shape)), *tuple(interleaved))
+        WP_DELAY = 4
+        addr_bits = max(1, math.ceil(math.log2(max(1, nest.max_rp_retract + WP_DELAY + 2))))
+        depth = 1 << addr_bits
+        return depth, depth * self.get_instream_width()
+
+    def bram_estimation(self, fpgapart):
+        """RAMB18s of the reorder buffer, by capacity: OOC synthesis (Vivado 2024.2, xck26)
+        of espcn's 262144 x 32 bit buffer measured 464 (232 RAMB36), this gives 456. A
+        buffer deeper than URAM_DEPTH is built from URAM."""
+        depth, bits = self.reorder_buffer()
+        if depth > self.URAM_DEPTH:
+            return 0
+        return math.ceil(bits / (36 * 512))
+
+    def uram_estimation(self, fpgapart):
+        depth, bits = self.reorder_buffer()
+        if depth <= self.URAM_DEPTH:
+            return 0
+        return math.ceil(bits / (72 * 4096))
