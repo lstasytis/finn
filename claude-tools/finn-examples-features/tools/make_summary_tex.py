@@ -7,6 +7,7 @@ Re-run at any time; the tables show the campaign's current state (not-yet-run ce
 """
 import argparse
 import datetime
+import glob
 import os
 import subprocess
 
@@ -194,7 +195,83 @@ def livefifo_cells(job, state, live):
     return [size, degr]
 HEADERS = {"ratio": "rtlsim/est.", "tref": "rtlsim/ref.", "res": "res./ref.", "kbit": "FIFO [kB]",
            "pad": "\\#pad DWCs", "tfifo": "time [s]", "tfold": "time [s]",
-           "padres": "res.\\ pad/no-pad", "padfps": "fps pad/no-pad (max.)"}
+           "padres": "res.\\ pad/no-pad", "padfps": "fps pad/no-pad (max.)",
+           "itime": "islands [s]", "vtime": "Vivado [s]", "speedup": "speedup", "wns": "WNS isl./Viv. [ns]",
+           "nisl": "\\#isl."}
+
+# island-flow benchmark (issue 023): its own driver and build dir, test2/islands worktree
+ISL_DIR = os.path.join(M, "build/finn_build/fx/islands2")
+ISL_FAIL = {"unsupported_vendor_ip": "$\\times$ IP", "timing_failed": "$\\times$ timing",
+            "island_failed": "$\\times$ island"}
+
+
+def islands_data():
+    """Per (folding board, model or None, size, flow): the newest feature_metrics.json and the driver's
+    newest job state. Island time without a shell built inside the job (as collect_results.py)."""
+    metrics, states = {}, {}
+    jobs = {j["id"]: j for j in load(os.path.join(ISL_DIR, "driver", "jobs.json")) or []}
+    for jid, st in (load(os.path.join(ISL_DIR, "driver", "state.json")) or {}).items():
+        # retries (<id>_r, <id>_vip2, ...) run the node of their base job <model>__<size>__<flow>
+        mid, size, flow = jid.split("__")
+        base = jobs.get(jid) or jobs.get(f"{mid}__{size}__{flow.split('_')[0]}")
+        if base is None:
+            continue
+        # test node ...[<board>-[<model>-]<size>-<flow>]
+        board, model = split_param(base["node"].rsplit("[", 1)[1].rstrip("]"))
+        *model, size, flow = model.rsplit("-", 2)
+        key = (board, model[0] if model else None, size, flow)
+        if key not in states or (st.get("start") or 0) >= (states[key].get("start") or 0):
+            states[key] = st
+    for fn in glob.glob(os.path.join(ISL_DIR, "islands-*", "report", "feature_metrics.json")):
+        m = load(fn)
+        if not m:
+            continue
+        flow, st = m["test"].split("-", 1)[1], m.get("stamps") or {}
+        if flow == "islands" and "shell" in st and "synth" in st:
+            built = m.get("shell_status") == "built" or (m.get("shell_lock_wait_s") or 0) > 1
+            m["time_s"] = m["total_s"] - (max(0.0, st["shell"] - st["synth"]) if built else 0.0)
+        m["_mtime"] = os.path.getmtime(fn)
+        size = "small" if m["tag"].endswith("_small") else "full"
+        key = (m.get("model_board"), m["tag"][: -len("_small")] if size == "small" else m["tag"], size, flow)
+        if key not in metrics or m["_mtime"] > metrics[key]["_mtime"]:
+            metrics[key] = m
+    return metrics, states
+
+
+def islands_cells(mdir, board, model, size, data):
+    """result, island time, Vivado time, speedup, WNS island/Vivado, #islands of one model and size."""
+    metrics, states = data
+    tag = mdir.replace("-", "").replace("_", "") + (f"_{model}" if model else "")
+    # model_board + tag prefix: the bnn-pynq KV260 run is tagged ..._kv260
+    pick = [m for (b, t, s, f), m in metrics.items() if b == board and s == size and f == "islands"
+            and (t == tag or t.startswith(tag + "_"))]
+    base = [m for (b, t, s, f), m in metrics.items() if b == board and s == size and f == "baseline"
+            and (t == tag or t.startswith(tag + "_"))]
+    isl, viv = (max(pick, key=lambda m: m["_mtime"]) if pick else None,
+                max(base, key=lambda m: m["_mtime"]) if base else None)
+    st = states.get((board, model, size, "islands"), {}).get("state")
+    if board in ("VCK190", "V80"):
+        return ["n/a", "", "", "", "", ""]
+    if st == "running":
+        res = "run"
+    elif isl is None:
+        res = {"fail": "$\\times$", "skipped": "blk"}.get(st, "--")
+    elif isl.get("status") != "ok":
+        res = ISL_FAIL.get(isl.get("status"), "$\\times$")
+    elif (isl.get("verify") or {}).get("golden_match"):
+        res = "\\checkmark"
+    else:
+        res = "$\\times$ verify" if isl.get("verify") else "bit"
+    ok = isl is not None and isl.get("status") == "ok"
+    vok = viv is not None and viv.get("status") == "ok"
+    t, tv = (isl or {}).get("timing") or {}, (viv or {}).get("timing") or {}
+    wns = "/".join("%.2f" % x["wns"] for x in (t, tv) if x.get("wns") is not None)
+    return [res,
+            "%.0f" % isl["time_s"] if ok else "",
+            "%.0f" % viv["time_s"] if vok else "",
+            "%.2fx" % (viv["time_s"] / isl["time_s"]) if ok and vok else "",
+            wns if isl is not None and isl.get("timing") else "",
+            str(isl.get("islands", "")) if ok else ""]
 
 
 def resources(output_dir):
@@ -359,7 +436,9 @@ def main():
         return next((j for j in jobs if j["model"] == mdir and j["param"] == p
                      and j["feature"] == feature and j.get("size") == size), None)
 
-    fifo_rows, fold_rows, dwc_rows = [], [], []
+    fifo_rows, fold_rows, dwc_rows, isl_rows = [], [], [], []
+    isl_data = islands_data()
+    ISL_F = ["itime", "vtime", "speedup", "wns", "nisl"]
     FIFO_F, FOLD_F, FAW_F, DWC_F = (["ratio", "kbit", "tfifo"], ["tref", "res", "tfold"],
                                     ["tref", "res", "kbit", "tfold"], ["pad", "padres", "tref", "res"])
     DWC_FULL = ["pad", "padres", "padfps", "tref", "res"]
@@ -393,6 +472,10 @@ def main():
             row += cells(job(mdir, p, "dwc", "small"), state, DWC_F, jobs)
             row += cells(job(mdir, p, "dwc", "full"), state, DWC_FULL, jobs)
             dwc_rows.append(row)
+            row = [name, nodes, est_s]
+            for sz in ("small", "full"):
+                row += islands_cells(mdir, board, model, sz, isl_data)
+            isl_rows.append(row)
 
     now = datetime.datetime.now()
     doc = [
@@ -404,6 +487,11 @@ def main():
         "\\begin{document}\\maketitle",
         "\\section*{Results}",
         "Key: \\checkmark{} passed, $\\times$ failed, skip = skipped, run = running, blk = blocked, -- = not run; ref.\\ = the committed folding JSON; small = its parallelism cut 4--8$\\times$; res./ref.\\ = mean of the LUT, BRAM, URAM and DSP ratios; 1 kB = 1024 bytes.",
+        "Island flow (Table~\\ref{tab:islands}): \\checkmark{} = bitstream, timing met and output equal to the "
+        "golden output (verify\\_accel); $\\times$ IP = HLS floating-point vendor IP (fadd/fmul) not supported by "
+        "the flow, $\\times$ timing / island = timing missed / island P\\&R failed, bit = bitstream not yet verified; "
+        "AUP-ZU3\\_8GB and KV260\\_SOM foldings built for the ZCU104; island and Vivado times from the same "
+        "checkpoint with the same thread cap, under the campaign's load (indicative); speedup = Vivado / islands.",
         table("FIFO sizing results on the committed folding.",
               "tab:fifo", [("analytical, small", FIFO_F), ("analytical, full", FIFO_F),
                            ("rtlsim heuristic, small", FIFO_F), ("rtlsim heuristic, full", FIFO_F)],
@@ -435,6 +523,22 @@ def main():
               "estimated throughput of the padded / unpadded optimizer in maximize mode (full size only). A "
               "result below 1.00 rtlsim/ref.\\ is accepted if within 10 \\% and its resource saving is larger "
               "than the throughput loss."),
+        table("RapidWright island flow (bitstream) vs FINN's Vivado bitfile flow on the committed folding.",
+              "tab:islands", [("small", ISL_F), ("full", ISL_F)], isl_rows,
+              "\\emph{result}: \\checkmark{} bitstream with timing met (setup and hold) and the accelerator netlist's "
+              "output equal to the golden output (verify\\_accel, 1--4 frames), $\\times$ IP = the flow does not "
+              "support the vendor IP cores in the model (HLS floating-point operators, e.g.\\ fadd/fmul), $\\times$ timing = an "
+              "island or the assembly misses timing, $\\times$ island = an island's P\\&R failed, bit = bitstream "
+              "built but not yet verified, blk = blocked (its small run failed), run = running, -- = not run yet, "
+              "n/a = Versal (no island shell). Boards: the AUP-ZU3\\_8GB and KV260\\_SOM foldings are built for "
+              "the ZCU104 (island shell), U55C for the U55C (Vivado-only XDMA shell); same clock as the model's "
+              "build config. \\emph{islands [s]}: wall-clock of the island flow from the hardware checkpoint to "
+              "the bitstream (node synthesis, parallel island P\\&R, RapidWright stitching, assembly route), "
+              "cached shell (a shell built in the job is subtracted); \\emph{Vivado [s]}: FINN's normal bitfile "
+              "flow from the same checkpoint with the same thread cap (8--32 threads, pinned); "
+              "\\emph{speedup} = Vivado / islands. Both measured under the campaign's load (1-min load "
+              "80--130 on 128 threads), so the times are indicative. \\emph{WNS}: worst setup slack of the "
+              "island build / of the Vivado build. \\emph{\\#isl.}: islands placed and routed in parallel."),
         "\\clearpage\\section*{Bugs fixed in the FINN compiler (outside our transformations)}",
         "Found while making the feature tests pass; each fix is a separate branch (dev-side PR), not part of the "
         "FIFO-sizing, folding or DWC PRs. Line counts include tests and docs.",
@@ -445,6 +549,9 @@ def main():
         "\\section*{Open}",
         "\\begin{itemize}",
         "\\item transformer\\_language: output wrong after the deadlock fix (issue 017, in progress).",
+        "\\item Island flow (issue 023, running on spare CPU): HLS floating-point vendor IP unsupported (resnet18, "
+        "yolov8, transformer\\_radioml/vision), vgg10 small misses 250 MHz (WNS $-$0.19 ns), mobilenet small: island "
+        "P\\&R failed; full-size tfc/lfc foldings are slower than Vivado (0.63--0.92$\\times$).",
         "\\item OuterShuffle\\_hls reaches only II=3 (3$\\times$ its estimate; espcn tail), upstream.",
         "\\item FIFO tree models emit one row per Split/Concat (unequal stream widths may under-size), "
         "node-by-node verification aborts on 3D Requant\\_rtl tensors (upstream).",
