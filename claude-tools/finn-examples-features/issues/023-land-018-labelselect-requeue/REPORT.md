@@ -36,6 +36,9 @@ folder name was given by the user.)
   `feature/dev/generalized-datawidthconverter` (`8252bb6d2`, `6ea413550`), that into
   `dev-finnexamples-features` (`0a67879e7`, `86e1897c1`), cherry-picked (-x) to `test2/folding`
   (`f4f3a9409`, `6326db5f9`) and `test2/dwc` (`0fec95f6c`, `f6ba08c1b`).
+* tfc-w1a1 AUP-ZU3 maximize, estimate only on test2/folding (`fx/fix023/chk-max_*`): 12.5 M fps =
+  **1.125x** the committed folding (was 0.60x); LabelSelect PE=5 (6 cycles with the HLS overhead),
+  the four MVAUs and the input DWC/Thresholding at 8 cycles. The campaign job reruns with rtlsim.
 * `tests/fpgadataflow/test_set_folding.py`: folding branch 52 passed / 5 skipped / 1 xfailed (the 2
   new ones passed separately); integ 57 / 1 xfailed; test2/dwc 57 / 1 xfailed; test2/folding 55 /
   2 skipped / 1 xfailed. black/isort/flake8 clean.
