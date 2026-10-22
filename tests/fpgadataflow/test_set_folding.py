@@ -975,21 +975,39 @@ def _mvau_labelselect_model(mw=16, labels=10):
     return model.transform(GiveUniqueNodeNames())
 
 
-# None: maximize (tfc-w1a1 was capped at LabelSelect PE=1, 10 cycles); 2: a target that
-# needs LabelSelect PE >= 5
-@pytest.mark.parametrize("target", [None, 2])
+def _cycles_at(model, op_type, **attrs):
+    """Expected cycles of the model's ``op_type`` node with ``attrs`` set (restored after)."""
+    inst = getCustomOp(model.get_nodes_by_op_type(op_type)[0])
+    old = {k: inst.get_nodeattr(k) for k in attrs}
+    for k, v in attrs.items():
+        inst.set_nodeattr(k, v)
+    cycles = inst.get_exp_cycles()
+    for k, v in old.items():
+        inst.set_nodeattr(k, v)
+    return cycles
+
+
+# maximize: tfc-w1a1 was capped at LabelSelect PE=1; target: needs LabelSelect PE >= 5
+@pytest.mark.parametrize("mode", ["maximize", "target"])
 @pytest.mark.fpgadataflow
-def test_set_folding_labelselect_pe(target):
+def test_set_folding_labelselect_pe(mode):
     # LabelSelect folds PE over its input labels like any other node, PE dividing Labels
-    labels = 10
-    model = _mvau_labelselect_model(labels=labels)
+    labels, mw = 10, 16
+    model = _mvau_labelselect_model(mw=mw, labels=labels)
     opt = Optimizer(model, "t", {"max_cycles": 1})
     opt.generate_parameter_set()
     pe = [p for p in opt.params.parameters if p.name == "PE" and p.node_index == 1]
     assert len(pe) == 1 and sorted(pe[0].possible_values) == [1, 2, 5, 10]
+    unfolded = _cycles_at(model, "LabelSelect_hls", PE=1)
+    # (with per-frame HLS overheads the MVAU alone may need more than LabelSelect at PE=5)
+    target = max(
+        _cycles_at(model, "LabelSelect_hls", PE=5),
+        _cycles_at(model, "MVAU_hls", PE=labels, SIMD=mw),
+    )
+    assert _cycles_at(model, "LabelSelect_hls", PE=2) > target
+    target = target if mode == "target" else None
     model = model.transform(SetFolding(target, platform="U250", folding_effort=20, seed=0))
     inst = getCustomOp(model.get_nodes_by_op_type("LabelSelect_hls")[0])
     assert labels % inst.get_nodeattr("PE") == 0
-    assert inst.get_nodeattr("PE") > 1
-    # LabelSelect is no longer the bottleneck at PE=1 (10 cycles)
-    assert max(model.analysis(exp_cycles_per_layer).values()) <= (target or labels - 1)
+    assert inst.get_nodeattr("PE") >= 5
+    assert max(model.analysis(exp_cycles_per_layer).values()) <= (target or unfolded - 1)
