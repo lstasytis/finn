@@ -394,9 +394,11 @@ class MVAU(HWCustomOp):
 
     # Where Vivado puts a weight memory (OOC synthesis, Vivado 2024.2, xczu3eg/xck26):
     # an embedded weight ROM (internal_embedded; Vitis HLS ignores ram_style there) of at
-    # most ROM_LOGIC_DEPTH words, or of at most ROM_LOGIC_BITS bits, becomes logic, a
-    # deeper one BRAM; an internal_decoupled memory with ram_style "auto" of at most
-    # AUTO_LUTRAM_DEPTH words becomes LUTRAM (depth 48: LUTRAM, 64: BRAM).
+    # most ROM_LOGIC_DEPTH words becomes logic ("address size smaller than threshold (5)"),
+    # a deeper one BRAM (cnv-w1a1: 36 x 16 bit per PE, one RAMB18 each), a threshold ROM
+    # also only above ROM_LOGIC_BITS bits (32 x 10 bit: logic, 256 x 11: BRAM); an
+    # internal_decoupled memory with ram_style "auto" of at most AUTO_LUTRAM_DEPTH words
+    # becomes LUTRAM (depth 48: LUTRAM, 64: BRAM).
     ROM_LOGIC_DEPTH = 16
     ROM_LOGIC_BITS = 1024
     AUTO_LUTRAM_DEPTH = 48
@@ -420,9 +422,12 @@ class MVAU(HWCustomOp):
             return (math.ceil(depth / 512)) * (math.ceil(width / 36))
 
     @classmethod
-    def rom_in_bram(cls, depth, width):
-        """Whether Vivado builds a ROM of depth x width bits from BRAM (else from logic)."""
-        return depth > cls.ROM_LOGIC_DEPTH and depth * width > cls.ROM_LOGIC_BITS
+    def rom_in_bram(cls, depth, width=None):
+        """Whether Vivado builds a ROM of depth (x width bits, for thresholds) from BRAM,
+        else from logic."""
+        if width is not None and depth * width <= cls.ROM_LOGIC_BITS:
+            return False
+        return depth > cls.ROM_LOGIC_DEPTH
 
     def weights_in_luts(self):
         """Whether the weight memory is built from LUTs (logic or LUTRAM), not BRAM."""
@@ -430,8 +435,7 @@ class MVAU(HWCustomOp):
         mstyle = self.get_nodeattr("ram_style")
         wmem = self.calc_wmem()
         if mmode == "internal_embedded":
-            width = self.get_nodeattr("SIMD") * self.get_input_datatype(1).bitwidth()
-            return not self.rom_in_bram(wmem, width)
+            return not self.rom_in_bram(wmem)
         if mmode == "internal_decoupled":
             return mstyle == "distributed" or (mstyle == "auto" and wmem <= self.AUTO_LUTRAM_DEPTH)
         return False
