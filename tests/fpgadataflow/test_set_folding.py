@@ -931,3 +931,66 @@ def test_set_folding_hls_mvau_simd_limits(mw, mh, wdt, min_simd):
     inst = getCustomOp(model.graph.node[0])
     assert inst.get_nodeattr("SIMD") >= min_simd
     assert not Optimizer.breaks_hls_limits(inst)
+
+
+def _mvau_labelselect_model(mw=16, labels=10):
+    """A dense MVAU_hls with ``labels`` outputs feeding a top-1 LabelSelect_hls."""
+    mvau = helper.make_node(
+        "MVAU_hls",
+        ["inp", "w"],
+        ["scores"],
+        domain="finn.custom_op.fpgadataflow.hls",
+        backend="fpgadataflow",
+        MW=mw,
+        MH=labels,
+        SIMD=1,
+        PE=1,
+        inputDataType="INT4",
+        weightDataType="INT4",
+        outputDataType="INT16",
+        noActivation=1,
+        mem_mode="internal_embedded",
+    )
+    label_select = helper.make_node(
+        "LabelSelect_hls",
+        ["scores"],
+        ["outp"],
+        domain="finn.custom_op.fpgadataflow.hls",
+        backend="fpgadataflow",
+        Labels=labels,
+        PE=1,
+        K=1,
+        inputDataType="INT16",
+    )
+    graph = helper.make_graph(
+        [mvau, label_select],
+        "mvau_labelselect",
+        [helper.make_tensor_value_info("inp", TensorProto.FLOAT, [1, mw])],
+        [helper.make_tensor_value_info("outp", TensorProto.FLOAT, [1, 1])],
+        value_info=[helper.make_tensor_value_info("scores", TensorProto.FLOAT, [1, labels])],
+    )
+    model = ModelWrapper(qonnx_make_model(graph))
+    model.set_initializer("w", gen_finn_dt_tensor(DataType["INT4"], (mw, labels)))
+    for name, dt in (("inp", "INT4"), ("w", "INT4"), ("scores", "INT16"), ("outp", "UINT8")):
+        model.set_tensor_datatype(name, DataType[dt])
+    return model.transform(GiveUniqueNodeNames())
+
+
+# None: maximize (tfc-w1a1 was capped at LabelSelect PE=1, 10 cycles); 2: a target that
+# needs LabelSelect PE >= 5
+@pytest.mark.parametrize("target", [None, 2])
+@pytest.mark.fpgadataflow
+def test_set_folding_labelselect_pe(target):
+    # LabelSelect folds PE over its input labels like any other node, PE dividing Labels
+    labels = 10
+    model = _mvau_labelselect_model(labels=labels)
+    opt = Optimizer(model, "t", {"max_cycles": 1})
+    opt.generate_parameter_set()
+    pe = [p for p in opt.params.parameters if p.name == "PE" and p.node_index == 1]
+    assert len(pe) == 1 and sorted(pe[0].possible_values) == [1, 2, 5, 10]
+    model = model.transform(SetFolding(target, platform="U250", folding_effort=20, seed=0))
+    inst = getCustomOp(model.get_nodes_by_op_type("LabelSelect_hls")[0])
+    assert labels % inst.get_nodeattr("PE") == 0
+    assert inst.get_nodeattr("PE") > 1
+    # LabelSelect is no longer the bottleneck at PE=1 (10 cycles)
+    assert max(model.analysis(exp_cycles_per_layer).values()) <= (target or labels - 1)
