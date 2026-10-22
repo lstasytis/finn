@@ -70,6 +70,10 @@ helpers in `tests/benchmark/benchmark_helpers.py`). Markers `fifo_sizing`, `fold
   maximize mode; the seed where padding saves the most resources is built; never skipped; fails if
   padding needs > 5 % more resources; numbers in `feature_metrics.json` `pad_compare`, issue 022).
 * Never use `largefifo_rtlsim`.
+* After a resource-estimate change, move the stale `est_*` dirs aside (`superseded_<issue>/`, once no
+  running job uses them; `tools/regen_reference_estimate.py` builds a fresh one that sorts first
+  while jobs still use the old). `tools/make_summary_tex.py` takes res./ref. references from
+  `tools/ref_resources.py` (FIFO builds re-estimated with the folding worktree's code, issue 023).
 
 Run one test (example):
 

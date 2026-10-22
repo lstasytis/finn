@@ -11,7 +11,14 @@ import os
 import subprocess
 
 from run_campaign import LOGDIR, M, TIER1, TIER2, TIER_TRANSFORMER, build_queue, junit_result
-from status_table import MULTI, job_metrics, latest, load, ordered_params, split_param
+from status_table import MULTI, est_prefix, job_metrics, latest, load, ordered_params, split_param
+
+TOOLS = os.path.dirname(os.path.abspath(__file__))
+# reference resources re-estimated with the current estimate model (ref_resources.py, issue 023)
+REF_DIR = os.path.join(M, "build/finn_build/fx/ref_resources")
+# issue 021's estimate model reached test2/folding and test2/dwc at 2026-10-22 04:29:13 UTC (last
+# estimate commit 55c9bb8a2): reference estimates written before are not comparable
+EST_MODEL_SINCE = datetime.datetime(2026, 10, 22, 4, 29, 13, tzinfo=datetime.timezone.utc).timestamp()
 
 OUT = os.path.join(M, "claude-tools/finn-examples-features/summary/summary.tex")
 VARIANT = "2"
@@ -193,6 +200,11 @@ HEADERS = {"ratio": "rtlsim/est.", "tref": "rtlsim/ref.", "res": "res./ref.", "k
 def resources(output_dir):
     """Estimated LUT/BRAM_18K/URAM/DSP of a build without its FIFOs (FIFO sizing has its own table)."""
     rep = load(os.path.join(output_dir, "report", "estimate_layer_resources.json")) if output_dir else None
+    return layer_resources(rep)
+
+
+def layer_resources(rep):
+    """Sum of a per-layer estimate's LUT/BRAM_18K/URAM/DSP without the FIFOs."""
     if not rep:
         return None
     tot = dict.fromkeys(RES, 0.0)
@@ -204,20 +216,45 @@ def resources(output_dir):
     return tot
 
 
-def reference_resources(job, jobs):
+def new_model(output_dir):
+    """Whether a folding/DWC build started after the estimate model change (its estimates are
+    issue 021's): the first timestamp of its build_dataflow.log."""
+    try:
+        with open(os.path.join(output_dir, "build_dataflow.log")) as f:
+            stamp = f.readline()[1:20]
+        start = datetime.datetime.strptime(stamp, "%Y-%m-%d %H:%M:%S")
+    except (OSError, TypeError, ValueError):
+        return True
+    return start.replace(tzinfo=datetime.timezone.utc).timestamp() >= EST_MODEL_SINCE
+
+
+def reference_resources(job, jobs, current_model=True):
     """Resources of the committed folding built the same way (the model's FIFO test build: committed
-    folding + its DWCs, FIFOs excluded); falls back to the estimate-only build (no DWCs), flagged."""
+    folding + its DWCs, FIFOs excluded). For a build with the current estimate model: the FIFO build
+    re-estimated with that model by ref_resources.py, else the estimate-only build (no DWCs,
+    flagged) if it was written with that model, else None (empty cell). For an older build: the
+    FIFO build's own report (the FIFO builds' estimates are the old model too)."""
     fifo = next((j for j in jobs if j["model"] == job["model"] and j["param"] == job["param"]
                  and j["feature"] == "fifo" and j.get("size") == job.get("size")), None)
     m = job_metrics(fifo) if fifo else None
-    r = resources(m.get("output_dir")) if m else None
-    if r:
-        return r, False
-    board, model = split_param(job["param"])
-    mtag = f"{job['model']}_{model}" if job["model"] in MULTI else job["model"]
-    small = "small_" if job.get("size") == "small" else ""
-    est = latest("folding" + VARIANT, f"est_{mtag}_{small}{board}_", "report/estimate_layer_resources.json")
-    return (resources(os.path.dirname(os.path.dirname(est))) if est else None), True
+    if not current_model:
+        return (resources(m.get("output_dir")) if m else None), False
+    ref = load(os.path.join(REF_DIR, fifo["id"] + ".json")) if m else None
+    if ref and ref.get("source") == m.get("output_dir"):
+        return layer_resources(ref["layers"]), False
+    prefix = est_prefix(job["model"], job["param"], job.get("size") == "small")
+    est = latest("folding" + VARIANT, prefix, "report/estimate_layer_resources.json")
+    if not est or os.path.getmtime(est) < EST_MODEL_SINCE:
+        return None, True
+    return resources(os.path.dirname(os.path.dirname(est))), True
+
+
+def update_reference_resources():
+    """Run ref_resources.py in the folding worktree (FINN environment) for new FIFO builds."""
+    wt = os.path.join(M, "build/wt", "folding" + VARIANT)
+    cmd = f"source {TOOLS}/wtenv.sh {wt} >/dev/null 2>&1 && python {TOOLS}/ref_resources.py"
+    if subprocess.run(["bash", "-c", cmd], cwd=TOOLS).returncode:
+        print("warning: ref_resources.py failed, res./ref. may miss references")
 
 
 def resource_ratio(new, ref, fallback):
@@ -250,7 +287,7 @@ def cells(job, state, fields, jobs):
             ok = m.get("rtlsim_fps") and m.get("ref_est_fps")
             out.append("%.3f" % (m["rtlsim_fps"] / m["ref_est_fps"]) if ok else "")
         elif f == "res":
-            ref, fallback = reference_resources(job, jobs)
+            ref, fallback = reference_resources(job, jobs, new_model(m.get("output_dir")))
             out.append(resource_ratio(resources(m.get("output_dir")), ref, fallback))
         elif f == "kbit":
             out.append("%.2f" % (m["fifo_kbit"] / 8) if m.get("fifo_kbit") is not None else "")
@@ -307,9 +344,12 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--variant", default="2")
     ap.add_argument("--sizes", default="small,full")
+    ap.add_argument("--no-ref-update", action="store_true", help="skip ref_resources.py")
     args = ap.parse_args()
     global VARIANT
     VARIANT = args.variant
+    if not args.no_ref_update:
+        update_reference_resources()
     sizes = args.sizes.split(",")
     state = load(os.path.join(LOGDIR, "campaign_state.json")) or {}
     jobs = build_queue(args.variant, sizes)

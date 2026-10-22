@@ -59,6 +59,15 @@ def split_param(p):
     return board, p[len(board) + 1 :] or None
 
 
+def est_prefix(mdir, param, small=False):
+    """Name prefix of a model's cached reference estimate (the tests' reference_estimate)."""
+    board, model = split_param(param)
+    sm = "small_" if small else ""
+    if mdir == "mobilenet_v1":
+        return f"est_mobilenet_{sm}v1_{board}_"
+    return f"est_{mdir}_{sm}{model}_{board}_" if mdir in MULTI else f"est_{mdir}_{sm}{board}_"
+
+
 def build_prefix(feature_tag, mdir, param):
     board, model = split_param(param)
     mtag = f"{mdir}_{model}" if mdir in MULTI else mdir
