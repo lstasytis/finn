@@ -75,7 +75,7 @@ On 019's planned bisection:
 **Verification setup:** worktree `build/wt/fix024b` (branch `fix/024b` = test2/fifo 9f8449048, no code change), FINN_BUILD_DIR `fx/fix024b`, fresh reference estimates. The new checkpoints have `Requant_hls_1` in place of `Requant_rtl_1` (scan: ok).
 - `test_transformer_fifo_sizing[ZCU104-transformer_radioml-heuristic_analytical-small]`: **PASSED**. Verified, rtlsim 3051.76 fps = 1.000x the estimate, FIFO 313.4 kbit.
 - vision small, same test: stitched-IP rtlsim output **SUCCESS** (`verify_stitched_ip_rtlsim_0_SUCCESS.npy`, 14:28).
-  - The test's throughput measurement was still running at hand-off (PID 3661687; first output after ~2.3 M cycles, campaign run ~8 h).
+  - Throughput step finished later: **PASSED**, verified, rtlsim 169.54 fps = 1.000x the estimate, FIFO 719.2 kbit, sizing 25.7 s (`fx/fix024b/fifo-heuristic_analytical-small_transformer_transformer_vision_ZCU104_nnht7shn`).
   - The campaign build measured 1.00x with the same FIFO sizer.
 - transformer_benchmark small FIFO passes in the campaign (STATUS).
 
