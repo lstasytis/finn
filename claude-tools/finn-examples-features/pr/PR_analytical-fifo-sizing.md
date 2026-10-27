@@ -1,12 +1,13 @@
 # Analytical FIFO sizing: a single chained token-access-vector sizer, verified deadlock-free on finn-examples
 
 **Merge:** `feature/dev/analytical-fifo-sizing` → `feature/analytical-fifo-sizing` (the head branch of Xilinx/finn#1185).
-This is a fast-forward: the new branch contains every commit of the current PR branch.
+This is a fast-forward: the new branch contains every commit of the current PR branch. The base branch was
+first synced with `upstream/dev` (up to #1729, 2026-10-19) in a separate merge commit, so the diff below shows
+only the FIFO sizing work.
 
 ## Summary
 
-This brings #1185 up to date with `upstream/dev` (as of 2026-10-19) and makes the analytical FIFO sizer
-(`auto_fifo_strategy="heuristic_analytical"`) safe to use on real models. It was tested on
+This makes the analytical FIFO sizer (`auto_fifo_strategy="heuristic_analytical"`) safe to use on real models. It was tested on
 <!--N_MODELS-->24<!--/N_MODELS--> finn-examples networks, each with its committed folding (`full`) and with a smaller
 folding (`small`, parallelism divided by 4 or 8):
 
@@ -23,8 +24,8 @@ folding (`small`, parallelism divided by 4 or 8):
 
 **What to review:** `src/finn/transformation/fpgadataflow/derive_characteristic.py` (the sizer), the
 `get_tav_*` hooks and tree models in the custom ops, `build_dataflow_config.py` (removed options), the new
-tests in `tests/fpgadataflow/` and the docs page. The rest of the file list is the `upstream/dev` merge and
-the per-model benchmark tests ([Also in this diff](#also-in-this-diff)).
+tests in `tests/fpgadataflow/` and the docs page. The rest of the file list is the `fifo_sizing` tests
+added to the per-model benchmark tests in `tests/benchmark/`.
 
 ## Results on the finn-examples models
 
@@ -158,7 +159,7 @@ Each rule was found on a finn-examples model that deadlocked or lost throughput.
 | **Join window floor** | A fork stalls once one branch's FIFO is full. If the other branch must read many fork words before its first output reaches the join (a wide DWC, an MVAU input vector, a softmax row, a shuffle page), a short shortcut FIFO deadlocks. `join_window_floors` walks back from each join to the shared fork and floors each join input at the larger of the deadlock backlog and the backlog when the fork writes at the graph period, plus 25 %. New hooks: `get_tav_input_window()`, `get_tav_input_need()` and a tiled-MVAU group window. | transformer_radioml: MLP shortcut 20 → 239 (hang → 1.00×); bert: attention shortcut 6785 → 118545 (hang → 1.00×), FFN shortcut 4566 → 5813 (0.82× → 1.00×) |
 | ↳ **extended to StreamingConcat and sliding windows** | yolov8's PAN joins branches through `StreamingConcat`, whose inputs carry frames of different sizes, and its branches contain FMPadding, sliding window generators and nearest-neighbour upsampling, which read many input words before their first output. The floor now covers Concat (one join token = the gcd of the input frame sizes), and these nodes report the input each output word needs through `get_tav_input_need`. | quantyolov8_4w4a small: shortcut into `StreamingConcat_hls_12` 9086 → 13842 (no output in 383 M cycles → finishes). resnet18, resnet50 and yolov8 FIFOs grow by 0.2–6 %; other models are unchanged. |
 | **Decoupled chain** | The burst floor kept a whole row of backlog at every fast edge of long chains, even where the slow stages around the edge already take turns behind a shallow FIFO. Where the slowest node above the producer and the slowest node at or below the consumer together fit in `CAP_MARGIN` periods, the burst floor is dropped. | mobilenet_v1 U55C: 97.2 → 17.0 kB at the same interval (788544 cycles) |
-| **Throttled cap only where slow stages take turns** | Edges behind a throttled producer were capped at `THROTTLED_CAP` = 256 words. At small foldings a sliding window generator needs more backlog than that to refill at a frame boundary. The cap now applies only under the decoupled-chain condition above. | cnv-w2a2 small: 0.980× → 1.000×; cnv-w1a2 small: 0.982× → 1.000× |
+| **Throttled cap only where slow stages take turns** | Edges behind a throttled producer were capped at `THROTTLED_CAP` = 256 words. At small foldings a sliding window generator needs more backlog than that to refill at a frame boundary. The cap now applies only under the decoupled-chain condition above. | cnv-w2a2 small: 0.980× → 1.000×; cnv-w1a2 small: 0.982× → 1.000×. Cost: mobilenet_v1 small 64.9 → 109.2 kB (<!--MOBILENET_SMALL_RESULT-->) |
 
 ### Characterization (TAV sources)
 
@@ -188,21 +189,14 @@ These two fixes also apply to `dev` on their own; separate PRs against `dev` are
 * `tests/fpgadataflow/test_fpgadataflow_split_concat_characterization.py` (new): tree model vs node rtlsim
   TAVs for StreamingSplit/Concat. `test_fpgadataflow_mvau.py`: dynamic and tiled MVAU characterization, and
   tiled `get_exp_cycles` against measured rtlsim cycles.
-* Per-model tests `tests/benchmark/<model>/test_build_<model>.py` (new, 45 files, commit 19a031d71):
-  `test_<model>_fifo_sizing[heuristic_analytical|heuristic_rtlsim]` resumes a cached estimate-only build of
+* Per-model tests `tests/benchmark/<model>/test_build_<model>.py` (already in `dev`) gain
+  `test_<model>_fifo_sizing[heuristic_analytical|heuristic_rtlsim]`, which resumes a cached estimate-only build of
   the committed folding, sizes the FIFOs, builds the stitched IP, and checks the golden output and ≥ 0.98× the
   estimate in rtlsim.
 * `docs/finn/fifo_sizing_heuristics.rst` (new, linked from the end-to-end flow and hardware build pages): what
   a TAV is, the chained pass step by step, one section per rule with the depth it changes on a finn-examples
   model, and the throughput cost of removing each rule. It also compares the sizer's storage per FIFO with
   the `largefifo_rtlsim` reference.
-
-### Also in this diff
-
-* The merge of `upstream/dev` (2026-09-23 → 2026-10-19): builder and docs changes, new custom ops and their
-  tests. These commits are already in `dev`.
-* `tests/benchmark/`: the per-model tests above (7357 lines). They are not in `dev` and belong to this PR's
-  verification.
 
 ## How to reproduce
 
