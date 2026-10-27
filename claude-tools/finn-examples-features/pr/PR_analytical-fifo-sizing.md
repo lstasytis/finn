@@ -2,7 +2,7 @@
 
 **Merge:** `feature/dev/analytical-fifo-sizing` → `feature/analytical-fifo-sizing` (the head branch of Xilinx/finn#1185).
 This is a fast-forward: the new branch contains every commit of the current PR branch. The base branch was
-first synced with `upstream/dev` (up to #1729, 2026-10-19) in a separate merge commit, so the diff below shows
+first synced with `upstream/dev` (7a450458a, 2026-10-27) in a separate merge commit, so the diff below shows
 only the FIFO sizing work.
 
 ## Summary
@@ -22,10 +22,10 @@ folding (`small`, parallelism divided by 4 or 8):
   remaining chained-TAV pass is split into named steps. Its rules are documented with measured examples in
   `docs/finn/fifo_sizing_heuristics.rst`.
 
-**What to review:** `src/finn/transformation/fpgadataflow/derive_characteristic.py` (the sizer), the
-`get_tav_*` hooks and tree models in the custom ops, `build_dataflow_config.py` (removed options), the new
-tests in `tests/fpgadataflow/` and the docs page. The rest of the file list is the `fifo_sizing` tests
-added to the per-model benchmark tests in `tests/benchmark/`.
+**What to review:** `src/finn/transformation/fpgadataflow/derive_characteristic.py` (the sizer, including
+the per-node input windows it needs at joins), the tree models in the custom ops, `build_dataflow_config.py`
+(removed options), the new tests in `tests/fpgadataflow/` and the docs page. The rest of the file list is the
+`fifo_sizing` tests added to the per-model benchmark tests in `tests/benchmark/`.
 
 ## Results on the finn-examples models
 
@@ -104,6 +104,17 @@ the remaining finn-examples models (bert, espcn, resnet18, transformer, yolov8) 
 branch is pushed separately and is not part of this PR. This PR carries the per-model tests for bnn-pynq,
 cybersecurity-mlp, gtsrb, kws, mobilenet_v1, resnet50 and vgg10-radioml (committed foldings only).
 
+**Sync with `dev` 7a450458a.** The table was measured before the last `dev` sync, which brought a rewritten RTL
+data width converter, a changed tiled MVU and free-running MVAU/VVAU HLS cores (with finn-hlslib 66e53fca). On
+the synced head, every node tree-model test (tree model vs node rtlsim TAVs) passes, and the committed-folding
+FIFO tests of this PR give: <!--SYNC_E2E-->11 of 15 pass (`heuristic_analytical`, resnet50 not run). The
+four failures are not FIFO depths: with every FIFO at depth 64 the rtlsim interval is identical.
+tfc-w1a1/w1a2/w2a2 measure 7/9/9 cycles per frame against estimates of 3/8/8, because the free-running MVAU
+cores made `LabelSelect_hls` the slowest node, and it restarts every frame, about 4 cycles that its
+`get_exp_cycles` leaves out (separate estimates PR). cybersecurity-mlp runs at 1 cycle per frame, equal to its
+estimate, but the test measures over only 2 frames and the first frame gap is one cycle long at startup
+(2 frames: 0.5×, 50 frames: 0.98×).<!--/SYNC_E2E-->.
+
 ### Failures
 
 <!--FAILURES-->
@@ -135,10 +146,19 @@ Their golden-output check is ignored.
   already the default and is now the only method. Its knobs are gone. The remaining constants are module
   constants in `derive_characteristic.py`: `PACER_TOLERANCE` 0.995, `THROTTLED_CAP` 256, `CAP_MARGIN` 1.25,
   `TAV_PIPELINE_LATENCY` 32, `JOIN_FLOOR_MARGIN` 0.25.
-* `derive_characteristic.py` goes from 2333 to 1115 lines. Three rules that changed no depth on any
+* `derive_characteristic.py` goes from 2333 to 1238 lines. Three rules that changed no depth on any
   regression model were dropped. The pass is a sequence of named steps (`read_node_tavs`, `node_periods`,
   `pacer_drivers`, `reconvergent_branch_nodes`, per node `local_clock` / `token_times` / `node_latency`, per
   edge `peak_occupancy` / `edge_depth`, then `join_window_floors`) instead of one function.
+* **Smaller footprint in the custom ops.** Each tree model is self-contained: its helper functions are nested
+  inside the node's `get_tree_model` instead of being module functions or extra methods (SWG, MVAU,
+  OuterShuffle, Upsample). What the sizer needs to know about a node beyond its TAV (input windows, extra
+  latency, input blocks) lives in `derive_characteristic.py` (`tav_input_window`, `tav_input_need`,
+  `tav_extra_latency`, `tav_input_blocks`) rather than as `HWCustomOp` hooks. Compared with `dev`, a custom op
+  now gains only `get_tree_model`, the `derive_token_access_vectors` override that replaces
+  `derive_characteristic_fxns`, and for DWC and LayerNorm a `get_exp_cycles`. Unused code was removed as well:
+  the string TAV format (`compress_numpy_to_string`; TAVs are `.npy` sidecars read by `load_tav_npy`),
+  `Characteristic_Node.sum` / `traverse_phase_tree` and `stretch`.
 
 ### Sizer rules added
 
@@ -154,10 +174,10 @@ Each rule was found on a finn-examples model that deadlocked or lost throughput.
 | rule | problem it fixes | example (edge depth before → after, effect) |
 |---|---|---|
 | **Pacer-bound chains** and **refill floor** | Balanced foldings lost 2–5 %: the sizer gave up backlog that a node feeding the pacer needs, e.g. a sliding window generator refilling rows at a frame boundary. | cnv-w1a2 KV260: `DWC_3 → MVAU_hls_1` 4 → 184; interval 13262 → 12551 cycles (= estimate) |
-| **Node latency** | A TAV records a node's steady state, so no pipeline latency reached the sizer, and the slower path into a join came out hundreds of cycles short at fast foldings. Characterized nodes' writes are now delayed by the constant `TAV_PIPELINE_LATENCY` = 32 cycles (rtlsim measured 1–69) plus a per-node extra (`get_tav_extra_latency`). Each edge takes the maximum over the runs with and without this delay, so no edge shrinks. | transformer_benchmark (maximum folding): shortcut 1232 → ≥ 1501 |
+| **Node latency** | A TAV records a node's steady state, so no pipeline latency reached the sizer, and the slower path into a join came out hundreds of cycles short at fast foldings. Characterized nodes' writes are now delayed by the constant `TAV_PIPELINE_LATENCY` = 32 cycles (rtlsim measured 1–69) plus a per-node extra (`tav_extra_latency`). Each edge takes the maximum over the runs with and without this delay, so no edge shrinks. | transformer_benchmark (maximum folding): shortcut 1232 → ≥ 1501 |
 | **Phase lead** | An `MVAU_rtl` TAV can open with the previous feature map's writes; the sizer took them as outputs ahead of their inputs, so residual shortcuts came out short. | transformer_benchmark: shortcut 1985 → 2077; 0.965× → 1.00× |
-| **Join window floor** | A fork stalls once one branch's FIFO is full. If the other branch must read many fork words before its first output reaches the join (a wide DWC, an MVAU input vector, a softmax row, a shuffle page), a short shortcut FIFO deadlocks. `join_window_floors` walks back from each join to the shared fork and floors each join input at the larger of the deadlock backlog and the backlog when the fork writes at the graph period, plus 25 %. New hooks: `get_tav_input_window()`, `get_tav_input_need()` and a tiled-MVAU group window. | transformer_radioml: MLP shortcut 20 → 239 (hang → 1.00×); bert: attention shortcut 6785 → 118545 (hang → 1.00×), FFN shortcut 4566 → 5813 (0.82× → 1.00×) |
-| ↳ **extended to StreamingConcat and sliding windows** | yolov8's PAN joins branches through `StreamingConcat`, whose inputs carry frames of different sizes, and its branches contain FMPadding, sliding window generators and nearest-neighbour upsampling, which read many input words before their first output. The floor now covers Concat (one join token = the gcd of the input frame sizes), and these nodes report the input each output word needs through `get_tav_input_need`. | quantyolov8_4w4a small: shortcut into `StreamingConcat_hls_12` 9086 → 13842 (no output in 383 M cycles → finishes). resnet18, resnet50 and yolov8 FIFOs grow by 0.2–6 %; other models are unchanged. |
+| **Join window floor** | A fork stalls once one branch's FIFO is full. If the other branch must read many fork words before its first output reaches the join (a wide DWC, an MVAU input vector, a softmax row, a shuffle page), a short shortcut FIFO deadlocks. `join_window_floors` walks back from each join to the shared fork and floors each join input at the larger of the deadlock backlog and the backlog when the fork writes at the graph period, plus 25 %. The per-node windows are `tav_input_window()` and `tav_input_need()` in `derive_characteristic.py`, including a tiled-MVAU group window. | transformer_radioml: MLP shortcut 20 → 239 (hang → 1.00×); bert: attention shortcut 6785 → 118545 (hang → 1.00×), FFN shortcut 4566 → 5813 (0.82× → 1.00×) |
+| ↳ **extended to StreamingConcat and sliding windows** | yolov8's PAN joins branches through `StreamingConcat`, whose inputs carry frames of different sizes, and its branches contain FMPadding, sliding window generators and nearest-neighbour upsampling, which read many input words before their first output. The floor now covers Concat (one join token = the gcd of the input frame sizes), and `tav_input_need` gives the input each of their output words needs. | quantyolov8_4w4a small: shortcut into `StreamingConcat_hls_12` 9086 → 13842 (no output in 383 M cycles → finishes). resnet18, resnet50 and yolov8 FIFOs grow by 0.2–6 %; other models are unchanged. |
 | **Decoupled chain** | The burst floor kept a whole row of backlog at every fast edge of long chains, even where the slow stages around the edge already take turns behind a shallow FIFO. Where the slowest node above the producer and the slowest node at or below the consumer together fit in `CAP_MARGIN` periods, the burst floor is dropped. | mobilenet_v1 U55C: 97.2 → 17.0 kB at the same interval (788544 cycles) |
 | **Throttled cap only where slow stages take turns** | Edges behind a throttled producer were capped at `THROTTLED_CAP` = 256 words. At small foldings a sliding window generator needs more backlog than that to refill at a frame boundary. The cap now applies only under the decoupled-chain condition above. | cnv-w2a2 small: 0.980× → 1.000×; cnv-w1a2 small: 0.982× → 1.000×. Cost: mobilenet_v1 small 64.9 → 109.2 kB (<!--MOBILENET_SMALL_RESULT-->) |
 
@@ -166,19 +186,20 @@ Each rule was found on a finn-examples model that deadlocked or lost throughput.
 * **Dynamic MVAU** (attention matmuls, `mem_mode="dynamic"`): there was no tree model, and the rtlsim fallback
   drove only `in0`, so node characterization timed out (bert). These MVAUs now have a tree model with an `in1` row
   (one matrix burst per matrix), and the rtlsim fallback also drives `in1`.
-* **Tiled MVAU** (`TH > 1`): the tree model uses the group-stall model shared with `get_exp_cycles`.
-  Foldings whose output reorder buffer stalls are left to rtlsim.
-* **StreamingSplit / StreamingConcat**: the tree models follow the generated HLS top: 1 word/cycle with
-  the dataflow pragma, interval 5 without it. Node rtlsim now drives every input and drains every output.
+* **Tiled MVAU** (`TH > 1`): the tree model's group stall now covers the output reorder buffer as well as the
+  activation replay buffer. Foldings where the reorder stall dominates are left to rtlsim.
+* **StreamingSplit / StreamingConcat**: node rtlsim now drives every input and drains every output. The tree
+  models (one word every 5 cycles) are unchanged and now tested against rtlsim for unequal streams, SIMD
+  1/2/4 and several `numInputVectors`.
 
 ### Estimates the sizer relies on
 
-These two fixes also apply to `dev` on their own; separate PRs against `dev` are to be opened.
-
 * `StreamingDataWidthConverter.get_exp_cycles` counts words instead of elements. Before, every DWC looked
-  like the bottleneck: cnv-w1a1 was estimated at 903168 cycles per frame for an 8167-cycle accelerator.
-* Tiled `MVAU_rtl.get_exp_cycles` drops the extra factor of `TH` (taken from upstream `fix/exp_cycles`)
-  and models the per-group stalls of the tiled MVU. bert's estimate was 4× pessimistic.
+  like the bottleneck: cnv-w1a1 was estimated at 903168 cycles per frame for an 8167-cycle accelerator. The
+  sizer uses `get_exp_cycles` for the rates in the join window floor.
+
+The per-group stall of the tiled MVU in `MVAU.get_exp_cycles` is not part of this PR; it goes into a
+separate estimates PR against `dev`.
 
 ### Tests and docs
 
@@ -187,8 +208,7 @@ These two fixes also apply to `dev` on their own; separate PRs against `dev` are
   decoupled-chain cases), sized without synthesis or rtlsim, with the expected depths pinned. Also unit checks
   of the sizer steps.
 * `tests/fpgadataflow/test_fpgadataflow_split_concat_characterization.py` (new): tree model vs node rtlsim
-  TAVs for StreamingSplit/Concat. `test_fpgadataflow_mvau.py`: dynamic and tiled MVAU characterization, and
-  tiled `get_exp_cycles` against measured rtlsim cycles.
+  TAVs for StreamingSplit/Concat. `test_fpgadataflow_mvau.py`: dynamic and tiled MVAU characterization.
 * Per-model tests `tests/benchmark/<model>/test_build_<model>.py` (already in `dev`) gain
   `test_<model>_fifo_sizing[heuristic_analytical|heuristic_rtlsim]`, which resumes a cached estimate-only build of
   the committed folding, sizes the FIFOs, builds the stitched IP, and checks the golden output and ≥ 0.98× the

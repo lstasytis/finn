@@ -1,0 +1,492 @@
+diff --git a/src/finn/custom_op/fpgadataflow/matrixvectoractivation.py b/src/finn/custom_op/fpgadataflow/matrixvectoractivation.py
+index b816e0e27..9939cdeef 100644
+--- a/src/finn/custom_op/fpgadataflow/matrixvectoractivation.py
++++ b/src/finn/custom_op/fpgadataflow/matrixvectoractivation.py
+@@ -43,10 +43,12 @@ from qonnx.util.basic import (
+ from finn.custom_op.fpgadataflow.hwcustomop import HWCustomOp
+ from finn.util.basic import (
+     Characteristic_Node,
++    decompress_string_to_numpy,
+     fifo_rtl_files,
+     flat_characteristic_leaf,
+     is_versal,
+     least_divisor_at_most,
++    save_tav_npy,
+ )
+ from finn.util.data_packing import numpy_to_hls_code, pack_innermost_dim_as_hex_string
+ 
+@@ -58,6 +60,44 @@ from finn.util.data_packing import numpy_to_hls_code, pack_innermost_dim_as_hex_
+ # the ... here can be any shape (representing groups of vectors)
+ 
+ 
++def tiled_mvau_group_stall(sf, nf, th):
++    """Stall cycles of the tiled MVU (finn-rtllib/mvu_tiled, TH>1) per group of TH
++    input vectors. A group takes NF*SF*TH compute cycles plus this stall, which is
++    the larger of two buffer effects at the group boundary (they overlap):
++
++    * activation replay: input_gen holds the group's SF*TH input words in a
++      2^ceil(log2(SF*TH+2))-word circular buffer and replays them NF times with
++      the TH vectors interleaved innermost, so the TH-th beat already needs word
++      (TH-1)*SF. The words are only freed after the last replay, so only the
++      buffer's spare slots prefetch the next group; what its interleaved start
++      needs beyond that (plus 3 cycles) arrives one word per cycle.
++    * output reorder: the accumulator emits TH consecutive words per output fold,
++      input_gen transposes them to the stream order and holds all NF*TH words of
++      a group in a 2^ceil(log2((NF-1)*TH+3))-word buffer until the last fold
++      arrives; then the remaining R = NF*TH-(NF-1) words drain back to back while
++      the next group already produces outputs. If those do not fit the spare
++      slots (plus TH-4 words of slack), the pipeline freezes until the drain is
++      done.
++
++    Exact for power-of-two TH (and the replay part for any TH), within ~10 % of a
++    group otherwise; verified against rtlsim for SF 1..64, NF 1..48, TH 2..16 and
++    bert's foldings."""
++    fm = sf * th
++    buf_in = 1 << math.ceil(math.log2(fm + 2))
++    in_stall = max(0, (th - 1) * (sf - 1) + 3 - (buf_in - fm))
++    if nf < 2:
++        return in_stall
++    buf_out = 1 << math.ceil(math.log2((nf - 1) * th + 3))
++    spare = buf_out - nf * th
++    run = nf * th - (nf - 1)
++    # cycle (from the drain start) at which the first non-fitting word of the
++    # next group arrives: its outputs come in bursts of TH every fm cycles
++    w = max(0, spare + th - 4)
++    t_block = fm * (w // th + 1) + w % th
++    out_stall = max(0, run - t_block, -spare)
++    return max(in_stall, out_stall)
++
++
+ class MVAU(HWCustomOp):
+     """Abstraction layer for HW implementation of MatrixVectorActivation layers."""
+ 
+@@ -523,7 +563,8 @@ class MVAU(HWCustomOp):
+         weight stream never stalls it."""
+         pe = self.get_nodeattr("PE")
+         simd = self.get_nodeattr("SIMD")
+-        num_inp_vec = self.get_nodeattr("numInputVectors")
++        th = self.get_nodeattr("TH")
++        n_vec = int(np.prod(self.get_nodeattr("numInputVectors")))
+         mh = self.get_nodeattr("MH")
+         mw = self.get_nodeattr("MW")
+         # since mmv != 1 is not supported yet, we set mmv for now to 1
+@@ -532,9 +573,23 @@ class MVAU(HWCustomOp):
+         # consumes one PE x SIMD weight tile per cycle, but reuses each tile for TH
+         # input vectors, so the weight stream only needs WSIMD weights per cycle,
+         # the smallest divisor of PE*SIMD with PE*SIMD/WSIMD <= TH
+-        exp_cycles = (mh / pe) * (mw / simd) * np.prod(num_inp_vec) / mmv
++        exp_cycles = (mh / pe) * (mw / simd) * n_vec / mmv
++        if th > 1:
++            # the tiled MVU can stall once per group of TH input vectors (see
++            # get_tiled_group_stall_cycles); the stall is 0 for most foldings
++            exp_cycles += (n_vec // th) * self.get_tiled_group_stall_cycles()
+         return int(exp_cycles)
+ 
++    def get_tiled_group_stall_cycles(self):
++        """Stall cycles of the tiled MVU (TH>1) per group of TH input vectors, 0
++        for TH=1; see tiled_mvau_group_stall()."""
++        th = self.get_nodeattr("TH")
++        if th <= 1:
++            return 0
++        sf = self.get_nodeattr("MW") // self.get_nodeattr("SIMD")
++        nf = self.get_nodeattr("MH") // self.get_nodeattr("PE")
++        return tiled_mvau_group_stall(sf, nf, th)
++
+     def get_exp_weight_fetch_cycles(self):
+         """Expected cycles per frame for fetch_weights to deliver the weights in
+         mem_mode external_mem, 0 for all other mem_modes.
+@@ -1466,19 +1521,19 @@ class MVAU(HWCustomOp):
+ 
+         ``TH`` therefore does not multiply the cycle count: a group costs
+         ``NF*SF*TH`` cycles and covers ``TH`` vectors, i.e. ``NF*SF`` per vector,
+-        the same as the untiled MVAU. (``get_exp_cycles`` still multiplies by
+-        ``TH``; it is left alone because the characterization uses it only as a
+-        simulation budget, where over-estimating is harmless.)
++        the same as the untiled MVAU (``get_exp_cycles`` agrees).
+ 
+         The three terms:
+ 
+         ``stall``
+-            A group cannot start replaying until the buffer holds the word the
+-            interleaved nest reaches first, ``(TH-1)*SF + 4 - TH`` words in, and it
+-            could only prefetch ``BUF_SIZE - SF*TH`` of them while the previous
+-            group ran. ``BUF_SIZE`` is the ``input_gen`` circular buffer, which
+-            rounds up to a power of two -- which is why the overhead is not smooth
+-            in ``SF``. This is what makes the span ``NF*SF*TH + stall``.
++            The cycles a group waits at its start, ``tiled_mvau_group_stall``:
++            for the activation replay buffer to hold the word the interleaved
++            nest reaches first (it could only prefetch ``BUF_SIZE - SF*TH`` of
++            the group while the previous one ran). ``BUF_SIZE`` rounds up to a
++            power of two -- which is why the overhead is not smooth in ``SF``.
++            This is what makes the span ``NF*SF*TH + stall``. The same function
++            also knows the output reorder buffer's stall; ``mvau_tiled_tree``
++            declines the foldings where that one dominates.
+         ``d``
+             The first output of a group, as an offset from that group's first read.
+         ``tree_depth``
+@@ -1491,8 +1546,7 @@ class MVAU(HWCustomOp):
+         Returns ``(fm, stall, span, d)``.
+         """
+         fm = SF * TH
+-        buf = 1 << int(math.ceil(math.log2(fm + 2)))
+-        stall = max(0, ((TH - 1) * SF + 4 - TH) - (buf - fm))
++        stall = tiled_mvau_group_stall(SF, NF, TH)
+         span = NF * fm + stall
+         chainlen = (SIMD + 2) // 3
+         tree_depth = int(math.ceil(math.log2(chainlen))) if chainlen > 1 else 0
+@@ -1530,6 +1584,14 @@ class MVAU(HWCustomOp):
+             # this, so a graph that reaches here with it violated is malformed
+             return None
+         fm, stall, span, d = self.mvau_tiled_params(SF, NF, SIMD, TH)
++        spare = (1 << math.ceil(math.log2((NF - 1) * TH + 3))) - NF * TH
++        if stall > max(tiled_mvau_group_stall(SF, 1, TH), -spare):
++            # the output reorder buffer stalls the group (NF*TH just under a
++            # power of two with few compute cycles per fold): its run then drains
++            # while the next group's first folds queue up behind it, a shape the
++            # schedule below does not have. Leave the node to rtlsim. (A buffer a
++            # few words too small for the group, spare < 0, only trickles.)
++            return None
+         G = n_vec // TH
+         period = G * span
+         if period < 1:
+@@ -1574,18 +1636,22 @@ class MVAU(HWCustomOp):
+ 
+         Two configurations are declined outright rather than approximated:
+ 
+-        * ``mem_mode`` in ``{"external_mem", "dynamic"}``. Both change *when*
+-          weights arrive -- ``external_mem`` fetches them over AXI-MM,
+-          ``dynamic`` streams a fresh set per loop iteration -- so neither can
+-          be assumed to keep pace with the compute, and the schedules below all
+-          assume it does. ``internal_embedded``, ``internal_decoupled`` and
++        * ``mem_mode="external_mem"``. It fetches the weights over AXI-MM, so they
++          cannot be assumed to keep pace with the compute, and the schedules below
++          all assume they do. ``internal_embedded``, ``internal_decoupled`` and
+           ``external`` present the weights as an always-ready stream, which is
+-          the regime the constants here hold in.
++          the regime the constants here hold in. So does ``dynamic`` as long as
++          its ``dynamic_load`` refills a bank faster than the compute replays the
++          other one (``numInputVectors[-1] >= SIMD``); its own streamed input is
++          added by ``dynamic_in1_tav``.
+         * a folding whose period cannot hold the schedule at one transaction per
+           cycle, or a single output for the whole node. See the guards below.
+         """
+         mem_mode = self.get_nodeattr("mem_mode")
+-        if mem_mode in ("external_mem", "dynamic"):
++        n_reps = self.get_nodeattr("numInputVectors")[-1]
++        if mem_mode == "external_mem":
++            return None
++        if mem_mode == "dynamic" and n_reps < self.get_nodeattr("SIMD"):
+             return None
+ 
+         MW = self.get_nodeattr("MW")
+@@ -1690,6 +1756,26 @@ class MVAU(HWCustomOp):
+ 
+         return flat_characteristic_leaf(rd, wr, "MVAU burst schedule")
+ 
++    def get_tav_input_blocks(self):
++        """A dynamic node computes on the matrix its ``dynamic_load`` buffered
++        from in1: the ``numInputVectors[-1] * MH / PE`` outputs of a matrix need
++        all ``MW * MH / PE`` words of it."""
++        if self.get_nodeattr("mem_mode") != "dynamic":
++            return {}
++        n_reps = self.get_nodeattr("numInputVectors")[-1]
++        nf = self.get_nodeattr("MH") // self.get_nodeattr("PE")
++        burst = self.get_nodeattr("MW") * self.get_nodeattr("MH") // self.get_nodeattr("PE")
++        return {1: (burst, n_reps * nf)}
++
++    def get_tav_input_window(self, ind=0):
++        """The ``MH / PE`` outputs of a vector need all ``MW / SIMD`` words of it;
++        the tiled MVU (TH > 1) computes a group of TH vectors together."""
++        if ind == 0:
++            th = self.get_nodeattr("TH")
++            sf = self.get_nodeattr("MW") // self.get_nodeattr("SIMD")
++            return sf * th, self.get_nodeattr("MH") // self.get_nodeattr("PE") * th
++        return super().get_tav_input_window(ind)
++
+     def derive_token_access_vectors(
+         self, model, period, strategy, fpga_part, clk_period, op_type, override_dict=None
+     ):
+@@ -1702,7 +1788,9 @@ class MVAU(HWCustomOp):
+         }
+ 
+         mem_mode = self.get_nodeattr("mem_mode")
+-        if mem_mode in ["internal_decoupled", "external"]:
++        # a dynamic node's rtlsim is the bare MVU without its dynamic_load, so
++        # its in1 also takes one weight tile per compute cycle
++        if mem_mode in ["internal_decoupled", "external", "dynamic"]:
+             n_weight_inps = self.calc_wmem()
+             num_w_reps = int(np.prod(self.get_nodeattr("numInputVectors")))
+             io_dict["inputs"]["in1"] = [i for i in range(num_w_reps * n_weight_inps)]
+@@ -1710,6 +1798,36 @@ class MVAU(HWCustomOp):
+         super().derive_token_access_vectors(
+             model, period, strategy, fpga_part, clk_period, op_type, override_dict=io_dict
+         )
++        if mem_mode == "dynamic":
++            self.dynamic_in1_tav()
++
++    def dynamic_in1_tav(self):
++        """Add the TAV row of a dynamic node's streamed second operand.
++
++        Both characterizations describe only in0 and out0. In hardware, in1 feeds
++        ``dynamic_load``, which buffers one ``MW x MH`` matrix (``MW * MH / PE``
++        words) in one of two banks and replays it for ``numInputVectors[-1]``
++        input vectors. So in1 is read as one burst of a matrix, one word per
++        cycle, at the start of the in0 reads of every ``numInputVectors[-1]``
++        vectors. The row is placed modulo the period, like the tree models, and
++        stored after the in0 row, the order ``stream_curves`` binds rows in.
++        """
++        rows = np.atleast_2d(decompress_string_to_numpy(self.get_nodeattr("io_chrc_in")))
++        cum0 = rows[0].astype(np.int64)
++        period = cum0.shape[0] // 2
++        n_reps = self.get_nodeattr("numInputVectors")[-1]
++        n_mats = int(np.prod(self.get_nodeattr("numInputVectors"))) // n_reps
++        burst = self.get_nodeattr("MW") * self.get_nodeattr("MH") // self.get_nodeattr("PE")
++        sf = self.get_nodeattr("MW") // self.get_nodeattr("SIMD")
++        # cycle of the first in0 read of each matrix's vectors in the first period
++        first = np.arange(n_mats) * n_reps * sf + 1
++        starts = np.searchsorted(cum0[:period], first, side="left")
++        rd = np.zeros(period, dtype=np.int64)
++        # add rather than set, so the count stays exact even if bursts overlap
++        np.add.at(rd, ((starts[:, None] + np.arange(burst)[None, :]) % period).ravel(), 1)
++        cum1 = np.cumsum(np.tile(rd, 2))
++        save = np.stack([cum0, cum1]).astype(np.int32)
++        self.set_nodeattr("io_chrc_in", save_tav_npy(self, "io_chrc_in", save))
+ 
+     def get_weight_mem_bytes(self):
+         """Return (size, offs) in bytes for one layer's weight matrix.
+diff --git a/tests/fpgadataflow/test_fpgadataflow_mvau.py b/tests/fpgadataflow/test_fpgadataflow_mvau.py
+index 145bebc68..46f94b199 100644
+--- a/tests/fpgadataflow/test_fpgadataflow_mvau.py
++++ b/tests/fpgadataflow/test_fpgadataflow_mvau.py
+@@ -66,7 +66,7 @@ from finn.transformation.fpgadataflow.set_fifo_depths import InsertAndSetFIFODep
+ from finn.transformation.fpgadataflow.specialize_layers import SpecializeLayers
+ from finn.transformation.general import ApplyConfig
+ from finn.transformation.streamline.round_thresholds import RoundAndClipThresholds
+-from finn.util.basic import is_versal
++from finn.util.basic import decompress_string_to_numpy, is_versal
+ from finn.util.test import (
+     get_hls_synth_interval,
+     make_runtime_weight_stream,
+@@ -883,6 +883,116 @@ def test_fpgadataflow_rtl_mvau(
+     )
+ 
+ 
++def make_mvau_rtl_node(mw, mh, simd, pe, th, n_vec, mem_mode, wdt="INT8"):
++    """A bare MVAU_rtl node (no activation, INT8 inputs) for estimate checks."""
++    node = helper.make_node(
++        "MVAU_rtl",
++        ["inp", "weights"],
++        ["outp"],
++        domain="finn.custom_op.fpgadataflow.rtl",
++        backend="fpgadataflow",
++        MW=mw,
++        MH=mh,
++        SIMD=simd,
++        PE=pe,
++        TH=th,
++        numInputVectors=n_vec,
++        inputDataType="INT8",
++        weightDataType=wdt,
++        outputDataType="INT32",
++        noActivation=1,
++        mem_mode=mem_mode,
++        resType="dsp",
++    )
++    return getCustomOp(node)
++
++
++# (MW, MH, SIMD, PE, TH, numInputVectors, mem_mode, wdt, cycles per frame): steady-state
++# stitched-IP rtlsim cycles per frame on xcvc1902 (4 frames back to back), from the
++# sweep that fixed the TH>1 estimate. The tiled MVU computes NF*SF cycles per input
++# vector like the untiled one, plus a stall per group of TH vectors from its
++# activation replay buffer (SF*TH+2 just under a power of two) or its output reorder
++# buffer (NF*TH just under or at a power of two with few compute cycles per fold).
++TILED_EXP_CYCLES = [
++    (32, 32, 8, 8, 1, [1, 16], "internal_decoupled", "INT8", 256),
++    (32, 32, 8, 8, 2, [1, 16], "internal_decoupled", "INT8", 256),
++    (32, 32, 8, 8, 8, [1, 16], "internal_decoupled", "INT8", 256),
++    (32, 32, 8, 8, 2, [2, 3, 8], "internal_decoupled", "INT8", 768),
++    (36, 32, 3, 8, 3, [1, 12], "internal_decoupled", "INT8", 576),
++    (384, 384, 24, 16, 8, [1, 128], "internal_decoupled", "INT8", 49152),  # bert
++    (384, 384, 24, 16, 4, [1, 128], "internal_decoupled", "INT8", 49152),
++    (384, 1536, 48, 32, 8, [1, 128], "internal_decoupled", "INT8", 49152),
++    (30, 16, 2, 8, 2, [1, 8], "internal_decoupled", "INT8", 300),  # replay stall
++    (28, 8, 4, 8, 4, [1, 8], "internal_decoupled", "INT8", 90),
++    (62, 32, 2, 8, 2, [1, 8], "internal_decoupled", "INT8", 1116),
++    (64, 18, 1, 9, 9, [18], "internal_decoupled", "INT4", 2422),
++    (32, 128, 8, 8, 4, [1, 12, 16], "internal_decoupled", "INT8", 13872),  # reorder stall
++    (32, 32, 32, 8, 8, [1, 16], "internal_decoupled", "INT8", 98),
++    (4, 128, 4, 8, 4, [1, 16], "internal_decoupled", "INT8", 436),
++    (28, 128, 4, 8, 4, [1, 16], "internal_decoupled", "INT8", 1876),  # both, they overlap
++    (12, 128, 4, 8, 4, [1, 16], "internal_decoupled", "INT8", 916),
++    (32, 32, 8, 8, 2, [1, 16], "dynamic", "INT8", 256),
++    (32, 32, 8, 8, 1, [1, 4], "external_mem", "INT8", 128),  # weight fetch bound
++    (64, 64, 16, 8, 2, [1, 16], "external_mem", "INT8", 1032),  # AXI bus bound
++    (64, 64, 16, 8, 2, [1, 16], "external_mem", "INT4", 520),
++]
++
++
++@pytest.mark.parametrize("cfg", TILED_EXP_CYCLES)
++@pytest.mark.fpgadataflow
++def test_mvau_rtl_exp_cycles(cfg):
++    """get_exp_cycles() of MVAU_rtl against measured steady-state rtlsim cycles."""
++    mw, mh, simd, pe, th, n_vec, mem_mode, wdt, cycles = cfg
++    inst = make_mvau_rtl_node(mw, mh, simd, pe, th, n_vec, mem_mode, wdt)
++    assert np.isclose(inst.get_exp_cycles(), cycles, rtol=0.02, atol=2)
++
++
++@pytest.mark.parametrize(
++    "mw, mh, simd, pe, th, n_vec",
++    [
++        (32, 32, 8, 8, 4, 16),  # no stall
++        (30, 16, 2, 8, 2, 8),  # activation replay stall: 15 per group of 2
++        (32, 32, 32, 8, 8, 16),  # output reorder stall: 17 per group of 8
++    ],
++)
++@pytest.mark.fpgadataflow
++@pytest.mark.slow
++@pytest.mark.vivado
++def test_fpgadataflow_mvau_tiled_exp_cycles_rtlsim(mw, mh, simd, pe, th, n_vec):
++    """Steady-state stitched-IP rtlsim cycles per frame of a tiled MVAU_rtl against
++    get_exp_cycles(), for a folding without and with each of the two group stalls."""
++    part = "xcvc1902-vsva2197-2MP-e-S"
++    idt = wdt = DataType["INT8"]
++    W = gen_finn_dt_tensor(wdt, (mw, mh))
++    model = make_single_fclayer_modelwrapper(W, pe, simd, wdt, idt, DataType["INT32"])
++    inst = getCustomOp(model.graph.node[0])
++    inst.set_nodeattr("numInputVectors", [1, n_vec])
++    inst.set_nodeattr("TH", th)
++    inst.set_nodeattr("mem_mode", "internal_decoupled")
++    inst.set_nodeattr("resType", "dsp")
++    inst.set_nodeattr("preferred_impl_style", "rtl")
++    model.set_tensor_shape("inp", [1, n_vec, mw])
++    model.set_tensor_shape("outp", [1, n_vec, mh])
++    model = model.transform(SpecializeLayers(part))
++    model = model.transform(GiveUniqueNodeNames())
++    assert model.graph.node[0].op_type == "MVAU_rtl"
++    model = model.transform(MinimizeAccumulatorWidth())
++    model = model.transform(InferDataTypes())
++    model = model.transform(PrepareIP(part, 5))
++    model = model.transform(HLSSynthIP())
++    model = model.transform(CreateStitchedIP(part, 5))
++    model.set_metadata_prop("exec_mode", "rtlsim")
++    x = gen_finn_dt_tensor(idt, [1, n_vec, mw])
++
++    def stitched_rtlsim_cycles(n_frames):
++        rtlsim_exec(model, {"inp": np.concatenate([x] * n_frames)})
++        return int(model.get_metadata_prop("cycles_rtlsim"))
++
++    cycles_per_frame = (stitched_rtlsim_cycles(5) - stitched_rtlsim_cycles(1)) / 4
++    exp_cycles = getCustomOp(model.graph.node[0]).get_exp_cycles()
++    assert np.isclose(exp_cycles, cycles_per_frame, rtol=0.02, atol=2)
++
++
+ @pytest.mark.parametrize("mh", [32])
+ @pytest.mark.parametrize("mw", [16])
+ @pytest.mark.parametrize("n_vectors", [32])
+@@ -1171,16 +1281,18 @@ def test_fpgadataflow_analytical_characterization_mvau_tiled(mw_pe_simd_th, mem_
+     ), "tiled MVAU characterized TAV does not match RTLsim'd one!"
+ 
+ 
+-@pytest.mark.parametrize("mem_mode", ["external_mem", "dynamic"])
++@pytest.mark.parametrize("mem_mode,simd", [("external_mem", 1), ("dynamic", 32)])
+ @pytest.mark.fpgadataflow
+-def test_mvau_tree_model_declines_unmodelled_mem_modes(mem_mode):
+-    """``external_mem`` and ``dynamic`` change when weights arrive.
++def test_mvau_tree_model_declines_unmodelled_mem_modes(mem_mode, simd):
++    """``external_mem`` changes when weights arrive, and so does ``dynamic``
++    when its ``dynamic_load`` cannot refill a matrix while the other one is
++    replayed (``numInputVectors[-1] < SIMD``).
+ 
+     ``get_tree_model`` must decline them and let the node fall back to rtlsim
+     rather than hand out the internal_decoupled shape. No Vivado: this only asks
+     what the tree model returns.
+     """
+-    mw, mh, pe, simd = 32, 18, 9, 1
++    mw, mh, pe = 32, 18, 9
+     idt = wdt = DataType["INT4"]
+     W = gen_finn_dt_tensor(wdt, (mw, mh))
+     model = make_single_fclayer_modelwrapper(W, pe, simd, wdt, idt, DataType["INT32"], None, None)
+@@ -1190,6 +1302,71 @@ def test_mvau_tree_model_declines_unmodelled_mem_modes(mem_mode):
+     assert inst.get_tree_model() is None
+ 
+ 
++def make_dynamic_mvau_model(heads, n_vec, mw, mh, pe, simd, impl_style):
++    """A ``[1, heads, n_vec, mw] x [1, heads, mw, mh]`` dynamic MVAU, the shape of
++    an attention matmul."""
++    ifm = helper.make_tensor_value_info("ifm", TensorProto.FLOAT, [1, heads, n_vec, mw])
++    wfm = helper.make_tensor_value_info("wfm", TensorProto.FLOAT, [1, heads, mw, mh])
++    ofm = helper.make_tensor_value_info("ofm", TensorProto.FLOAT, [1, heads, n_vec, mh])
++    model = make_dynamic_matmul_modelwrapper(ifm, wfm, ofm, DataType["INT8"], DataType["INT8"])
++    model = model.transform(to_hw.InferQuantizedMatrixVectorActivation())
++    model = model.transform(GiveUniqueNodeNames())
++    inst = getCustomOp(model.graph.node[0])
++    assert inst.get_nodeattr("mem_mode") == "dynamic"
++    inst.set_nodeattr("PE", pe)
++    inst.set_nodeattr("SIMD", simd)
++    inst.set_nodeattr("preferred_impl_style", impl_style)
++    return model
++
++
++@pytest.mark.fpgadataflow
++def test_mvau_dynamic_tav_streams():
++    """A dynamic MVAU's TAV has one row per streamed input, with exact counts.
++
++    in1 (the second operand, fed to ``dynamic_load``) moves one folded frame of
++    its own per period, which is not in0's count; a shared row would hand the
++    sizer the wrong number of tokens on that edge. No Vivado: tree model only.
++    """
++    heads, n_vec, mw, mh, pe, simd = 3, 16, 32, 16, 4, 8
++    model = make_dynamic_mvau_model(heads, n_vec, mw, mh, pe, simd, "rtl")
++    model = model.transform(SpecializeLayers("xcvc1902-vsva2197-2MP-e-S"))
++    node = model.graph.node[0]
++    inst = getCustomOp(node)
++    assert inst.get_tree_model() is not None
++    inst.derive_token_access_vectors(model, 0, "tree_model", None, None, node.op_type)
++    rows = np.atleast_2d(decompress_string_to_numpy(inst.get_nodeattr("io_chrc_in")))
++    period = inst.get_nodeattr("io_chrc_period")
++    assert rows.shape == (2, 2 * period)
++    for ind, row in enumerate(rows):
++        per_frame = int(np.prod(inst.get_folded_input_shape(ind)[:-1]))
++        assert row[period - 1] == per_frame and row[-1] == 2 * per_frame, ind
++    # in1 arrives as one back-to-back burst of a matrix per head
++    inc = np.diff(rows[1], prepend=0)[:period]
++    assert inc.max() == 1
++    assert np.count_nonzero((inc == 1) & (np.roll(inc, 1) == 0)) == heads
++
++
++@pytest.mark.parametrize("pe,simd", [(8, 8), (4, 16), (16, 4)])
++@pytest.mark.parametrize("impl_style", ["rtl", "hls"])
++@pytest.mark.fpgadataflow
++@pytest.mark.vivado
++@pytest.mark.node_tree_modeling
++def test_fpgadataflow_analytical_characterization_mvau_dynamic(pe, simd, impl_style):
++    """The dynamic MVAU's in0/out0 schedule against rtlsim.
++
++    The node's rtlsim is the bare MVU, without its ``dynamic_load``, so this
++    checks the claim the tree model rests on: once a matrix is loaded the MVU
++    runs exactly as with internal weights. bert's attention matmuls are the
++    reference shapes, scaled down.
++    """
++    heads, n_vec, mw, mh = 2, 32, 32, 64
++    model = make_dynamic_mvau_model(heads, n_vec, mw, mh, pe, simd, impl_style)
++    node_details = ("MVAU_dynamic", heads, n_vec, mw, mh, pe, simd, impl_style)
++    assert tree_model_test(
++        model, node_details, "xcvc1902-vsva2197-2MP-e-S", 5, 0.05, 0.05, 20, 26
++    ), "characterized TAV does not match RTLsim'd one!"
++
++
+ @pytest.mark.fpgadataflow
+ def test_mvau_tiled_tree_model_token_counts():
+     """One period of the tiled schedule moves exactly one folded frame.
+@@ -1231,6 +1408,10 @@ def test_mvau_tiled_tree_model_token_counts():
+     assert mvau.mvau_tiled_tree(32, 2, 18, 1, 4) is None
+     # TH == 1 is the untiled module and is not this function's business
+     assert mvau.mvau_tiled_tree(32, 2, 18, 1, 1) is None
++    # the output reorder buffer stalls these (SF=1, NF=18: 37 and 63 cycles per
++    # group), which the schedule does not model: left to rtlsim
++    assert mvau.mvau_tiled_tree(1, 18, 18, 9, 9) is None
++    assert mvau.mvau_tiled_tree(1, 18, 18, 6, 6) is None
+ 
+ 
+ @pytest.mark.fpgadataflow
