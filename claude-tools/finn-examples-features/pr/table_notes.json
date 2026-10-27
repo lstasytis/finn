@@ -1,0 +1,18 @@
+{
+ "v2__fifo__bnn-pynq__AUP-ZU3_8GB-cnv-w2a2__small": "✅ pass (≥ 0.97×)",
+ "v2__fifo__bnn-pynq__U55C-cnv-w2a2__small": "✅ pass (≥ 0.97×)",
+ "v2__fifo__resnet50__V80": "❌ wrong output, not FIFO-related (folding bug, see Failures)",
+ "v2__fifo__yolov8__U55C-quantyolov8_4w4a__small": "⏳ PENDING: rerun with the Concat join window floor",
+ "v2__fifo__transformer__VCK190-transformer_language__small": "⏳ PENDING: no-deadlock check",
+ "v2__fifo__transformer__ZCU104-transformer_radioml__small": "⏳ PENDING: no-deadlock check",
+ "v2__fifo__transformer__ZCU104-transformer_vision__small": "⏳ PENDING: no-deadlock check",
+ "v2__fifo__transformer__ZCU104-transformer_radioml": "⏳ PENDING: no-deadlock check",
+ "v2__fifo__transformer__ZCU104-transformer_vision": "⏳ PENDING: no-deadlock check",
+ "v2__fifo__espcn__KV260_SOM__small": "⏳ PENDING",
+ "v2__fifo__espcn__KV260_SOM": "⏳ PENDING",
+ "v2__fifo__yolov8__U55C-quantyolov8_8w8a__small": "⏳ PENDING",
+ "v2__fifo__bnn-pynq__AUP-ZU3_8GB-cnv-w2a2": "⏳ PENDING",
+ "v2__fifo__bnn-pynq__U55C-cnv-w2a2": "⏳ PENDING",
+ "v2__fifo__resnet18__U55C-resnet18_8w8a__small": "not run: runtime-writeable URAM weights are not simulated",
+ "v2__fifo__resnet18__U55C-resnet18_8w8a": "not run: runtime-writeable URAM weights are not simulated"
+}
