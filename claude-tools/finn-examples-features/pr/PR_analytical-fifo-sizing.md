@@ -85,7 +85,7 @@ estimate, the per-model test's own assertion.
 | bert | VCK190 | full | 1.000 | 909.89 kB | 49.7 s | 2027 s | ✅ pass |
 | espcn | KV260_SOM | small | | | | | ⏳ PENDING |
 | espcn | KV260_SOM | full | | | | | ⏳ PENDING |
-| quantyolov8_4w4a | U55C | small | | | | | ⏳ PENDING (rerun with the Concat join window floor) |
+| quantyolov8_4w4a | U55C | small | 1.000 | 681.3 kB | 547 s | | ✅ pass (with the Concat join window floor; first output at 23.7 M cycles) |
 | quantyolov8_4w4a | U55C | full | | | | | ⏳ PENDING |
 | quantyolov8_8w8a | U55C | small | | | | | ⏳ PENDING |
 | quantyolov8_8w8a | U55C | full | | | | | ⏳ PENDING |
