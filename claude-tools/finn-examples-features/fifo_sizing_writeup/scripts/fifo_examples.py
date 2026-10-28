@@ -9,7 +9,7 @@ kinds of graphs are used:
   hand-made ones (``fifotrace.inject``) so that schedules are a few tokens long;
 * the unit-test graphs themselves, with their tree-model TAVs.
 
-Usage (inside a worktree of feature/dev/analytical-fifo-sizing, environment
+Usage (inside a worktree of feature/dev/analytical-fifo-sizing at 4ce1bd188, environment
 from wtenv.sh, tests/fpgadataflow on PYTHONPATH):
 
     python fifo_examples.py [example ...]   # default: all
@@ -140,7 +140,8 @@ def e2():
         rec = tr.edges[((True, True), "t1")]
         e = dc.Edge(rec["writes"], rec["per_frame"], rec["t_full"], rec["t_full"], rec["t_full"])
         print("   X->C with t_up = t_full (no reset past the pacer): edge_depth =",
-              dc.edge_depth(rec["peak"], rec["reads"], e, False, True, T, T * dc.PACER_TOLERANCE))
+              dc.edge_depth(rec["peak"], rec["reads"], e, False, True, T, T * dc.PACER_TOLERANCE,
+                            0, 0, rec["t_above"], rec["t_below"]))
 
 
 # ---------------------------------------------------------------------------
@@ -157,9 +158,53 @@ def e3():
         inject(m, "P", tav(T, every(4, 1024)), tav(T, range(T - 1024, T)))
         inject(m, "X", tav(px, range(1024)), tav(px, range(1024)))
         inject(m, "C", tav(2048, every(2, 1024)), tav(2048, every(2, 1024)))
-        size(m, T, "E3 throttled cap, X period %d" % px, show=False)
+        m, tr = size(m, T, "E3 throttled cap, X period %d" % px, show=False)
         print("   without cap:", depths_only(m, T, THROTTLED_CAP=10**9))
-        print("   without margin:", depths_only(m, T, CAP_MARGIN=0.0))
+        # CAP_MARGIN also bounds the pair test, so the margin is removed in
+        # the tracer's decomposition, not by patching CAP_MARGIN
+        print("   without margin (X -> C, pass TT):",
+              tr.edges[((True, True), "t1")]["depth_without_margin"])
+    # a slow node S between the pacer and X: t_above = P_S; the cap's pair
+    # test and the decoupled chain (R7b) decide
+    # S reads its frame at up to one token every 2 cycles and writes it as a
+    # burst at the end of its period
+    # (P_S, P_C): the last one has the slow stages 1229 + 4055 > 1.25 * 4096
+    # apart around X -> C (C still reads every 2nd cycle, then idles)
+    for ps, pc in ((1024, 2048), (2048, 2048), (1229, 4055)):
+        m = chain(['P', 'S', 'X', 'C'], 1024)
+        inject(m, "P", tav(T, every(4, 1024)), tav(T, range(T - 1024, T)))
+        inject(m, "S", tav(ps, every(min(2, ps // 1024), 1024)), tav(ps, range(ps - 1024, ps)))
+        inject(m, "X", tav(1024, range(1024)), tav(1024, range(1024)))
+        inject(m, "C", tav(pc, every(2, 1024)), tav(pc, every(2, 1024)))
+        m, tr = size(m, T, "E3 slow S above X, S period %d, C period %d" % (ps, pc), show=False)
+        print("   without cap:", depths_only(m, T, THROTTLED_CAP=10**9))
+        rec = tr.edges[((True, True), "t2")]
+        print("   X -> C without the pair test and without the decoupled chain:",
+              rec["depth_without_pair"])
+
+
+# ---------------------------------------------------------------------------
+# E3b: decoupled chain (no burst floor between slow stages that fit in
+# CAP_MARGIN periods together)
+# ---------------------------------------------------------------------------
+
+
+def e3b():
+    """in -> P (pacer, T = 32) -> S (one-to-one, period ps) -> X (fast) -> C
+    (throttleable, reads every 2nd cycle, period 16): E2 with a node S between
+    the pacer and the producer X."""
+    T = 32
+    # S reads at up to one token every 2 cycles and writes a burst at the end
+    for ps in (8, 16, 28):
+        m = chain(['P', 'S', 'X', 'C'], 8)
+        inject(m, "P", tav(T, every(4, 8)), tav(T, range(24, 32)))
+        inject(m, "S", tav(ps, every(min(2, ps // 8), 8)), tav(ps, range(ps - 8, ps)))
+        inject(m, "X", tav(8, range(8)), tav(8, range(8)))
+        inject(m, "C", tav(16, every(2, 8)), tav(16, every(2, 8)))
+        m, tr = size(m, T, "E3b decoupled chain, S period %d" % ps, show=(ps == 16))
+        rec = tr.edges[((True, True), "t2")]
+        print("   X -> C without the pair test and without the decoupled chain:",
+              rec["depth_without_pair"])
 
 
 # ---------------------------------------------------------------------------
@@ -242,7 +287,8 @@ def e6():
             e = dc.Edge(rec["writes"], rec["per_frame"], rec["t_up"], rec["t_prop"], rec["t_full"])
             print("   %s as a chain edge: edge_depth = %d (fill_only: %d)" % (
                 t, dc.edge_depth(rec["peak"], rec["reads"], e, False, rec["throttleable"], T,
-                                 T * dc.PACER_TOLERANCE), rec["depth"]))
+                                 T * dc.PACER_TOLERANCE, 0, 0, rec["t_above"], rec["t_below"]),
+                rec["depth"]))
 
 
 # ---------------------------------------------------------------------------
@@ -327,7 +373,7 @@ def e9():
         outputDataType="INT4")
     print("  node_latency =", dc.node_latency(mvau))
     from qonnx.custom_op.registry import getCustomOp
-    print("  get_tav_input_blocks =", getCustomOp(mvau).get_tav_input_blocks())
+    print("  tav_input_blocks =", dc.tav_input_blocks(getCustomOp(mvau)))
     matrix = np.arange(16) * 10
     writes = np.arange(12, dtype=np.int64)
     print("  matrix words at", fmt_arr(matrix))
@@ -353,7 +399,7 @@ def e10():
         inst = getCustomOp(n)
         try:
             print("  %s exp_cycles=%s window=%s" % (n.name, inst.get_exp_cycles(),
-                                                     inst.get_tav_input_window(0)))
+                                                     dc.tav_input_window(inst, 0)))
         except Exception as e:  # noqa
             print("  %s exp_cycles=%s" % (n.name, inst.get_exp_cycles()))
     with join_floor_internals() as rows:
@@ -361,6 +407,32 @@ def e10():
     for r in rows:
         print("  join %s input %s (fork %s, period %s): backlog %d" % (
             r["join"], r["t"], r["fork"], r["period"], r["backlog"]))
+        for key in ("k", "need", "times", "total", "taken", "deadlock", "paced"):
+            print("     %-8s %s" % (key, fmt_arr(np.round(r[key], 1), 40)))
+
+
+def e11():
+    """Join window floor at a StreamingConcat (test_join_window_floor_concat):
+    fork -> (shortcut | FMPadding -> 3x3 SWG) -> concat, 4x4 pixels, 2 channels,
+    no TAVs (the floor needs none)."""
+    from qonnx.custom_op.registry import getCustomOp
+    from test_fifosizing_chained_tav import make_concat_window
+
+    print("=" * 78)
+    print("E11 join window floor at a StreamingConcat")
+    m = make_concat_window()
+    for n in m.graph.node:
+        inst = getCustomOp(n)
+        need = dc.tav_input_need(inst, 0)
+        print("  %s exp_cycles=%s window=%s need=%s" % (
+            n.name, inst.get_exp_cycles(), dc.tav_input_window(inst, 0),
+            None if need is None else fmt_arr(need, 40)))
+    with join_floor_internals() as rows:
+        floors = dc.join_window_floors(m, list(m.graph.node))
+    print("  floors:", floors)
+    for r in rows:
+        print("  join %s input %s (fork %s, period %s, words a join token %s): backlog %d" % (
+            r["join"], r["t"], r["fork"], r["period"], r["c"], r["backlog"]))
         for key in ("k", "need", "times", "total", "taken", "deadlock", "paced"):
             print("     %-8s %s" % (key, fmt_arr(np.round(r[key], 1), 40)))
 
@@ -391,7 +463,8 @@ def unit():
     size(m, period, "U6 compacting DWC (PE 2 -> SIMD 8)", show=False)
 
 
-EXAMPLES = dict(e1=e1, e2=e2, e3=e3, e4=e4, e5=e5, e6=e6, e7=e7, e8=e8, e8c=e8c, e8d=e8d, e9=e9, e10=e10, unit=unit)
+EXAMPLES = dict(e1=e1, e2=e2, e3=e3, e3b=e3b, e4=e4, e5=e5, e6=e6, e7=e7, e8=e8, e8c=e8c, e8d=e8d, e9=e9, e10=e10, e11=e11,
+                unit=unit)
 
 if __name__ == "__main__":
     np.set_printoptions(linewidth=200)

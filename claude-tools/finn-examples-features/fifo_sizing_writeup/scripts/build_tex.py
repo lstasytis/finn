@@ -8,7 +8,8 @@ reads fifo_sizing_analytical.tex.in (next to this script), replaces every line
 
 by an ``lstlisting`` of exactly those source lines (numbered as in the file)
 and writes ../fifo_sizing_analytical.tex. The listings in the committed .tex
-were produced from commit 39dac9a18 of that branch.
+were produced from commit 4ce1bd188 of that branch (worktree
+build/wt/pr-fifo).
 """
 
 import os
@@ -46,4 +47,4 @@ def main(root):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "/home/lstasytis/finn/build/wt/fifodoc")
+    main(sys.argv[1] if len(sys.argv) > 1 else "/home/lstasytis/finn/build/wt/pr-fifo")

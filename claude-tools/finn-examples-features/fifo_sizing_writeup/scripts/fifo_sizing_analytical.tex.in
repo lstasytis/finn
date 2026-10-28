@@ -48,7 +48,7 @@
 \newcommand{\file}{\code{derive\_characteristic.py}}
 
 \title{Analytical FIFO sizing in FINN:\\ from token access vectors to FIFO depths}
-\author{Documentation of branch \code{feature/dev/analytical-fifo-sizing}, commit \code{39dac9a18}}
+\author{Documentation of branch \code{feature/dev/analytical-fifo-sizing}, commit \code{4ce1bd188}}
 \date{}
 
 \begin{document}
@@ -77,7 +77,7 @@ Unless noted otherwise, all code is in
 \code{src/finn/transformation/fpgadataflow/derive\_characteristic.py} (``\file''
 below). The builder step \code{step\_set\_fifo\_depths} runs the heuristic strategies as follows:
 
-%%CODE src/finn/builder/build_dataflow_steps.py 1045 1079%%
+%%CODE src/finn/builder/build_dataflow_steps.py 1097 1131%%
 
 Width converters are inserted (\code{InsertDWC}) and every node is specialized
 \emph{before} characterization, so DWCs are ordinary characterized nodes
@@ -121,7 +121,9 @@ HW nodes (\code{MVAU\_hls}/\code{MVAU\_rtl}, \code{DuplicateStreams\_hls},
 (A, B, C, P, X, \dots) and given \emph{hand-made} TAVs of 8 tokens a frame so
 that complete schedules fit in a table (\code{fifotrace.inject} stores them
 exactly as the tree-model path does). The unit-test graphs themselves, with
-their tree-model TAVs, are used as well (U1--U6). In a toy TAV, ``reads at
+their tree-model TAVs, are used as well (U1--U6), and E11 is the
+\code{StreamingConcat} graph of \code{test\_join\_window\_floor\_concat} (fork,
+\code{FMPadding}, \code{ConvolutionInputGenerator\_rtl}, concat), which needs no TAV. In a toy TAV, ``reads at
 cycles $0,2,\dots,14$, $P=16$'' means one token at each listed cycle of each of
 the two frames. Every number below is printed by
 \code{scripts/fifo\_examples.py}; the full output is
@@ -137,13 +139,13 @@ asserting that they reproduce the depth the code returned.
 \item Run the \emph{chained-TAV pass} \code{derive\_chained\_tav\_depths} four times,
   for $(\text{causal},\text{latency})\in\{0,1\}^2$, and keep the largest depth of
   each edge (Section~\ref{sec:passes}).
-\item Raise every input of a two-stream join to its \emph{join window floor}
-  (\code{join\_window\_floors}, Section~\ref{sec:joinfloor}).
+\item Raise every input of a two-stream join or of a \code{StreamingConcat} to its
+  \emph{join window floor} (\code{join\_window\_floors}, Section~\ref{sec:joinfloor}).
 \item Write the depths: at least 2 on every edge, \code{io\_fifo\_depth} (5) on the graph
   input and output (Section~\ref{sec:write}).
 \end{enumerate}
 
-%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 1008 1028%%
+%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 1181 1200%%
 
 One chained pass (Sections~\ref{sec:prep}--\ref{sec:rules}) is:
 \begin{enumerate}
@@ -163,13 +165,13 @@ One chained pass (Sections~\ref{sec:prep}--\ref{sec:rules}) is:
 
 \subsection{Binding TAV rows to tensors}
 
-%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 253 280%%
+%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 260 286%%
 
 Streams of width 0 (embedded weights/thresholds) are skipped. If the number of
 rows equals the number of streams (rtlsim), each tensor gets its own row;
 otherwise (tree models, one row) row~0 is used for \emph{every} input, including
 a decoupled weight stream---those are later ignored because no edge schedule
-exists for them (line 803 below). \code{read\_node\_tavs} stores, per node, row~0 of
+exists for them (line 970 below). \code{read\_node\_tavs} stores, per node, row~0 of
 the input and output TAV (\code{tin}, \code{tout}) and these per-tensor curves; a
 node whose TAV cannot be read gets \code{(None, None, \{\}, \{\})} and is treated
 like a fork/join (transparent). Forks (\code{DuplicateStreams}), joins
@@ -178,8 +180,8 @@ never characterized (\code{\_UNCHARACTERIZED\_OPS}, \code{is\_stream\_join}).
 
 \subsection{Periods, global period, pacers}
 
-%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 503 521%%
-%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 712 722%%
+%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 626 659%%
+%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 870 881%%
 
 $P_v=\mathrm{len}(\code{tin})/2$. $\Tg$ is the larger of the caller's period and the
 slowest TAV (the builder passes the slowest TAV period, so the two agree there;
@@ -191,17 +193,20 @@ outputs drives the pacer. A consumer that does not drive the pacer is
 because nothing downstream of it runs at $\Tg$. Forks and joins have period 0 and
 drive the pacer only through their consumers. Because of the tolerance
 $\Tp=0.995\Tg$, a bottleneck that is several nodes wide with periods a few cycles
-apart is treated as one pacer (rule R4b).
+apart is treated as one pacer (rule R4b). \code{downstream\_periods}, in the same
+reverse walk, records for every node the slowest own period of the node and of
+everything below it; for an edge's consumer this is $t_{\mathrm{below}}$ of the
+throttled cap and the decoupled chain (R7, R7b).
 
 \subsection{Reconvergent branches}
 
-%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 524 551%%
+%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 662 689%%
 
 For every node with two or more consumed outputs (a fork), the sets of nodes
 reachable from each output are intersected; the nodes reachable from some but not
 all outputs lie on a branch between the fork and the node where the branches
 reconverge. Their input edges, and every input edge of a node with more than one
-produced input (a join, a dynamic MVAU), are \code{fill\_only} (lines 769--770):
+produced input (a join, a dynamic MVAU), are \code{fill\_only} (lines 936--937):
 their deadline is the join, not the frame, and they are never relaxed (rule R8).
 
 %======================================================================
@@ -222,7 +227,7 @@ minus first read is \emph{not} its latency; rules R11--R13 correct for this.
 
 \subsection{Paced graph input (rule R1)}
 
-%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 554 559%%
+%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 692 697%%
 
 The graph input delivers the $\NF$ tokens of a frame evenly over $\Tg$ cycles:
 token $i$ ($1$-based) at $\lfloor i\,\Tg/\NF\rfloor$, for both frames. $\NF$ is
@@ -230,8 +235,8 @@ the first node's per-frame reads (\code{curve[len//2-1]}).
 
 \subsection{Local clock: the max-plus recurrence}
 
-%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 287 296%%
-%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 562 587%%
+%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 294 303%%
+%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 700 725%%
 
 For a node with input curves $c_j$ and input write schedules $w^{(j)}$, the
 requirement of local cycle $i$ is the arrival time of the last token it has read by then,
@@ -241,7 +246,7 @@ The wall-clock time of local cycle $i$ is
 R(i)=\max\bigl(R(i-1)+1,\ \mathrm{req}(i)\bigr),\qquad R(-1)=-1,
 \]
 computed in closed form as $R(i)=i+\max_{i'\le i}(\mathrm{req}(i')-i')$ (line
-574). The node stalls exactly as long as its latest input is late, and a token
+712). The node stalls exactly as long as its latest input is late, and a token
 can be read in the cycle it is written (zero-latency FIFO). \code{token\_times}
 then places token $k$ of any curve at $R$ of the first local cycle with
 $c[i]\ge k$. Reads and writes of a node share the same clock, so a stall delays
@@ -249,28 +254,28 @@ both.
 
 \subsection{The node loop}
 
-%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 767 833%%
+%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 934 1000%%
 
 \begin{description}
-\item[767--771] For each node: its TAV, its produced (``dynamic'') inputs, whether
+\item[934--938] For each node: its TAV, its produced (``dynamic'') inputs, whether
   its input edges are \code{fill\_only}, its chain periods (Section~\ref{sec:chain}).
-\item[773--790] \emph{Transparent node} (fork, join, no TAV). The output schedule
+\item[940--957] \emph{Transparent node} (fork, join, no TAV). The output schedule
   is the element-wise maximum of the input write schedules: a join emits token
   $k$ when token $k$ has arrived on all inputs, a fork forwards its single input.
   Zero latency. Each input edge is sized with the join's read times
   $=$ this maximum. If none of its inputs has a schedule (a fork fed directly by
   the graph input) the node is skipped and its outputs get \emph{no} edge record
   (see Section~\ref{sec:obs}).
-\item[792--806] \emph{Characterized node}. The input schedules come from the
+\item[959--973] \emph{Characterized node}. The input schedules come from the
   producer's \code{Edge} or, for a graph input, from \code{graph\_input\_schedule};
   weight/threshold inputs have neither and are ignored. The local clock is
   computed over the whole two-frame TAV.
-\item[809--818] Each input edge with a producer is sized. A consumer that reads
+\item[976--985] Each input edge with a producer is sized. A consumer that reads
   nothing in its window gets the absorbed-frame floor (rule R10). Otherwise the
   read times are \code{token\_times(clock, curve)}, the peak occupancy is computed
   with the consumer's per-frame reads as the frame split (Section~\ref{sec:peak}),
   and \code{size\_edge} applies the rules.
-\item[820--831] The output write times are \code{token\_times(clock, curve)};
+\item[987--998] The output write times are \code{token\_times(clock, curve)};
   in the causal passes they are renumbered past the phase lead and held to the inputs
   that carry them (R11, R12), in the causal-and-latency pass also held to whole
   input blocks (R13), and in the latency passes delayed by \code{node\_latency}
@@ -279,8 +284,8 @@ both.
 
 \subsection{Chain periods carried along the edges}\label{sec:chain}
 
-%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 451 478%%
-%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 727 733%%
+%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 574 601%%
+%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 886 892%%
 
 Every edge carries three periods, computed from its producer $v$:
 $t_{\mathrm{up}}=\max(P_v, t_{\mathrm{prop}}\text{ of the inputs})$ is the slowest
@@ -289,7 +294,11 @@ period since the last pacer; $t_{\mathrm{prop}}$, handed further down, is reset 
 inputs})$ is never reset. A node with no scheduled input and no period of its own
 gets $t_{\mathrm{up}}=\Tg$. The graph input contributes nothing, so the first node's
 $t_{\mathrm{up}}=t_{\mathrm{full}}=P_v$. These periods only enter the slack
-relaxation (R3/R4) and the cap (R7).
+relaxation (R3/R4), the cap (R7) and the decoupled chain (R7b). For the last two,
+\code{chain\_above} (listing in Section~\ref{sec:rules}) takes the largest
+$t_{\mathrm{prop}}$ of the producer's inputs, $t_{\mathrm{above}}$: the slowest period
+between the last pacer and the producer, the producer itself excluded (0 if the
+producer is fed directly by a pacer or by the graph input).
 
 \subsection{Worked example E1: a three-node chain}\label{sec:e1}
 
@@ -363,16 +372,16 @@ occupancy is the vertical distance, at most 4 in each frame.}\label{fig:e1}
 \section{Peak occupancy}\label{sec:peak}
 %======================================================================
 
-%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 299 344%%
+%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 306 351%%
 
 \paragraph{\code{periodic\_peak}.} Let $g(u)=|\{k: w_k\le u\}|-|\{k: r_k\le u\}|$
 be the occupancy of one unit of tokens (one frame) with nothing before or after it.
 In steady state a new unit starts every $\Tg$ cycles, so the occupancy is
 $\mathrm{occ}(t)=\sum_{f} g(t-f\Tg)$. $g$ has finite support $[\mathrm{lo},\mathrm{hi}]$,
 so \code{reps} $=\lfloor(\mathrm{hi}-\mathrm{lo})/\Tg\rfloor+2$ copies suffice
-(line 313), and the occupancy only changes at an event, so the event times modulo
+(line 320), and the occupancy only changes at an event, so the event times modulo
 $\Tg$ (shifted into the period of lo, and one period later) are the only candidate
-phases (314--315). Lines 317--319 add up the copies at each candidate.
+phases (321--322). Lines 324--326 add up the copies at each candidate.
 
 \paragraph{\code{peak\_occupancy}: two-frame split (rule R2).} The two stored
 frames are evaluated separately whenever the consumer's per-frame token count
@@ -400,8 +409,8 @@ acts on the first frame).
 
 \subsection{\code{size\_edge} and \code{edge\_depth}}
 
-%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 735 765%%
-%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 678 692%%
+%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 894 932%%
+%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 826 850%%
 
 With $\rho=\NF/\Tg$ the edge's average token rate, \code{edge\_depth} computes, for an
 edge that is not \code{fill\_only},
@@ -412,13 +421,19 @@ t_{\mathrm{chain}} &= \begin{cases} t_{\mathrm{up}} & \text{consumer throttleabl
 \mathit{after\_slack} &= \mathrm{round}(\mathit{peak}-\mathit{allowance})\\
 \mathit{floor} &= \begin{cases}\min(\mathit{peak},\mathit{burst}) & \text{throttleable}\\
   \max\bigl(\min(\mathit{peak},\mathit{burst}),\ \min(\mathit{peak},\mathit{refill})\bigr) & \text{drives the pacer}\end{cases}\\
-\mathit{floor} &\leftarrow \min(\mathit{floor}, 256)\quad\text{if throttleable},\ t_{\mathrm{up}}<\Tp,\ \neg(\mathit{peak}>0\wedge \mathit{allowance}<1.25\,\mathit{peak})\\
+\mathit{floor} &\leftarrow \min(\mathit{floor}, 256)\quad\text{if throttleable},\ t_{\mathrm{up}}<\Tp,\ \neg(\mathit{peak}>0\wedge \mathit{allowance}<1.25\,\mathit{peak}),\\
+  &\qquad\qquad\text{and }t_{\mathrm{above}}+t_{\mathrm{below}}\le1.25\,\Tg\\
+\mathit{floor} &\leftarrow 0\quad\text{if throttleable},\ 1.25\,t_{\mathrm{above}}\ge0.25\,\Tg,\ t_{\mathrm{above}}+t_{\mathrm{below}}\le1.25\,\Tg\\
 \mathit{depth} &= \max(\mathit{after\_slack},\ \mathit{floor})
 \end{align*}
 and for a \code{fill\_only} edge $\mathit{depth}=\max(\mathit{peak},\mathit{idle\_floor})$.
 $\mathit{burst}$ is \code{burst\_above\_rate(reads}, $\rho$\code{)}, $\mathit{refill}$
-is \code{refill\_floor(writes, reads, slack)}. The rules can be grouped as
-\emph{depth-minimizing} (R1 paced input, R2 split, R3 relaxation, R7 cap) and
+is \code{refill\_floor(writes, reads, slack)}, $t_{\mathrm{above}}$ is
+\code{chain\_above(tensor)} and $t_{\mathrm{below}}$ the consumer's
+\code{downstream\_periods} entry (both passed by \code{size\_edge}; 1.25 is
+\code{CAP\_MARGIN}, $0.25/1.25=1-1/\code{CAP\_MARGIN}$). The rules can be grouped as
+\emph{depth-minimizing} (R1 paced input, R2 split, R3 relaxation, R7 cap, R7b
+decoupled chain) and
 \emph{throughput-protecting} (R5 burst floor, R6 refill floor, R4 pacer-bound
 chains, R8 joins/branches, R9 idle window, R10 absorbed frame, the cap margin,
 the join floor), with R11--R13 correcting the schedule itself.
@@ -508,9 +523,10 @@ total depth goes from 9432 to 64586.)
 
 \subsection{R5 Burst floor}
 
-%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 438 444%%
+%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 561 567%%
 
-\emph{What}: the depth never falls below $\min(\mathit{peak}, \mathit{burst})$ with
+\emph{What}: the depth never falls below $\min(\mathit{peak}, \mathit{burst})$ (except
+on a decoupled chain, R7b, and up to the cap of R7) with
 $\mathit{burst}=\lceil\max_{k_1\le k_2}\,(k_2-k_1)-\rho\,(r_{k_2}-r_{k_1})\rceil$, the
 consumer's largest demand above the edge's average rate line. \emph{Why}: the
 relaxation is average-rate arithmetic; a consumer that reads in bursts (an MVAU
@@ -527,12 +543,12 @@ peak 4 is held by the burst floor 4 against an allowance of 257.
 
 \subsection{R6 Refill floor and upstream cover}\label{sec:refill}
 
-%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 627 642%%
+%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 765 780%%
 
 \emph{What}: for a consumer that drives the pacer, the depth never falls below
 $\min(\mathit{peak},\mathit{refill})$: the most tokens the consumer reads during
 one gap between consecutive writes, not counting the first \code{slack} cycles of
-the gap. \code{slack} (lines 753--754) is the consumer's own slack
+the gap. \code{slack} (lines 918--919) is the consumer's own slack
 $\max(0,\Tg-P_{\mathrm{cons}})$ plus \code{upstream\_cover}: for each FIFO on the
 single-input chain above the producer, up to a pacer, a join or the graph input,
 $\max(\mathit{depth},2)\cdot\Tg/\NF$ cycles of supply (those FIFOs are full while the
@@ -556,30 +572,114 @@ cycles, slack 8; only the reads in $(104+8,129)$ count: $113,117,121,125$, refil
 depth 4 (without the rule 2). In E4b the cover is $2\cdot400/8=100$ cycles
 (slack $=1+100$).
 
-\subsection{R7 Throttled cap and cap margin}
+\subsection{R7 Throttled cap, cap margin and the pair test}
 
 \emph{What}: the floor (burst floor only, for throttleable consumers) is capped at
 \code{THROTTLED\_CAP}=256, the SRL depth limit, when the consumer is throttleable,
-the producer can be blocked ($t_{\mathrm{up}}<\Tp$) and the allowance is not
-marginal ($\mathit{allowance}\ge1.25\,\mathit{peak}$, \code{CAP\_MARGIN}).
+the producer can be blocked ($t_{\mathrm{up}}<\Tp$), the allowance is not
+marginal ($\mathit{allowance}\ge1.25\,\mathit{peak}$, \code{CAP\_MARGIN}) and the
+slow stages around the edge fit in \code{CAP\_MARGIN} periods together
+($t_{\mathrm{above}}+t_{\mathrm{below}}\le1.25\,\Tg$, the \emph{pair test}).
 $\mathit{after\_slack}$ is not capped. \emph{Why}: a throttleable consumer needs
 only short-timescale smoothing; it may finish its frame later, so it never has to
 hold a frame of run-ahead. The margin: an allowance that only just covers the peak is a
-first-order estimate that should not also remove the floor.
+first-order estimate that should not also remove the floor. The pair test: the cap
+blocks the producer during the consumer's bursts and so spends the chain's blocking
+budget, which the relaxation of the edges further down the same chain spends again;
+with a slow stage on each side of the edge nothing is left to absorb the stall, the
+two stages stall each other and the pacer loses time. (Per the \code{.rst}: on cnv-w2a2
+small, \code{Pool\_hls\_0 -> ConvolutionInputGenerator\_rtl\_3}, peak and burst floor
+307, was capped at 256 between stages at 0.88 and 0.91 of the period, and stitched-IP
+rtlsim reached 0.980 of the estimate; with the pair test the edge keeps 307 and
+reaches 1.000.)
 
 \emph{Example E3}: E2 scaled to $\NF=1024$, $\Tg=4096$ (P writes its frame as a
 burst at the end, X forwards, C reads every second cycle, $P_C=2048$).
-\code{X -> C}: peak 512, $\mathit{burst}=512$.
+\code{X -> C}: peak 512, $\mathit{burst}=512$; X is fed by the pacer, so
+$t_{\mathrm{above}}=0$, $t_{\mathrm{below}}=P_C$ and the pair test passes.
 \begin{center}\small
 \begin{tabular}{@{}lrrrrrr@{}}
 \toprule
-$P_X$ & allowance & $1.25\cdot$peak & cap & depth & without cap & \code{CAP\_MARGIN}=0\\
+$P_X$ & allowance & $1.25\cdot$peak & cap & depth & without cap & without margin\\
 \midrule
 1024 & 768 & 640 & yes & 256 & 512 & 256\\
 1600 & 624 & 640 & no  & 512 & 512 & 256\\
 \bottomrule
 \end{tabular}
 \end{center}
+(``Without margin'' is the tracer's decomposition with the margin condition removed and
+the pair test kept: setting \code{CAP\_MARGIN}=0 would also fail the pair test.)
+
+\emph{With a slow node above X} (in $\to$ P $\to$ S $\to$ X $\to$ C, $P_X=1024$; S reads
+its frame at one token every one or two cycles and writes it as a burst at the end of
+its period $P_S$, so $t_{\mathrm{above}}=t_{\mathrm{up}}=P_S$ on \code{X -> C}; peak and
+burst 512 in every row). The last column is the rule of the earlier revision
+(\code{39dac9a18}: no pair test, no R7b):
+\begin{center}\small
+\begin{tabular}{@{}rrrrrlr@{}}
+\toprule
+$P_S$ & $P_C$ & allowance & $t_{\mathrm{above}}+t_{\mathrm{below}}$ & depth & by & without pair test, R7b\\
+\midrule
+1024 & 2048 & 768    & 3072 & 2   & R7b & 256\\
+2048 & 2048 & 512    & 4096 & 2   & R7b & 512\\
+1229 & 4055 & 716.75 & 5284 & 512 & pair test & 256\\
+\bottomrule
+\end{tabular}
+\end{center}
+In the last row C still reads every second cycle but has a period of $0.99\,\Tg$: the
+two slow stages (0.30 and 0.99 of the period) exceed $1.25\,\Tg$, the cap no longer
+applies, and the edge keeps its burst floor 512.
+
+\subsection{R7b Decoupled chain}\label{sec:decoupled}
+
+\emph{What}: no burst floor (and so no cap) for an edge whose consumer is throttleable,
+when the slowest node between the last pacer and the producer takes at least
+$1-1/\code{CAP\_MARGIN}=20\,\%$ of the period ($t_{\mathrm{above}}\ge0.2\,\Tg$) and the
+pair test passes ($t_{\mathrm{above}}+t_{\mathrm{below}}\le1.25\,\Tg$). The depth is then
+$\mathit{after\_slack}$, at least 2. \emph{Why}: the burst floor puts the peak back
+wherever a consumer reads in bursts against the frame rate, which on a chain of fast
+nodes between slow ones is every edge: each fast producer runs a row ahead of the slow
+node below it. Behind a shallow FIFO the slow stage above the producer and the slow
+stage below the consumer are coupled; at worst they take turns, so a frame takes
+$t_{\mathrm{above}}+t_{\mathrm{below}}$, and up to \code{CAP\_MARGIN} periods of that are
+taken as harmless. A slow stage above the producer also means the producer is not fed
+just in time by the pacer, so blocking it does not stall the pacer at once. Below a
+pacer with only fast nodes in between ($t_{\mathrm{above}}<0.2\,\Tg$) the floor stays:
+the producer holds the pacer's continuous output while the nodes below pause. (Per the
+\code{.rst}: mobilenet\_v1 on the committed U55C folding goes from 97.2 to 17.0~kB of
+FIFOs at an unchanged stitched-IP rtlsim interval of 788544 cycles;
+\code{test\_fifosizing\_linear[cnv]}, two \code{MVAU\_hls} at 0.67 of the period, is
+the case the pair test protects: \code{StreamingDataWidthConverter\_rtl\_12 ->
+MVAU\_hls\_7} keeps 63, at 20 rtlsim dropped to 0.83 of the estimate.)
+
+Since every period is at most $\Tg$, the pair test can only fail when
+$t_{\mathrm{above}}>0.25\,\Tg$, where the first condition of R7b holds. Together, for
+a throttleable consumer: with $t_{\mathrm{above}}<0.2\,\Tg$ the cap of R7 applies as
+before; otherwise the burst floor is dropped if the pair fits in $1.25\,\Tg$ and kept
+uncapped if it does not.
+
+\emph{Example E3b}: in $\to$ P $\to$ S $\to$ X $\to$ C, $\Tg=32$: E2 with $k=2$
+(C reads every 2 cycles, $P_C=16$) and a node S between P and X that reads its 8 tokens
+one a cycle ($P_S=8$) or every second cycle and writes them as a burst at the end of its
+period $P_S$.
+Pass TT for $P_S=16$: \code{X -> C} writes $132..139$, reads $132,134,\dots,146$; peak 4,
+burst 4, $t_{\mathrm{up}}=16$, allowance $8(1-16/32)=4$, $\mathit{after\_slack}=0$.
+\begin{center}\small
+\begin{tabular}{@{}rrrrrr@{}}
+\toprule
+$P_S$ & $t_{\mathrm{above}}$ & $t_{\mathrm{above}}+t_{\mathrm{below}}$ & decoupled & written & without pair test, R7b\\
+\midrule
+-- (E2) & 0  & 16 & no (fed by the pacer) & 4 & 4\\
+8       & 8  & 24 & yes & 2 & 4\\
+16      & 16 & 32 & yes & 2 & 4\\
+28      & 28 & 44 & no (pair test) & 4 & 4\\
+\bottomrule
+\end{tabular}
+\end{center}
+In E2 the producer X sits directly below the pacer and keeps its burst floor; with a
+slow S above it the floor is dropped as long as S and C together fit in
+$1.25\cdot32=40$ cycles. For $P_S=16$ the edge \code{P -> S} itself (S is
+throttleable, fed by the pacer, $t_{\mathrm{above}}=0$) keeps its peak 4.
 
 \subsection{R8 Joins and reconvergent branches are never relaxed}\label{sec:join}
 
@@ -636,13 +736,13 @@ $\mathit{after\_slack}=4$, burst floor 7: depth 7 instead of 12.
 
 \subsection{R9 Idle-window floor}
 
-%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 590 606%%
+%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 728 744%%
 
 \emph{What}: for \code{fill\_only} edges into a characterized consumer, the
 depth is at least the frame's tokens times the fraction of the consumer's period
 outside its read window (first to last read of the stream, from the consumer's own TAV),
 capped at 256 for a throttleable consumer. It is computed for every characterized consumer
-(line 818) but only used by \code{fill\_only} edges. \emph{Why}: inside a branch the
+(line 985) but only used by \code{fill\_only} edges. \emph{Why}: inside a branch the
 consumer cannot be made to wait, so whatever the producer delivers while the
 consumer is not reading must be buffered (\code{FMPadding} emits padding without
 reading; an MVAU reads a short burst per output window).
@@ -652,7 +752,7 @@ $\mathrm{round}(8\cdot0.5)=4$: depth 4 instead of its fill peak 0; with
 
 \subsection{R10 Absorbed-frame floor}
 
-%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 609 624%%
+%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 747 762%%
 
 \emph{What}: a consumer whose TAV reads nothing on an input in the stored window
 gets one folded input frame (product of the folded input shape without the last
@@ -664,11 +764,11 @@ gets 8 (\code{absorbed=8}), without any peak computation.
 
 \subsection{R11 Phase lead}\label{sec:lead}
 
-%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 347 360%%
+%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 354 367%%
 
 \emph{What}: the output tokens a TAV writes before its first read on any input
 belong to the previous frame; in the causal passes the output tokens are renumbered
-past them (lines 385--387 of \code{causal\_writes}, below). Not applied to a node that writes
+past them (lines 392--394 of \code{causal\_writes}, below). Not applied to a node that writes
 more words than it reads per frame (an \code{FMPadding} legitimately writes first).
 \emph{Why}: the stored window can begin inside a frame; an \code{MVAU\_rtl} emits
 a feature map's outputs during the next window, after prefetching its inputs, so taken
@@ -693,7 +793,7 @@ the branch): shortcut 27 / 28 in passes FF / FT, 88 / 90 in TF / TT.
 
 \subsection{R12 Causal writes}\label{sec:causal}
 
-%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 363 395%%
+%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 370 402%%
 
 \emph{What} (causal passes): with $N_{\mathrm{in}}$ input and $N_{\mathrm{out}}$ output
 tokens per frame, output token $j$ ($1$-based) of the \emph{first} frame is held until
@@ -716,27 +816,30 @@ written 19. In pass TF the fill frame peaks at 3 and the steady frame at 1.
 
 \subsection{R13 Node latency and block writes}
 
-%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 398 435%%
+%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 521 558%%
 
 \emph{What} (latency passes): every characterized node's writes are delayed by
-\code{TAV\_PIPELINE\_LATENCY}$=32$ cycles plus \code{get\_tav\_extra\_latency()}
-(default 0; \code{InnerShuffle}: one page, $I J/\mathrm{SIMD}$ cycles). In the causal-and-latency
-pass, writes are also held to whole input blocks of \code{get\_tav\_input\_blocks()}
-(default none; a dynamic MVAU's in1: the whole $MW\cdot MH/PE$-word matrix for its
+\code{TAV\_PIPELINE\_LATENCY}$=32$ cycles plus \code{tav\_extra\_latency(inst)}
+(0 for every op except \code{InnerShuffle}: one page, $I J/\mathrm{SIMD}$ cycles). In the causal-and-latency
+pass, writes are also held to whole input blocks of \code{tav\_input\_blocks(inst)}
+(none except a dynamic MVAU's in1: the whole $MW\cdot MH/PE$-word matrix for its
 $\mathit{numInputVectors}[-1]\cdot MH/PE$ outputs), with held words leaving at most one per
 cycle. \emph{Why}: a TAV contains no latency. On a chain that does not matter (E1);
 where two paths meet the slower path's latency is what the early input buffers.
 32 is deliberately above the rtlsim-measured latencies listed in the code comment (1 to 69 cycles).
 
-%%CODE src/finn/custom_op/fpgadataflow/hwcustomop.py 322 334%%
-%%CODE src/finn/custom_op/fpgadataflow/inner_shuffle.py 119 123%%
-%%CODE src/finn/custom_op/fpgadataflow/matrixvectoractivation.py 1746 1755%%
+Both per-node quantities are module functions of \file{} that dispatch on the op
+class (\code{isinstance}); the custom ops carry no sizer hooks (until commit
+\code{30960c3d1} they were \code{HWCustomOp} methods \code{get\_tav\_extra\_latency} and
+\code{get\_tav\_input\_blocks}, overridden by \code{InnerShuffle} and \code{MVAU}):
+
+%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 405 429%%
 
 \emph{Examples}: E6, shortcut 8 without and 12 with latency: M's 32 cycles at
 $\rho=8/64$ are 4 tokens. U5 (\code{test\_chained\_tav\_residual\_latency}: two DWCs and four
 \code{MVAU\_rtl} at SIMD $=$ PE $=32$ in the branch, below a 515-cycle pacer): shortcut 262 without, 449 with latency
 (about $6\cdot32\cdot512/515$ tokens more). Function level (unit test): a dynamic
-\code{MVAU\_rtl} with $MW{=}4$, $MH{=}2$, $PE{=}1$, 3 vectors (\code{get\_tav\_input\_blocks}
+\code{MVAU\_rtl} with $MW{=}4$, $MH{=}2$, $PE{=}1$, 3 vectors (\code{tav\_input\_blocks}
 $=\{1:(8,6)\}$), matrix words at $0,10,\dots,150$, TAV writes $0..11$: held to
 \code{[70 71 72 73 74 75 150 151 152 153 154 155]}; an \code{InnerShuffle\_rtl} with a
 $16\times8$ page at SIMD 2 has \code{node\_latency} $=32+64=96$.
@@ -810,18 +913,24 @@ four passes double the sizing time against two (210~s against 108~s on resnet50)
 \section{Join window floor}\label{sec:joinfloor}
 %======================================================================
 
-After the passes, every input of a two-stream join that reconverges a fork gets
-a floor that does not come from any TAV. \emph{Why}: a fork writes all its outputs
+After the passes, every input of a two-stream join (\code{is\_stream\_join}:
+\code{AddStreams}, \code{ElementwiseAdd} with two streamed inputs) or of a
+\code{StreamingConcat} that reconverges a fork gets a floor that does not come from
+any TAV. (Unlike the adds, a concat is characterized, so in the passes it is an ordinary
+node whose inputs are \code{fill\_only}.) \emph{Why}: a fork writes all its outputs
 together, so it stalls as soon as one branch is full. If the long branch reads many
 fork words before its first output reaches the join (a vector of $MW/SIMD$ words for an
 MVAU, a softmax row, a DWC window), the other inputs must buffer what the fork writes
 meanwhile, or the fork stalls, the long branch never completes its window and the
 graph deadlocks. The timeline pass misses this where a TAV writes before it reads
 (MVAU tree models) and the fork is transparent, and it does not size a shortcut at
-all when the fork is fed directly by the graph input.
+all when the fork is fed directly by the graph input. Where the long branch runs
+through padding, sliding windows and upsampling (the C2f, FPN and PAN stages of yolov8,
+which meet at concats), each node delays it by rows of its own resolution, a lag the
+floor only sees through the per-word input needs below.
 
-%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 907 914%%
-%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 930 989%%
+%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 1074 1081%%
+%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 1097 1162%%
 
 \begin{description}
 \item[Fork and walk.] The fork is the latest common ancestor (in graph order) of all
@@ -830,25 +939,35 @@ all when the fork is fed directly by the graph input.
   At the fork, output token $k$ needs $\lceil kN_{\mathrm{in}}/N_{\mathrm{out}}\rceil$ words,
   arriving at $\mathit{need}\cdot\mathit{period}/N_{\mathrm{in}}$ (the fork paced at the graph's
   period). At any other node, \code{input\_need} composes the node's window
-  \code{get\_tav\_input\_window(i)} $=(a,b)$ (output block of $b$ words needs the first
-  $(\lceil k/b\rceil) a$ input words; default: the frame-size ratio in lowest terms) or, for a node
-  that reorders a frame, \code{get\_tav\_input\_need(i)} (e.g.\ \code{OuterShuffle} from its
-  permutation); the times follow $T(j)=\max(T_{\mathrm{in}}(\mathit{need}(j)),T(j-1)+r)$
-  with $r$ = \code{get\_exp\_cycles()}/$N_{\mathrm{out}}$ (line 964, as a running maximum).
+  \code{tav\_input\_window(inst, i)} $=(a,b)$ (output block of $b$ words needs the first
+  $(\lceil k/b\rceil) a$ input words; \code{MVAU} in0 a vector, $TH$ vectors when tiled;
+  \code{HWSoftmax} a row; \code{InnerShuffle} a page; else the blocks of
+  \code{tav\_input\_blocks}, else the frame-size ratio in lowest terms) or, for a node
+  that reorders a frame, the need of every output word of a frame,
+  \code{tav\_input\_need(inst, i)}: \code{FMPadding} (a padding word needs the input up to
+  the last real pixel before it), \code{ConvolutionInputGenerator} (a window its last
+  pixel), \code{UpsampleNearestNeighbour} (a pixel its nearest neighbour) and
+  \code{OuterShuffle} (from its permutation); later frames add one input frame per
+  frame. The times follow $T(j)=\max(T_{\mathrm{in}}(\mathit{need}(j)),T(j-1)+r)$
+  with $r$ = \code{get\_exp\_cycles()}/$N_{\mathrm{out}}$ (line 1131, as a running maximum).
+\item[Join token.] $N_{\mathrm{join}}$ is the greatest common divisor of the input
+  frame sizes and input $i$ contributes $c_i=N_i/N_{\mathrm{join}}$ words to a join token
+  (lines 1138--1142): an add takes one word of every input, a concat each input's share
+  of a pixel (or of a fraction of one). Join token $k$ on input $i$ is its word $k\,c_i$.
 \item[Two backlogs] over two join frames ($k=1..2N_{\mathrm{join}}$):
   \emph{deadlock}: to deliver join token $k$ on every input the fork must write
-  $W(k)=\max_i \mathit{need}_i(k)$ words, so input $i$ holds the tokens it can make from the
-  first $W(k)-1$ words minus the $k-1$ the join has taken (line 984);
+  $W(k)=\max_i \mathit{need}_i(k\,c_i)$ words, so input $i$ holds the words it can make from the
+  first $W(k)-1$ fork words minus the $(k-1)c_i$ the join has taken (line 1157);
   \emph{paced}: the join takes token $k$ at the latest input's arrival, no faster
-  than its own rate, and input $i$ holds what has arrived by then minus $k-1$ (985).
+  than its own rate, and input $i$ holds what has arrived by then minus $(k-1)c_i$ (1158).
 \item[Floor] $\lceil 1.25\cdot\max(\text{backlogs})\rceil$ (\code{JOIN\_FLOOR\_MARGIN}),
   only if the backlog exceeds 1; it raises the passes' depth, never lowers it.
 \end{description}
 
-The window hooks:
+The input windows and input needs (module functions of \file{}, like those of R13):
 
-%%CODE src/finn/custom_op/fpgadataflow/hwcustomop.py 336 354%%
-%%CODE src/finn/custom_op/fpgadataflow/matrixvectoractivation.py 1757 1764%%
+%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 432 463%%
+%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 466 518%%
 
 \emph{Example E10} (\code{make\_residual(nvec=2, ch=8, simd=1, pe=1)}, tree-model TAVs,
 period 132): fork PE 1 (16 words a frame), MVAU $MW=MH=8$, SIMD=PE=1, window
@@ -877,11 +996,44 @@ the shortcut 10 (without the floor 2). The MVAU input has backlog 1 (no floor).
 U4 (\code{test\_join\_window\_floor}, $MW=MH=64$, 16 vectors): floor $\lceil1.25\cdot64\rceil=80$.
 U3: floor 78, below the passes' 90; U5: floor 40, below 449; E6: floor 3, below 12.
 
+\emph{Example E11} (\code{make\_concat\_window()} of \code{test\_join\_window\_floor\_concat}):
+fork \code{DuplicateStreams} (4$\times$4 pixels, 2 channels, PE 1: 32 words a frame)
+$\to$ (shortcut $|$ \code{FMPadding} (pad 1, 72 words) $\to$ 3$\times$3
+\code{ConvolutionInputGenerator\_rtl} (SIMD 1: 18 words a pixel, 288 a frame)) $\to$
+\code{StreamingConcat}. No TAVs; with \code{period=None} the floor takes the largest
+\code{get\_exp\_cycles()}, the concat's 320, so the fork writes a word every 10 cycles.
+$N_{\mathrm{join}}=\gcd(32,288)=32$: a join token is one shortcut word and 9 window
+words, half a pixel. The window of output pixel $(0,0)$ ends at padded pixel $(2,2)$,
+\code{FMPadding} word 30, which needs the input up to pixel $(1,1)$: 12 fork words
+(\code{tav\_input\_need} of the generator starts \code{[30 \dots]}, of \code{FMPadding}
+\code{[1 1 \dots\ 1 2 2 4 4 \dots]}).
+\begin{center}\small
+\begin{tabular}{@{}lrrrrrrrr@{}}
+\toprule
+$k$ & 1&2&3&4&5&6&7&8\\
+\midrule
+$W(k)$ & 12&12&14&14&16&16&16&16\\
+taken & 129.8&139.8&149.8&159.8&169.8&179.8&189.8&199.8\\
+shortcut deadlock & 11&10&11&10&11&10&9&8\\
+shortcut paced & 12&12&12&12&12&12&12&12\\
+window input paced & 9&9&9&9&9&9&9&9\\
+\bottomrule
+\end{tabular}
+\end{center}
+Floors: shortcut $\lceil1.25\cdot12\rceil=15$, window input $\lceil1.25\cdot9\rceil=12$
+(\code{\{'short': 15, 'l2': 12\}}). Before commit \code{2cd2a077d} the concat got no
+floor and the three window nodes counted as one-to-one through their frame ratio.
+(Per the \code{.rst}: on yolov8\_4w4a small, the PAN concat's shortcut
+\code{DuplicateStreams\_hls\_11 -> StreamingConcat\_hls\_12} got 9086 from the timeline
+and stitched-IP rtlsim produced no output in 383~M cycles; the floor raises it to
+13842, from a structural backlog of 8704 and a paced one of 11073, and the design
+completes at 1.000 of the estimate.)
+
 %======================================================================
 \section{Writing the depths}\label{sec:write}
 %======================================================================
 
-%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 1029 1065%%
+%%CODE src/finn/transformation/fpgadataflow/derive_characteristic.py 1202 1238%%
 
 \begin{itemize}
 \item Existing \code{inFIFODepths}/\code{outFIFODepths} (e.g.\ from a folding
@@ -890,7 +1042,7 @@ U3: floor 78, below the passes' 90; U5: floor 40, below 449; E6: floor 3, below 
 \item Every internal edge gets $\max(\mathit{depth},2)$; edges the passes did not size
   (absent from the dict) get 2. The value is written on both endpoints.
 \item A graph output gets exactly \code{io\_fifo\_depth}=5, a graph input
-  $\max(5,\cdot)$; their edges are never sized by the timeline (line 811). The
+  $\max(5,\cdot)$; their edges are never sized by the timeline (line 978). The
   \code{.rst} notes that this is where the sizer uses more storage than the
   \code{largefifo\_rtlsim} reference on the MLPs (5 instead of 2 on wide input streams).
 \item \code{InsertFIFO(create\_shallow\_fifos=True)} then creates a FIFO on every edge.
@@ -916,7 +1068,8 @@ R4 pacer-bound & \code{edge\_depth} ($t_{\mathrm{full}}$) & no allowance below a
 R4b tolerance & \code{PACER\_TOLERANCE} & pacer if $P_v\ge0.995\Tg$ & E4b: 2 $\to$ 7\\
 R5 burst floor & \code{burst\_above\_rate} & $\ge\min(\mathit{peak},\mathit{burst})$ & E2: 2 $\to$ 4\\
 R6 refill floor, cover & \code{refill\_floor}, \code{upstream\_cover} & $\ge\min(\mathit{peak},\mathit{refill})$, pacer drivers & E5: 2 $\to$ 6 (4 with U)\\
-R7 cap, margin & \code{THROTTLED\_CAP}, \code{CAP\_MARGIN} & floor $\le256$ for throttleable & E3: 512 $\to$ 256\\
+R7 cap, margin, pair & \code{THROTTLED\_CAP}, \code{CAP\_MARGIN} & floor $\le256$ for throttleable, not between slow stages & E3: 512 $\to$ 256; with S: 256 $\to$ 512\\
+R7b decoupled chain & \code{chain\_above}, \code{downstream\_periods} & no floor for throttleable below a slow stage & E3b: 4 $\to$ 2\\
 R8 join/branch & \code{fill\_only} & fill peak, never relaxed & E6: 7 $\to$ 12\\
 R9 idle window & \code{idle\_window\_floor} & branch edges $\ge$ idle share & E6: 2 $\to$ 4\\
 R10 absorbed frame & \code{absorbed\_frame\_floor} & one folded frame & E7: 8\\
@@ -924,7 +1077,7 @@ R11 phase lead & \code{phase\_lead} & renumber lead tokens & E8d: 6 $\to$ 10\\
 R12 causal hold & \code{causal\_writes} & first-frame outputs wait for inputs & E8c: 17 $\to$ 19\\
 R13 latency, blocks & \code{node\_latency}, \code{block\_writes} & +32 cycles (+ extra), block holds & E6: 8 $\to$ 12\\
 passes & \code{DeriveFIFOSizes} & max over 4 variants & U1: 4 kept\\
-join floor & \code{join\_window\_floors} & $\ge1.25\cdot$ backlog & E10: 2 $\to$ 10\\
+join floor & \code{join\_window\_floors} & $\ge1.25\cdot$ backlog (adds, concats) & E10: 2 $\to$ 10; E11: 15\\
 min / IO & \code{DeriveFIFOSizes} & $\ge2$; IO $=5$ & all\\
 \bottomrule
 \end{tabular}
@@ -938,7 +1091,7 @@ Points where the code's behaviour is not obvious, or where
 \code{docs/finn/fifo\_sizing\_heuristics.rst} and the code differ in emphasis:
 \begin{enumerate}
 \item \textbf{Fork fed by the graph input.} A transparent node with no scheduled input
-  is skipped (line 778), so its outputs get no edge: the shortcut and the first edge of
+  is skipped (line 945), so its outputs get no edge: the shortcut and the first edge of
   each branch are not sized by the four passes, and the branch's first node runs
   unstalled (U2, U4, E10). Only the join floor sizes such a shortcut. The \code{.rst}
   mentions this only in its bert example.
@@ -961,6 +1114,13 @@ Points where the code's behaviour is not obvious, or where
 \item \textbf{Stale docstring.} \code{dataflow\_performance(use\_characterized=True)} still
   says fork and join vectors ``are copied from their neighbours''; the \code{.rst} states that
   this rule (\code{inherited\_fork\_join\_tav\_lengths}) was removed, and the code agrees.
+\item \textbf{Cap and decoupled chain.} Every period is at most $\Tg$, so the pair test of
+  R7 can only fail where $t_{\mathrm{above}}>0.25\,\Tg$, and there the first condition of
+  R7b already holds: for a throttleable consumer below a stage of at least $0.2\,\Tg$ the
+  burst floor is either dropped (R7b) or kept uncapped, and the cap of R7 only acts with
+  $t_{\mathrm{above}}<0.2\,\Tg$. The \code{.rst} describes the two as separate rules.
+  $t_{\mathrm{below}}$ includes the consumer's own period and everything below it, also
+  the branches of a fork below the consumer.
 \item The join floor is called with the caller's period (\code{self.period}), the four
   passes with $\max(\text{caller},\text{TAVs})$; with \code{period=None} the floor falls back to
   the largest \code{get\_exp\_cycles()} (the unit test gets 79 for U3 that way, the builder path 78).
@@ -972,23 +1132,24 @@ Points where the code's behaviour is not obvious, or where
 %======================================================================
 
 All scripts are in \code{claude-tools/finn-examples-features/fifo\_sizing\_writeup/scripts/}
-of the \code{claude-tools} branch. They are pure Python (tree models and hand-made TAVs; no
+of the \code{claude-tools} branch, run against commit \code{4ce1bd188}. They are pure Python (tree models and hand-made TAVs; no
 synthesis, no rtlsim) and run in seconds.
 \begin{description}
 \item[\code{fifotrace.py}] wraps the module-level functions of \file{} (and a line tracer on
   \code{join\_window\_floors}) for the duration of one \code{DeriveFIFOSizes} call; FINN is not
   modified. It records schedules, peaks (fill / steady / joint) and the terms of
   \code{edge\_depth}, asserting that its decomposition reproduces the returned depth.
-\item[\code{fifo\_examples.py}] builds E1--E10 and U1--U6 and prints everything; ablations
-  replace one module-level name for one call.
+\item[\code{fifo\_examples.py}] builds E1--E11 and U1--U6 and prints everything; ablations
+  replace one module-level name for one call (the cap margin and the pair test are
+  removed in the tracer's decomposition instead, since \code{CAP\_MARGIN} enters both).
 \item[\code{run\_examples.sh}] sets up the environment for a worktree:
 \begin{lstlisting}[language=bash,numbers=none]
-git -C /home/lstasytis/finn worktree add build/wt/fifodoc --detach \
-    feature/dev/analytical-fifo-sizing          # commit 39dac9a18
-claude-tools/finn-examples-features/tools/wtsetup.sh build/wt/fifodoc
-scripts/run_examples.sh /home/lstasytis/finn/build/wt/fifodoc --all-passes \
+git -C /home/lstasytis/finn worktree add build/wt/pr-fifo \
+    feature/dev/analytical-fifo-sizing          # commit 4ce1bd188
+claude-tools/finn-examples-features/tools/wtsetup.sh build/wt/pr-fifo
+scripts/run_examples.sh /home/lstasytis/finn/build/wt/pr-fifo --all-passes \
     > scripts/fifo_examples_output.txt
-python scripts/build_tex.py /home/lstasytis/finn/build/wt/fifodoc   # listings
+python scripts/build_tex.py /home/lstasytis/finn/build/wt/pr-fifo   # listings
 \end{lstlisting}
 \item[\code{fifo\_examples\_output.txt}] the output this document was written from.
 \item[\code{build\_tex.py}, \code{fifo\_sizing\_analytical.tex.in}] produce this file, copying

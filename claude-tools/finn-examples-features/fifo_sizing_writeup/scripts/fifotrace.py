@@ -8,9 +8,11 @@ belongs to. ``edge_depth`` is decomposed again (allowance, burst floor, cap)
 and the recomputed depth is asserted to equal the one the code returned.
 
 Run inside a worktree environment of branch feature/dev/analytical-fifo-sizing
+(written against commit 4ce1bd188)
 (see ../fifo_sizing_analytical.tex, appendix "Reproducing the numbers").
 """
 
+import inspect
 import sys
 import numpy as np
 from contextlib import contextmanager
@@ -153,28 +155,18 @@ def tracing():
         tr.edges.setdefault((tr.cur, loc["t"]), {}).update(rec)
         return res
 
-    def w_edge(
-        peak,
-        read_times,
-        edge,
-        fill_only,
-        throttleable,
-        global_period,
-        pacer_period,
-        idle_floor=0,
-        refill=0,
-    ):
-        res = orig["edge_depth"](
-            peak,
-            read_times,
-            edge,
-            fill_only,
-            throttleable,
-            global_period,
-            pacer_period,
-            idle_floor,
-            refill,
-        )
+    sig_edge = inspect.signature(orig["edge_depth"])
+
+    def w_edge(*args, **kwargs):
+        res = orig["edge_depth"](*args, **kwargs)
+        ba = sig_edge.bind(*args, **kwargs)
+        ba.apply_defaults()
+        a = ba.arguments
+        peak, read_times, edge = a["peak"], a["read_times"], a["edge"]
+        fill_only, throttleable = a["fill_only"], a["throttleable"]
+        global_period, pacer_period = a["global_period"], a["pacer_period"]
+        idle_floor, refill = a.get("idle_floor", 0), a.get("refill", 0)
+        t_above, t_below = a.get("t_above", 0), a.get("t_below", None)
         loc = _caller()  # size_edge
         tensor = loc["tensor"]
         t_chain = edge.t_up if throttleable else edge.t_full
@@ -184,12 +176,34 @@ def tracing():
         floor = min(peak, burst)
         if not throttleable:
             floor = max(floor, min(peak, refill))
+        # slow stages on both sides of the edge (271ca1e5e: cap only if they fit
+        # in CAP_MARGIN periods together; e3723ec90/6f734bc6e: decoupled chain)
+        t_pair = t_above + (global_period if t_below is None else t_below)
         cap = (
             throttleable
             and edge.t_up < pacer_period
             and not (peak > 0 and allowance < dc.CAP_MARGIN * peak)
+            and t_pair <= dc.CAP_MARGIN * global_period
         )
         floor_capped = min(floor, dc.THROTTLED_CAP) if cap else floor
+        decoupled = bool(
+            throttleable
+            and t_below is not None
+            and dc.CAP_MARGIN * t_above >= (dc.CAP_MARGIN - 1) * global_period
+            and t_above + t_below <= dc.CAP_MARGIN * global_period
+        )
+        if decoupled:
+            floor_capped = 0
+        # ablations for the document: the cap without its allowance margin
+        # (pair test kept), and the 39dac9a18 rule (no pair test, no decoupling)
+        cap_nm = throttleable and edge.t_up < pacer_period and t_pair <= dc.CAP_MARGIN * global_period
+        cap_np = (
+            throttleable
+            and edge.t_up < pacer_period
+            and not (peak > 0 and allowance < dc.CAP_MARGIN * peak)
+        )
+        f_nm = 0 if decoupled else (min(floor, dc.THROTTLED_CAP) if cap_nm else floor)
+        f_np = min(floor, dc.THROTTLED_CAP) if cap_np else floor
         mine = (
             max(int(peak), int(idle_floor)) if fill_only else max(after_slack, floor_capped)
         )
@@ -214,10 +228,16 @@ def tracing():
                 refill=refill,
                 slack=loc["slack"],
                 idle_floor=idle_floor,
+                t_above=t_above,
+                t_below=t_below,
+                t_pair=t_pair,
                 cap_applies=cap,
+                decoupled=decoupled,
                 floor=floor,
                 floor_capped=floor_capped,
                 depth=res,
+                depth_without_margin=max(int(peak), int(idle_floor)) if fill_only else max(after_slack, f_nm),
+                depth_without_pair=max(int(peak), int(idle_floor)) if fill_only else max(after_slack, f_np),
             )
         )
         return res
@@ -345,7 +365,11 @@ KEYS = (
     "slack",
     "refill",
     "idle_floor",
+    "t_above",
+    "t_below",
+    "t_pair",
     "cap_applies",
+    "decoupled",
     "floor",
     "floor_capped",
     "absorbed",
@@ -422,7 +446,7 @@ def join_floor_internals():
                 {
                     k: (np.array(loc[k]).copy() if hasattr(loc[k], "__len__") else loc[k])
                     for k in ("t", "k", "need", "times", "total", "taken", "deadlock",
-                              "paced", "backlog", "period")
+                              "paced", "backlog", "period", "c")
                 }
             )
             rows[-1]["join"] = loc["join"].name

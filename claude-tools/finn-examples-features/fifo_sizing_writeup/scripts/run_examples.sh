@@ -1,10 +1,10 @@
 #!/bin/bash
 # Reproduce the numbers of fifo_sizing_analytical.tex.
 #   run_examples.sh <worktree of feature/dev/analytical-fifo-sizing> [example ...] [--all-passes]
-# e.g. (worktree at commit 39dac9a18):
-#   git -C /home/lstasytis/finn worktree add build/wt/fifodoc --detach feature/dev/analytical-fifo-sizing
-#   claude-tools/finn-examples-features/tools/wtsetup.sh build/wt/fifodoc
-#   run_examples.sh /home/lstasytis/finn/build/wt/fifodoc --all-passes > fifo_examples_output.txt
+# e.g. (worktree at commit 4ce1bd188):
+#   git -C /home/lstasytis/finn worktree add build/wt/pr-fifo --detach feature/dev/analytical-fifo-sizing
+#   claude-tools/finn-examples-features/tools/wtsetup.sh build/wt/pr-fifo
+#   run_examples.sh /home/lstasytis/finn/build/wt/pr-fifo --all-passes > fifo_examples_output.txt
 # Pure Python (tree models and hand-made TAVs): no synthesis, no rtlsim.
 set -e
 HERE=$(dirname "$(realpath "$0")")
