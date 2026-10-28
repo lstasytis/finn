@@ -10,6 +10,7 @@ import datetime
 import glob
 import os
 import subprocess
+import xml.etree.ElementTree as ET
 
 from run_campaign import LOGDIR, M, TIER1, TIER2, TIER_TRANSFORMER, build_queue, junit_result
 from status_table import MULTI, est_prefix, job_metrics, latest, load, ordered_params, split_param
@@ -22,6 +23,20 @@ REF_DIR = os.path.join(M, "build/finn_build/fx/ref_resources")
 EST_MODEL_SINCE = datetime.datetime(2026, 10, 22, 4, 29, 13, tzinfo=datetime.timezone.utc).timestamp()
 
 OUT = os.path.join(M, "claude-tools/finn-examples-features/summary/summary.tex")
+# --pr-tables: the three PR tables only (FIFO sizing, folding, DWC)
+PR_OUT = os.path.join(M, "claude-tools/finn-examples-features/summary/pr_results.tex")
+# (PR, branch the PR is opened from, campaign branch the results come from, how they differ)
+PRS = [
+    ("Analytical FIFO sizing (Xilinx/finn\\#1185)", "feature/analytical-fifo-sizing", "test2/fifo",
+     "same sizing rules (incl.\\ the StreamingConcat join floor and the throttled-cap pair test); the PR "
+     "adds the upstream/dev sync (free-running MVAU/VVAU HLS cores) and the tree-model refactor, which "
+     "gives the same depths on all checked models except 2 of bert's 84 FIFOs"),
+    ("Folding optimizer", "feature/set-folding-optimizer", "test2/folding",
+     "SetFolding code identical; the campaign branch also carries the FIFO sizing PR (FIFOs sized with "
+     "heuristic\\_analytical) and the resource-estimate fixes"),
+    ("DWC padding (generalized data width converter)", "feature/dev/generalized-datawidthconverter",
+     "test2/dwc", "DWC PR fully contained; also carries the FIFO sizing PR and the resource-estimate fixes"),
+]
 VARIANT = "2"
 
 # (title, issue, what, branch, commits)
@@ -182,7 +197,28 @@ def result_of(job, state):
 
 
 MARK = {"passed": "\\checkmark", "failed": "$\\times$", "skipped": "skip", "running": "run",
-        "pending": "--", "blocked": "blk", "killed": "--", "aborted": "--"}
+        "pending": "--", "blocked": "blk", "killed": "n/f", "aborted": "n/f"}
+
+
+def failure_cause(job):
+    """Why a test failed, from its junit message: est = rtlsim below 0.98x the build's own estimate,
+    out = output differs from the golden output, bld = build failed, tgt = the optimizer's estimate
+    missed the target."""
+    try:
+        case = next(ET.parse(os.path.join(LOGDIR, job["id"] + ".xml")).getroot().iter("testcase"))
+        node = case.find("failure") if case.find("failure") is not None else case.find("error")
+        msg = node.get("message") or ""
+    except Exception:
+        return ""
+    if "rtlsim" in msg and "estimate" in msg:
+        return "est"
+    if "golden" in msg:
+        return "out"
+    if "build failed" in msg:
+        return "bld"
+    if ">=" in msg:
+        return "tgt"
+    return ""
 RES = ("LUT", "BRAM_18K", "URAM", "DSP")
 # colleagues' LiveFIFO result (best order): best total FIFO size [kB] and the interval it reaches [cycles],
 # keyed by (model dir, model) of the matching row
@@ -379,7 +415,8 @@ def cells(job, state, fields, jobs):
         return [MARK.get(res, res)] + [""] * len(fields)
     m = job_metrics(job) or {}
     t = m.get("step_times_s") or {}
-    out = [MARK[res]]
+    cause = failure_cause(job) if res == "failed" else ""
+    out = [MARK[res] + (f"$^{{\\mathrm{{{cause}}}}}$" if cause else "")]
     for f in fields:
         if f == "ratio":
             out.append("%.3f" % m["rtlsim_vs_est"] if m.get("rtlsim_vs_est") is not None else "")
@@ -445,6 +482,8 @@ def main():
     ap.add_argument("--variant", default="2")
     ap.add_argument("--sizes", default="small,full")
     ap.add_argument("--no-ref-update", action="store_true", help="skip ref_resources.py")
+    ap.add_argument("--pr-tables", action="store_true",
+                    help="write summary/pr_results.tex: the FIFO, folding and DWC tables only")
     args = ap.parse_args()
     global VARIANT
     VARIANT = args.variant
@@ -509,7 +548,7 @@ def main():
         f"\\date{{Snapshot {now:%Y-%m-%d %H:%M} (campaign variant {args.variant}, new upstream base)}}",
         "\\begin{document}\\maketitle",
         "\\section*{Results}",
-        "Key: \\checkmark{} passed, $\\times$ failed, skip = skipped, run = running, blk = blocked, -- = not run; ref.\\ = the committed folding JSON; small = its parallelism cut 4--8$\\times$; res./ref.\\ = mean of the LUT, BRAM, URAM and DSP ratios; 1 kB = 1024 bytes.",
+        "Key: \\checkmark{} passed, $\\times$ failed, skip = skipped, run = running, blk = blocked, -- = not run, n/f = started, did not finish; ref.\\ = the committed folding JSON; small = its parallelism cut 4--8$\\times$; res./ref.\\ = mean of the LUT, BRAM, URAM and DSP ratios; 1 kB = 1024 bytes.",
         "Island flow (Table~\\ref{tab:islands}): \\checkmark{} = bitstream, timing met and output equal to the "
         "golden output (verify\\_accel); $\\times$ IP = HLS floating-point vendor IP (fadd/fmul) not supported by "
         "the flow, $\\times$ timing / island = timing missed / island P\\&R failed, bit = bitstream not yet verified; "
@@ -589,10 +628,51 @@ def main():
         "\\end{itemize}",
         "\\end{document}",
     ]
-    os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    with open(OUT, "w") as f:
+    out = OUT
+    if args.pr_tables:
+        doc, out = pr_doc(doc, now, args.variant), PR_OUT
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    with open(out, "w") as f:
         f.write("\n".join(doc) + "\n")
-    print(OUT)
+    print(out)
+
+
+def pr_doc(doc, now, variant):
+    """The three PR tables of ``doc`` (the full summary) with a header naming each PR's branch and
+    head commit and the campaign branch its results come from."""
+    tabs = [next(d for d in doc if "\\label{tab:%s}" % k in d) for k in ("fifo", "fold", "dwc")]
+
+    def head(ref):
+        out = subprocess.run(["git", "log", "-1", "--format=%h (%cd)", "--date=short", ref], cwd=M,
+                             capture_output=True, text=True).stdout.strip()
+        return out or "?"
+
+    prs = ["\\begin{itemize}"]
+    for title, branch, test, note in PRS:
+        prs.append(f"\\item \\textbf{{{title}}}: \\texttt{{{tex(branch)}}} at {head(branch)}; results from "
+                   f"\\texttt{{{tex(test)}}} at {head(test)}: {note}.")
+    prs.append("\\end{itemize}")
+    return [
+        doc[0], doc[1],
+        "\\title{FINN PR results: analytical FIFO sizing, folding optimizer and DWC padding on the "
+        "finn-examples models}",
+        f"\\date{{Snapshot {now:%Y-%m-%d %H:%M} (campaign variant {variant})}}",
+        "\\begin{document}\\maketitle",
+        "Each table is one PR's feature test on every finn-examples model: the stitched IP is built and "
+        "simulated, and a test passes when its output equals the golden output and its rtlsim throughput is "
+        "at least 0.98$\\times$ the build's own analytic estimate. The results come from the test campaign's "
+        "integration branches; how they relate to the PR branches:",
+        "\n".join(prs),
+        "Key: \\checkmark{} passed; $\\times$ failed, with its cause: $^{\\mathrm{est}}$ rtlsim below "
+        "0.98$\\times$ the build's own estimate (an estimate gap or a FIFO/throughput shortfall), "
+        "$^{\\mathrm{out}}$ output differs from the golden output, $^{\\mathrm{bld}}$ build failed, "
+        "$^{\\mathrm{tgt}}$ the optimizer's estimate missed the target; skip = skipped, run = running, "
+        "blk = blocked (its small run failed), n/f = started but did not finish, -- = not run. Known estimate "
+        "gaps outside these PRs (separate estimates PR): LabelSelect\\_hls restarts per frame (+4 cycles, "
+        "tfc) and the tiled MVAU's group stalls (bert).",
+        *tabs,
+        "\\end{document}",
+    ]
 
 
 if __name__ == "__main__":

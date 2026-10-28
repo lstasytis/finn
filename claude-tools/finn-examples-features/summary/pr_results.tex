@@ -1,0 +1,118 @@
+\documentclass[a4paper,10pt]{article}
+\usepackage[margin=18mm]{geometry}\usepackage{booktabs}\usepackage{amssymb}\usepackage[table]{xcolor}\usepackage{graphicx}\usepackage{pdflscape}\usepackage[hidelinks]{hyperref}
+\title{FINN PR results: analytical FIFO sizing, folding optimizer and DWC padding on the finn-examples models}
+\date{Snapshot 2026-10-28 11:55 (campaign variant 2)}
+\begin{document}\maketitle
+Each table is one PR's feature test on every finn-examples model: the stitched IP is built and simulated, and a test passes when its output equals the golden output and its rtlsim throughput is at least 0.98$\times$ the build's own analytic estimate. The results come from the test campaign's integration branches; how they relate to the PR branches:
+\begin{itemize}
+\item \textbf{Analytical FIFO sizing (Xilinx/finn\#1185)}: \texttt{feature/analytical-fifo-sizing} at 4ce1bd188 (2026-10-28); results from \texttt{test2/fifo} at e3824a18e (2026-10-27): same sizing rules (incl.\ the StreamingConcat join floor and the throttled-cap pair test); the PR adds the upstream/dev sync (free-running MVAU/VVAU HLS cores) and the tree-model refactor, which gives the same depths on all checked models except 2 of bert's 84 FIFOs.
+\item \textbf{Folding optimizer}: \texttt{feature/set-folding-optimizer} at 22171408a (2026-10-28); results from \texttt{test2/folding} at 475358f09 (2026-10-27): SetFolding code identical; the campaign branch also carries the FIFO sizing PR (FIFOs sized with heuristic\_analytical) and the resource-estimate fixes.
+\item \textbf{DWC padding (generalized data width converter)}: \texttt{feature/dev/generalized-datawidthconverter} at 6ea413550 (2026-10-22); results from \texttt{test2/dwc} at 42388e033 (2026-10-27): DWC PR fully contained; also carries the FIFO sizing PR and the resource-estimate fixes.
+\end{itemize}
+Key: \checkmark{} passed; $\times$ failed, with its cause: $^{\mathrm{est}}$ rtlsim below 0.98$\times$ the build's own estimate (an estimate gap or a FIFO/throughput shortfall), $^{\mathrm{out}}$ output differs from the golden output, $^{\mathrm{bld}}$ build failed, $^{\mathrm{tgt}}$ the optimizer's estimate missed the target; skip = skipped, run = running, blk = blocked (its small run failed), n/f = started but did not finish, -- = not run. Known estimate gaps outside these PRs (separate estimates PR): LabelSelect\_hls restarts per frame (+4 cycles, tfc) and the tiled MVAU's group stalls (bert).
+\begin{landscape}\begin{table}[p]\centering\scriptsize
+\caption{FIFO sizing results on the committed folding.}\label{tab:fifo}
+\rowcolors{3}{gray!12}{white}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{|l|r|r|crrr|crrr|crrr|crrr|rr|}\hline
+ &  &  & \multicolumn{4}{c|}{\textbf{analytical, small}} & \multicolumn{4}{c|}{\textbf{analytical, full}} & \multicolumn{4}{c|}{\textbf{rtlsim heuristic, small}} & \multicolumn{4}{c|}{\textbf{rtlsim heuristic, full}} & \multicolumn{2}{c|}{\textbf{vs LiveFIFO best}} \\\cline{4-7}\cline{8-11}\cline{12-15}\cline{16-19}\cline{20-21}
+model (board) & \#nodes & est.\ fps & result & rtlsim/est. & FIFO [kB] & time [s] & result & rtlsim/est. & FIFO [kB] & time [s] & result & rtlsim/est. & FIFO [kB] & time [s] & result & rtlsim/est. & FIFO [kB] & time [s] & Size [rel.] & Intvl [degr.] \\\hline\hline
+tfc-w1a1 (AUP-ZU3\_8GB) & 6 & 11111111.1 & \checkmark & 1.000 & 0.64 & 0 & \checkmark & 1.000 & 2.28 & 0 & \checkmark & 1.000 & 0.64 & 972 & \checkmark & 1.000 & 2.28 & 21680 & n/c & n/c (70) \\\hline
+tfc-w1a2 (AUP-ZU3\_8GB) & 6 & 6666666.7 & \checkmark & 1.020 & 0.34 & 4 & \checkmark & 1.000 & 1.02 & 0 & \checkmark & 1.020 & 0.34 & 469 & \checkmark & 1.000 & 1.02 & 2679 &  &  \\\hline
+tfc-w2a2 (AUP-ZU3\_8GB) & 6 & 6666666.7 & \checkmark & 1.019 & 0.29 & 4 & \checkmark & 1.000 & 0.84 & 0 & \checkmark & 1.019 & 0.29 & 467 & \checkmark & 1.000 & 0.84 & 2249 & n/c & n/c (70) \\\hline
+cnv-w1a1 (AUP-ZU3\_8GB) & 21 & 12244.4 & \checkmark & 1.001 & 1.73 & 2 & \checkmark & 1.001 & 1.49 & 3 & \checkmark & 1.001 & 1.77 & 1583 & \checkmark & 1.001 & 1.53 & 4581 & n/c & n/c (32774) \\\hline
+cnv-w1a2 (AUP-ZU3\_8GB) & 21 & 3028.5 & \checkmark & 1.000 & 2.97 & 11 & \checkmark & 1.008 & 3.33 & 7 & \checkmark & 0.982 & 3.02 & 5331 & \checkmark & 1.008 & 3.34 & 5604 &  &  \\\hline
+cnv-w2a2 (AUP-ZU3\_8GB) & 21 & 3028.5 & \checkmark & 1.000 & 2.94 & 11 & \checkmark & 1.008 & 3.19 & 6 & $\times$$^{\mathrm{est}}$ & 0.980 & 2.98 & 5408 & blk &  &  &  & n/c & n/c (115206) \\\hline
+cnv-w1a2 (KV260\_SOM) & 21 & 3028.5 & \checkmark & 1.000 & 2.97 & 11 & \checkmark & 1.008 & 3.33 & 6 & \checkmark & 0.982 & 3.02 & 5486 & \checkmark & 1.008 & 3.34 & 5846 &  &  \\\hline
+cnv-w2a2 (U55C) & 21 & 3028.5 & \checkmark & 1.000 & 2.94 & 10 & \checkmark & 1.007 & 3.19 & 6 & $\times$$^{\mathrm{est}}$ & 0.980 & 2.98 & 5466 & blk &  &  &  & n/c & n/c (115206) \\\hline
+lfc-w1a1 (AUP-ZU3\_8GB) & 6 & 192678.2 & \checkmark & 1.000 & 0.44 & 4 & \checkmark & 1.002 & 0.60 & 1 & \checkmark & 1.000 & 0.44 & 10036 & \checkmark & 1.002 & 0.60 & 7999 &  &  \\\hline
+lfc-w1a2 (AUP-ZU3\_8GB) & 6 & 48661.8 & \checkmark & 1.000 & 0.69 & 5 & \checkmark & 1.000 & 0.85 & 1 & \checkmark & 1.000 & 0.69 & 23815 & \checkmark & 1.000 & 0.87 & 11986 &  &  \\\hline
+gtsrb (AUP-ZU3\_8GB) & 21 & 8133.4 & \checkmark & 1.007 & 1.51 & 7 & \checkmark & 1.000 & 1.23 & 3 & \checkmark & 1.007 & 1.53 & 1063 & \checkmark & 1.000 & 1.27 & 3972 &  &  \\\hline
+kws (AUP-ZU3\_8GB) & 6 & 25464.7 & \checkmark & 1.000 & 0.53 & 0 & \checkmark & 1.000 & 0.53 & 0 & \checkmark & 1.000 & 0.53 & 419 & \checkmark & 1.000 & 0.53 & 730 & n/c & n/c (490) \\\hline
+cybersecurity-mlp (AUP-ZU3\_8GB) & 4 & 12500000.0 & \checkmark & 1.100 & 0.24 & 0 & \checkmark & 1.333 & 0.46 & 0 & \checkmark & 1.100 & 0.24 & 2163 & \checkmark & 1.333 & 0.46 & 11023 & n/c & n/c (70) \\\hline
+vgg10-radioml (ZCU104) & 49 & 243190.7 & \checkmark & 1.001 & 1.28 & 24 & \checkmark & 1.001 & 1.93 & 2 & \checkmark & 1.001 & 1.30 & 1164 & \checkmark & 1.001 & 1.93 & 1218 & 0.9x & 0\% \\\hline
+mobilenet\_v1 (U55C) & 85 & 422.7 & \checkmark & 1.000 & 109.15 & 194 & \checkmark & 1.000 & 17.01 & 144 & \checkmark & 0.991 & 66.97 & 23790 & \checkmark & 1.000 & 21.99 & 8197 & n/c & n/c (394272) \\\hline
+resnet50 (V80) & 227 & 276.8 & run &  &  &  & -- &  &  &  & run &  &  &  & -- &  &  &  & -- & -- \\\hline
+resnet18\_4w4a (U55C) & 106 & 3814.7 & \checkmark & 0.997 & 136.06 & 456 & \checkmark & 1.035 & 125.66 & 153 & \checkmark & 0.997 & 134.01 & 7321 & \checkmark & 1.035 & 129.70 & 3496 &  &  \\\hline
+resnet18\_8w8a (U55C) & 107 & 1695.4 & skip &  &  &  & skip &  &  &  & skip &  &  &  & skip &  &  &  &  &  \\\hline
+espcn (KV260\_SOM) & 20 & 381.5 & run &  &  &  & -- &  &  &  & run &  &  &  & -- &  &  &  &  &  \\\hline
+bert (VCK190) & 57 & 2034.5 & \checkmark & 1.000 & 913.76 & 1664 & \checkmark & 1.000 & 909.89 & 50 & \checkmark & 1.000 & 1165.80 & 6656 & \checkmark & 1.000 & 1097.04 & 2027 &  &  \\\hline
+quantyolov8\_4w4a (U55C) & 271 & 90.4 & $\times$$^{\mathrm{bld}}$ &  & 659.00 & 430 & blk &  &  &  & run &  &  &  & -- &  &  &  &  &  \\\hline
+quantyolov8\_8w8a (U55C) & 271 & 90.4 & $\times$$^{\mathrm{bld}}$ &  & 1170.79 & 444 & blk &  &  &  & run &  &  &  & -- &  &  &  &  &  \\\hline
+transformer\_benchmark (ZCU104) & 51 & 1525.9 & \checkmark & 1.000 & 12.01 & 2 & \checkmark & 1.000 & 12.01 & 1 & \checkmark & 1.000 & 12.53 & 1654 & \checkmark & 1.000 & 13.08 & 2022 &  &  \\\hline
+transformer\_radioml (ZCU104) & 67 & 16249.6 & \checkmark & 1.000 & 39.18 & 5 & \checkmark & 1.002 & 24.04 & 2 & -- &  &  &  & -- &  &  &  & n/c & n/c (5120) \\\hline
+transformer\_vision (ZCU104) & 122 & 1525.9 & \checkmark & 1.000 & 89.89 & 27 & \checkmark & 1.000 & 155.28 & 21 & -- &  &  &  & -- &  &  &  & n/c & n/c (81920) \\\hline
+transformer\_language (VCK190) & 118 & 1017.3 & $\times$$^{\mathrm{out}}$ & 1.000 & 685.84 & 151 & n/f &  &  &  & -- &  &  &  & -- &  &  &  & -- & -- \\\hline
+\end{tabular}}
+\end{table}\end{landscape}
+\begin{landscape}\begin{table}[p]\centering\scriptsize
+\caption{Folding optimizer results.}\label{tab:fold}
+\rowcolors{3}{gray!12}{white}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{|l|r|r|crrr|crrr|crrr|crrrr|}\hline
+ &  &  & \multicolumn{4}{c|}{\textbf{target, small}} & \multicolumn{4}{c|}{\textbf{target, full}} & \multicolumn{4}{c|}{\textbf{maximize}} & \multicolumn{5}{c|}{\textbf{FIFO-aware (target)}} \\\cline{4-7}\cline{8-11}\cline{12-15}\cline{16-20}
+model (board) & \#nodes & est.\ fps & result & rtlsim/ref. & res./ref. & time [s] & result & rtlsim/ref. & res./ref. & time [s] & result & rtlsim/ref. & res./ref. & time [s] & result & rtlsim/ref. & res./ref. & FIFO [kB] & time [s] \\\hline\hline
+tfc-w1a1 (AUP-ZU3\_8GB) & 6 & 11111111.1 & \checkmark & 1.000 & 1.00 & 6 & $\times$$^{\mathrm{est}}$ & 1.000 & 1.65 & 5 & $\times$$^{\mathrm{est}}$ & 1.000 & 1.65 & 54 & $\times$$^{\mathrm{tgt}}$ & 0.600 & 0.26 & 0.59 & 3 \\\hline
+tfc-w1a2 (AUP-ZU3\_8GB) & 6 & 6666666.7 & \checkmark & 1.065 & 1.01 & 5 & \checkmark & 1.000 & 1.01 & 5 & $\times$$^{\mathrm{est}}$ & 0.882 & 0.98 & 50 & \checkmark & 1.000 & 0.99 & 0.76 & 3 \\\hline
+tfc-w2a2 (AUP-ZU3\_8GB) & 6 & 6666666.7 & \checkmark & 0.980 & 0.90 & 4 & \checkmark & 1.000 & 0.98 & 4 & $\times$$^{\mathrm{est}}$ & 0.882 & 0.98 & 42 & \checkmark & 1.000 & 0.99 & 0.76 & 3 \\\hline
+cnv-w1a1 (AUP-ZU3\_8GB) & 21 & 12244.4 & \checkmark & 1.001 & 0.79 & 16 & \checkmark & 1.001 & 0.64 & 13 & $\times$$^{\mathrm{est}}$ & 1.264 & 0.73 & 222 & \checkmark & 1.001 & 0.50 & 2.15 & 32 \\\hline
+cnv-w1a2 (AUP-ZU3\_8GB) & 21 & 3028.5 & \checkmark & 1.000 & 0.97 & 16 & \checkmark & 1.008 & 0.93 & 19 & \checkmark & 2.631 & 1.44 & 214 & \checkmark & 1.008 & 0.63 & 5.12 & 66 \\\hline
+cnv-w2a2 (AUP-ZU3\_8GB) & 21 & 3028.5 & $\times$$^{\mathrm{est}}$ & 0.972 & 0.98 & 18 & blk &  &  &  & \checkmark & 2.631 & 1.44 & 217 & \checkmark & 1.008 & 0.63 & 5.12 & 73 \\\hline
+cnv-w1a2 (KV260\_SOM) & 21 & 3028.5 & $\times$$^{\mathrm{est}}$ & 0.979 & 0.98 & 17 & blk &  &  &  & \checkmark & 4.688 & 2.04 & 229 & \checkmark & 1.008 & 0.62 & 3.85 & 73 \\\hline
+cnv-w2a2 (U55C) & 21 & 3028.5 & $\times$$^{\mathrm{est}}$ & 0.972 & 0.97 & 17 & blk &  &  &  & \checkmark & 20.978 & 5.76 & 215 & \checkmark & 1.007 & 0.63 & 3.85 & 77 \\\hline
+lfc-w1a1 (AUP-ZU3\_8GB) & 6 & 192678.2 & \checkmark & 1.000 & 0.85 & 5 & \checkmark & 1.000 & 0.85 & 5 & \checkmark & 1.143 & 1.46 & 63 & \checkmark & 1.000 & 0.67 & 0.67 & 5 \\\hline
+lfc-w1a2 (AUP-ZU3\_8GB) & 6 & 48661.8 & $\times$$^{\mathrm{est}}$ & 0.954 & 0.80 & 6 & blk &  &  &  & \checkmark & 3.960 & 1.54 & 68 & \checkmark & 1.000 & 0.61 & 0.85 & 4 \\\hline
+gtsrb (AUP-ZU3\_8GB) & 21 & 8133.4 & \checkmark & 1.007 & 0.91 & 15 & \checkmark & 1.092 & 0.80 & 14 & \checkmark & 1.292 & 0.84 & 194 & \checkmark & 1.092 & 0.74 & 3.37 & 120 \\\hline
+kws (AUP-ZU3\_8GB) & 6 & 25464.7 & \checkmark & 1.250 & 0.56 & 5 & \checkmark & 1.094 & 0.54 & 4 & \checkmark & 7.998 & 1.12 & 56 & \checkmark & 1.000 & 0.53 & 0.60 & 3 \\\hline
+cybersecurity-mlp (AUP-ZU3\_8GB) & 4 & 12500000.0 & \checkmark & 1.833 & 3.38 & 4 & \checkmark & 1.333 & 1.00 & 2 & \checkmark & 1.333 & 1.00 & 39 & \checkmark & 1.333 & 1.00 & 0.46 & 2 \\\hline
+vgg10-radioml (ZCU104) & 49 & 243190.7 & \checkmark & 1.000 & 0.80 & 17 & \checkmark & 1.001 & 0.92 & 16 & \checkmark & 1.001 & 0.92 & 211 & \checkmark & 1.001 & 0.91 & 2.02 & 157 \\\hline
+mobilenet\_v1 (U55C) & 85 & 422.7 & \checkmark & 0.991 & 0.92 & 36 & $\times$$^{\mathrm{est}}$ & 0.902 & 0.48 & 54 & $\times$$^{\mathrm{est}}$ & 14.952 & 1.01 & 807 & \checkmark & 0.987 & 0.46 & 10.98 & 29066 \\\hline
+resnet50 (V80) & 227 & 276.8 & $\times$$^{\mathrm{out}}$ & 1.125 & 4.00 & 129 & blk &  &  &  & $\times$$^{\mathrm{out}}$ & 5.887 & 2.99 & 4027 & $\times$$^{\mathrm{out}}$ & 0.988 & 2.29 & 352.76 & 223072 \\\hline
+resnet18\_4w4a (U55C) & 106 & 3814.7 & \checkmark & 1.000 & 0.80 & 55 & $\times$$^{\mathrm{est}}$ & 0.959 & 0.74 & 47 & $\times$$^{\mathrm{est}}$ & 1.733 & 1.09 & 1003 & $\times$$^{\mathrm{est}}$ & 0.959 & 0.85 & 151.33 & 1816 \\\hline
+resnet18\_8w8a (U55C) & 107 & 1695.4 & \checkmark & 1.125 & 1.30$^\dagger$ & 41 & \checkmark & 0.987 & 0.89$^\dagger$ & 30 & $\times$$^{\mathrm{out}}$ & 0.004 &  & 241 & $\times$$^{\mathrm{out}}$ & 0.987 &  & 333.16 & 3375 \\\hline
+espcn (KV260\_SOM) & 20 & 381.5 & \checkmark & 1.039 & 1.29$^\dagger$ & 5 & $\times$$^{\mathrm{est}}$ & 0.575 & 0.81$^\dagger$ & 4 & $\times$$^{\mathrm{est}}$ & 0.097 &  & 43 & $\times$$^{\mathrm{est}}$ & 0.576 &  & 252.85 & 1290 \\\hline
+bert (VCK190) & 57 & 2034.5 & \checkmark & 1.000 & 0.86 & 23 & $\times$$^{\mathrm{est}}$ & 0.425 & 0.86 & 27 & \checkmark & 1.500 & 1.11 & 334 & $\times$$^{\mathrm{est}}$ & 0.425 & 0.86 & 732.37 & 151 \\\hline
+quantyolov8\_4w4a (U55C) & 271 & 90.4 & $\times$$^{\mathrm{out}}$ & 1.000 & 1.96 & 132 & blk &  &  &  & run &  &  &  & $\times$$^{\mathrm{bld}}$ &  &  & 667.76 & 46423 \\\hline
+quantyolov8\_8w8a (U55C) & 271 & 90.4 & run &  &  &  & -- &  &  &  & $\times$$^{\mathrm{out}}$ & 3.446 &  & 2771 & $\times$$^{\mathrm{out}}$ & 1.000 &  & 1233.16 & 47276 \\\hline
+transformer\_benchmark (ZCU104) & 51 & 1525.9 & \checkmark & 1.000 & 1.00 & 9 & \checkmark & 1.000 & 1.00 & 13 & \checkmark & 127.750 & 8.88 & 210 & \checkmark & 1.000 & 1.00 & 11.21 & 8 \\\hline
+transformer\_radioml (ZCU104) & 67 & 16249.6 & $\times$$^{\mathrm{out}}$ & 1.000 & 0.77 & 18 & blk &  &  &  & $\times$$^{\mathrm{out}}$ & 2.000 & 1.48 & 339 & $\times$$^{\mathrm{out}}$ & 0.750 & 0.70 & 45.36 & 780 \\\hline
+transformer\_vision (ZCU104) & 122 & 1525.9 & $\times$$^{\mathrm{out}}$ & 1.000 & 0.81 & 33 & blk &  &  &  & $\times$$^{\mathrm{out}}$ & 4.000 & 1.03 & 805 & $\times$$^{\mathrm{out}}$ & 1.000 & 0.70 & 163.84 & 524 \\\hline
+transformer\_language (VCK190) & 118 & 1017.3 & n/f &  &  &  & n/f &  &  &  & n/f &  &  &  & n/f &  &  &  &  \\\hline
+\end{tabular}}
+\end{table}\end{landscape}
+\begin{landscape}\begin{table}[p]\centering\scriptsize
+\caption{DWC padding results: the padded optimizer folding built in hardware and compared with the unpadded optimizer at the same seed.}\label{tab:dwc}
+\rowcolors{3}{gray!12}{white}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{|l|r|r|crrrr|crrrrr|}\hline
+ &  &  & \multicolumn{5}{c|}{\textbf{small}} & \multicolumn{6}{c|}{\textbf{full}} \\\cline{4-8}\cline{9-14}
+model (board) & \#nodes & est.\ fps & result & \#pad DWCs & res.\ pad/no-pad & rtlsim/ref. & res./ref. & result & \#pad DWCs & res.\ pad/no-pad & fps pad/no-pad (max.) & rtlsim/ref. & res./ref. \\\hline\hline
+tfc-w1a1 (AUP-ZU3\_8GB) & 6 & 11111111.1 & \checkmark & 0 & 1.00 & 1.000 & 0.96 & $\times$$^{\mathrm{est}}$ & 0 & 1.00 & 1.000 & 1.000 & 1.65 \\\hline
+tfc-w1a2 (AUP-ZU3\_8GB) & 6 & 6666666.7 & \checkmark & 0 & 1.00 & 1.065 & 1.01 & \checkmark & 0 & 1.00 & 1.000 & 1.000 & 1.01 \\\hline
+tfc-w2a2 (AUP-ZU3\_8GB) & 6 & 6666666.7 & \checkmark & 0 & 1.00 & 0.980 & 0.90 & \checkmark & 0 & 1.00 & 1.000 & 1.000 & 0.97 \\\hline
+cnv-w1a1 (AUP-ZU3\_8GB) & 21 & 12244.4 & \checkmark & 0 & 1.00 & 1.001 & 0.79 & \checkmark & 2 & 1.00 & 1.083 & 1.001 & 0.64 \\\hline
+cnv-w1a2 (AUP-ZU3\_8GB) & 21 & 3028.5 & $\times$$^{\mathrm{est}}$ & 2 & 0.92 & 0.997 & 0.97 & blk &  &  &  &  &  \\\hline
+cnv-w2a2 (AUP-ZU3\_8GB) & 21 & 3028.5 & $\times$$^{\mathrm{est}}$ & 2 & 0.92 & 0.963 & 0.96 & blk &  &  &  &  &  \\\hline
+cnv-w1a2 (KV260\_SOM) & 21 & 3028.5 & \checkmark & 1 & 1.00 & 1.103 & 0.97 & \checkmark & 0 & 1.00 & 1.000 & 1.008 & 1.00 \\\hline
+cnv-w2a2 (U55C) & 21 & 3028.5 & $\times$$^{\mathrm{est}}$ & 0 & 1.00 & 0.972 & 0.97 & blk &  &  &  &  &  \\\hline
+lfc-w1a1 (AUP-ZU3\_8GB) & 6 & 192678.2 & \checkmark & 0 & 1.00 & 1.000 & 0.85 & \checkmark & 0 & 1.00 & 1.463 & 1.000 & 0.85 \\\hline
+lfc-w1a2 (AUP-ZU3\_8GB) & 6 & 48661.8 & $\times$$^{\mathrm{est}}$ & 0 & 1.00 & 0.954 & 0.80 & blk &  &  &  &  &  \\\hline
+gtsrb (AUP-ZU3\_8GB) & 21 & 8133.4 & \checkmark & 1 & 0.98 & 1.007 & 0.91 & \checkmark & 3 & 0.91 & 1.021 & 1.040 & 0.73 \\\hline
+kws (AUP-ZU3\_8GB) & 6 & 25464.7 & $\times$$^{\mathrm{est}}$ & 2 & 0.93 & 1.170 & 0.53 & blk &  &  &  &  &  \\\hline
+cybersecurity-mlp (AUP-ZU3\_8GB) & 4 & 12500000.0 & \checkmark & 0 & 1.00 & 1.833 & 3.38 & \checkmark & 0 & 1.00 & 1.000 & 1.333 & 1.00 \\\hline
+vgg10-radioml (ZCU104) & 49 & 243190.7 & \checkmark & 0 & 1.00 & 1.000 & 0.80 & \checkmark & 3 & 0.98 & 1.000 & 0.992 & 0.92 \\\hline
+mobilenet\_v1 (U55C) & 85 & 422.7 & \checkmark & 7 & 0.99 & 0.986 & 0.91 & \checkmark & 20 & 0.97 & 1.000 & 0.994 & 0.46 \\\hline
+resnet50 (V80) & 227 & 276.8 & $\times$$^{\mathrm{out}}$ & 3 & 0.77 & 1.125 & 1.63 & blk &  &  &  &  &  \\\hline
+resnet18\_4w4a (U55C) & 106 & 3814.7 & \checkmark & 2 & 1.00 & 1.000 & 0.86 & $\times$$^{\mathrm{est}}$ & 0 & 1.00 & 1.000 & 0.959 & 0.74 \\\hline
+resnet18\_8w8a (U55C) & 107 & 1695.4 & \checkmark & 1 & 0.98 & 1.000 &  & \checkmark & 2 & 1.00 & 1.000 & 0.987 & 0.89$^\dagger$ \\\hline
+espcn (KV260\_SOM) & 20 & 381.5 & \checkmark & 3 & 0.73 & 1.041 & 0.53$^\dagger$ & $\times$$^{\mathrm{est}}$ & 2 & 1.14 & 1.000 & 0.635 & 0.95$^\dagger$ \\\hline
+bert (VCK190) & 57 & 2034.5 & \checkmark & 2 & 1.00 & 1.000 & 0.86 & $\times$$^{\mathrm{est}}$ & 2 & 1.00 & 1.108 & 0.425 & 0.86 \\\hline
+quantyolov8\_4w4a (U55C) & 271 & 90.4 & run &  &  &  &  & blk &  &  &  &  &  \\\hline
+quantyolov8\_8w8a (U55C) & 271 & 90.4 & run &  &  &  &  & -- &  &  &  &  &  \\\hline
+transformer\_benchmark (ZCU104) & 51 & 1525.9 & \checkmark & 0 & 1.00 & 1.000 & 1.00 & \checkmark & 0 & 1.00 & 1.000 & 1.000 & 1.00 \\\hline
+transformer\_radioml (ZCU104) & 67 & 16249.6 & skip &  &  &  &  & $\times$$^{\mathrm{out}}$ & 1 &  &  & 1.000 & 0.76 \\\hline
+transformer\_vision (ZCU104) & 122 & 1525.9 & skip &  &  &  &  & skip &  &  &  &  &  \\\hline
+transformer\_language (VCK190) & 118 & 1017.3 & skip &  &  &  &  & n/f &  &  &  &  &  \\\hline
+\end{tabular}}
+\end{table}\end{landscape}
+\end{document}
