@@ -44,9 +44,15 @@ FINN_BUGS = [
     ("Requant\\_rtl with unsigned inputs", "011",
      "the RTL reads its input as signed but specialization accepted any integer type: UINT8 values >= 128 became "
      "negative (radioml, vision).", "fix/011-up (upstream PR)", ["aff7232c9"]),
-    ("Per-frame HLS overhead in MVAU\\_hls / LabelSelect\\_hls estimates", "002",
+    ("Per-frame HLS overhead in MVAU\\_hls / LabelSelect\\_hls estimates", "002, 025",
      "the HLS top function is not frame-pipelined: +7 / +4 cycles per frame missing from get\\_exp\\_cycles "
-     "(tfc/MLP rtlsim at 0.53x of the estimate).", "feature/dev/hls-exp-cycles-overhead", ["2169d7b6d"]),
+     "(tfc/MLP rtlsim at 0.53x of the estimate). Upstream has since made the MVAU/VVAU HLS cores free-running, "
+     "so only the LabelSelect\\_hls part (+4) is still needed (tfc: 7/9/9 cycles measured, 3/6/6 estimated).",
+     "feature/dev/hls-exp-cycles-overhead", ["2169d7b6d"]),
+    ("Resource estimates far from synthesis", "021",
+     "FINN's LUT/BRAM estimates put the committed AUP-ZU3 foldings at 1.6--12x the device; MVAU, RTL DWC and "
+     "OuterShuffle estimates calibrated to OOC synthesis, embedded weight ROMs above 16 words costed as BRAM.",
+     "feature/dev/resource-estimates", ["09e30dd34", "55c9bb8a2"]),
     ("Phantom URAM estimate of embedded MVAU weights", "005",
      "internal\\_embedded weights were costed as URAM, so the folding budget saw URAM use that does not exist.",
      "feature/dev/set-folding-optimizer", ["48a274bdb"]),
@@ -80,6 +86,13 @@ OUR_BUGS = [
     ("FIFO: Split/Concat tree models and rtlsim harness", "016",
      "tree models hard-coded interval 5 (wrong with the dataflow pragma); node rtlsim drove only stream 0 "
      "(Split crashed, Concat timed out).", "feature/dev/analytical-fifo-sizing", ["af38b555c"]),
+    ("FIFO: yolov8 PAN concat deadlock", "024",
+     "the join window floor covered two-stream adds only and took FMPadding, sliding windows and upsampling as "
+     "one-to-one: a concat shortcut held 9086 of the 13842 words it needs (no output in 383 M cycles); Concat joins "
+     "and per-node input needs added.", "feature/dev/analytical-fifo-sizing", ["2cd2a077d"]),
+    ("FIFO: throttled cap between slow stages", "024",
+     "edges behind a throttled producer were capped at 256 words even between two slow stages (cnv-w2a2 small "
+     "0.98x); the cap now needs the decoupled-chain condition.", "feature/dev/analytical-fifo-sizing", ["271ca1e5e"]),
     ("Folding: SWG pairing in branching graphs, streamed weights", "003",
      "an SWG was paired with the next node instead of its consumer (resnet, yolov8); dynamic-MVAU weights resized.",
      "feature/dev/set-folding-optimizer", ["648bf6279", "4f2a7d5a7"]),
@@ -108,6 +121,16 @@ OUR_BUGS = [
      "rejected on peak utilization, conv PE never padded.", "feature/dev/set-folding-optimizer", ["a1caca9ed"]),
     ("Folding: Split -> Concat DWC heuristic crash", "014", "'Malformed model' for a Concat fed by a Split's second "
      "output (yolov8).", "feature/dev/set-folding-optimizer", ["2620ceeeb"]),
+    ("Folding: foldings Vitis HLS cannot compile", "021",
+     "streams above 8191 bits (resnet50 V80 maximize) and 65536-entry embedded weight ROMs (cnv small, csynth "
+     "stuck for 22 h) were offered; HLS limits checked per node.", "feature/dev/set-folding-optimizer", ["69d005339"]),
+    ("Folding: maximize below the committed foldings", "021",
+     "LUT budget and estimates: maximize reached 0.35--0.96x of the committed AUP-ZU3 foldings; budget at 0.75 of "
+     "the platform's LUTs with estimates corrected by the weight values.", "feature/dev/set-folding-optimizer",
+     ["00951c1e7", "f3e0dfade"]),
+    ("Folding: LabelSelect kept at PE = 1", "023",
+     "LabelSelect\\_hls was never folded, capping maximize (tfc-w1a1 0.60x of the committed folding); its PE now "
+     "folds over the labels.", "feature/dev/set-folding-optimizer", ["80bd64832", "54fa8d2b5"]),
     ("DWC: InsertDWC datatype check and plain width conversions", "003",
      "compared the producer with the consumer's input 0 instead of the connected input; dynamic-MVAU weight "
      "conversions read as crops.", "feature/dev/generalized-datawidthconverter", ["44c8618d3", "0a3af1d37"]),
@@ -552,6 +575,14 @@ def main():
         "\\item Island flow (issue 023, running on spare CPU): HLS floating-point vendor IP unsupported (resnet18, "
         "yolov8, transformer\\_radioml/vision), vgg10 small misses 250 MHz (WNS $-$0.19 ns), mobilenet small: island "
         "P\\&R failed; full-size tfc/lfc foldings are slower than Vivado (0.63--0.92$\\times$).",
+        "\\item LabelSelect\\_hls per-frame restart (issue 025): with upstream's free-running MVAUs it is the "
+        "tfc bottleneck, 7/9/9 cycles a frame against an estimate of 3/6/6 (tfc-w1a1/w1a2/w2a2 FIFO tests fail); "
+        "+4 in its estimate (estimates PR). cybersecurity-mlp: 1-cycle frames read 0.5$\\times$ over a 2-frame "
+        "rtlsim (start-up slip), correct from 3 frames on.",
+        "\\item Folding PR alone (issue 026): kws maximize fails in dev's \\texttt{characterize} FIFO sizing "
+        "(period = estimate + 10 cycles, Thresholding\\_rtl needs +20); passes with the FIFO PR merged.",
+        "\\item yolov8\\_4w4a small, optimizer folding (fold-target): builds, but the output differs from the "
+        "golden output (not a FIFO problem, not investigated).",
         "\\item OuterShuffle\\_hls reaches only II=3 (3$\\times$ its estimate; espcn tail), upstream.",
         "\\item FIFO tree models emit one row per Split/Concat (unequal stream widths may under-size), "
         "node-by-node verification aborts on 3D Requant\\_rtl tensors (upstream).",
