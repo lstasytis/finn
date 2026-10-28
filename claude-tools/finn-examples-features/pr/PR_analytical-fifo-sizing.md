@@ -212,7 +212,8 @@ separate estimates PR against `dev`.
 * Per-model tests `tests/benchmark/<model>/test_build_<model>.py` (already in `dev`) gain
   `test_<model>_fifo_sizing[heuristic_analytical|heuristic_rtlsim]`, which resumes a cached estimate-only build of
   the committed folding, sizes the FIFOs, builds the stitched IP, and checks the golden output and ≥ 0.98× the
-  estimate in rtlsim.
+  estimate in rtlsim. The shared code (`run_feature_build`) is in `tests/benchmark/benchmark_helpers.py`; each
+  model file adds one short test.
 * `docs/finn/fifo_sizing_heuristics.rst` (new, linked from the end-to-end flow and hardware build pages): what
   a TAV is, the chained pass step by step, one section per rule with the depth it changes on a finn-examples
   model, and the throughput cost of removing each rule. It also compares the sizer's storage per FIFO with
